@@ -1,0 +1,32 @@
+{
+  "name": "@ai-content-space/loopx",
+  "type": "module",
+  "version": "0.1.1",
+  "description": "Skill-first LoopX workflow product for Codex",
+  "keywords": [
+    "codex",
+    "loopx",
+    "skills",
+    "workflow",
+    "plugin"
+  ],
+  "bin": {
+    "loopx": "src/cli.mjs"
+  },
+  "files": [
+    "README.md",
+    "package.json",
+    "scripts/install-skills.mjs",
+    "src/",
+    "skills/",
+    "templates/",
+    "plugins/loopx/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install-skills.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}
