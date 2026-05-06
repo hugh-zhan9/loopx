@@ -17,7 +17,7 @@
 | Intent | 0.95 | Align runtime behavior with the already-updated `plan` contract. |
 | Outcome | 0.95 | Real Planner / Architect / Critic runtime for `plan`, with approved-plan stop. |
 | Scope | 0.92 | Planning-only orchestration; execution orchestration excluded. |
-| Constraints | 0.90 | Preserve `.LoopX/plans/prd-<slug>.md` as canonical approved plan. |
+| Constraints | 0.90 | Preserve `.loopx/plans/prd-<slug>.md` as canonical approved plan. |
 | Success | 0.90 | Completion blocked until canonical plan plus required docs outputs exist. |
 | Context | 0.95 | Existing runtime gap and current skill/runtime mismatch are grounded in repo code. |
 
@@ -33,10 +33,10 @@ Bring `plan` runtime in line with the already-updated consensus-first planning c
 
 - implement real Planner / Architect / Critic orchestration as the default `plan` runtime behavior
 - add plan runtime state fields and status reporting for consensus planning
-- keep approved plan canonical under `.LoopX/plans/prd-<slug>.md`
+- keep approved plan canonical under `.loopx/plans/prd-<slug>.md`
 - require the following blocking planning artifacts:
-  - `.LoopX/plans/prd-<slug>.md`
-  - `.LoopX/plans/test-spec-<slug>.md`
+  - `.loopx/plans/prd-<slug>.md`
+  - `.loopx/plans/test-spec-<slug>.md`
   - `docs/<slug>/架构文档.md`
   - `docs/<slug>/设计文档.md`
   - `docs/<slug>/测试计划.md`
@@ -46,7 +46,7 @@ Bring `plan` runtime in line with the already-updated consensus-first planning c
 
 - do not launch `build`, `autopilot`, `ralph`, or `team` as part of `plan`
 - do not expand this change into a generic execution orchestrator
-- do not move the canonical approved plan out of `.LoopX/plans/prd-<slug>.md`
+- do not move the canonical approved plan out of `.loopx/plans/prd-<slug>.md`
 - do not make the Chinese docs optional or post-hoc derived artifacts
 
 ## Decision Boundaries
@@ -65,15 +65,15 @@ Bring `plan` runtime in line with the already-updated consensus-first planning c
 - the existing skill contract in `skills/plan/SKILL.md` is already consensus-first and runtime must catch up to it
 - Chinese docs are required completion artifacts
 - runtime status must become machine-checkable for planning progression
-- preserve current clarify gating and overall LoopX stage sequencing
+- preserve current clarify gating and overall loopx stage sequencing
 
 ## Testable Acceptance Criteria
 
 - `plan` runtime creates and tracks a real Planner / Architect / Critic planning loop
 - `plan` completion is blocked until Critic approves
 - `plan` completion is blocked until all required Chinese docs exist under `docs/<slug>/`
-- canonical approved plan remains at `.LoopX/plans/prd-<slug>.md`
-- canonical test spec remains at `.LoopX/plans/test-spec-<slug>.md`
+- canonical approved plan remains at `.loopx/plans/prd-<slug>.md`
+- canonical test spec remains at `.loopx/plans/test-spec-<slug>.md`
 - `loopx status` exposes plan runtime progression beyond `plan_package_status=complete`
 - tests prove the mismatch is closed: skill contract and runtime behavior align
 
@@ -84,13 +84,13 @@ Bring `plan` runtime in line with the already-updated consensus-first planning c
 - Assumption: docs under `docs/` might be secondary outputs
   - Resolution: rejected; they are blocking artifacts for plan completion
 - Assumption: approved plan might move to `docs/`
-  - Resolution: rejected; canonical approved plan stays under `.LoopX/plans/`
+  - Resolution: rejected; canonical approved plan stays under `.loopx/plans/`
 
 ## Pressure-pass Findings
 
 - Earlier answer revisited: docs requirement
 - What changed: docs were tightened from “extra outputs” into “blocking completion artifacts”
-- Resulting rule: `.LoopX/plans/prd-<slug>.md` alone is insufficient for completed `plan`
+- Resulting rule: `.loopx/plans/prd-<slug>.md` alone is insufficient for completed `plan`
 
 ## Brownfield Evidence vs Inference
 

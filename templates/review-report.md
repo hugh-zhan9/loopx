@@ -11,7 +11,7 @@ rollback_target: <rollback target>
 rollback_rationale: <rollback rationale>
 ---
 
-# LoopX Review Report: <task name>
+# loopx Review Report: <task name>
 
 ## Verdict
 

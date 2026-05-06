@@ -2,7 +2,7 @@
   "name": "@ai-content-space/loopx",
   "type": "module",
   "version": "0.1.1",
-  "description": "Skill-first LoopX workflow product for Codex",
+  "description": "Skill-first loopx workflow product for Codex",
   "keywords": [
     "codex",
     "loopx",

@@ -30,12 +30,12 @@ Validate that `loopx plan` runtime actually behaves like the published consensus
 ### 2. Planner artifact generation
 
 - planner draft writes or refreshes:
-  - `.LoopX/workflows/<slug>/plan.md`
-  - `.LoopX/workflows/<slug>/architecture.md`
-  - `.LoopX/workflows/<slug>/development-plan.md`
-  - `.LoopX/workflows/<slug>/test-plan.md`
-  - `.LoopX/plans/prd-<slug>.md`
-  - `.LoopX/plans/test-spec-<slug>.md`
+  - `.loopx/workflows/<slug>/plan.md`
+  - `.loopx/workflows/<slug>/architecture.md`
+  - `.loopx/workflows/<slug>/development-plan.md`
+  - `.loopx/workflows/<slug>/test-plan.md`
+  - `.loopx/plans/prd-<slug>.md`
+  - `.loopx/plans/test-spec-<slug>.md`
   - `docs/<slug>/架构文档.md`
   - `docs/<slug>/设计文档.md`
   - `docs/<slug>/测试计划.md`
@@ -60,7 +60,7 @@ Validate that `loopx plan` runtime actually behaves like the published consensus
 
 ### 5. Docs completion blocking
 
-- even with approved `.LoopX/plans/prd-<slug>.md`, missing any of:
+- even with approved `.loopx/plans/prd-<slug>.md`, missing any of:
   - `docs/<slug>/架构文档.md`
   - `docs/<slug>/设计文档.md`
   - `docs/<slug>/测试计划.md`
@@ -128,7 +128,7 @@ Validate that `loopx plan` runtime actually behaves like the published consensus
 1. Start from an approved clarify workflow.
 2. Run `loopx plan <slug>`.
 3. Confirm runtime records planner, architect, and critic progression rather than jumping directly to `plan_package_status=complete`.
-4. Confirm `.LoopX/plans/prd-<slug>.md` and `.LoopX/plans/test-spec-<slug>.md` are written.
+4. Confirm `.loopx/plans/prd-<slug>.md` and `.loopx/plans/test-spec-<slug>.md` are written.
 5. Confirm `docs/<slug>/架构文档.md`, `设计文档.md`, and `测试计划.md` are written in Chinese.
 6. Confirm review evidence artifacts exist for planner, architect, and critic.
 7. Confirm `loopx status <slug>` exposes plan-stage review status.

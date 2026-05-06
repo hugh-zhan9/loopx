@@ -39,7 +39,7 @@ function loopxEnv(home) {
   };
 }
 
-describe('LoopX plugin shell', () => {
+describe('loopx plugin shell', () => {
   it('defines a plugin manifest that only references plugin-root-relative assets', async () => {
     const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
     const packageJson = JSON.parse(await readFile(join(REPO_ROOT, 'package.json'), 'utf8'));
@@ -49,7 +49,7 @@ describe('LoopX plugin shell', () => {
     assert.equal(manifest.name, 'loopx');
     assert.equal(manifest.version, packageJson.version);
     assert.equal(manifest.skills, './skills/');
-    assert.equal(manifest.interface.displayName, 'LoopX');
+    assert.equal(manifest.interface.displayName, 'loopx');
 
     for (const key of ['skills', 'mcpServers', 'apps']) {
       if (typeof manifest[key] === 'string') {
@@ -58,7 +58,7 @@ describe('LoopX plugin shell', () => {
     }
   });
 
-  it('mirrors the canonical LoopX skill payload into the plugin shell', async () => {
+  it('mirrors the canonical loopx skill payload into the plugin shell', async () => {
     for (const skillName of LOOPX_SKILLS) {
       const rootSkill = await readFile(join(ROOT_SKILLS_DIR, skillName, 'SKILL.md'), 'utf8');
       const pluginSkill = await readFile(join(PLUGIN_SKILLS_DIR, skillName, 'SKILL.md'), 'utf8');

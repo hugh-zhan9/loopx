@@ -1,4 +1,4 @@
-# PRD: LoopX Skill-First V1
+# PRD: loopx Skill-First V1
 
 ## Supersession Notice
 
@@ -7,19 +7,19 @@ This plan supersedes the previous `codex-helper` product plan for this repo:
 - `.omx/plans/prd-codex-helper-product-v1.md`
 - `.omx/plans/test-spec-codex-helper-product-v1.md`
 
-Those artifacts assumed `team` was mandatory in V1 and that the product was primarily a repo-local CLI/runtime. Both assumptions are now explicitly invalidated by the clarified `LoopX` direction.
+Those artifacts assumed `team` was mandatory in V1 and that the product was primarily a repo-local CLI/runtime. Both assumptions are now explicitly invalidated by the clarified `loopx` direction.
 
 ## Requirements Summary
 
-`LoopX` is a skill-first workflow product for Codex users.
+`loopx` is a skill-first workflow product for Codex users.
 
 The product goal for this phase is:
 
 - install the project once
 - open Codex
-- immediately discover and use built-in `LoopX` skills
+- immediately discover and use built-in `loopx` skills
 - support both npm install and plugin install as equal first-class distribution surfaces
-- keep those two distribution surfaces on one shared LoopX core and one shared installation identity
+- keep those two distribution surfaces on one shared loopx core and one shared installation identity
 
 The product contract for this phase is:
 
@@ -30,8 +30,8 @@ with:
 - `autopilot` included as a top-level bundled skill surface
 - `team` removed from the release contract
 - CLI retained only as a supporting runtime/debug substrate
-- runtime-facing names migrated from `codex-helper` to `LoopX`
-- npm and plugin treated as equal distribution shells over the same LoopX runtime/skill core
+- runtime-facing names migrated from `codex-helper` to `loopx`
+- npm and plugin treated as equal distribution shells over the same loopx runtime/skill core
 
 This plan is grounded in:
 
@@ -51,10 +51,10 @@ This plan is grounded in:
 
 ## Current Brownfield Facts
 
-- The current repo implementation has already pivoted to `LoopX` in package/runtime/docs/skills, but the active planning question is now dual-distribution convergence rather than basic rename.
-- The current runtime persists user-facing state under `.LoopX/...`.
+- The current repo implementation has already pivoted to `loopx` in package/runtime/docs/skills, but the active planning question is now dual-distribution convergence rather than basic rename.
+- The current runtime persists user-facing state under `.loopx/...`.
 - The current runtime has already removed public `team` from the active release surface.
-- The repo already has the bundled LoopX skill surface under `skills/loopx-*`.
+- The repo already has the bundled loopx skill surface under `skills/loopx-*`.
 - The current repo already has an npm/global install bootstrap via:
   - `postinstall`
   - `scripts/install-skills.mjs`
@@ -70,18 +70,18 @@ This plan is grounded in:
 
 ### Product identity
 
-- The product presents itself as `LoopX`, not `codex-helper`, across:
+- The product presents itself as `loopx`, not `codex-helper`, across:
   - README and user docs
   - package name
   - CLI name
   - skill names
   - product runtime directories
-- User-facing product runtime state/artifacts move to `.LoopX/...`.
+- User-facing product runtime state/artifacts move to `.loopx/...`.
 - `.omx/...` remains orchestration/planning metadata rather than product runtime naming, and is not treated as a rename target for the user-facing product.
 
 ### Product surface
 
-- The primary user-facing surface is a built-in `LoopX` skill bundle discoverable inside Codex after installing the project.
+- The primary user-facing surface is a built-in `loopx` skill bundle discoverable inside Codex after installing the project.
 - Users do not need to run a second explicit skill-install command after installing the project.
 - CLI remains available only as a supporting runtime/debug surface.
 - The skill-first surface must be sufficient for normal use; CLI-first usage is not the happy path.
@@ -99,26 +99,26 @@ This plan is grounded in:
 
 ### Installation / discovery contract
 
-- Installing the project is sufficient to place/register `LoopX` skills into Codex-discoverable locations.
-- Plugin installation is also sufficient to place/register the same `LoopX` skills into Codex-discoverable locations.
+- Installing the project is sufficient to place/register `loopx` skills into Codex-discoverable locations.
+- Plugin installation is also sufficient to place/register the same `loopx` skills into Codex-discoverable locations.
 - Install is idempotent: repeated installs do not duplicate or corrupt skill registrations.
 - Install either creates or refreshes the local user-skill registration state required for discovery.
 - If discovery installation fails, the product emits a concrete repair path rather than silently succeeding.
-- If both npm and plugin install paths are used, they collapse into one LoopX installation identity and one visible LoopX skill set.
+- If both npm and plugin install paths are used, they collapse into one loopx installation identity and one visible loopx skill set.
 
 ### Runtime / migration contract
 
-- The current `codex-helper` runtime/storage identity migrates to `LoopX`.
+- The current `codex-helper` runtime/storage identity migrates to `loopx`.
 - Old `.codex-helper` runtime data must either:
-  - be migrated explicitly into `.LoopX`, or
+  - be migrated explicitly into `.loopx`, or
   - be rejected with a clear migration/recovery path.
-- No indefinite split state is allowed where user-facing runtime identity remains partly `codex-helper` and partly `LoopX`.
+- No indefinite split state is allowed where user-facing runtime identity remains partly `codex-helper` and partly `loopx`.
 
 ## RALPLAN-DR Summary
 
 ### Principles
 
-1. Make `LoopX` skill-first in actual install/use behavior, not only in docs.
+1. Make `loopx` skill-first in actual install/use behavior, not only in docs.
 2. Keep the runtime substrate explicit and deterministic, but demote it below the bundled skill surface.
 3. Remove `team` cleanly from the release contract rather than leaving half-removed codepaths and docs.
 4. Prefer bounded migration and install mechanics over long-lived dual identity.
@@ -126,14 +126,14 @@ This plan is grounded in:
 
 ### Decision Drivers
 
-1. The user’s success criterion is first-open Codex discoverability of built-in `LoopX` skills.
+1. The user’s success criterion is first-open Codex discoverability of built-in `loopx` skills.
 2. The release contract must remove `team`, not merely hide it.
 3. The current repo already has reusable runtime/skill scaffolding that can be renamed and re-bundled faster than a total rewrite.
 4. npm and plugin must not fork into separate implementations or duplicate installation identities.
 
 ### Viable Options
 
-#### Option A: Reuse the current runtime substrate, convert it into a LoopX skill bundle with install-time discovery bootstrap
+#### Option A: Reuse the current runtime substrate, convert it into a loopx skill bundle with install-time discovery bootstrap
 
 Pros:
 
@@ -149,7 +149,7 @@ Cons:
 - Requires a non-trivial rename/migration pass across runtime paths and identifiers.
 - Requires deduplication rules when npm and plugin are both present.
 
-#### Option B: Rebuild LoopX as a plugin/marketplace-first distribution, treating the current repo runtime as disposable
+#### Option B: Rebuild loopx as a plugin/marketplace-first distribution, treating the current repo runtime as disposable
 
 Pros:
 
@@ -160,9 +160,9 @@ Cons:
 
 - Weakly grounded in the current repo.
 - Adds packaging/distribution unknowns before the core runtime/skill contract is settled.
-- High risk of spending the phase on packaging mechanics instead of a usable LoopX contract.
+- High risk of spending the phase on packaging mechanics instead of a usable loopx contract.
 
-#### Option C: Keep the current CLI/runtime product and only add thin LoopX skill wrappers
+#### Option C: Keep the current CLI/runtime product and only add thin loopx skill wrappers
 
 Pros:
 
@@ -181,8 +181,8 @@ Choose **Option A**.
 
 Why:
 
-- It is the only option that is both grounded in the current repo and aligned with the clarified “install once, open Codex, use built-in LoopX skills” requirement.
-- It avoids the product failure mode of shipping LoopX as a renamed wrapper around a still-primary CLI.
+- It is the only option that is both grounded in the current repo and aligned with the clarified “install once, open Codex, use built-in loopx skills” requirement.
+- It avoids the product failure mode of shipping loopx as a renamed wrapper around a still-primary CLI.
 - It keeps the scope focused on contract migration, skill bundling, and install/bootstrap rather than expanding into a full plugin-distribution rewrite.
 
 Rejected alternatives:
@@ -194,7 +194,7 @@ Rejected alternatives:
 
 ### Decision
 
-Convert the current `codex-helper` repo into `LoopX` by reusing the deterministic runtime substrate, removing `team`, renaming runtime identifiers, bundling LoopX-first skills, and adding one shared install/discovery core that can be invoked from both npm and plugin distribution shells.
+Convert the current `codex-helper` repo into `loopx` by reusing the deterministic runtime substrate, removing `team`, renaming runtime identifiers, bundling loopx-first skills, and adding one shared install/discovery core that can be invoked from both npm and plugin distribution shells.
 
 ### Drivers
 
@@ -206,7 +206,7 @@ Convert the current `codex-helper` repo into `LoopX` by reusing the deterministi
 ### Alternatives considered
 
 - Plugin/marketplace-first rebuild
-- Thin LoopX wrappers over the current CLI-first product
+- Thin loopx wrappers over the current CLI-first product
 
 ### Why chosen
 
@@ -224,12 +224,12 @@ This path is the smallest implementation that still satisfies the clarified user
 
 - Define the exact bundled skill set and naming.
 - Define install/bootstrap write targets and failure handling.
-- Define migration behavior from `.codex-helper` to `.LoopX`.
+- Define migration behavior from `.codex-helper` to `.loopx`.
 - Define how `workflow-reference.md` is translated into V1 docs without over-committing to every future mode behavior.
 
 ## Canonical Product Surface
 
-### Bundled LoopX skills
+### Bundled loopx skills
 
 The bundled user-facing skill set for this phase is:
 
@@ -243,12 +243,12 @@ The bundled user-facing skill set for this phase is:
 
 ### Equal distribution surfaces
 
-LoopX V1 supports exactly two first-class distribution surfaces:
+loopx V1 supports exactly two first-class distribution surfaces:
 
 - npm/global install
 - Codex plugin install
 
-These are equal external entrypoints over one shared LoopX core.
+These are equal external entrypoints over one shared loopx core.
 
 ### CLI/runtime substrate
 
@@ -271,7 +271,7 @@ The CLI may expose lower-level debugging/repair paths, but the default product j
 
 ### Public CLI contract freeze
 
-For this phase, the public LoopX CLI is classified as:
+For this phase, the public loopx CLI is classified as:
 
 - primary runtime/debug commands:
   - `loopx init`
@@ -297,30 +297,30 @@ For this phase, the public LoopX CLI is classified as:
 
 The user-facing product runtime root becomes:
 
-- `.LoopX/`
+- `.loopx/`
 
 Required subtrees:
 
-- `.LoopX/context/`
-- `.LoopX/specs/`
-- `.LoopX/plans/`
-- `.LoopX/workflows/<slug>/`
+- `.loopx/context/`
+- `.loopx/specs/`
+- `.loopx/plans/`
+- `.loopx/workflows/<slug>/`
 
 ### Naming boundary
 
-- `.LoopX/...` is the product runtime namespace.
-- `.omx/...` remains orchestration/planning metadata for the agent workflow and is not part of the LoopX user-facing rename surface.
+- `.loopx/...` is the product runtime namespace.
+- `.omx/...` remains orchestration/planning metadata for the agent workflow and is not part of the loopx user-facing rename surface.
 
 ## Install and Discovery Contract
 
 ### Canonical install behavior
 
-Install must perform all steps needed for Codex discovery of the bundled LoopX skills without a second explicit skill-install command.
+Install must perform all steps needed for Codex discovery of the bundled loopx skills without a second explicit skill-install command.
 
 Chosen baseline:
 
 - repo-owned bundled skill source remains inside this project under `skills/`
-- install/bootstrap writes or links LoopX-owned skill entries into the local user skill-discovery area
+- install/bootstrap writes or links loopx-owned skill entries into the local user skill-discovery area
 - install/bootstrap updates the local user skill registry metadata required for discoverability
 
 ### Grounded local target
@@ -333,18 +333,18 @@ with corresponding registry metadata in:
 
 - `~/.agents/.skill-lock.json`
 
-`~/.codex/skills/` is treated as bundled/system territory and is not the preferred writable target for LoopX project installation.
+`~/.codex/skills/` is treated as bundled/system territory and is not the preferred writable target for loopx project installation.
 
 ### Install / discovery ADR
 
 #### Decision
 
-LoopX V1 uses a **shared-core dual-shell install model**:
+loopx V1 uses a **shared-core dual-shell install model**:
 
 - repo-owned canonical skill sources live in `<project-root>/skills/`
 - repo-owned canonical runtime/debug substrate lives in the same project
 - npm install and plugin install both invoke the same install/discovery core
-- install materializes LoopX-owned user-discoverable skill directories under:
+- install materializes loopx-owned user-discoverable skill directories under:
   - `~/.agents/skills/clarify/`
   - `~/.agents/skills/plan/`
   - `~/.agents/skills/build/`
@@ -352,12 +352,12 @@ LoopX V1 uses a **shared-core dual-shell install model**:
   - `~/.agents/skills/autopilot/`
 - each installed skill directory is created as a symlink to the repo-owned source by default
 - if symlink creation is not possible, install may fall back to a copied directory, but it must record that fallback explicitly
-- install updates `~/.agents/.skill-lock.json` with one LoopX-owned row per installed skill
-- no install path is allowed to create a second parallel LoopX identity
+- install updates `~/.agents/.skill-lock.json` with one loopx-owned row per installed skill
+- no install path is allowed to create a second parallel loopx identity
 
 #### Merged installation identity
 
-All LoopX-owned rows must carry one shared identity field:
+All loopx-owned rows must carry one shared identity field:
 
 - `installationIdentity`: `loopx`
 
@@ -365,10 +365,10 @@ This field is the canonical identity key for deduplication and convergence acros
 
 Rules:
 
-- npm-installed and plugin-installed LoopX rows with the same `installationIdentity=loopx` are the same product identity
+- npm-installed and plugin-installed loopx rows with the same `installationIdentity=loopx` are the same product identity
 - `sourceUrl` is provenance only, not identity
-- `distributionChannel` may differ between shells without creating a second LoopX identity
-- repair, refresh, and convergence logic key first on `installationIdentity`, then on LoopX-owned skill path/installed path rules
+- `distributionChannel` may differ between shells without creating a second loopx identity
+- repair, refresh, and convergence logic key first on `installationIdentity`, then on loopx-owned skill path/installed path rules
 
 #### Trigger selection
 
@@ -395,9 +395,9 @@ Rejected trigger models:
 
 #### Required registry row shape
 
-Each LoopX-owned row in `~/.agents/.skill-lock.json` must contain:
+Each loopx-owned row in `~/.agents/.skill-lock.json` must contain:
 
-- `source`: `LoopX`
+- `source`: `loopx`
 - `sourceType`: `local`
 - `installationIdentity`: `loopx`
 - `distributionChannel`: `npm` or `plugin`
@@ -411,7 +411,7 @@ Each LoopX-owned row in `~/.agents/.skill-lock.json` must contain:
 
 #### Registry keying convention
 
-LoopX writes rows under the existing top-level registry shape:
+loopx writes rows under the existing top-level registry shape:
 
 - `skills["clarify"]`
 - `skills["plan"]`
@@ -445,10 +445,10 @@ Rules:
 
 #### Discovery rule
 
-For LoopX-owned project installs, discovery is considered valid only when **both** of the following are true:
+For loopx-owned project installs, discovery is considered valid only when **both** of the following are true:
 
 - installed user-skill directory exists at the expected `~/.agents/skills/<skill-name>/` path
-- corresponding LoopX-owned registry row exists in `~/.agents/.skill-lock.json`
+- corresponding loopx-owned registry row exists in `~/.agents/.skill-lock.json`
 
 Directory presence alone is not sufficient.
 Registry row presence alone is not sufficient.
@@ -458,28 +458,28 @@ Registry row presence alone is not sufficient.
 When both npm and plugin installation paths are present:
 
 - both must resolve to the same installed skill directories
-- both must resolve to the same `~/.agents/.skill-lock.json` LoopX-owned rows keyed by `skills["<skill-name>"]`
-- Codex must expose one visible LoopX skill set, not duplicated skills
-- plugin metadata may record its own packaging provenance, but not by creating a second LoopX discovery identity
+- both must resolve to the same `~/.agents/.skill-lock.json` loopx-owned rows keyed by `skills["<skill-name>"]`
+- Codex must expose one visible loopx skill set, not duplicated skills
+- plugin metadata may record its own packaging provenance, but not by creating a second loopx discovery identity
 
 #### Ownership and refresh rule
 
-LoopX-owned installed skills are identified by:
+loopx-owned installed skills are identified by:
 
-- `source=LoopX`
+- `source=loopx`
 - `sourceType=local`
 - `installationIdentity=loopx`
 - installed skill directory basename beginning with `loopx-`
 
 Refresh/repair/uninstall logic must only mutate rows/directories that match those ownership signals.
-Distribution-source metadata may distinguish npm vs plugin provenance internally, but that distinction must remain subordinate to the single LoopX installation identity.
+Distribution-source metadata may distinguish npm vs plugin provenance internally, but that distinction must remain subordinate to the single loopx installation identity.
 
 #### Repair rule
 
 `loopx repair-install` must:
 
 - detect missing installed skill directories
-- detect missing LoopX-owned registry rows
+- detect missing loopx-owned registry rows
 - detect stale `installedPath` / `skillFolderHash` mismatches
 - restore the canonical installed directories and registry rows
 - leave unrelated user-installed skills untouched
@@ -490,7 +490,7 @@ Distribution-source metadata may distinguish npm vs plugin provenance internally
 - writing directly into `~/.codex/skills/`
 - relying on directory presence without registry metadata
 - requiring a second explicit “install skill” command after project installation
-- allowing npm and plugin to register separate LoopX identities
+- allowing npm and plugin to register separate loopx identities
 
 ### Minimal plugin shell boundary
 
@@ -503,7 +503,7 @@ The minimum plugin shell for this phase is:
 
 Contract:
 
-- the plugin shell does not contain a second implementation of LoopX skills/runtime
+- the plugin shell does not contain a second implementation of loopx skills/runtime
 - plugin skill payload is a generated/mirrored shell over the canonical root `skills/` set
 - the plugin shell delegates to the same shared install/discovery core as npm install
 - plugin installation passes explicit `distributionChannel=plugin`
@@ -513,7 +513,7 @@ Contract:
 ### Install guarantees
 
 - install is idempotent
-- existing LoopX-installed skills are refreshed, not duplicated
+- existing loopx-installed skills are refreshed, not duplicated
 - partial install failure is surfaced explicitly
 - repair path is available and documented
 
@@ -528,38 +528,38 @@ Contract:
 ### `clarify`
 
 - role: requirements clarification and spec generation
-- primary output: `.LoopX/specs/clarify-<slug>-<timestamp>.md`
+- primary output: `.loopx/specs/clarify-<slug>-<timestamp>.md`
 
 ### `plan`
 
 - role: consensus planning and decision artifact generation
-- primary output: `.LoopX/plans/prd-<slug>.md`, `.LoopX/plans/test-spec-<slug>.md`
+- primary output: `.loopx/plans/prd-<slug>.md`, `.loopx/plans/test-spec-<slug>.md`
 
 ### `build`
 
 - role: persistent execution loop with verification
-- primary output: `.LoopX/workflows/<slug>/...` execution artifacts
+- primary output: `.loopx/workflows/<slug>/...` execution artifacts
 
 ### `review`
 
 - role: post-execution acceptance / review surface
-- primary output: review verdict artifact inside `.LoopX/workflows/<slug>/`
+- primary output: review verdict artifact inside `.loopx/workflows/<slug>/`
 
 ### `autopilot`
 
 - role: top-level bundled automation surface that composes clarified/planned execution
 - V1 interpretation:
   - **not** a separate heavy autonomous runtime family imported wholesale from `workflow-reference.md`
-  - **is** a bundled LoopX composition surface over:
+  - **is** a bundled loopx composition surface over:
     - `clarify`
     - `plan`
     - `build`
     - `review`
 - minimum phase requirement:
-  - callable as a bundled LoopX skill
+  - callable as a bundled loopx skill
   - backed by a real `loopx autopilot` runtime entry
   - executes one bounded happy-path composition using the retained runtime/debug substrate
-  - writes outputs into the renamed `.LoopX/...` runtime namespace
+  - writes outputs into the renamed `.loopx/...` runtime namespace
 - does not require the `team` surface
 
 #### Autopilot control semantics
@@ -575,9 +575,9 @@ Chosen behavior:
   - build -> review
 - those internal approvals are recorded as autopilot-owned control events
 - the user does not need to call `approve` mid-run
-- autopilot writes through the same canonical LoopX runtime artifact model used by the stage runtime
+- autopilot writes through the same canonical loopx runtime artifact model used by the stage runtime
 - autopilot also writes an orchestration ledger at:
-  - `.LoopX/autopilot/<slug>/run.json`
+  - `.loopx/autopilot/<slug>/run.json`
 
 Bounded happy-path composition means:
 
@@ -591,7 +591,7 @@ Rejected autopilot models:
 
 - importing the full heavyweight future autopilot concept from `workflow-reference.md` into this phase
 - requiring the user to manually call `approve` between internal autopilot steps
-- bypassing canonical LoopX artifacts/state
+- bypassing canonical loopx artifacts/state
 
 ## Team Removal Decision
 
@@ -630,13 +630,13 @@ This phase uses bounded migration, not indefinite compatibility.
 
 Chosen direction:
 
-- provide an explicit migration path from `.codex-helper/` to `.LoopX/`
+- provide an explicit migration path from `.codex-helper/` to `.loopx/`
 - migrate or reject old runtime data with a clear repair path
 - do not preserve long-lived mixed naming in the active runtime
 
 Rejected migration model:
 
-- keeping both `.codex-helper` and `.LoopX` as equal long-term active runtime roots
+- keeping both `.codex-helper` and `.loopx` as equal long-term active runtime roots
 
 ## Documentation Translation Rule
 
@@ -651,44 +651,44 @@ Translation rule:
   - review
   - autopilot
 - do not over-commit the phase to every future ambition implied by the draft
-- keep phase acceptance anchored to skill-first installation, rename migration, team removal, and working bundled LoopX skills
+- keep phase acceptance anchored to skill-first installation, rename migration, team removal, and working bundled loopx skills
 
 ## Deliverables
 
-1. Renamed `LoopX` product identity across package/CLI/docs/skills/runtime paths
+1. Renamed `loopx` product identity across package/CLI/docs/skills/runtime paths
 2. Removal of `team` from the active release contract
-3. Bundled `LoopX` skill set with Codex-discoverable installation/bootstrap
+3. Bundled `loopx` skill set with Codex-discoverable installation/bootstrap
 4. Retained but demoted runtime/debug CLI substrate
 5. `autopilot` bundled skill/runtime surface for this phase
-6. Migration/repair story from `codex-helper` runtime identity to `LoopX`
+6. Migration/repair story from `codex-helper` runtime identity to `loopx`
 7. Updated tests proving install/discovery, rename, and team removal
-8. Plugin distribution shell that reuses the same LoopX install/discovery core
+8. Plugin distribution shell that reuses the same loopx install/discovery core
 
 ## Implementation Plan
 
 1. **Replace the public contract**
-   - rewrite README, package identity, command naming, and skill identity from `codex-helper` to `LoopX`
+   - rewrite README, package identity, command naming, and skill identity from `codex-helper` to `loopx`
    - replace the old `team`-inclusive product framing with the new skill-first contract
 
 2. **Rename the runtime namespace**
-   - migrate runtime root from `.codex-helper/` to `.LoopX/`
+   - migrate runtime root from `.codex-helper/` to `.loopx/`
    - add bounded migration/repair behavior
    - keep `.omx/` explicitly out of the product rename scope
 
 3. **Rebuild the bundled skill surface**
-   - rename/restructure repo-local skills into the bundled LoopX set
+   - rename/restructure repo-local skills into the bundled loopx set
    - remove `team`
    - add `autopilot`
    - ensure each bundled skill is usable as a first-class Codex-facing entrypoint
 
 4. **Add install/discovery bootstrap**
-   - add install-time placement/registration of LoopX skills into local discoverable user-skill locations
+   - add install-time placement/registration of loopx skills into local discoverable user-skill locations
    - wire bootstrap through `postinstall` and `scripts/install-skills.mjs`
    - add a plugin shell under `plugins/loopx/` that reuses the same bootstrap core
    - update or write skill-lock metadata as needed
    - add repair/doctor paths for broken discovery state
-   - implement the LoopX-owned `local` registry row shape and ownership rules defined above
-   - enforce one LoopX installation identity even when npm and plugin are both present
+   - implement the loopx-owned `local` registry row shape and ownership rules defined above
+   - enforce one loopx installation identity even when npm and plugin are both present
 
 5. **Refactor the retained CLI/runtime substrate**
    - rename CLI surface from `codex-helper` to `loopx`
@@ -710,12 +710,12 @@ Translation rule:
 
 ### Risk 1: install-time skill registration is brittle across local environments
 
-- Risk: LoopX installs successfully as a package but fails to become discoverable in Codex.
-- Mitigation: ground install behavior in the observed local user-skill registry model, define the exact LoopX-owned local row shape, make install idempotent, and add explicit repair diagnostics.
+- Risk: loopx installs successfully as a package but fails to become discoverable in Codex.
+- Mitigation: ground install behavior in the observed local user-skill registry model, define the exact loopx-owned local row shape, make install idempotent, and add explicit repair diagnostics.
 
 ### Risk 1a: npm and plugin distributions fork the installation identity
 
-- Risk: users see duplicate LoopX skills or drift between npm-installed and plugin-installed LoopX behavior.
+- Risk: users see duplicate loopx skills or drift between npm-installed and plugin-installed loopx behavior.
 - Mitigation: force both distribution shells through one shared install/discovery core and test dual-install coexistence explicitly.
 
 ### Risk 2: the product remains secretly CLI-first
@@ -725,7 +725,7 @@ Translation rule:
 
 ### Risk 3: rename migration leaves mixed identity
 
-- Risk: user-facing docs say LoopX while runtime/state still behaves like `codex-helper`.
+- Risk: user-facing docs say loopx while runtime/state still behaves like `codex-helper`.
 - Mitigation: use bounded migration and explicit rejection/repair rules instead of indefinite compatibility.
 
 ### Risk 4: removing `team` leaves public contract drift
@@ -740,17 +740,17 @@ Translation rule:
 
 ## Verification Steps
 
-1. Install/bootstrap tests prove LoopX skills land in Codex-discoverable local user-skill locations without a second install step.
-2. Install/bootstrap tests prove both directory presence and LoopX-owned registry rows exist for discovery.
+1. Install/bootstrap tests prove loopx skills land in Codex-discoverable local user-skill locations without a second install step.
+2. Install/bootstrap tests prove both directory presence and loopx-owned registry rows exist for discovery.
 3. Install/bootstrap tests prove `postinstall` and `loopx repair-install` both drive the same canonical bootstrap entrypoint.
-4. Dual-distribution tests prove npm install and plugin install converge on one LoopX installation identity and one visible LoopX skill set.
+4. Dual-distribution tests prove npm install and plugin install converge on one loopx installation identity and one visible loopx skill set.
    - plugin-path tests validate a real plugin-root artifact layout under `plugins/loopx/`
    - plugin lifecycle tests simulate the local wrapper without requiring a live marketplace install
-5. Rename tests prove package name, CLI name, skill names, and runtime directories are all migrated to LoopX.
+5. Rename tests prove package name, CLI name, skill names, and runtime directories are all migrated to loopx.
 6. Contract tests prove `team` is absent from the active release surface.
-7. Happy-path tests prove a user can use bundled LoopX skills after install.
-8. Runtime tests prove the retained CLI/debug substrate still works under the LoopX name.
-9. Autopilot tests prove the V1 composition surface works without requiring a separate heavy runtime or `team`, and records internal approval events plus `.LoopX/autopilot/<slug>/run.json`.
+7. Happy-path tests prove a user can use bundled loopx skills after install.
+8. Runtime tests prove the retained CLI/debug substrate still works under the loopx name.
+9. Autopilot tests prove the V1 composition surface works without requiring a separate heavy runtime or `team`, and records internal approval events plus `.loopx/autopilot/<slug>/run.json`.
 10. Migration tests prove `.codex-helper` runtime data is migrated or rejected with a clear repair path.
 
 ## Available-Agent-Types Roster
@@ -779,4 +779,4 @@ Translation rule:
 
 ### Recommended `team` lane
 
-Not recommended for the next execution phase because the clarified LoopX release contract explicitly removes `team` from the active product surface. If coordination is still needed internally, keep it invisible to the public LoopX contract.
+Not recommended for the next execution phase because the clarified loopx release contract explicitly removes `team` from the active product surface. If coordination is still needed internally, keep it invisible to the public loopx contract.

@@ -38,15 +38,15 @@ export function createRealAutopilotAdapter({ model } = {}) {
       if (state.unresolved_ambiguity_count === 0) {
         return phaseResult('expansion', 'complete', {
           source: state.spec_artifact_path ? 'workflow-spec' : 'generated-spec',
-          summary: 'Autopilot reused the existing LoopX spec input.',
+          summary: 'Autopilot reused the existing loopx spec input.',
         });
       }
 
       const outputPath = join(state.root || state.cwd || '.', 'autopilot', `${state.slug}-expansion.json`);
       await mkdir(join(state.root || state.cwd || '.', 'autopilot'), { recursive: true });
       const prompt = [
-        `You are acting as the real LoopX autopilot expansion phase for workflow "${state.slug}".`,
-        'Read the current spec.md template and rewrite it into a resolved LoopX spec for this workflow.',
+        `You are acting as the real loopx autopilot expansion phase for workflow "${state.slug}".`,
+        'Read the current spec.md template and rewrite it into a resolved loopx spec for this workflow.',
         'Also return only raw JSON with this shape:',
         '{',
         '  "status": "complete" | "blocked",',

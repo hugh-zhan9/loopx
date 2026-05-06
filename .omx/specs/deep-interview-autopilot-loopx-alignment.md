@@ -14,40 +14,40 @@
 
 | Dimension | Score | Notes |
 |---|---:|---|
-| Intent | 0.95 | Strengthen LoopX autopilot using the richer parent autopilot design. |
+| Intent | 0.95 | Strengthen loopx autopilot using the richer parent autopilot design. |
 | Outcome | 0.95 | Upgrade both skill contract and runtime orchestration. |
-| Scope | 0.90 | Internal phases may deepen, external LoopX stages remain stable. |
-| Constraints | 0.92 | Preserve LoopX artifact contract and automatic internal approvals. |
-| Success | 0.90 | Autopilot becomes richer without escaping LoopX's public stage model. |
+| Scope | 0.90 | Internal phases may deepen, external loopx stages remain stable. |
+| Constraints | 0.92 | Preserve loopx artifact contract and automatic internal approvals. |
+| Success | 0.90 | Autopilot becomes richer without escaping loopx's public stage model. |
 | Context | 0.95 | Current thin skill and bounded runtime are grounded in repo code. |
 
 ## Intent
 
-Upgrade LoopX `autopilot` from a thin bounded composition surface into a stronger autonomous orchestration model by borrowing the parent `oh-my-codex` autopilot's phase structure and reviewer ideas, but keeping LoopX's stage surface and artifact contract authoritative.
+Upgrade loopx `autopilot` from a thin bounded composition surface into a stronger autonomous orchestration model by borrowing the parent `oh-my-codex` autopilot's phase structure and reviewer ideas, but keeping loopx's stage surface and artifact contract authoritative.
 
 ## Desired Outcome
 
-LoopX `autopilot` should:
+loopx `autopilot` should:
 
 - upgrade both the skill and runtime
 - own a richer internal phase model inspired by the parent autopilot
-- still present LoopX's external `clarify / plan / build / review` stage model
+- still present loopx's external `clarify / plan / build / review` stage model
 - continue to consume stage approvals internally and record them as control events
-- remain LoopX-native rather than a literal port of the parent implementation
+- remain loopx-native rather than a literal port of the parent implementation
 
 ## In Scope
 
 - upgrade `skills/autopilot/SKILL.md` to a richer contract
 - upgrade `src/workflow.mjs` `autopilotStage()` runtime orchestration
 - introduce finer-grained internal autopilot phases where helpful
-- preserve `.LoopX/autopilot/<slug>/run.json` or evolve it within the LoopX artifact model
-- import multi-phase orchestration, QA/validation concepts, and reviewer-role ideas from the parent autopilot where compatible with LoopX
+- preserve `.loopx/autopilot/<slug>/run.json` or evolve it within the loopx artifact model
+- import multi-phase orchestration, QA/validation concepts, and reviewer-role ideas from the parent autopilot where compatible with loopx
 
 ## Out of Scope / Non-goals
 
 - do not introduce a new external public stage family beyond `clarify / plan / build / review`
-- do not bypass LoopX canonical artifacts or stage truths
-- do not literally copy the parent autopilot where it conflicts with LoopX runtime contracts
+- do not bypass loopx canonical artifacts or stage truths
+- do not literally copy the parent autopilot where it conflicts with loopx runtime contracts
 - do not widen this change into unrelated stage redesigns unless explicitly required by the autopilot contract
 
 ## Decision Boundaries
@@ -56,12 +56,12 @@ LoopX `autopilot` should:
 - internal richer phases are allowed
 - external user-facing stages remain `clarify / plan / build / review`
 - internal stage approvals may continue to be auto-consumed and recorded as control events
-- parent autopilot concepts may be adapted, but LoopX remains the source of truth
+- parent autopilot concepts may be adapted, but loopx remains the source of truth
 
 ## Constraints
 
-- current LoopX runtime already has real `plan` and `build` strengthening work underway / landed
-- public LoopX artifact and stage contracts must remain coherent
+- current loopx runtime already has real `plan` and `build` strengthening work underway / landed
+- public loopx artifact and stage contracts must remain coherent
 - autopilot should integrate with strengthened stage runtimes rather than re-implementing contradictory truths
 - automatic internal control events must remain inspectable
 
@@ -69,10 +69,10 @@ LoopX `autopilot` should:
 
 - `skills/autopilot/SKILL.md` reflects the richer internal phase model
 - `autopilotStage()` runtime no longer behaves as only a thin direct wrapper
-- external users still see the same LoopX stage model
+- external users still see the same loopx stage model
 - autopilot still records internal control events
-- autopilot remains grounded in LoopX canonical artifacts and does not fork a conflicting workflow truth
-- tests prove richer internal orchestration while preserving LoopX stage semantics
+- autopilot remains grounded in loopx canonical artifacts and does not fork a conflicting workflow truth
+- tests prove richer internal orchestration while preserving loopx stage semantics
 
 ## Assumptions Exposed + Resolutions
 
@@ -88,15 +88,15 @@ LoopX `autopilot` should:
 ## Pressure-pass Findings
 
 - Earlier answer revisited: "reference the parent autopilot"
-- What changed: the requirement was tightened from vague reference reuse into "import internal phase/reviewer ideas only when they still collapse back into LoopX's external stage and artifact contract"
-- Resulting rule: LoopX-native orchestration remains authoritative
+- What changed: the requirement was tightened from vague reference reuse into "import internal phase/reviewer ideas only when they still collapse back into loopx's external stage and artifact contract"
+- Resulting rule: loopx-native orchestration remains authoritative
 
 ## Brownfield Evidence vs Inference
 
 ### Evidence
 
-- current LoopX autopilot skill is thin
-- current LoopX autopilot runtime is bounded composition
+- current loopx autopilot skill is thin
+- current loopx autopilot runtime is bounded composition
 - parent autopilot skill is much richer and multi-phase
 
 ### Inference
@@ -105,8 +105,8 @@ LoopX `autopilot` should:
 
 ## Technical Context Findings
 
-- LoopX autopilot currently underuses the richer stage runtimes now available locally
-- the strongest design risk is split truth between internal phases and external LoopX stages
+- loopx autopilot currently underuses the richer stage runtimes now available locally
+- the strongest design risk is split truth between internal phases and external loopx stages
 - keeping control events and canonical artifacts coherent is the central guardrail
 
 ## Recommended Handoff

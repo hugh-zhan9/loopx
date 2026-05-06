@@ -99,7 +99,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       },
     ],
     planText: [
-      `# LoopX Plan: ${slug}`,
+      `# loopx Plan: ${slug}`,
       '',
       '## Requirements Summary',
       '',
@@ -129,7 +129,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '- prove docs blocking and iteration paths',
     ].join('\n'),
     architectureText: [
-      `# LoopX Architecture: ${slug}`,
+      `# loopx Architecture: ${slug}`,
       '',
       '## Intent',
       '',
@@ -143,7 +143,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '',
       '- plan runtime owns the planner -> architect -> critic loop',
       '- a dedicated adapter separates production orchestration from deterministic tests',
-      '- canonical plan artifacts remain under `.LoopX/plans/`',
+      '- canonical plan artifacts remain under `.loopx/plans/`',
       '- required Chinese docs are emitted under `docs/<slug>/`',
       '',
       '## Alternatives Considered',
@@ -152,7 +152,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '- delay runtime alignment and keep the skill contract aspirational',
     ].join('\n'),
     developmentPlanText: [
-      `# LoopX Development Plan: ${slug}`,
+      `# loopx Development Plan: ${slug}`,
       '',
       '## Execution Breakdown',
       '',
@@ -174,7 +174,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '- do not auto-launch execution from plan',
     ].join('\n'),
     testPlanText: [
-      `# LoopX Test Plan: ${slug}`,
+      `# loopx Test Plan: ${slug}`,
       '',
       '## Unit',
       '',
@@ -216,7 +216,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
         '',
         '- 引入 plan orchestration adapter，隔离真实编排与测试替身。',
         '- 在 workflow state 中记录 iteration、architect review、critic verdict 和 docs blockers。',
-        '- 以 `.LoopX/plans/` 为 canonical，以 `docs/<slug>/` 为中文规划文档输出。',
+        '- 以 `.loopx/plans/` 为 canonical，以 `docs/<slug>/` 为中文规划文档输出。',
         '',
         '## 非目标',
         '',
@@ -348,7 +348,7 @@ export function createRealPlanAdapter({ model } = {}) {
       const outputPath = join(context.root, 'plan-reviews', `planner-iteration-${context.iteration}.json`);
       await mkdir(join(context.root, 'plan-reviews'), { recursive: true });
       const prompt = [
-        `You are acting as the real LoopX plan runtime for workflow "${context.slug}".`,
+        `You are acting as the real loopx plan runtime for workflow "${context.slug}".`,
         'Read the source requirements and produce planning content for this workflow.',
         'Return only raw JSON matching this shape:',
         '{',
@@ -393,7 +393,7 @@ export function createRealPlanAdapter({ model } = {}) {
         context.plannerDraft.testPlanText,
       ].join('\n');
       const prompt = [
-        `You are acting as the real LoopX architect review for workflow "${context.slug}".`,
+        `You are acting as the real loopx architect review for workflow "${context.slug}".`,
         'Review the provided planning draft and return only raw JSON with this shape:',
         '{',
         '  "status": "complete" | "changes-requested",',
@@ -427,7 +427,7 @@ export function createRealPlanAdapter({ model } = {}) {
         context.plannerDraft.testPlanText,
       ].join('\n');
       const prompt = [
-        `You are acting as the real LoopX critic gate for workflow "${context.slug}".`,
+        `You are acting as the real loopx critic gate for workflow "${context.slug}".`,
         'Review the planning draft plus architect review and return only raw JSON with this shape:',
         '{',
         '  "verdict": "approve" | "iterate" | "reject",',

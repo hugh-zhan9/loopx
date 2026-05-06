@@ -1,13 +1,13 @@
 ---
 name: review
-description: Repo-local acceptance surface for LoopX.
+description: Repo-local acceptance surface for loopx.
 ---
 
-# LoopX Review
+# loopx Review
 
 ## Purpose
 
-Repo-local acceptance surface for LoopX. Use it to evaluate the execution package from `build` and return an explicit go / no-go result.
+Repo-local acceptance surface for loopx. Use it to evaluate the execution package from `build` and return an explicit go / no-go result.
 
 ## Expected Outputs
 
@@ -27,4 +27,4 @@ Repo-local acceptance surface for LoopX. Use it to evaluate the execution packag
 
 ## Notes
 
-- Review consumes structured outputs from the active LoopX run. It should reject thin or placeholder-only evidence.
+- Review consumes structured outputs from the active loopx run. It should reject thin or placeholder-only evidence.

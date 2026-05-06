@@ -6,11 +6,11 @@ decision_id: loopx-v1
 chosen_option: skill-first-runtime-substrate
 ---
 
-# LoopX Architecture: <task name>
+# loopx Architecture: <task name>
 
 ## Intent
 
-- keep LoopX skill-first while reusing the deterministic runtime/debug substrate
+- keep loopx skill-first while reusing the deterministic runtime/debug substrate
 
 ## Boundaries
 
@@ -21,7 +21,7 @@ chosen_option: skill-first-runtime-substrate
 
 ## Chosen Design
 
-- canonical LoopX artifacts under `.LoopX/`
+- canonical loopx artifacts under `.loopx/`
 - single build lane, no public `team`
 - bounded `autopilot` composition over clarify/plan/build/review
 

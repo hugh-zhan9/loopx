@@ -2,7 +2,7 @@
 
 ## Task Statement
 
-Improve the LoopX `plan` skill by using `ralplan` as the reference.
+Improve the loopx `plan` skill by using `ralplan` as the reference.
 
 ## Desired Outcome
 
@@ -21,12 +21,12 @@ The user wants `plan` to become the real planning workflow contract, while `ralp
 - `skills/plan/SKILL.md` is currently a brief repo-local planning description.
 - `plugins/loopx/skills/plan/SKILL.md` currently mirrors the same brief content.
 - `skills/ralplan/SKILL.md` contains richer behavior: pre-context intake, consensus mode, RALPLAN-DR summary, Planner -> Architect -> Critic sequencing, max-5 iteration loop, interactive approvals, execution handoff contracts, and pre-execution gating.
-- Current LoopX release surface includes `clarify -> plan -> build -> review`, with `autopilot` also bundled.
-- Prior clarified product boundary says LoopX should avoid reintroducing legacy OMX surfaces as the visible product contract.
+- Current loopx release surface includes `clarify -> plan -> build -> review`, with `autopilot` also bundled.
+- Prior clarified product boundary says loopx should avoid reintroducing legacy OMX surfaces as the visible product contract.
 
 ## Constraints
 
-- Keep LoopX skill-first and product-local.
+- Keep loopx skill-first and product-local.
 - Avoid making `plan` a hidden alias back to legacy OMX mode names unless that is an explicit compatibility intent.
 - Keep `ralplan` semantics available, but decide whether they become the default `plan` behavior or only `plan --consensus`.
 - Preserve explicit user confirmation for execution handoff.
@@ -43,7 +43,7 @@ The user wants `plan` to become the real planning workflow contract, while `ralp
 
 - Whether `plan` may automatically launch Planner/Architect/Critic review without asking.
 - Whether `plan` may auto-handoff to `build`, `autopilot`, `ralph`, or `team`.
-- Whether `ralph` / `team` handoff language should remain in LoopX now that current release docs say no public `team` surface.
+- Whether `ralph` / `team` handoff language should remain in loopx now that current release docs say no public `team` surface.
 
 ## Likely Codebase Touchpoints
 

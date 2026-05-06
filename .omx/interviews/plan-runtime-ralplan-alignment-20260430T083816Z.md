@@ -32,9 +32,9 @@
 ### Round 3
 
 - Target: artifact-contract
-- Question: Should approved plan stay under `.LoopX/plans/prd-<slug>.md`?
+- Question: Should approved plan stay under `.loopx/plans/prd-<slug>.md`?
 - Answer: yes
-- Effect: canonical approved plan remains under `.LoopX/plans/`
+- Effect: canonical approved plan remains under `.loopx/plans/`
 
 ### Round 4
 
@@ -60,7 +60,7 @@
 ## Pressure Pass
 
 - Revisited earlier answer: the docs requirement from round 2
-- Pressure question: whether missing Chinese docs should still block completion when `.LoopX/plans/prd-<slug>.md` is already approved
+- Pressure question: whether missing Chinese docs should still block completion when `.loopx/plans/prd-<slug>.md` is already approved
 - Result: yes; docs are required completion artifacts, not optional derivations
 
 ## Readiness Gates

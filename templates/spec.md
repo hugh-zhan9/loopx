@@ -14,7 +14,7 @@ approval_status: requested
 unresolved_ambiguity_count: 1
 ---
 
-# LoopX Spec: <task name>
+# loopx Spec: <task name>
 
 ## Intent
 
@@ -34,7 +34,7 @@ unresolved_ambiguity_count: 1
 
 ## In Scope
 
-- TODO: record the work that belongs in this LoopX run.
+- TODO: record the work that belongs in this loopx run.
 
 ## Non-Goals
 

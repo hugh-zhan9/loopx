@@ -6,15 +6,15 @@ source_spec_path: spec.md
 stage_owner: plan
 ---
 
-# LoopX Plan: <task name>
+# loopx Plan: <task name>
 
 ## Requirements Summary
 
-- translate the approved LoopX spec into an execution-ready package
+- translate the approved loopx spec into an execution-ready package
 
 ## Deliverables
 
-1. produce the LoopX plan package
+1. produce the loopx plan package
 2. keep approvals explicit
 3. define verification that can prove the run is ready for build
 
@@ -26,7 +26,7 @@ stage_owner: plan
 
 ## Risks
 
-- skipping approval or verification would break the LoopX contract
+- skipping approval or verification would break the loopx contract
 
 ## Verification
 
