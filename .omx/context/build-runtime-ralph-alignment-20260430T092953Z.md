@@ -2,7 +2,7 @@
 
 ## Task Statement
 
-Implement the LoopX `build` skill/runtime in the style of `skills/ralph/SKILL.md`.
+Implement the loopx `build` skill/runtime in the style of `skills/ralph/SKILL.md`.
 
 ## Desired Outcome
 
@@ -14,7 +14,7 @@ Use `skills/ralph/SKILL.md` as the reference model for `build`.
 
 ## Probable Intent Hypothesis
 
-The user wants `build` to stop being a shallow "write execution-record draft" stage and instead become the real execution lane with retry/verification rigor, while still fitting LoopX's public stage surface.
+The user wants `build` to stop being a shallow "write execution-record draft" stage and instead become the real execution lane with retry/verification rigor, while still fitting loopx's public stage surface.
 
 ## Known Facts / Evidence
 
@@ -37,7 +37,7 @@ The user wants `build` to stop being a shallow "write execution-record draft" st
 
 ## Constraints
 
-- Keep LoopX public stage surface coherent with current product direction.
+- Keep loopx public stage surface coherent with current product direction.
 - Avoid reintroducing a public `team` mode unless explicitly requested.
 - Preserve `review` as a separate independent stage after `build`.
 - Keep execution evidence machine-checkable.

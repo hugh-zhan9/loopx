@@ -150,7 +150,7 @@ async function materializeSkill(skillName, env = process.env, options = {}) {
 
 function buildRegistryRow(record, env = process.env, options = {}) {
   return {
-    source: 'LoopX',
+    source: 'loopx',
     sourceType: 'local',
     installationIdentity: options.installationIdentity,
     distributionChannel: options.distributionChannel,
@@ -173,7 +173,7 @@ function buildRegistryRow(record, env = process.env, options = {}) {
 function isLoopxOwnedIdentity(skillName, row, env = process.env) {
   return Boolean(
     row
-      && row.source === 'LoopX'
+      && row.source === 'loopx'
       && row.sourceType === 'local'
       && (
         row.installationIdentity === LOOPX_INSTALLATION_IDENTITY

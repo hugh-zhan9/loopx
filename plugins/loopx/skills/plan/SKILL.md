@@ -1,13 +1,13 @@
 ---
 name: plan
-description: Consensus-first LoopX planning skill with Planner, Architect, and Critic review.
+description: Consensus-first loopx planning skill with Planner, Architect, and Critic review.
 argument-hint: "[--interactive] [--deliberate] [--direct <spec-path>] <clarified task or spec path>"
 ---
 
-# LoopX Plan
+# loopx Plan
 
 <Purpose>
-`plan` is LoopX's canonical planning gate. It turns an approved clarify result or execution-ready spec into a reviewed plan package before build or autopilot starts.
+`plan` is loopx's canonical planning gate. It turns an approved clarify result or execution-ready spec into a reviewed plan package before build or autopilot starts.
 
 By default, `plan` includes the full consensus review loop formerly documented under `ralplan`: Planner -> Architect -> Critic. Planner creates the plan, Architect reviews it, Critic gates it, and the plan iterates until approved or the iteration cap is reached.
 </Purpose>
@@ -38,8 +38,8 @@ By default, `plan` includes the full consensus review loop formerly documented u
 <Inputs>
 Accepted inputs:
 
-- an approved LoopX clarify workflow slug
-- `.LoopX/specs/clarify-*.md`
+- an approved loopx clarify workflow slug
+- `.loopx/specs/clarify-*.md`
 - `.omx/specs/deep-interview-*.md`
 - a direct task description when enough context is already present
 - `--direct <spec-path>` to force a specific requirements artifact
@@ -155,12 +155,12 @@ Do not patch only the Critic complaint in isolation if the Architect objection i
 
 On approval, write canonical planning artifacts:
 
-- `.LoopX/workflows/<slug>/plan.md`
-- `.LoopX/workflows/<slug>/architecture.md`
-- `.LoopX/workflows/<slug>/development-plan.md`
-- `.LoopX/workflows/<slug>/test-plan.md`
-- `.LoopX/plans/prd-<slug>.md`
-- `.LoopX/plans/test-spec-<slug>.md`
+- `.loopx/workflows/<slug>/plan.md`
+- `.loopx/workflows/<slug>/architecture.md`
+- `.loopx/workflows/<slug>/development-plan.md`
+- `.loopx/workflows/<slug>/test-plan.md`
+- `.loopx/plans/prd-<slug>.md`
+- `.loopx/plans/test-spec-<slug>.md`
 
 The final plan must include:
 
@@ -223,8 +223,8 @@ The plan gate is blocked until:
 <Output_Contract>
 Primary outputs:
 
-- approved plan package under `.LoopX/workflows/<slug>/`
-- canonical PRD and test spec under `.LoopX/plans/`
+- approved plan package under `.loopx/workflows/<slug>/`
+- canonical PRD and test spec under `.loopx/plans/`
 - consensus review summary with Planner / Architect / Critic evidence
 - next-step recommendation
 

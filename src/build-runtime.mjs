@@ -104,7 +104,7 @@ export function createRealBuildAdapter({ model } = {}) {
       const outputPath = join(context.root || context.cwd, 'build-support', `runtime-build-iteration-${context.iteration}.json`);
       await mkdir(join(context.root || context.cwd, 'build-support'), { recursive: true });
       const prompt = [
-        `You are acting as the real LoopX build runtime for workflow "${context.slug}".`,
+        `You are acting as the real loopx build runtime for workflow "${context.slug}".`,
         'Execute the approved build work in this repository and return only raw JSON with this shape:',
         '{',
         '  "lanes": [{"name": string, "status": "complete" | "failed" | "pending" | "skipped", "summary": string, "evidence": [{"id": string, "kind": string, "summary": string, "ref": string}]}],',

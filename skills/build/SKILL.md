@@ -1,13 +1,13 @@
 ---
 name: build
-description: Ralph-style LoopX execution runtime under the public build stage.
+description: Ralph-style loopx execution runtime under the public build stage.
 argument-hint: "[--no-deslop] <approved workflow slug>"
 ---
 
-# LoopX Build
+# loopx Build
 
 <Purpose>
-`build` is LoopX's canonical execution lane. It executes an approved plan with Ralph-style rigor while keeping the public LoopX stage surface unchanged.
+`build` is loopx's canonical execution lane. It executes an approved plan with Ralph-style rigor while keeping the public loopx stage surface unchanged.
 
 By default, `build` is not a one-shot draft writer. It is a persistence loop with internal parallel lanes, fresh verification, architect gating, deslop, and regression re-verification before `review` can start.
 </Purpose>
@@ -37,8 +37,8 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 `build` starts only when all of the following are true:
 
 - approved `plan -> build` transition exists
-- `.LoopX/plans/prd-<slug>.md` exists
-- `.LoopX/plans/test-spec-<slug>.md` exists
+- `.loopx/plans/prd-<slug>.md` exists
+- `.loopx/plans/test-spec-<slug>.md` exists
 - workflow-local planning artifacts required by the execution lane exist
 </Preconditions>
 

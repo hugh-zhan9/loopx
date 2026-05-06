@@ -1,13 +1,13 @@
 {
   "name": "loopx",
   "version": "0.1.1",
-  "description": "Skill-first LoopX workflow product for Codex",
+  "description": "Skill-first loopx workflow product for Codex",
   "skills": "./skills/",
   "interface": {
-    "displayName": "LoopX",
-    "shortDescription": "Thin plugin shell for the LoopX skill bundle.",
-    "longDescription": "This plugin mirrors the canonical LoopX skills and routes plugin installs through the shared LoopX install/discovery core. It stays plugin-root-relative at the manifest boundary and does not define a second LoopX implementation.",
-    "developerName": "LoopX",
+    "displayName": "loopx",
+    "shortDescription": "Thin plugin shell for the loopx skill bundle.",
+    "longDescription": "This plugin mirrors the canonical loopx skills and routes plugin installs through the shared loopx install/discovery core. It stays plugin-root-relative at the manifest boundary and does not define a second loopx implementation.",
+    "developerName": "loopx",
     "category": "Developer Tools"
   }
 }

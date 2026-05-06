@@ -1,12 +1,12 @@
 ---
 name: clarify
-description: Comprehensive LoopX clarify skill for requirements, boundaries, and design-ready specs.
+description: Comprehensive loopx clarify skill for requirements, boundaries, and design-ready specs.
 ---
 
-# LoopX Clarify
+# loopx Clarify
 
 <Purpose>
-`clarify` is LoopX's full pre-implementation clarification skill. It combines:
+`clarify` is loopx's full pre-implementation clarification skill. It combines:
 
 - the Socratic pressure and ambiguity control of `deep-interview`
 - the design-shaping discipline of `brainstorming`
@@ -47,7 +47,7 @@ Most implementation drift happens before coding begins. Teams often think they n
 
 <Profiles>
 - **Standard (`--standard`, default)**:
-  - default LoopX clarify mode
+  - default loopx clarify mode
   - target threshold: `<= 0.20`
   - max rounds: `15`
 - **Deep (`--deep`)**:
@@ -59,7 +59,7 @@ If no flag is provided, use **Standard**.
 </Profiles>
 
 <Runtime_State_Machine>
-`clarify` must maintain these runtime fields in `.LoopX/workflows/<slug>/state.json` and mirror them in the clarify spec frontmatter:
+`clarify` must maintain these runtime fields in `.loopx/workflows/<slug>/state.json` and mirror them in the clarify spec frontmatter:
 
 - `clarify_current_round` / `current_round`: starts at `0`; increments after each user-answer round.
 - `clarify_ambiguity_score` / `ambiguity_score`: starts at `1`; must be `<= clarify_target_ambiguity_threshold` before handoff.
@@ -157,9 +157,9 @@ The goal is not to produce a full architecture doc here. The goal is to make the
 
 ## 5. Write the Clarify Spec
 
-Write the output to the LoopX runtime namespace:
+Write the output to the loopx runtime namespace:
 
-- `.LoopX/specs/clarify-<slug>-<timestamp>.md`
+- `.loopx/specs/clarify-<slug>-<timestamp>.md`
 
 The clarify spec should include:
 
@@ -213,7 +213,7 @@ After the clarify spec is ready:
 </Must_Not_Decide_Automatically>
 
 <Output_Contract>
-- primary artifact: a LoopX clarify spec
+- primary artifact: a loopx clarify spec
 - secondary artifact: an explicit ambiguity register and next-step recommendation
 - preferred handoff: `plan`
 </Output_Contract>

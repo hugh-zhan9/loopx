@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-runtime.mjs';
-import { ensureLoopXRoot, resolveLoopXRoot } from './runtime-maintenance.mjs';
+import { ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
 import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build-runtime.mjs';
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
 
@@ -197,7 +197,7 @@ async function writeState(root, state) {
 }
 
 export function resolveWorkspaceRoot(cwd) {
-  return resolveLoopXRoot(cwd);
+  return resolveLoopxRoot(cwd);
 }
 
 export function resolveWorkflowRoot(cwd, slug) {
@@ -269,9 +269,9 @@ export async function readState(cwd, slug) {
 
 function buildWorkspaceReadme() {
   return [
-    '# LoopX Workspace',
+    '# loopx Workspace',
     '',
-    'This directory is initialized for the LoopX skill-first runtime contract.',
+    'This directory is initialized for the loopx skill-first runtime contract.',
     '',
     '## Default Flow',
     '',
@@ -311,7 +311,7 @@ function createInitialState(slug, profile) {
     ambiguity_items: [
       {
         id: 'A-1',
-        question: 'What specific task should LoopX execute in this workflow?',
+        question: 'What specific task should loopx execute in this workflow?',
         status: 'open',
         resolution: null,
       },
@@ -427,7 +427,7 @@ async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   await writeText(
     planPath,
     [
-      `# LoopX PRD: ${slug}`,
+      `# loopx PRD: ${slug}`,
       '',
       '## Plan',
       '',
@@ -464,7 +464,7 @@ async function ensurePlanWorkflowFromDirectSpec(cwd, directSpecPath, explicitSlu
   const specText = await readFile(resolvedSpecPath, 'utf8');
   const slug = explicitSlug ? normalizeSlug(explicitSlug) : deriveSlugFromSpecPath(resolvedSpecPath, specText);
   const root = resolveWorkflowRoot(cwd, slug);
-  await ensureLoopXRoot(cwd);
+  await ensureLoopxRoot(cwd);
   await ensureDir(root);
   await writeText(artifactPath(root, 'spec.md'), specText);
 
@@ -653,7 +653,7 @@ function buildExecutionRecordContent({ slug, iterationData, complete }) {
       checkpoint_count: iterationData.lanes.length,
       evidence_manifest: iterationData.lanes.flatMap((lane) => lane.evidence || []),
     }),
-    `# LoopX Execution Record: ${slug}`,
+    `# loopx Execution Record: ${slug}`,
     '',
     '## Changes',
     '',
@@ -812,7 +812,7 @@ async function readExecutionRecordSummary(root) {
 
 function recommendedAction(state, legacy = false) {
   if (legacy) {
-    return 'Legacy codex-helper workflow detected. Run loopx migrate or create a new LoopX workflow.';
+    return 'Legacy codex-helper workflow detected. Run loopx migrate or create a new loopx workflow.';
   }
 
   switch (state.current_stage) {
@@ -924,7 +924,7 @@ function executionRecordTemplate(slug, stage, actorId, runId) {
       checkpoint_count: 0,
       evidence_manifest: [],
     }),
-    `# LoopX Execution Record: ${slug}`,
+    `# loopx Execution Record: ${slug}`,
     '',
     '## Changes',
     '',
@@ -962,7 +962,7 @@ function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, r
       rollback_target: rollbackTarget,
       rollback_rationale: rollbackRationale ?? null,
     }),
-    `# LoopX Review Report: ${slug}`,
+    `# loopx Review Report: ${slug}`,
     '',
     '## Verdict',
     '',
@@ -996,7 +996,7 @@ async function refreshExecutionStatus(root, state) {
 
 export async function initWorkspace(cwd, { slug } = {}) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
-  await ensureLoopXRoot(cwd);
+  await ensureLoopxRoot(cwd);
   await ensureDir(join(workspaceRoot, 'context'));
   await ensureDir(join(workspaceRoot, 'workflows'));
   await ensureDir(join(workspaceRoot, 'specs'));
@@ -1005,7 +1005,7 @@ export async function initWorkspace(cwd, { slug } = {}) {
 
   const config = {
     schema_version: WORKSPACE_SCHEMA_VERSION,
-    tool: 'LoopX',
+    tool: 'loopx',
     product_contract: 'skill-first-v1',
     default_flow: ['clarify', 'plan', 'build', 'review', 'done'],
     preferred_surface: ['clarify', 'plan', 'build', 'review', 'autopilot'],
@@ -1029,7 +1029,7 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
   const normalized = normalizeSlug(slug);
   const clarifyProfile = normalizeClarifyProfile(profile);
   const root = resolveWorkflowRoot(cwd, normalized);
-  await ensureLoopXRoot(cwd);
+  await ensureLoopxRoot(cwd);
   await ensureDir(root);
   const stamp = nowStamp();
   await writeTemplateArtifact(root, 'spec.md', {
@@ -1180,6 +1180,8 @@ export async function planStage(cwd, slug, options = {}) {
     const artifactPaths = await writeCanonicalPlanArtifacts(cwd, root, normalized);
 
     architectReview = await adapter.architect({
+      cwd,
+      root,
       slug: normalized,
       sourceText,
       plannerDraft,
@@ -1187,6 +1189,8 @@ export async function planStage(cwd, slug, options = {}) {
       deliberateMode: Boolean(options.deliberate),
     });
     criticReview = await adapter.critic({
+      cwd,
+      root,
       slug: normalized,
       sourceText,
       plannerDraft,

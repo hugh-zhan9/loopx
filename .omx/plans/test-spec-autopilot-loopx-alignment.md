@@ -1,15 +1,15 @@
-# Test Spec: Autopilot LoopX Alignment
+# Test Spec: Autopilot loopx Alignment
 
 ## Purpose
 
-Validate that LoopX `autopilot` evolves from a thin bounded composition into a richer internal phase orchestrator while preserving LoopX's external stage model and canonical artifacts.
+Validate that loopx `autopilot` evolves from a thin bounded composition into a richer internal phase orchestrator while preserving loopx's external stage model and canonical artifacts.
 
 ## Scope
 
 - autopilot skill contract
 - autopilot runtime phase model
 - clarified-spec reuse
-- LoopX stage-runtime reuse
+- loopx stage-runtime reuse
 - control-event integrity
 - bounded autonomous completion
 
@@ -40,9 +40,9 @@ Validate that LoopX `autopilot` evolves from a thin bounded composition into a r
 
 ### 4. Stage-runtime reuse
 
-- planning phase uses LoopX `plan`
-- execution/qa uses LoopX `build`
-- validation complements LoopX `review` rather than replacing it
+- planning phase uses loopx `plan`
+- execution/qa uses loopx `build`
+- validation complements loopx `review` rather than replacing it
 
 ### 5. Control-event integrity
 
@@ -69,7 +69,7 @@ Validate that LoopX `autopilot` evolves from a thin bounded composition into a r
 ### 1. Richer happy-path autopilot
 
 - autopilot runs with richer internal phase progression
-- canonical LoopX artifacts are produced through stage runtimes
+- canonical loopx artifacts are produced through stage runtimes
 - control events are recorded
 - workflow completes cleanly
 
@@ -82,7 +82,7 @@ Validate that LoopX `autopilot` evolves from a thin bounded composition into a r
 ### 3. Plan/build integration path
 
 - autopilot works with strengthened `plan` and `build` runtimes rather than bypassing them
-- richer phase metadata still collapses back into LoopX stage truth
+- richer phase metadata still collapses back into loopx stage truth
 
 ### 4. Validation failure path
 
@@ -92,11 +92,11 @@ Validate that LoopX `autopilot` evolves from a thin bounded composition into a r
 
 ## Manual Smoke Checks
 
-1. Start with a bounded LoopX task.
+1. Start with a bounded loopx task.
 2. Run `loopx autopilot <slug>`.
 3. Confirm internal phase progression is richer than the previous thin wrapper.
 4. Confirm public stage semantics still read as `clarify / plan / build / review`.
-5. Confirm `.LoopX/autopilot/<slug>/run.json` contains stage-level control events plus richer internal phase metadata.
+5. Confirm `.loopx/autopilot/<slug>/run.json` contains stage-level control events plus richer internal phase metadata.
 6. Confirm canonical stage artifacts remain the source of truth.
 
 ## Exit Criteria

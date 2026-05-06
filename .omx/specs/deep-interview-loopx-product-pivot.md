@@ -1,4 +1,4 @@
-# Deep Interview Spec: LoopX product pivot
+# Deep Interview Spec: loopx product pivot
 
 ## Metadata
 
@@ -23,16 +23,16 @@
 
 ## Intent
 
-Turn the current `codex-helper` repo into `LoopX`, with a product shape centered on installable, Codex-discoverable built-in skills rather than CLI-first usage.
+Turn the current `codex-helper` repo into `loopx`, with a product shape centered on installable, Codex-discoverable built-in skills rather than CLI-first usage.
 
 ## Desired Outcome
 
-After installing the project, a user opens Codex and immediately sees the built-in `LoopX` skills, then uses `LoopX` through those skills directly.
+After installing the project, a user opens Codex and immediately sees the built-in `loopx` skills, then uses `loopx` through those skills directly.
 
 ## In Scope
 
 - Remove `team` from the current phase-level product contract.
-- Reframe the project identity from `codex-helper` to `LoopX`.
+- Reframe the project identity from `codex-helper` to `loopx`.
 - Make the skill surface the primary user-facing product surface.
 - Retain a CLI/runtime layer only as an underlying execution/debug substrate.
 - Migrate runtime-facing names as part of this phase:
@@ -43,7 +43,7 @@ After installing the project, a user opens Codex and immediately sees the built-
   - workspace/state directory naming
 - Use `workflow-reference.md` as an in-scope direction for the new product framing.
 - Ensure project installation itself performs the Codex-discoverable skill placement/registration needed for first-open usage.
-- Support both npm install and plugin install as first-class distribution surfaces over one shared LoopX core.
+- Support both npm install and plugin install as first-class distribution surfaces over one shared loopx core.
 
 ## Out of Scope / Non-goals
 
@@ -64,8 +64,8 @@ Must still be surfaced explicitly during planning or implementation if they beco
 
 - any compatibility shim that keeps old `codex-helper` runtime identifiers alive beyond a bounded migration path
 - any fallback that weakens “install once, open Codex, skills already present”
-- any partial rename that leaves user-facing surfaces split between `codex-helper` and `LoopX`
-- any install design that creates two parallel LoopX identities when npm and plugin are both present
+- any partial rename that leaves user-facing surfaces split between `codex-helper` and `loopx`
+- any install design that creates two parallel loopx identities when npm and plugin are both present
 
 ## Constraints
 
@@ -78,14 +78,14 @@ Must still be surfaced explicitly during planning or implementation if they beco
 
 ## Testable Acceptance Criteria
 
-- The repo presents itself as `LoopX`, not `codex-helper`, across user-facing product surfaces.
+- The repo presents itself as `loopx`, not `codex-helper`, across user-facing product surfaces.
 - `team` is removed from the current release contract and primary workflow framing.
-- The primary user entry is a built-in `LoopX` skill surface discoverable in Codex after project installation.
+- The primary user entry is a built-in `loopx` skill surface discoverable in Codex after project installation.
 - Users do not need to run a second explicit skill-install command after installing the project.
 - CLI remains available only as a supporting runtime/debug surface and is not the primary usage path.
 - Planning and later implementation artifacts reflect the renamed runtime/storage surfaces needed by the new product contract.
-- npm install and plugin install both resolve to one shared LoopX runtime/skill core.
-- If both install paths are present, Codex still exposes one LoopX skill set and one LoopX installation identity.
+- npm install and plugin install both resolve to one shared loopx runtime/skill core.
+- If both install paths are present, Codex still exposes one loopx skill set and one loopx installation identity.
 
 ## Assumptions Exposed + Resolutions
 
@@ -96,7 +96,7 @@ Must still be surfaced explicitly during planning or implementation if they beco
 - Assumption: skill could just be a doc wrapper around CLI-only flows.
   - resolution: rejected; skill must be directly usable as the real product surface
 - Assumption: npm and plugin could be separate but equivalent implementations.
-  - resolution: rejected; they must share one LoopX core
+  - resolution: rejected; they must share one loopx core
 - Assumption: dual installation could be left ambiguous.
   - resolution: rejected; dual install must collapse into one installation identity
 
@@ -104,7 +104,7 @@ Must still be surfaced explicitly during planning or implementation if they beco
 
 - Revisited earlier success claim: “install and use in Codex”.
 - Hidden assumption uncovered: what “install” actually means operationally.
-- Clarified result: a single project install must be sufficient for Codex to discover the built-in `LoopX` skills on open.
+- Clarified result: a single project install must be sufficient for Codex to discover the built-in `loopx` skills on open.
 
 ## Brownfield Evidence vs Inference
 
@@ -112,7 +112,7 @@ Must still be surfaced explicitly during planning or implementation if they beco
 
 - Current repo/product name is still `codex-helper`.
 - Current implementation already includes a `team` path.
-- `workflow-reference.md` already introduces a `LoopX` framing and `.LoopX/...` path direction.
+- `workflow-reference.md` already introduces a `loopx` framing and `.loopx/...` path direction.
 
 ### Inference
 
@@ -138,7 +138,7 @@ Must still be surfaced explicitly during planning or implementation if they beco
 
 - Why: this is a product-contract rewrite with rename, packaging, install/discovery, and skill-surface implications; it needs a new PRD and test spec before implementation.
 - Input artifact: `.omx/specs/deep-interview-loopx-product-pivot.md`
-- Expected output: updated planning artifacts for `LoopX`, replacing the prior `codex-helper` / team-in-V1 assumptions.
+- Expected output: updated planning artifacts for `loopx`, replacing the prior `codex-helper` / team-in-V1 assumptions.
 
 ### Optional later lanes
 

@@ -1,8 +1,8 @@
-# Test Spec: LoopX Skill-First V1
+# Test Spec: loopx Skill-First V1
 
 ## Purpose
 
-Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI-first runtime, while removing `team`, migrating runtime identity, and making bundled skills discoverable in Codex after project installation.
+Validate that `loopx` behaves as a skill-first product rather than a renamed CLI-first runtime, while removing `team`, migrating runtime identity, and making bundled skills discoverable in Codex after project installation.
 
 ## Scope
 
@@ -18,10 +18,10 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 
 ### 1. Install/discovery bootstrap
 
-- installing the project places or links LoopX-owned skills into the local user skill-discovery target
-- install writes one LoopX-owned `local` registry row per installed skill
+- installing the project places or links loopx-owned skills into the local user skill-discovery target
+- install writes one loopx-owned `local` registry row per installed skill
 - each row includes:
-  - `source=LoopX`
+  - `source=loopx`
   - `sourceType=local`
   - `installationIdentity=loopx`
   - `distributionChannel=npm|plugin`
@@ -33,7 +33,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
   - `updatedAt`
   - `skillFolderHash`
 - install is triggered by `postinstall` through `node scripts/install-skills.mjs`
-- plugin install reuses the same bootstrap core and does not register a second LoopX identity
+- plugin install reuses the same bootstrap core and does not register a second loopx identity
 - `loopx repair-install` reuses the same bootstrap entrypoint
 - repeated install is idempotent
 - failed bootstrap emits a deterministic repair signal
@@ -43,7 +43,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 - package name is `loopx`
 - CLI help and command examples use `loopx`
 - user-facing docs do not present `codex-helper` as the current product name
-- product runtime root is `.LoopX/...`
+- product runtime root is `.loopx/...`
 - orchestration/planning metadata under `.omx/...` is not incorrectly renamed into the product runtime
 
 ### 3. No-team contract enforcement
@@ -58,7 +58,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 - bundled skill metadata plus installed user-skill directories are jointly sufficient for Codex discovery
 - bundled skills are directly usable without asking the user to reconstruct the workflow through raw CLI primitives
 - stage approvals or confirmations, if retained, are accessible through the skill-facing journey rather than requiring CLI-first manual operation
-- npm-installed and plugin-installed LoopX must surface the same discoverable skill set
+- npm-installed and plugin-installed loopx must surface the same discoverable skill set
 
 ### 5. Runtime/debug CLI retention
 
@@ -75,7 +75,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 - `loopx autopilot` (or equivalent runtime entry) exists as a real backing path
 - V1 autopilot is explicitly validated as a composition surface over clarify/plan/build/review
 - autopilot internally records approval/control events instead of requiring the user to call `approve` mid-run
-- autopilot emits `.LoopX/autopilot/<slug>/run.json`
+- autopilot emits `.loopx/autopilot/<slug>/run.json`
 - autopilot does not require `team`
 - at least one end-to-end happy-path composition is testable
 
@@ -84,11 +84,11 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 ### 1. First-open discoverability
 
 - in a controlled fresh-home/profile test environment:
-  - pre-install state has no LoopX-owned skill directories
-  - pre-install state has no LoopX-owned registry rows
-  - project install via `postinstall` creates the expected LoopX-owned skill directories
-  - project install via `postinstall` creates the expected LoopX-owned registry rows
-  - Codex/agent discovery lookup shows the bundled LoopX skills without a second manual skill-install step
+  - pre-install state has no loopx-owned skill directories
+  - pre-install state has no loopx-owned registry rows
+  - project install via `postinstall` creates the expected loopx-owned skill directories
+  - project install via `postinstall` creates the expected loopx-owned registry rows
+  - Codex/agent discovery lookup shows the bundled loopx skills without a second manual skill-install step
 - the verified installed skill set includes:
   - `clarify`
   - `plan`
@@ -102,7 +102,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 - then install via plugin lifecycle wrapper
 - verify the resulting `~/.agents/skills/` entries are not duplicated
 - verify the resulting `~/.agents/.skill-lock.json` rows still represent one `installationIdentity=loopx` per skill
-- verify Codex discovery still exposes one LoopX skill set
+- verify Codex discovery still exposes one loopx skill set
 
 ### 1b. Plugin artifact layout
 
@@ -115,7 +115,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 ### 2. Skill-first happy path
 
 - install project
-- verify bundled LoopX skills are discoverable
+- verify bundled loopx skills are discoverable
 - run `clarify`
 - run `plan`
 - run `build`
@@ -124,7 +124,7 @@ Validate that `LoopX` behaves as a skill-first product rather than a renamed CLI
 This path must show:
 
 - skill-driven entry
-- LoopX naming throughout
+- loopx naming throughout
 - no `team`
 - no requirement for a second explicit skill install step
 
@@ -132,11 +132,11 @@ This path must show:
 
 - install project
 - discover `autopilot`
-- run one bounded happy-path automation flow over the retained LoopX runtime
+- run one bounded happy-path automation flow over the retained loopx runtime
 - confirm the flow composes clarify/plan/build/review rather than depending on a separate heavyweight autopilot runtime family
 - confirm the flow records internal approval/control events
-- confirm the flow emits `.LoopX/autopilot/<slug>/run.json`
-- verify outputs land under `.LoopX/...`
+- confirm the flow emits `.loopx/autopilot/<slug>/run.json`
+- verify outputs land under `.loopx/...`
 
 ### 4. Migration behavior
 
@@ -146,33 +146,33 @@ This path must show:
 
 ### 5. Brownfield regression protection
 
-- the retained deterministic runtime/debug substrate still works under the new LoopX name
+- the retained deterministic runtime/debug substrate still works under the new loopx name
 - artifact/state inspection remains predictable after the rename
 - skill bundling does not silently break core runtime flows
 
 ## Installer / Discovery Validation
 
-- LoopX install targets the user-skill discovery surface rather than bundled/system-only skill directories
+- loopx install targets the user-skill discovery surface rather than bundled/system-only skill directories
 - skill registry metadata matches installed skill paths and ownership rules
 - skill registry keys are written exactly as `skills["<skill-name>"]`
 - install cleanup/refresh logic avoids duplicates
 - plugin and npm shells converge on the same installed paths and registry rows
 - plugin shell calls the same shared bootstrap interface with `distributionChannel=plugin`
 - repair command can restore discoverability after a broken registry state
-- repair does not mutate unrelated non-LoopX skills
+- repair does not mutate unrelated non-loopx skills
 - symlink fallback behavior is deterministic and observable
 
 ## Review Validation
 
 - review remains part of the product contract
 - review is still independent from build execution
-- review artifacts and runtime messages use LoopX naming
+- review artifacts and runtime messages use loopx naming
 - review happy path does not depend on `team`
 
 ## Negative / Absence Checks
 
-- `team` skill is absent from installed LoopX skill bundle
-- `team` command is absent from the public LoopX CLI help
+- `team` skill is absent from installed loopx skill bundle
+- `team` command is absent from the public loopx CLI help
 - `team` is absent from product-mode selection docs
 - `team` is absent from release-level acceptance criteria
 - no user-facing command examples require `codex-helper`
@@ -180,15 +180,15 @@ This path must show:
 ## Manual Smoke Checks
 
 1. Install the project into a fresh test home/profile.
-2. Confirm no LoopX-owned rows exist in `~/.agents/.skill-lock.json` before install.
-3. Run install and verify `postinstall` creates LoopX-owned skill directories plus LoopX-owned registry rows.
-4. Install through the plugin lifecycle wrapper and confirm the same LoopX identity is reused rather than duplicated.
+2. Confirm no loopx-owned rows exist in `~/.agents/.skill-lock.json` before install.
+3. Run install and verify `postinstall` creates loopx-owned skill directories plus loopx-owned registry rows.
+4. Install through the plugin lifecycle wrapper and confirm the same loopx identity is reused rather than duplicated.
 5. Validate the real plugin artifact layout under `plugins/loopx/`.
-6. Open Codex/agent discovery and confirm bundled LoopX skills are visible immediately.
+6. Open Codex/agent discovery and confirm bundled loopx skills are visible immediately.
 7. Confirm no second explicit skill-install command is needed.
-8. Trigger one LoopX skill and confirm it uses LoopX naming and product runtime paths.
+8. Trigger one loopx skill and confirm it uses loopx naming and product runtime paths.
 9. Confirm `team` is not offered as a release workflow option.
-10. Run `loopx autopilot` (or the equivalent skill) and confirm it uses the bounded composition model, records internal approvals, and writes `.LoopX/autopilot/<slug>/run.json`.
+10. Run `loopx autopilot` (or the equivalent skill) and confirm it uses the bounded composition model, records internal approvals, and writes `.loopx/autopilot/<slug>/run.json`.
 11. Run CLI help and confirm `approve` / `status` / `doctor` / `migrate` / `repair-install` are present and `team` is absent.
 12. Simulate a broken install/discovery registry and confirm `loopx repair-install` repairs it without touching unrelated skills.
 13. Place a legacy `.codex-helper` runtime directory and confirm migration or explicit rejection behavior.
@@ -200,10 +200,10 @@ This path must show:
 - dual-install convergence tests pass
 - rename migration tests pass
 - no-team contract tests pass
-- bundled LoopX skills are discoverable after install
-- runtime/debug CLI still works under the LoopX name
+- bundled loopx skills are discoverable after install
+- runtime/debug CLI still works under the loopx name
 - bounded autopilot composition tests pass
-- public LoopX CLI contract tests pass
+- public loopx CLI contract tests pass
 - migration/repair behavior is proven
 
 ## Suggested Verification Commands

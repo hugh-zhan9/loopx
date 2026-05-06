@@ -46,7 +46,7 @@ function parseArgs(argv) {
 
 function printHumanStatus(status) {
   if (!status.initialized) {
-    console.log('LoopX workspace is not initialized.');
+    console.log('loopx workspace is not initialized.');
     console.log(status.next_action);
     return;
   }

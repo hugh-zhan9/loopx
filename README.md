@@ -1,15 +1,15 @@
-# LoopX
+# loopx
 
-`LoopX` is a skill-first workflow product for Codex. It supports two first-class distribution shells:
+`loopx` is a skill-first workflow product for Codex. It supports two first-class distribution shells:
 
 - npm/global install
 - Codex plugin install
 
-Both shells converge on one shared LoopX core and one visible LoopX skill set.
+Both shells converge on one shared loopx core and one visible loopx skill set.
 
 ## Release Contract
 
-The active LoopX release flow is:
+The active loopx release flow is:
 
 `clarify -> plan -> build -> review`
 
@@ -27,25 +27,25 @@ There is no public `team` surface in this release.
 
 - skill-first for normal use
 - retained CLI/runtime/debug substrate for maintenance and inspection
-- explicit local artifacts and state under `.LoopX/`
+- explicit local artifacts and state under `.loopx/`
 - bounded migration from legacy `.codex-helper/`
 
 ## Runtime Namespace
 
-LoopX user-facing runtime state is stored under:
+loopx user-facing runtime state is stored under:
 
 ```text
-.LoopX/
+.loopx/
 ```
 
 Key subtrees:
 
-- `.LoopX/specs/`
-- `.LoopX/plans/`
-- `.LoopX/workflows/<slug>/`
-- `.LoopX/autopilot/<slug>/`
+- `.loopx/specs/`
+- `.loopx/plans/`
+- `.loopx/workflows/<slug>/`
+- `.loopx/autopilot/<slug>/`
 
-The `.omx/` tree remains orchestration/planning metadata and is not part of the LoopX runtime rename.
+The `.omx/` tree remains orchestration/planning metadata and is not part of the loopx runtime rename.
 
 ## CLI Surface
 
@@ -65,11 +65,11 @@ loopx migrate
 loopx repair-install
 ```
 
-The CLI is supporting runtime/debug tooling. The intended user-facing product surface is the bundled LoopX skills.
+The CLI is supporting runtime/debug tooling. The intended user-facing product surface is the bundled loopx skills.
 
 ## Install and Discovery
 
-LoopX supports two install paths that both reuse the same shared install/discovery core:
+loopx supports two install paths that both reuse the same shared install/discovery core:
 
 - npm/global install:
   - `npm install -g @ai-content-space/loopx`
@@ -79,24 +79,24 @@ LoopX supports two install paths that both reuse the same shared install/discove
 
 Bootstrap behavior:
 
-- materializes LoopX-owned skills under `~/.agents/skills/`
-- updates LoopX-owned `local` rows in `~/.agents/.skill-lock.json`
+- materializes loopx-owned skills under `~/.agents/skills/`
+- updates loopx-owned `local` rows in `~/.agents/.skill-lock.json`
 - keeps install idempotent
 - supports repair through `loopx repair-install`
 - converges npm and plugin installs onto one `installationIdentity=loopx`
 
 Discovery is valid only when both are true:
 
-- the installed LoopX skill directory exists
-- the matching LoopX-owned registry row exists
+- the installed loopx skill directory exists
+- the matching loopx-owned registry row exists
 
-If both npm and plugin installs are present, Codex should still expose one LoopX skill set rather than duplicates.
+If both npm and plugin installs are present, Codex should still expose one loopx skill set rather than duplicates.
 
 ## Legacy Migration
 
 - legacy `.codex-helper/` runtime state is migrated through `loopx migrate`
-- mixed `.LoopX/` and `.codex-helper/` roots are treated as a repairable error
-- public docs, package, CLI, and skill names use `LoopX`
+- mixed `.loopx/` and `.codex-helper/` roots are treated as a repairable error
+- public docs, package, CLI, and skill names use `loopx`
 
 ## Verification
 

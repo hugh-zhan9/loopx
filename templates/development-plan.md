@@ -6,7 +6,7 @@ execution_mode_readiness: build
 stage_owner: plan
 ---
 
-# LoopX Development Plan: <task name>
+# loopx Development Plan: <task name>
 
 ## Execution Breakdown
 

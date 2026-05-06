@@ -1,8 +1,9 @@
 .DS_Store
 .idea/
-.LoopX/
+.loopx/
 .codex-helper/
 
 .omx/logs/
 .omx/state/
 .omx/metrics.json
+.omx/

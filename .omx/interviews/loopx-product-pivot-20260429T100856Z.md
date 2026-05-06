@@ -1,8 +1,8 @@
-# Deep Interview Summary: LoopX product pivot
+# Deep Interview Summary: loopx product pivot
 
 ## Topic
 
-Reframe the current `codex-helper` repo into `LoopX`, remove `team` from this phase, and clarify the install/use model before further planning.
+Reframe the current `codex-helper` repo into `loopx`, remove `team` from this phase, and clarify the install/use model before further planning.
 
 ## Final Ambiguity Assessment
 
@@ -26,26 +26,26 @@ Reframe the current `codex-helper` repo into `LoopX`, remove `team` from this ph
 
 ### Primary product surface
 
-- `LoopX` must be used primarily as a Codex skill.
+- `loopx` must be used primarily as a Codex skill.
 - CLI remains in the repo, but only as an underlying runtime / debug surface.
 - CLI-first usage is explicitly not the desired user experience.
 
 ### Completion signal
 
 - A user installs the project and then opens Codex.
-- Codex already shows the built-in `LoopX` skills.
+- Codex already shows the built-in `loopx` skills.
 - The user can use those skills directly without a separate skill-install command.
 
 ### Rename boundary
 
 - Rename is not doc-only.
-- Product name, skill name, CLI name, package name, and workspace/state directory naming all move to `LoopX` in this phase.
+- Product name, skill name, CLI name, package name, and workspace/state directory naming all move to `loopx` in this phase.
 
 ### Dual distribution boundary
 
 - Both npm install and plugin install are first-class distribution surfaces.
-- They must remain two distribution shells over one shared LoopX runtime and one shared LoopX skill core.
-- If the user installs both, the system must collapse them into one LoopX installation identity rather than surfacing duplicate skills or parallel registrations.
+- They must remain two distribution shells over one shared loopx runtime and one shared loopx skill core.
+- If the user installs both, the system must collapse them into one loopx installation identity rather than surfacing duplicate skills or parallel registrations.
 
 ### Non-goals made explicit
 
@@ -73,4 +73,4 @@ This interview is ready to hand off to planning.
 6. User clarified that install must auto-place/register the skills without a second install step.
 7. User required full rename migration, including runtime identifiers and storage directories.
 8. User clarified that npm and plugin must share one core implementation.
-9. User clarified that dual installation must merge into one LoopX installation identity.
+9. User clarified that dual installation must merge into one loopx installation identity.

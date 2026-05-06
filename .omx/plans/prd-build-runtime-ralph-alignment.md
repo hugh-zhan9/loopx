@@ -2,7 +2,7 @@
 
 ## Requirements Summary
 
-This change aligns the public `loopx build` stage with the Ralph-style execution discipline documented in `skills/ralph/SKILL.md`, while keeping the public LoopX stage surface unchanged.
+This change aligns the public `loopx build` stage with the Ralph-style execution discipline documented in `skills/ralph/SKILL.md`, while keeping the public loopx stage surface unchanged.
 
 The target behavior is:
 
@@ -32,7 +32,7 @@ This plan is grounded in:
   - sets `execution_record_status=partial`
   - stops without any execution loop, verification, architect gate, or re-verification cycle
 - `reviewStage()` already treats `execution-record.md` as the canonical evidence gate for `build -> review`.
-- There is no public `team` execution lane in the current LoopX release surface.
+- There is no public `team` execution lane in the current loopx release surface.
 - `skills/ralph/SKILL.md` includes:
   - persistence loop
   - internal parallel delegation
@@ -48,8 +48,8 @@ This plan is grounded in:
 
 - `build` starts only from approved planning inputs:
   - approved `plan -> build` transition
-  - `.LoopX/plans/prd-<slug>.md`
-  - `.LoopX/plans/test-spec-<slug>.md`
+  - `.loopx/plans/prd-<slug>.md`
+  - `.loopx/plans/test-spec-<slug>.md`
   - workflow-local plan artifacts required by the execution lane
 - `loopx build` runs as a persistence loop until:
   - execution is complete and verified, or
@@ -130,7 +130,7 @@ This plan is grounded in:
 ### Principles
 
 1. Runtime behavior must match the public stage contract.
-2. `build` may become internally stronger without changing the public LoopX stage surface.
+2. `build` may become internally stronger without changing the public loopx stage surface.
 3. Execution quality gates must be explicit and machine-checkable.
 4. Review independence must be preserved.
 5. Canonical evidence stays concentrated in `execution-record.md`.
@@ -186,7 +186,7 @@ Why:
 
 ### Decision
 
-Implement Ralph-style execution semantics directly inside LoopX `build` runtime, with internal parallel lanes, explicit verification and architect gating, optional deslop skipping only through an explicit build flag, and post-deslop regression re-verification. Keep `execution-record.md` as the sole canonical execution artifact and keep `review` independent.
+Implement Ralph-style execution semantics directly inside loopx `build` runtime, with internal parallel lanes, explicit verification and architect gating, optional deslop skipping only through an explicit build flag, and post-deslop regression re-verification. Keep `execution-record.md` as the sole canonical execution artifact and keep `review` independent.
 
 ### Drivers
 

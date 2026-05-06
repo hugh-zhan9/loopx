@@ -5,7 +5,7 @@ stage: plan
 verification_checklist_status: drafted
 ---
 
-# LoopX Test Plan: <task name>
+# loopx Test Plan: <task name>
 
 ## Unit
 

@@ -1,4 +1,4 @@
-# LoopX 工作流全景参考
+# loopx 工作流全景参考
 
 
 ---
@@ -72,7 +72,7 @@
 
 ```
 步骤0: Pre-context 收集
-       → 生成 .LoopX/context/{task-slug}-{timestamp}.md
+       → 生成 .loopx/context/{task-slug}-{timestamp}.md
        → 包含：任务陈述、期望结果、已知事实、约束、未知、代码触点
        → 如高歧义：先 explore → clarify --quick
          ↓
@@ -152,12 +152,12 @@
 Phase 0 — 扩展
   ├─ Analyst（THOROUGH tier）：提取需求
   └─ Architect（THOROUGH tier）：创建技术规格
-  → 输出：.LoopX/plans/autopilot-spec.md
+  → 输出：.loopx/plans/autopilot-spec.md
          ↓
 Phase 1 — 规划
   ├─ Architect（THOROUGH tier）：创建实现计划
   └─ Critic（THOROUGH tier）：验证计划
-  → 输出：.LoopX/plans/autopilot-impl.md
+  → 输出：.loopx/plans/autopilot-impl.md
          ↓
 Phase 2 — 执行
   → 调用 build + Ultrawork 并行实现
@@ -236,7 +236,7 @@ Phase 5 — 清理
 步骤4: 结晶
        → 至少一次显式压力回访（回顾之前的回答）
        → 输出执行就绪的规格文档
-       → 写入 .LoopX/specs/clarify-{slug}-{timestamp}.md
+       → 写入 .loopx/specs/clarify-{slug}-{timestamp}.md
          ↓
 步骤5: 交给下游
        → plan / autopilot / build  拿到 spec 直接用
@@ -261,7 +261,7 @@ Phase 5 — 清理
   A: ~10万条，必须全量加载
   Ambiguity: 0.18 → below threshold
 
-  Spec written to .LoopX/specs/clarify-perf-{timestamp}.md
+  Spec written to .loopx/specs/clarify-perf-{timestamp}.md
   ```
 
 ---

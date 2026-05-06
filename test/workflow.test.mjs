@@ -11,7 +11,7 @@ import { installBundledSkills, verifyInstallState } from '../src/install-discove
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
-import { migrateLegacyRuntime, resolveLegacyRoot, resolveLoopXRoot } from '../src/runtime-maintenance.mjs';
+import { migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
   approveStage,
   autopilotStage,
@@ -81,7 +81,7 @@ async function writeResolvedSpec(root, slug, overrides = {}) {
       `unresolved_ambiguity_count: ${meta.unresolved_ambiguity_count}`,
       '---',
       '',
-      `# LoopX Spec: ${slug}`,
+      `# loopx Spec: ${slug}`,
       '',
       '## Ambiguity List',
       '',
@@ -89,11 +89,11 @@ async function writeResolvedSpec(root, slug, overrides = {}) {
       '',
       '## Clarified Answers',
       '',
-      '- LoopX should continue to the next stage.',
+      '- loopx should continue to the next stage.',
       '',
       '## In Scope',
       '',
-      '- Run the bounded LoopX flow.',
+      '- Run the bounded loopx flow.',
       '',
       '## Non-Goals',
       '',
@@ -129,7 +129,7 @@ async function writePassingExecutionRecord(root, slug, { actorId = 'builder-1' }
       'evidence_manifest: [{"id":"test-1","kind":"test","summary":"unit tests passed","ref":"node --test test/*.test.mjs"}]',
       '---',
       '',
-      `# LoopX Execution Record: ${slug}`,
+      `# loopx Execution Record: ${slug}`,
       '',
       '## Changes',
       '',
@@ -168,8 +168,8 @@ function loopxEnv(home) {
   };
 }
 
-describe('LoopX skill-first workflow contract', () => {
-  it('postinstall bootstrap creates discoverable LoopX skills with local registry rows', async () => {
+describe('loopx skill-first workflow contract', () => {
+  it('postinstall bootstrap creates discoverable loopx skills with local registry rows', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-install-home-'));
     const env = loopxEnv(home);
 
@@ -183,7 +183,7 @@ describe('LoopX skill-first workflow contract', () => {
     for (const [skillName, info] of Object.entries(after.inspection.skills)) {
       assert.equal(info.installedDirExists, true, skillName);
       assert.equal(info.registryRowExists, true, skillName);
-      assert.equal(info.registryRow.source, 'LoopX');
+      assert.equal(info.registryRow.source, 'loopx');
       assert.equal(info.registryRow.sourceType, 'local');
       assert.equal(info.registryRow.installationIdentity, 'loopx');
       assert.equal(info.registryRow.distributionChannel, 'npm');
@@ -195,7 +195,7 @@ describe('LoopX skill-first workflow contract', () => {
     }
   });
 
-  it('npm install followed by plugin install converges on one LoopX identity with merged provenance', async () => {
+  it('npm install followed by plugin install converges on one loopx identity with merged provenance', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-dual-install-home-'));
     const env = loopxEnv(home);
     const pluginInstallScript = resolve(repoRoot, 'plugins/loopx/scripts/plugin-install.mjs');
@@ -223,7 +223,7 @@ describe('LoopX skill-first workflow contract', () => {
     }
   });
 
-  it('postinstall fails loudly when a foreign same-name skill blocks LoopX ownership', async () => {
+  it('postinstall fails loudly when a foreign same-name skill blocks loopx ownership', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-postinstall-conflict-'));
     const env = loopxEnv(home);
     const foreignSkillDir = join(home, '.agents', 'skills', 'clarify');
@@ -300,7 +300,7 @@ describe('LoopX skill-first workflow contract', () => {
     assert.equal(existsSync(join(foreignSkillDir, 'FOREIGN.txt')), true);
   });
 
-  it('repair-install repairs stale LoopX-owned installedPath entries', async () => {
+  it('repair-install repairs stale loopx-owned installedPath entries', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-stale-home-'));
     const env = loopxEnv(home);
     const staleDir = join(home, '.agents', 'skills-stale', 'clarify');
@@ -313,7 +313,7 @@ describe('LoopX skill-first workflow contract', () => {
       version: 3,
       skills: {
         'clarify': {
-          source: 'LoopX',
+          source: 'loopx',
           sourceType: 'local',
           sourceUrl: repoRoot,
           skillPath: 'skills/clarify/SKILL.md',
@@ -334,10 +334,10 @@ describe('LoopX skill-first workflow contract', () => {
 
     const lock = JSON.parse(await readFile(lockPath, 'utf8'));
     assert.equal(lock.skills['clarify'].installedPath, canonicalDir);
-    assert.equal(lock.skills['clarify'].source, 'LoopX');
+    assert.equal(lock.skills['clarify'].source, 'loopx');
   });
 
-  it('repair-install rejects stale LoopX-owned rows when the canonical target is occupied by foreign content', async () => {
+  it('repair-install rejects stale loopx-owned rows when the canonical target is occupied by foreign content', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-stale-foreign-canonical-'));
     const env = loopxEnv(home);
     const staleDir = join(home, '.agents', 'skills-stale', 'clarify');
@@ -352,7 +352,7 @@ describe('LoopX skill-first workflow contract', () => {
       version: 3,
       skills: {
         'clarify': {
-          source: 'LoopX',
+          source: 'loopx',
           sourceType: 'local',
           sourceUrl: repoRoot,
           skillPath: 'skills/clarify/SKILL.md',
@@ -383,14 +383,14 @@ describe('LoopX skill-first workflow contract', () => {
     assert.equal(lock.skills['clarify'].installedPath, staleDir);
   });
 
-  it('initializes a LoopX workspace and requires approval before planning', async () => {
+  it('initializes a loopx workspace and requires approval before planning', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-init-'));
     const result = await initWorkspace(wd, { slug: 'demo-init' });
     const workspaceRoot = resolveWorkspaceRoot(wd);
     const workflowRoot = resolveWorkflowRoot(wd, 'demo-init');
 
     assert.equal(result.workspaceRoot, workspaceRoot);
-    assert.equal(workspaceRoot, resolve(wd, '.LoopX'));
+    assert.equal(workspaceRoot, resolve(wd, '.loopx'));
     assert.equal(existsSync(join(workflowRoot, 'spec.md')), true);
     assert.equal(existsSync(join(workspaceRoot, 'context')), true);
 
@@ -405,7 +405,7 @@ describe('LoopX skill-first workflow contract', () => {
     assert.equal(state.clarify_non_goals_resolved, false);
     assert.equal(state.clarify_decision_boundaries_resolved, false);
     assert.equal(state.clarify_pressure_pass_complete, false);
-    assert.match(state.spec_artifact_path, /\.LoopX\/specs\/clarify-demo-init-\d{8}T\d{6}Z\.md$/);
+    assert.match(state.spec_artifact_path, /\.loopx\/specs\/clarify-demo-init-\d{8}T\d{6}Z\.md$/);
     assert.equal(existsSync(state.spec_artifact_path), true);
 
     await assert.rejects(
@@ -430,7 +430,7 @@ describe('LoopX skill-first workflow contract', () => {
       adapter: createScriptedPlanAdapter(),
     });
     assert.equal(existsSync(join(planned.root, 'development-plan.md')), true);
-    assert.match(planned.state.spec_artifact_path, /\.LoopX\/specs\/clarify-flow-\d{8}T\d{6}Z\.md$/);
+    assert.match(planned.state.spec_artifact_path, /\.loopx\/specs\/clarify-flow-\d{8}T\d{6}Z\.md$/);
     assert.equal(existsSync(planned.state.spec_artifact_path), true);
     assert.equal(planned.state.plan_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'prd-flow.md'));
     assert.equal(planned.state.test_spec_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'test-spec-flow.md'));
@@ -733,7 +733,7 @@ describe('LoopX skill-first workflow contract', () => {
     assert.equal(state.autopilot_completed, false);
   });
 
-  it('migrates legacy .codex-helper runtime to .LoopX', async () => {
+  it('migrates legacy .codex-helper runtime to .loopx', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-migrate-'));
     await mkdir(resolveLegacyRoot(wd), { recursive: true });
     await writeFile(join(resolveLegacyRoot(wd), 'README.md'), 'legacy\n');
@@ -741,7 +741,7 @@ describe('LoopX skill-first workflow contract', () => {
     const result = await migrateLegacyRuntime(wd);
     assert.equal(result.migrated, true);
     assert.equal(existsSync(resolveLegacyRoot(wd)), false);
-    assert.equal(existsSync(resolveLoopXRoot(wd)), true);
+    assert.equal(existsSync(resolveLoopxRoot(wd)), true);
   });
 
   it('status marks legacy codex-helper workflows explicitly', async () => {

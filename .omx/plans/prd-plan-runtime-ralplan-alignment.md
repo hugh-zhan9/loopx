@@ -8,8 +8,8 @@ The target behavior is:
 
 - `loopx plan` runs a real internal `Planner -> Architect -> Critic` planning loop
 - the loop is planning-only and stops after approved planning artifacts are complete
-- the canonical approved plan remains `.LoopX/plans/prd-<slug>.md`
-- the canonical test spec remains `.LoopX/plans/test-spec-<slug>.md`
+- the canonical approved plan remains `.loopx/plans/prd-<slug>.md`
+- the canonical test spec remains `.loopx/plans/test-spec-<slug>.md`
 - completion is blocked until the following Chinese docs also exist:
   - `docs/<slug>/架构文档.md`
   - `docs/<slug>/设计文档.md`
@@ -29,8 +29,8 @@ This plan is grounded in:
 - `skills/ralplan/SKILL.md` has already been reduced to a compatibility alias.
 - `src/workflow.mjs` `planStage()` currently only:
   - copies `spec.md`
-  - writes four plan artifacts under `.LoopX/workflows/<slug>/`
-  - writes `.LoopX/plans/prd-<slug>.md` and `.LoopX/plans/test-spec-<slug>.md`
+  - writes four plan artifacts under `.loopx/workflows/<slug>/`
+  - writes `.loopx/plans/prd-<slug>.md` and `.loopx/plans/test-spec-<slug>.md`
   - marks `plan_package_status=complete`
 - the current runtime does not track:
   - plan iteration count
@@ -56,8 +56,8 @@ This plan is grounded in:
 
 ### Artifact contract
 
-- the canonical approved plan is `.LoopX/plans/prd-<slug>.md`
-- the canonical test spec is `.LoopX/plans/test-spec-<slug>.md`
+- the canonical approved plan is `.loopx/plans/prd-<slug>.md`
+- the canonical test spec is `.loopx/plans/test-spec-<slug>.md`
 - the runtime also writes these blocking Chinese docs:
   - `docs/<slug>/架构文档.md`
   - `docs/<slug>/设计文档.md`
@@ -95,9 +95,9 @@ This plan is grounded in:
 
 - do not add execution orchestration to `plan`
 - do not widen scope into `build`, `review`, or `autopilot` runtime redesign
-- do not move approved plan artifacts out of `.LoopX/plans/`
+- do not move approved plan artifacts out of `.loopx/plans/`
 - do not make docs optional or best-effort
-- do not reintroduce a public `team` planning surface into LoopX
+- do not reintroduce a public `team` planning surface into loopx
 
 ## Decision Boundaries
 
@@ -225,7 +225,7 @@ This is the smallest change that makes runtime truth match the contract the prod
    - write `docs/<slug>/设计文档.md`
    - write `docs/<slug>/测试计划.md`
    - ensure docs are generated in Chinese from the same approved planning source, not as unrelated post-hoc files
-   - keep `.LoopX/plans/prd-<slug>.md` and `.LoopX/plans/test-spec-<slug>.md` canonical
+   - keep `.loopx/plans/prd-<slug>.md` and `.loopx/plans/test-spec-<slug>.md` canonical
 
 5. Upgrade CLI/status visibility.
    - expose plan iteration and review state

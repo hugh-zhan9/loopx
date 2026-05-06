@@ -12,7 +12,7 @@ checkpoint_count: <checkpoint count>
 evidence_manifest: [{"id":"<evidence id>","kind":"artifact","summary":"<summary>","ref":"<ref>"}]
 ---
 
-# LoopX Execution Record: <task name>
+# loopx Execution Record: <task name>
 
 ## Changes
 

@@ -1,13 +1,13 @@
 ---
 name: ralplan
-description: Compatibility alias for the default consensus-first LoopX plan skill
+description: Compatibility alias for the default consensus-first loopx plan skill
 ---
 
 # Ralplan
 
 `ralplan` is a compatibility alias for `$plan`.
 
-LoopX `plan` is consensus-first by default, so `ralplan` must not define or maintain a separate planning workflow.
+loopx `plan` is consensus-first by default, so `ralplan` must not define or maintain a separate planning workflow.
 
 ## Canonical Invocation
 

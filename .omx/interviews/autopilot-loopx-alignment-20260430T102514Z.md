@@ -11,7 +11,7 @@
 
 - `skills/autopilot/SKILL.md` in `codex-helper` is currently a thin bounded composition surface.
 - `/Users/zhangyukun/project/oh-my-codex/skills/autopilot/SKILL.md` is a richer multi-phase autonomous workflow reference.
-- `src/workflow.mjs` `autopilotStage()` currently runs a direct `clarify -> plan -> build -> review` composition and writes `.LoopX/autopilot/<slug>/run.json`.
+- `src/workflow.mjs` `autopilotStage()` currently runs a direct `clarify -> plan -> build -> review` composition and writes `.loopx/autopilot/<slug>/run.json`.
 
 ## Transcript
 
@@ -25,14 +25,14 @@
 ### Round 2
 
 - Target: phase-mapping-boundary
-- Question: Must autopilot only map onto current LoopX stages, or may it introduce finer-grained internal phases?
+- Question: Must autopilot only map onto current loopx stages, or may it introduce finer-grained internal phases?
 - Answer: it may introduce finer-grained internal phases
 - Effect: richer internal orchestration is allowed
 
 ### Round 3
 
 - Target: public-stage-stability
-- Question: Should those finer-grained phases remain internal while external users still see LoopX's four stages?
+- Question: Should those finer-grained phases remain internal while external users still see loopx's four stages?
 - Answer: yes
 - Effect: public `clarify / plan / build / review` surface remains stable
 
@@ -46,22 +46,22 @@
 ### Round 5
 
 - Target: pressure-pass-reference-scope
-- Question: Should LoopX autopilot inherit the reference autopilot's multi-phase orchestration ideas, QA/validation concepts, and reviewer roles as long as they still collapse back into LoopX's external stage model and artifact contract?
+- Question: Should loopx autopilot inherit the reference autopilot's multi-phase orchestration ideas, QA/validation concepts, and reviewer roles as long as they still collapse back into loopx's external stage model and artifact contract?
 - Answer: yes
-- Effect: richer internal phase model and reviewer concepts may be imported, but LoopX remains authoritative externally
+- Effect: richer internal phase model and reviewer concepts may be imported, but loopx remains authoritative externally
 
 ### Round 6
 
 - Target: non-goals
-- Question: Should non-goals include no new external stage family, no bypass of LoopX canonical artifacts, and no literal port where it conflicts with LoopX runtime contracts?
+- Question: Should non-goals include no new external stage family, no bypass of loopx canonical artifacts, and no literal port where it conflicts with loopx runtime contracts?
 - Answer: confirmed
-- Effect: scope stays LoopX-native rather than parent-autopilot-literal
+- Effect: scope stays loopx-native rather than parent-autopilot-literal
 
 ## Pressure Pass
 
 - Revisited earlier answer: "reference parent autopilot"
 - Pressure question: whether the parent skill should be copied literally or only adapted conceptually
-- Result: internal multi-phase/reviewer ideas may transfer, but LoopX external stages and canonical artifacts remain authoritative
+- Result: internal multi-phase/reviewer ideas may transfer, but loopx external stages and canonical artifacts remain authoritative
 
 ## Readiness Gates
 
