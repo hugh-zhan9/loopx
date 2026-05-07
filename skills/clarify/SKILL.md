@@ -135,6 +135,12 @@ The goal is not to produce a full architecture doc here. The goal is to make the
 ## 2. Interview
 
 - Ask one question per round.
+- Before asking each question, show a compact status line with:
+  - `round`: current round and max rounds
+  - `ambiguity_score`: current score
+  - `target`: selected profile threshold
+  - `open_items`: unresolved ambiguity count
+- After the user answers and the round is updated, show the revised `ambiguity_score`, whether it moved up/down/unchanged, and the main reason for that change before asking the next question.
 - After each answered round, update `current_round`, the ambiguity register, and `ambiguity_score`.
 - Target the weakest unresolved dimension.
 - Keep `Non-goals` and `Decision Boundaries` explicit from early in the process.
