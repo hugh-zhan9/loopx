@@ -1,0 +1,298 @@
+# loopx
+
+[English](./README.md)
+
+`loopx` 是一个面向 Codex 的 skill-first 工作流工具包。它把需求澄清、共识规划、持久执行、独立评审组织成一条可追踪的本地工作流，并通过 CLI 与 Codex Skill 两种方式暴露同一套运行时。
+
+当前公开流程：
+
+```text
+clarify -> plan -> build -> review
+```
+
+其中 `autopilot` 是端到端编排入口，会在内部复用这套公开阶段，而不是引入另一套流程真相。
+
+## 特性
+
+- 安装并公开 `clarify`、`plan`、`build`、`review`、`autopilot` 五个 loopx Codex skills。
+- 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
+- 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
+- `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
+- `build` 默认包含执行记录、验证证据、架构验收、deslop 清理和回归再验证。
+- `review` 作为独立验收面，输出中文评审结论和 go/no-go 判断。
+- 支持从旧 `.codex-helper/` 运行时迁移到 `.loopx/`。
+
+## 安装
+
+### npm 全局安装
+
+```bash
+npm install -g @ai-content-space/loopx
+```
+
+安装后会自动运行：
+
+```bash
+node scripts/install-skills.mjs
+```
+
+该脚本会把 loopx 管理的 skills 安装到：
+
+```text
+~/.agents/skills/
+```
+
+并更新：
+
+```text
+~/.agents/.skill-lock.json
+```
+
+### Codex plugin 安装
+
+插件入口位于：
+
+```text
+plugins/loopx/
+```
+
+插件安装脚本：
+
+```bash
+node plugins/loopx/scripts/plugin-install.mjs
+```
+
+npm 安装和 plugin 安装会收敛到同一个 `installationIdentity=loopx`，避免 Codex 里出现重复的 loopx skill 集合。
+
+## 快速开始
+
+初始化一个工作流：
+
+```bash
+loopx init --slug my-task
+```
+
+进入澄清阶段：
+
+```bash
+loopx clarify my-task
+```
+
+澄清完成后批准进入计划阶段：
+
+```bash
+loopx approve my-task --from clarify --to plan
+loopx plan my-task
+```
+
+计划完成后批准执行：
+
+```bash
+loopx approve my-task --from plan --to build
+loopx build my-task
+```
+
+执行完成后进入评审：
+
+```bash
+loopx approve my-task --from build --to review
+loopx review my-task
+```
+
+评审通过后完成工作流：
+
+```bash
+loopx approve my-task --from review --to done
+loopx review my-task
+```
+
+查看状态：
+
+```bash
+loopx status my-task
+loopx status my-task --json
+```
+
+也可以让 loopx 根据一个现成 spec 直接创建规划工作流：
+
+```bash
+loopx plan --direct ./path/to/spec.md
+```
+
+## CLI 命令
+
+```bash
+loopx init [--slug <slug>]
+loopx clarify <slug> [--standard|--deep]
+loopx approve <slug> --from <stage> --to <stage>
+loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
+loopx build <slug> [--no-deslop]
+loopx review <slug> [--reviewer <name>]
+loopx autopilot <slug> [--reviewer <name>]
+loopx status [slug] [--json]
+loopx doctor
+loopx migrate
+loopx repair-install
+```
+
+CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`。
+
+## Skill 说明
+
+### clarify
+
+`clarify` 用于把模糊请求转成可执行 spec。它会维护歧义分数、非目标、决策边界和压力测试结果。只有满足门禁后，才建议进入 `plan`。
+
+默认 profile：
+
+- `--standard`：目标歧义分数 `<= 0.20`，最多 `15` 轮。
+- `--deep`：目标歧义分数 `<= 0.10`，最多 `25` 轮。
+
+### plan
+
+`plan` 把已批准的 clarify spec 或直接输入的 spec 转成计划包。默认包含 Planner、Architect、Critic 三段式评审循环，最多迭代到通过或达到上限。
+
+主要产物：
+
+- `.loopx/plans/prd-<slug>.md`
+- `.loopx/plans/test-spec-<slug>.md`
+- `.loopx/workflows/<slug>/plan.md`
+- `.loopx/workflows/<slug>/architecture.md`
+- `.loopx/workflows/<slug>/development-plan.md`
+- `.loopx/workflows/<slug>/test-plan.md`
+
+### build
+
+`build` 执行已批准的计划，并把执行过程、验证证据和限制记录到 canonical artifact：
+
+```text
+.loopx/workflows/<slug>/execution-record.md
+```
+
+默认流程包含 deslop 清理；如果确实要跳过，可以使用：
+
+```bash
+loopx build <slug> --no-deslop
+```
+
+### review
+
+`review` 消费 build 输出的 `execution-record.md`，执行独立验收和代码评审，并生成：
+
+```text
+.loopx/workflows/<slug>/review-report.md
+```
+
+最终用户可见评审结果要求使用中文。
+
+如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修改，则批准 `review -> plan` 后再次运行 `loopx review <slug>` 来消费回退转换。
+
+### autopilot
+
+`autopilot` 是端到端编排入口，会在内部组织 expansion、planning、execution、qa、validation 等阶段，但 canonical artifact 仍然来自公开的 `clarify -> plan -> build -> review` 流程。
+
+自动编排 ledger 写入：
+
+```text
+.loopx/autopilot/<slug>/run.json
+```
+
+## 运行时目录
+
+loopx 在当前项目下写入 `.loopx/`：
+
+```text
+.loopx/
+  README.md
+  config.json
+  specs/
+  plans/
+  context/
+  workflows/
+    <slug>/
+      state.json
+      spec.md
+      plan.md
+      architecture.md
+      development-plan.md
+      test-plan.md
+      execution-record.md
+      review-report.md
+      plan-reviews/
+      build-support/
+  autopilot/
+    <slug>/
+      run.json
+```
+
+旧的 `.codex-helper/` 可通过 `loopx migrate` 迁移。`.omx/` 仍保留为外部编排/规划元数据，不属于 loopx 运行时命名空间。
+
+## 安装诊断与修复
+
+检查运行时和 skill 安装状态：
+
+```bash
+loopx doctor
+```
+
+修复 loopx 管理的 skill 安装：
+
+```bash
+loopx repair-install
+```
+
+只检查当前 skill discovery 状态：
+
+```bash
+node scripts/install-skills.mjs --check
+```
+
+## 环境变量
+
+安装和 discovery 逻辑支持以下环境变量：
+
+- `LOOPX_HOME`：覆盖默认 home 目录。
+- `LOOPX_AGENTS_ROOT`：覆盖 `.agents` 根目录。
+- `LOOPX_SKILLS_ROOT`：覆盖已安装 skills 目录。
+- `LOOPX_SKILL_LOCK_PATH`：覆盖 skill lock 文件路径。
+- `LOOPX_PROJECT_ROOT`：覆盖 loopx 项目根目录。
+- `LOOPX_SKILL_SOURCE_ROOT`：覆盖 skill 源目录。
+- `LOOPX_DISTRIBUTION_CHANNEL`：设置安装渠道，默认 `npm`。
+- `LOOPX_INSTALLATION_IDENTITY`：设置安装身份，默认 `loopx`。
+- `LOOPX_SOURCE_URL`：设置安装来源。
+
+## 开发
+
+安装依赖后运行测试：
+
+```bash
+npm test
+```
+
+也可以直接执行项目内的验证命令：
+
+```bash
+node --test test/*.test.mjs
+node scripts/install-skills.mjs --check
+node --test plugins/loopx/scripts/plugin-install.test.mjs
+node src/cli.mjs --help
+node src/cli.mjs doctor
+node src/cli.mjs status --json
+```
+
+## 发布内容
+
+`package.json` 的 `files` 字段会发布以下内容：
+
+- `README.md`
+- `README.zh-CN.md`
+- `package.json`
+- `scripts/install-skills.mjs`
+- `src/`
+- `skills/`，包含公开 loopx skills 以及随包发布的兼容/内部 skill 源文件
+- `templates/`
+- `plugins/loopx/`
+
+## 版本
+
+当前 npm 包版本：`0.1.2`。
