@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-runtime.mjs';
+import { writeBuildActiveState } from './build-stop-gate.mjs';
 import { ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
 import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build-runtime.mjs';
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
@@ -1292,7 +1293,29 @@ export async function buildStage(cwd, slug, options = {}) {
   let current = null;
   let blockers = ['build_not_started'];
 
+  await writeBuildActiveState(cwd, {
+    active: true,
+    slug: normalized,
+    phase: 'starting',
+    iteration: 0,
+    max_iterations: maxIterations,
+    review_handoff_ready: false,
+    blockers,
+    workflow_root: root,
+    execution_record_path: artifactPath(root, 'execution-record.md'),
+    started_at: nowIso(),
+  });
+
   while (iteration <= maxIterations) {
+    await writeBuildActiveState(cwd, {
+      active: true,
+      slug: normalized,
+      phase: 'executing',
+      iteration,
+      max_iterations: maxIterations,
+      review_handoff_ready: false,
+      blockers,
+    });
     current = await adapter.executeLanes({
       cwd,
       root,
@@ -1303,6 +1326,15 @@ export async function buildStage(cwd, slug, options = {}) {
       testSpecArtifactPath: state.test_spec_artifact_path,
     });
     blockers = buildIterationBlockers(current, { noDeslop });
+    await writeBuildActiveState(cwd, {
+      active: true,
+      slug: normalized,
+      phase: blockers.length === 0 ? 'verifying' : 'fixing',
+      iteration,
+      max_iterations: maxIterations,
+      review_handoff_ready: false,
+      blockers,
+    });
     const supportPaths = await writeBuildSupportArtifacts(root, current, noDeslop);
     progressArtifacts.push(supportPaths.laneSummary);
     supportArtifacts.push(supportPaths.architect, supportPaths.deslop, supportPaths.regression);
@@ -1354,6 +1386,18 @@ export async function buildStage(cwd, slug, options = {}) {
     },
   });
   await writeState(root, next);
+  await writeBuildActiveState(cwd, {
+    active: false,
+    slug: normalized,
+    phase: finalBlocked ? 'blocked' : 'review-ready',
+    iteration: current?.iteration || 0,
+    max_iterations: maxIterations,
+    review_handoff_ready: !finalBlocked,
+    blockers,
+    execution_record_status: next.execution_record_status,
+    execution_record_path: artifactPath(root, 'execution-record.md'),
+    completed_at: nowIso(),
+  });
   return { root, state: next };
 }
 

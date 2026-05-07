@@ -247,6 +247,22 @@ Check skill discovery state only:
 node scripts/install-skills.mjs --check
 ```
 
+## Codex Stop Hook
+
+loopx includes a Codex stop-hook helper that prevents an active build from stopping before review handoff readiness:
+
+```bash
+node scripts/codex-stop-hook.mjs
+```
+
+During `loopx build`, runtime state is written to:
+
+```text
+.loopx/build-active.json
+```
+
+If that state says build is still `starting`, `executing`, `verifying`, or `fixing`, the hook returns `allow: false` and a continuation message. Once build is `review-ready`, blocked by a real blocker, failed, cancelled, or inactive, the hook allows the stop.
+
 ## Environment Variables
 
 Install and discovery logic supports these environment variables:
@@ -288,6 +304,7 @@ node src/cli.mjs status --json
 - `README.zh-CN.md`
 - `package.json`
 - `scripts/install-skills.mjs`
+- `scripts/codex-stop-hook.mjs`
 - `src/`
 - `skills/`, including public loopx skills plus compatibility/internal skill sources shipped with the package
 - `templates/`

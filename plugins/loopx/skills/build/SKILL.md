@@ -1,7 +1,7 @@
 ---
 name: build
 description: Ralph-style loopx execution runtime under the public build stage.
-argument-hint: "[--no-deslop] <approved workflow slug>"
+argument-hint: "[--no-deslop] <approved PRD path or workflow slug>"
 ---
 
 # loopx Build
@@ -42,6 +42,18 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 - workflow-local planning artifacts required by the execution lane exist
 </Preconditions>
 
+<Inputs>
+Preferred skill input:
+
+- `.loopx/plans/prd-<slug>.md`
+
+Compatible skill / CLI input:
+
+- `<slug>`
+
+When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use the matching workflow-local plan package and test spec.
+</Inputs>
+
 <Execution_Model>
 `build` should behave like a Ralph-style execution runtime:
 
@@ -56,6 +68,32 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 
 `build` may persist support artifacts for runtime inspection, but they must not replace `execution-record.md`.
 </Execution_Model>
+
+<Continuation_Discipline>
+`build` is a persistence loop, not a "one phase per invocation" runner.
+
+If approved plan work remains, continue executing within the same `$build` invocation until either review handoff gates are satisfied or a real blocker prevents further progress.
+
+The following are **not** real blockers by themselves:
+
+- a planned phase is unfinished
+- a runtime adapter is not fully migrated yet
+- store-layer branches still need to be moved to the new service/client path
+- more files remain in the approved implementation scope
+- verification has not been rerun after the latest edits
+
+Those are remaining execution work. Keep working them down.
+
+A real blocker must identify why execution cannot safely continue now, such as:
+
+- missing human product/architecture decision that is not specified by the approved plan
+- unavailable credential, service, fixture, dependency, or environment that cannot be mocked or bypassed responsibly
+- verification failure caused by a pre-existing repository condition that blocks evaluating this change and cannot be isolated
+- repeated implementation failure after the build iteration budget is exhausted
+- a conflict between the approved plan and current repository facts that requires re-planning
+
+Do not end a build response with "continue in the next build" for unfinished approved work. If work remains and no real blocker exists, keep executing. If a real blocker exists, name the concrete blocker and record it in `execution-record.md`.
+</Continuation_Discipline>
 
 <Runtime_State_Machine>
 `build` should track at minimum:
@@ -105,6 +143,23 @@ These support artifacts are runtime aids only. They must not become new canonica
 - review remains the final independent stage
 - review continues to own provenance checks, evidence completeness checks, completion/rollback decisions, and code-review
 </Review_Boundary>
+
+<Final_Response_Contract>
+When `build` reaches review handoff readiness, the final response must include an explicit next skill command using the execution record path:
+
+```text
+Next:
+$review .loopx/workflows/<slug>/execution-record.md
+```
+
+If the user needs the CLI/runtime-debug form, use:
+
+```bash
+loopx review <slug>
+```
+
+Do not end with prose-only guidance such as "next step should enter review" when the workflow is ready for review. Do not emit `$review <slug>` as the primary skill handoff when the execution record path is known. If review handoff is blocked, state the blocker instead of emitting a `$review` command.
+</Final_Response_Contract>
 
 <Flags>
 - `--no-deslop`: skip the deslop pass and the post-deslop regression loop, while still requiring the latest successful pre-deslop verification evidence

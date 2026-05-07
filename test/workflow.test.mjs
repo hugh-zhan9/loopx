@@ -9,7 +9,8 @@ import { describe, it } from 'node:test';
 
 import { installBundledSkills, verifyInstallState } from '../src/install-discovery.mjs';
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
-import { createScriptedBuildAdapter } from '../src/build-runtime.mjs';
+import { createRealBuildAdapter, createScriptedBuildAdapter } from '../src/build-runtime.mjs';
+import { buildActivePath, evaluateBuildStopGate, readBuildActiveState, writeBuildActiveState } from '../src/build-stop-gate.mjs';
 import { withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
@@ -32,6 +33,7 @@ const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
 const installScript = resolve(repoRoot, 'scripts/install-skills.mjs');
+const stopHookScript = resolve(repoRoot, 'scripts/codex-stop-hook.mjs');
 
 function parseFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -744,6 +746,154 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(built.state.build_deslop_status, 'skipped');
     assert.equal(built.state.build_regression_status, 'skipped');
     assert.equal(built.state.execution_record_status, 'complete');
+  });
+
+  it('real build adapter uses independent review lanes and gates', async () => {
+    const calls = [];
+    let reviewLaneCalls = 0;
+    let releaseReviewLanes;
+    const reviewLaneBarrier = new Promise((resolve) => {
+      releaseReviewLanes = resolve;
+    });
+    const adapter = createRealBuildAdapter({
+      codexExecJson: async ({ outputPath }) => {
+        const file = outputPath.split('/').pop();
+        calls.push(file);
+        if (file.includes('runtime-evidence-') || file.includes('runtime-verification-')) {
+          reviewLaneCalls += 1;
+          if (reviewLaneCalls === 2) {
+            releaseReviewLanes();
+          }
+          await reviewLaneBarrier;
+        }
+        if (file.includes('runtime-execution-')) {
+          return {
+            status: 'complete',
+            summary: 'implementation complete',
+            evidence: [{ id: 'exec-1', kind: 'diff', summary: 'code edited', ref: 'git diff' }],
+            executionEvidence: ['implementation lane finished'],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-evidence-')) {
+          return {
+            status: 'complete',
+            summary: 'evidence complete',
+            evidence: [{ id: 'evidence-1', kind: 'artifact', summary: 'artifact inspected', ref: 'execution-record.md' }],
+            executionEvidence: ['evidence lane inspected artifacts'],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-verification-')) {
+          return {
+            status: 'complete',
+            summary: 'verification complete',
+            evidence: [{ id: 'verify-1', kind: 'test', summary: 'tests passed', ref: 'npm test' }],
+            executionEvidence: [],
+            verificationEvidence: ['npm test passed'],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-architect-')) {
+          return {
+            verdict: 'approve',
+            findings: ['architect approved'],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-deslop-')) {
+          return {
+            status: 'complete',
+            summary: 'deslop complete',
+            evidence: [{ id: 'deslop-1', kind: 'cleanup', summary: 'cleanup checked', ref: 'changed files' }],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-regression-')) {
+          return {
+            status: 'complete',
+            summary: 'regression complete',
+            evidence: [{ id: 'regression-1', kind: 'test', summary: 'regression passed', ref: 'npm test' }],
+            verificationEvidence: ['post-deslop regression passed'],
+            limitations: [],
+          };
+        }
+        throw new Error(`unexpected output path: ${outputPath}`);
+      },
+    });
+
+    const result = await adapter.executeLanes({
+      cwd: repoRoot,
+      root: repoRoot,
+      slug: 'real-build',
+      iteration: 1,
+      noDeslop: false,
+      planArtifactPath: '.loopx/plans/prd-real-build.md',
+      testSpecArtifactPath: '.loopx/plans/test-spec-real-build.md',
+    });
+
+    assert.deepEqual(result.lanes.map((lane) => lane.name), ['execution', 'evidence', 'verification']);
+    assert.equal(result.verificationStatus, 'complete');
+    assert.equal(result.architectVerdict, 'approve');
+    assert.equal(result.deslopStatus, 'complete');
+    assert.equal(result.regressionStatus, 'complete');
+    assert.equal(reviewLaneCalls, 2);
+    assert.deepEqual(calls, [
+      'runtime-execution-iteration-1.json',
+      'runtime-evidence-iteration-1.json',
+      'runtime-verification-iteration-1.json',
+      'runtime-architect-iteration-1.json',
+      'runtime-deslop-iteration-1.json',
+      'runtime-regression-iteration-1.json',
+    ]);
+  });
+
+  it('build writes stop-gate state and allows stop only after review handoff readiness', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-build-stop-gate-'));
+    const clarified = await clarifyStage(wd, 'build-stop');
+    await writeResolvedSpec(clarified.root, 'build-stop');
+    await approveStage(wd, 'build-stop', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'build-stop', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'build-stop', { from: 'plan', to: 'build' });
+
+    await buildStage(wd, 'build-stop', { adapter: createScriptedBuildAdapter() });
+
+    const state = await readBuildActiveState(wd);
+    assert.equal(existsSync(buildActivePath(wd)), true);
+    assert.equal(state.active, false);
+    assert.equal(state.phase, 'review-ready');
+    assert.equal(state.review_handoff_ready, true);
+    assert.equal(evaluateBuildStopGate(state).allow, true);
+  });
+
+  it('stop hook blocks while build is still active', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-stop-hook-active-'));
+    await mkdir(join(wd, '.loopx'), { recursive: true });
+    await writeBuildActiveState(wd, {
+      active: true,
+      slug: 'active-build',
+      phase: 'verifying',
+      iteration: 2,
+      max_iterations: 10,
+      review_handoff_ready: false,
+      blockers: ['verification_pending'],
+    });
+
+    assert.equal(evaluateBuildStopGate(await readBuildActiveState(wd)).allow, false);
+
+    const escapedInput = JSON.stringify({ cwd: wd }).replace(/'/g, "'\\''");
+    await assert.rejects(
+      () => execFileAsync('/bin/sh', ['-c', `printf '%s' '${escapedInput}' | "${process.execPath}" "${stopHookScript}"`], { cwd: wd }),
+      (error) => {
+        const parsed = JSON.parse(error.stdout);
+        assert.equal(parsed.allow, false);
+        assert.match(parsed.reason, /loopx build is still active/);
+        assert.match(parsed.reason, /verification_pending/);
+        return true;
+      },
+    );
   });
 
   it('CLI status exposes build progression and blockers', async () => {
