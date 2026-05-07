@@ -19,6 +19,7 @@
   },
   "files": [
     "README.md",
+    "README.zh-CN.md",
     "package.json",
     "scripts/install-skills.mjs",
     "src/",

@@ -13,7 +13,7 @@ import { createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
-import { migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
+import { doctorRuntime, migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
   approveStage,
   autopilotStage,
@@ -905,6 +905,19 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(result.migrated, true);
     assert.equal(existsSync(resolveLegacyRoot(wd)), false);
     assert.equal(existsSync(resolveLoopxRoot(wd)), true);
+  });
+
+  it('doctor does not report uppercase runtime root when only .loopx exists', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-doctor-case-'));
+    const home = await mkdtemp(join(tmpdir(), 'loopx-doctor-case-home-'));
+    const env = loopxEnv(home);
+
+    await initWorkspace(wd);
+    const result = await doctorRuntime(wd, env);
+
+    assert.equal(result.loopxExists, true);
+    assert.equal(result.uppercaseExists, false);
+    assert.equal(result.mixedRuntimeRoots, false);
   });
 
   it('status marks legacy codex-helper workflows explicitly', async () => {

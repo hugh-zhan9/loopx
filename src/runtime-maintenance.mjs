@@ -1,6 +1,6 @@
 import { mkdir, rename } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import { inspectInstallState, verifyInstallState } from './install-discovery.mjs';
 
@@ -16,10 +16,23 @@ export function resolveLegacyRoot(cwd) {
   return join(resolve(cwd), '.codex-helper');
 }
 
+function existsExactPath(path) {
+  const parent = dirname(path);
+  const name = basename(path);
+  if (!existsSync(parent)) {
+    return false;
+  }
+  try {
+    return readdirSync(parent).includes(name);
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureLoopxRoot(cwd) {
   const root = resolveLoopxRoot(cwd);
   const uppercaseRoot = resolveUppercaseLoopxRoot(cwd);
-  if (!existsSync(root) && existsSync(uppercaseRoot)) {
+  if (!existsExactPath(root) && existsExactPath(uppercaseRoot)) {
     await rename(uppercaseRoot, root);
   }
   await mkdir(root, { recursive: true });
@@ -30,9 +43,9 @@ export async function migrateLegacyRuntime(cwd) {
   const legacyRoot = resolveLegacyRoot(cwd);
   const loopxRoot = resolveLoopxRoot(cwd);
   const uppercaseRoot = resolveUppercaseLoopxRoot(cwd);
-  const legacyExists = existsSync(legacyRoot);
-  const loopxExists = existsSync(loopxRoot);
-  const uppercaseExists = existsSync(uppercaseRoot);
+  const legacyExists = existsExactPath(legacyRoot);
+  const loopxExists = existsExactPath(loopxRoot);
+  const uppercaseExists = existsExactPath(uppercaseRoot);
 
   if (!legacyExists && !uppercaseExists) {
     return {
@@ -86,10 +99,10 @@ export async function doctorRuntime(cwd, env = process.env) {
     loopxRoot,
     legacyRoot,
     uppercaseRoot,
-    loopxExists: existsSync(loopxRoot),
-    legacyExists: existsSync(legacyRoot),
-    uppercaseExists: existsSync(uppercaseRoot),
-    mixedRuntimeRoots: existsSync(loopxRoot) && (existsSync(legacyRoot) || existsSync(uppercaseRoot)),
+    loopxExists: existsExactPath(loopxRoot),
+    legacyExists: existsExactPath(legacyRoot),
+    uppercaseExists: existsExactPath(uppercaseRoot),
+    mixedRuntimeRoots: existsExactPath(loopxRoot) && (existsExactPath(legacyRoot) || existsExactPath(uppercaseRoot)),
     installState,
     installCheck,
   };
