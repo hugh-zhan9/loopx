@@ -1,7 +1,7 @@
 ---
 name: build
 description: Ralph-style loopx execution runtime under the public build stage.
-argument-hint: "[--no-deslop] <approved workflow slug>"
+argument-hint: "[--no-deslop] <approved PRD path or workflow slug>"
 ---
 
 # loopx Build
@@ -41,6 +41,18 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 - `.loopx/plans/test-spec-<slug>.md` exists
 - workflow-local planning artifacts required by the execution lane exist
 </Preconditions>
+
+<Inputs>
+Preferred skill input:
+
+- `.loopx/plans/prd-<slug>.md`
+
+Compatible skill / CLI input:
+
+- `<slug>`
+
+When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use the matching workflow-local plan package and test spec.
+</Inputs>
 
 <Execution_Model>
 `build` should behave like a Ralph-style execution runtime:
@@ -105,6 +117,23 @@ These support artifacts are runtime aids only. They must not become new canonica
 - review remains the final independent stage
 - review continues to own provenance checks, evidence completeness checks, completion/rollback decisions, and code-review
 </Review_Boundary>
+
+<Final_Response_Contract>
+When `build` reaches review handoff readiness, the final response must include an explicit next skill command using the execution record path:
+
+```text
+Next:
+$review .loopx/workflows/<slug>/execution-record.md
+```
+
+If the user needs the CLI/runtime-debug form, use:
+
+```bash
+loopx review <slug>
+```
+
+Do not end with prose-only guidance such as "next step should enter review" when the workflow is ready for review. Do not emit `$review <slug>` as the primary skill handoff when the execution record path is known. If review handoff is blocked, state the blocker instead of emitting a `$review` command.
+</Final_Response_Contract>
 
 <Flags>
 - `--no-deslop`: skip the deslop pass and the post-deslop regression loop, while still requiring the latest successful pre-deslop verification evidence

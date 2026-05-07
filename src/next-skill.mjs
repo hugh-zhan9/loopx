@@ -1,15 +1,26 @@
 export function nextSkillCommand(state) {
-  if (!state || state.stage_status !== 'awaiting-approval' || !state.slug) {
+  if (!state || !state.slug) {
     return null;
   }
-  if (state.current_stage === 'clarify') {
+  if (state.current_stage === 'clarify'
+    && state.clarify_current_round > 0
+    && state.unresolved_ambiguity_count === 0
+    && state.clarify_non_goals_resolved === true
+    && state.clarify_decision_boundaries_resolved === true
+    && state.clarify_pressure_pass_complete === true
+    && typeof state.clarify_ambiguity_score === 'number'
+    && typeof state.clarify_target_ambiguity_threshold === 'number'
+    && state.clarify_ambiguity_score <= state.clarify_target_ambiguity_threshold) {
     return `$plan ${state.slug}`;
   }
+  if (state.stage_status !== 'awaiting-approval') {
+    return null;
+  }
   if (state.current_stage === 'plan' && Array.isArray(state.plan_blockers) && state.plan_blockers.length === 0) {
-    return `$build ${state.slug}`;
+    return `$build .loopx/plans/prd-${state.slug}.md`;
   }
   if (state.current_stage === 'build' && Array.isArray(state.build_blockers) && state.build_blockers.length === 0) {
-    return `$review ${state.slug}`;
+    return `$review .loopx/workflows/${state.slug}/execution-record.md`;
   }
   return null;
 }

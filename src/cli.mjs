@@ -2,7 +2,7 @@
 
 import { autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { installBundledSkills } from './install-discovery.mjs';
-import { withNextSkill } from './next-skill.mjs';
+import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 
 function usage() {
@@ -78,7 +78,7 @@ function printHumanStatus(status) {
     console.log(`plan_deliberate_mode: ${status.state.plan_deliberate_mode}`);
     console.log(`plan_architect_review_status: ${status.state.plan_architect_review_status}`);
     console.log(`plan_critic_verdict: ${status.state.plan_critic_verdict}`);
-    console.log(`plan_docs_status: ${status.state.plan_docs_status}`);
+    console.log(`plan_artifact_status: ${status.state.plan_docs_status}`);
     console.log(`plan_blockers: ${Array.isArray(status.state.plan_blockers) && status.state.plan_blockers.length > 0 ? status.state.plan_blockers.join(', ') : '(none)'}`);
   }
   if (status.state?.current_stage === 'build') {
@@ -99,6 +99,10 @@ function printHumanStatus(status) {
   console.log(`last_confirmed_transition: ${status.state?.last_confirmed_transition ?? 'none'}`);
   console.log(`pending_user_decision: ${status.state?.pending_user_decision ?? 'none'}`);
   console.log(`missing artifacts: ${status.missing_artifacts.length > 0 ? status.missing_artifacts.join(', ') : '(none)'}`);
+  const nextSkill = nextSkillCommand(status.state);
+  if (nextSkill) {
+    console.log(`next skill: ${nextSkill}`);
+  }
   console.log(`next: ${status.next_action}`);
 }
 
@@ -150,7 +154,7 @@ async function main() {
         const result = await reviewStage(process.cwd(), positionals[0], {
           reviewer: options.get('--reviewer') || 'independent-reviewer',
         });
-        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict }, result.state), null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict, review_message_zh: result.reviewMessageZh }, result.state), null, 2));
         return;
       }
       case 'autopilot': {

@@ -12,6 +12,7 @@ import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
+import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
 import { migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
   approveStage,
@@ -447,9 +448,9 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_architect_review_status, 'complete');
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(planned.state.plan_docs_status, 'complete');
-    assert.equal(existsSync(join(wd, 'docs', 'flow', '架构文档.md')), true);
-    assert.equal(existsSync(join(wd, 'docs', 'flow', '设计文档.md')), true);
-    assert.equal(existsSync(join(wd, 'docs', 'flow', '测试计划.md')), true);
+    assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
+    assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
+    assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
 
     await approveStage(wd, 'flow', { from: 'plan', to: 'build' });
     const built = await buildStage(wd, 'flow', {
@@ -464,15 +465,78 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(built.state.pending_user_decision, 'build->review');
     await approveStage(wd, 'flow', { from: 'build', to: 'review' });
 
-    const review = await reviewStage(wd, 'flow', { reviewer: 'qa-1' });
+    const review = await reviewStage(wd, 'flow', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        changedFiles: ['src/workflow.mjs'],
+        codeReview: {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '脚本化 code review 未发现阻断问题。',
+          findings: [],
+        },
+      }),
+    });
     assert.equal(review.verdict, 'APPROVE');
-    const report = parseFrontmatter(await readFile(join(review.root, 'review-report.md'), 'utf8'));
+    assert.match(review.reviewMessageZh, /Review 结果：flow 通过。/);
+    assert.match(review.reviewMessageZh, /下一步：批准 review -> done 后完成工作流。/);
+    const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
+    const report = parseFrontmatter(reportText);
     assert.equal(report.reviewed_run_id, 'flow-build-run-1');
     assert.equal(Array.isArray(report.input_manifest), true);
+    assert.equal(existsSync(join(review.root, 'review-support', 'code-review.json')), true);
+    assert.match(reportText, /# loopx Review 结果：flow/);
+    assert.match(reportText, /## 结论/);
+    assert.match(reportText, /通过（APPROVE）/);
+    assert.match(reportText, /## 代码审查/);
+    assert.match(reportText, /脚本化 code review 未发现阻断问题。/);
+    assert.match(reportText, /结构化证据与来源独立性检查均已通过。/);
 
     await approveStage(wd, 'flow', { from: 'review', to: 'done' });
     const done = await reviewStage(wd, 'flow', { reviewer: 'qa-1' });
     assert.equal(done.state.current_stage, 'done');
+  });
+
+  it('review fails when code review finds blocking issues', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-code-'));
+    const clarified = await clarifyStage(wd, 'review-code');
+    await writeResolvedSpec(clarified.root, 'review-code');
+    await approveStage(wd, 'review-code', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-code', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-code', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-code', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-code', { from: 'build', to: 'review' });
+
+    const review = await reviewStage(wd, 'review-code', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        changedFiles: ['src/workflow.mjs'],
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          summary: '发现状态流转回归风险。',
+          findings: [{
+            severity: 'high',
+            file: 'src/workflow.mjs',
+            line: 1430,
+            message: 'review 通过前可能错误进入 done。',
+          }],
+        },
+      }),
+    });
+
+    assert.equal(review.verdict, 'REQUEST CHANGES');
+    assert.equal(review.rollbackTarget, 'plan');
+    assert.match(review.reviewMessageZh, /要求修改/);
+    assert.match(review.reviewMessageZh, /代码审查发现阻断问题/);
+    const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
+    const report = parseFrontmatter(reportText);
+    assert.equal(report.verdict, 'request-changes');
+    assert.equal(report.code_review.verdict, 'request-changes');
+    assert.equal(existsSync(join(review.root, 'review-support', 'code-review.json')), true);
+    assert.match(reportText, /## 代码审查/);
+    assert.match(reportText, /src\/workflow\.mjs:1430/);
+    assert.match(reportText, /review 通过前可能错误进入 done。/);
   });
 
   it('supports deep clarify mode with stricter threshold and larger max rounds', async () => {
@@ -512,7 +576,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.stage_status, 'blocked');
   });
 
-  it('supports direct spec planning and writes required docs artifacts', async () => {
+  it('supports direct spec planning and writes Chinese workflow planning artifacts', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-direct-'));
     const specPath = join(wd, 'direct-spec.md');
     await writeFile(
@@ -559,26 +623,28 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_deliberate_mode, true);
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(planned.state.plan_docs_status, 'complete');
-    assert.equal(existsSync(join(wd, 'docs', 'direct-spec', '架构文档.md')), true);
+    assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
+    assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
+    assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
     assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'prd-direct-spec.md')), true);
   });
 
-  it('keeps plan blocked when required docs are missing', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-docs-block-'));
-    const clarified = await clarifyStage(wd, 'docs-block');
-    await writeResolvedSpec(clarified.root, 'docs-block');
-    await approveStage(wd, 'docs-block', { from: 'clarify', to: 'plan' });
-    const planned = await planStage(wd, 'docs-block', { adapter: createScriptedPlanAdapter() });
-    await writeFile(join(wd, 'docs', 'docs-block', '设计文档.md'), 'design doc only in English\n');
+  it('keeps plan blocked when workflow planning artifacts are not Chinese', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-artifact-block-'));
+    const clarified = await clarifyStage(wd, 'artifact-block');
+    await writeResolvedSpec(clarified.root, 'artifact-block');
+    await approveStage(wd, 'artifact-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'artifact-block', { adapter: createScriptedPlanAdapter() });
+    await writeFile(join(planned.root, 'development-plan.md'), 'development plan only in English\n');
 
     await assert.rejects(
-      () => approveStage(wd, 'docs-block', { from: 'plan', to: 'build' }),
-      /plan_review_gate_blocked:.*doc_not_chinese_design/,
+      () => approveStage(wd, 'artifact-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*plan_artifact_not_chinese_developmentPlan/,
     );
 
-    const state = await readState(wd, 'docs-block');
+    const state = await readState(wd, 'artifact-block');
     assert.equal(state.plan_docs_status, 'partial');
-    assert.equal(state.plan_blockers.includes('doc_not_chinese_design'), true);
+    assert.equal(state.plan_blockers.includes('plan_artifact_not_chinese_developmentPlan'), true);
     assert.equal(state.plan_critic_verdict, 'approve');
   });
 
@@ -635,7 +701,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /plan_iteration: 2\/5/);
     assert.match(stdout, /plan_architect_review_status: complete/);
     assert.match(stdout, /plan_critic_verdict: approve/);
-    assert.match(stdout, /plan_docs_status: complete/);
+    assert.match(stdout, /plan_artifact_status: complete/);
   });
 
   it('blocks review entry when build architect gate rejects', async () => {
@@ -721,6 +787,35 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(deep.next_skill_command, null);
   });
 
+  it('CLI clarify payload adds the next skill command after the spec is handoff-ready', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-cli-next-'));
+    const clarified = await clarifyStage(wd, 'clarify-cli-next');
+    await writeResolvedSpec(clarified.root, 'clarify-cli-next');
+    const summary = await statusSummary(wd, 'clarify-cli-next');
+    const state = summary.state;
+
+    const payload = withNextSkill({ ok: true, command: 'clarify', root: clarified.root, state }, state);
+    assert.equal(payload.command, 'clarify');
+    assert.equal(payload.next_skill_command, '$plan clarify-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next: $plan clarify-cli-next');
+  });
+
+  it('CLI payload adds the artifact-first next skill command for a completed plan', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-cli-next-'));
+    const clarified = await clarifyStage(wd, 'plan-cli-next');
+    await writeResolvedSpec(clarified.root, 'plan-cli-next');
+    await approveStage(wd, 'plan-cli-next', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'plan-cli-next', { adapter: createScriptedPlanAdapter() });
+    const approved = await approveStage(wd, 'plan-cli-next', { from: 'plan', to: 'build' });
+
+    const payload = withNextSkill({ ok: true, command: 'approve', root: approved.root, state: approved.state }, approved.state);
+    assert.equal(payload.command, 'approve');
+    assert.equal(payload.state.current_stage, 'plan');
+    assert.equal(payload.state.requested_transition, 'plan->build');
+    assert.equal(payload.next_skill_command, '$build .loopx/plans/prd-plan-cli-next.md');
+    assert.equal(payload.next_skill_hint, 'Next: $build .loopx/plans/prd-plan-cli-next.md');
+  });
+
   it('CLI payload adds the next skill command for a completed build', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-build-cli-next-'));
     const clarified = await clarifyStage(wd, 'build-cli-next');
@@ -736,8 +831,17 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.command, 'build');
     assert.equal(payload.state.current_stage, 'build');
     assert.equal(payload.state.pending_user_decision, 'build->review');
-    assert.equal(payload.next_skill_command, '$review build-cli-next');
-    assert.equal(payload.next_skill_hint, 'Next: $review build-cli-next');
+    assert.equal(payload.next_skill_command, '$review .loopx/workflows/build-cli-next/execution-record.md');
+    assert.equal(payload.next_skill_hint, 'Next: $review .loopx/workflows/build-cli-next/execution-record.md');
+  });
+
+  it('CLI status shows the next skill command for a handoff-ready clarify workflow', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-status-next-'));
+    const clarified = await clarifyStage(wd, 'clarify-status-next');
+    await writeResolvedSpec(clarified.root, 'clarify-status-next');
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-status-next'], { cwd: wd });
+    assert.match(stdout, /next skill: \$plan clarify-status-next/);
   });
 
   it('autopilot composes clarify, plan, build, and review with internal control events', async () => {

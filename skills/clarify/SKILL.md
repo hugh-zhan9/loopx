@@ -191,6 +191,12 @@ After the clarify spec is ready:
 - hand off to `build` only if the user explicitly wants direct execution and the task is already concrete enough
 - hand off to `autopilot` only when the scope is sufficiently tight for a bounded end-to-end run
 
+Preferred explicit handoff contract:
+
+- Recommended invocation: `$plan <slug>`
+- Artifact-pinned invocation when needed: `$plan --direct .loopx/specs/clarify-<slug>-<timestamp>.md`
+- Consumer behavior: treat the clarify spec as the source of truth for intent, non-goals, decision boundaries, constraints, and design direction; do not reopen clarification by default
+
 `clarify` itself does not implement the feature.
 
 </Process>

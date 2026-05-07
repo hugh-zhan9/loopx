@@ -7,6 +7,7 @@ import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-run
 import { ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
 import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build-runtime.mjs';
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
+import { createDefaultReviewAdapter } from './review-runtime.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_SCHEMA_VERSION = 1;
@@ -39,11 +40,6 @@ export const TRANSITIONS = {
 const PLAN_ARTIFACTS = ['plan.md', 'architecture.md', 'development-plan.md', 'test-plan.md'];
 const V1_ARTIFACTS = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'review-report.md'];
 const LEGACY_ARTIFACTS = ['brief.md', 'plan.md', 'detailed-design.md', 'architecture.md', 'test-plan.md', 'build-result.md', 'review-report.md'];
-const PLAN_DOC_FILENAMES = {
-  architecture: '架构文档.md',
-  design: '设计文档.md',
-  testPlan: '测试计划.md',
-};
 const PLAN_REVIEW_DIR = 'plan-reviews';
 const BUILD_SUPPORT_DIR = 'build-support';
 const CLARIFY_PROFILES = {
@@ -212,18 +208,8 @@ function resolvePlansRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'plans');
 }
 
-function resolveDocsRoot(cwd, slug) {
-  return join(resolve(cwd), 'docs', normalizeSlug(slug));
-}
-
-function resolvePlanDocPaths(cwd, slug) {
-  const docsRoot = resolveDocsRoot(cwd, slug);
-  return {
-    docsRoot,
-    architecture: join(docsRoot, PLAN_DOC_FILENAMES.architecture),
-    design: join(docsRoot, PLAN_DOC_FILENAMES.design),
-    testPlan: join(docsRoot, PLAN_DOC_FILENAMES.testPlan),
-  };
+function resolveContextRoot(cwd) {
+  return join(resolveWorkspaceRoot(cwd), 'context');
 }
 
 function resolvePlanReviewPaths(root, iteration) {
@@ -512,13 +498,6 @@ async function writePlanArtifacts(root, cwd, slug, plannerDraft) {
   await writeText(artifactPath(root, 'architecture.md'), plannerDraft.architectureText);
   await writeText(artifactPath(root, 'development-plan.md'), plannerDraft.developmentPlanText);
   await writeText(artifactPath(root, 'test-plan.md'), plannerDraft.testPlanText);
-
-  const docPaths = resolvePlanDocPaths(cwd, slug);
-  await ensureDir(docPaths.docsRoot);
-  await writeText(docPaths.architecture, plannerDraft.docs.architecture);
-  await writeText(docPaths.design, plannerDraft.docs.design);
-  await writeText(docPaths.testPlan, plannerDraft.docs.testPlan);
-  return docPaths;
 }
 
 async function writePlanReviewArtifacts(root, iteration, plannerDraft, architectReview, criticReview) {
@@ -568,12 +547,6 @@ async function writePlanReviewArtifacts(root, iteration, plannerDraft, architect
 
 async function readPlanCompletion(cwd, root, slug, state) {
   const blockers = [];
-  const docPaths = resolvePlanDocPaths(cwd, slug);
-  const docsPresent = {
-    architecture: existsSync(docPaths.architecture),
-    design: existsSync(docPaths.design),
-    testPlan: existsSync(docPaths.testPlan),
-  };
   if (state.plan_architect_review_status !== 'complete') {
     blockers.push('architect_review_incomplete');
   }
@@ -598,24 +571,25 @@ async function readPlanCompletion(cwd, root, slug, state) {
   if (!state.test_spec_artifact_path || !existsSync(state.test_spec_artifact_path)) {
     blockers.push('missing_test_spec');
   }
-  for (const [key, present] of Object.entries(docsPresent)) {
-    if (!present) {
-      blockers.push(`missing_doc_${key}`);
+  const workflowDocs = {
+    architecture: artifactPath(root, 'architecture.md'),
+    developmentPlan: artifactPath(root, 'development-plan.md'),
+    testPlan: artifactPath(root, 'test-plan.md'),
+  };
+  for (const [key, path] of Object.entries(workflowDocs)) {
+    if (!existsSync(path)) {
+      blockers.push(`missing_plan_artifact_${key}`);
       continue;
     }
-    const text = await readFile(docPaths[key], 'utf8');
+    const text = await readFile(path, 'utf8');
     if (!containsChineseText(text)) {
-      blockers.push(`doc_not_chinese_${key}`);
+      blockers.push(`plan_artifact_not_chinese_${key}`);
     }
   }
 
-  const docsComplete = Object.values(docsPresent).every(Boolean)
-    && blockers.every((blocker) => !blocker.startsWith('doc_not_chinese_') && !blocker.startsWith('missing_doc_'));
-
   return {
     blockers,
-    docsStatus: docsComplete ? 'complete' : Object.values(docsPresent).some(Boolean) ? 'partial' : 'missing',
-    docPaths,
+    docsStatus: blockers.some((blocker) => blocker.startsWith('missing_plan_artifact_') || blocker.startsWith('plan_artifact_not_chinese_')) ? 'partial' : 'complete',
   };
 }
 
@@ -826,7 +800,7 @@ function recommendedAction(state, legacy = false) {
         : `Resolve ambiguity in ${state.clarify_profile ?? 'standard'} clarify mode and approve clarify -> plan.`;
     case STAGES.PLAN:
       if (Array.isArray(state.plan_blockers) && state.plan_blockers.length > 0) {
-        return 'Run loopx plan to continue the planning review loop until architect, critic, and docs blockers are cleared.';
+        return 'Run loopx plan to continue the planning review loop until architect, critic, and planning artifact blockers are cleared.';
       }
       return state.approval.build === APPROVAL_STATES.APPROVED
         ? 'Run loopx build to consume the approved plan -> build transition.'
@@ -952,7 +926,35 @@ function executionRecordTemplate(slug, stage, actorId, runId) {
   ].join('\n');
 }
 
-function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, rollbackRationale, inputManifest, evidenceManifest, findings }) {
+function reviewVerdictLabel(verdict) {
+  return verdict === 'APPROVE' ? '通过' : '要求修改';
+}
+
+function rollbackTargetLabel(rollbackTarget) {
+  if (rollbackTarget === 'none') {
+    return '无需回滚';
+  }
+  if (rollbackTarget === 'plan') {
+    return '回退到 plan 阶段';
+  }
+  return rollbackTarget;
+}
+
+function reviewUserMessageZh({ slug, verdict, rollbackTarget, findings }) {
+  const label = reviewVerdictLabel(verdict);
+  const next = verdict === 'APPROVE'
+    ? '下一步：批准 review -> done 后完成工作流。'
+    : `下一步：按审查发现处理，并${rollbackTargetLabel(rollbackTarget)}。`;
+  const findingText = Array.isArray(findings) && findings.length > 0 ? findings.join('；') : '无额外发现。';
+  return `Review 结果：${slug} ${label}。审查发现：${findingText} ${next}`;
+}
+
+function codeReviewFindingText(finding) {
+  const location = finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ''}` : '未定位文件';
+  return `[${finding.severity || 'medium'}] ${location}：${finding.message}`;
+}
+
+function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, rollbackRationale, inputManifest, evidenceManifest, findings, codeReview }) {
   return [
     frontmatterBlock({
       schema_version: WORKFLOW_SCHEMA_VERSION,
@@ -962,28 +964,41 @@ function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, r
       reviewed_run_id: runId,
       input_manifest: inputManifest,
       evidence_manifest: evidenceManifest,
+      code_review: codeReview ? {
+        status: codeReview.status,
+        verdict: codeReview.verdict,
+        changed_files: codeReview.changedFiles,
+      } : null,
       verdict: verdict.toLowerCase().replace('request changes', 'request-changes'),
       rollback_target: rollbackTarget,
       rollback_rationale: rollbackRationale ?? null,
     }),
-    `# loopx Review Report: ${slug}`,
+    `# loopx Review 结果：${slug}`,
     '',
-    '## Verdict',
+    '## 结论',
     '',
-    `- ${verdict}`,
+    `- ${reviewVerdictLabel(verdict)}（${verdict}）`,
     '',
-    '## Evidence Reviewed',
+    '## 已审查证据',
     '',
     ...inputManifest.map((item) => `- ${item}`),
     '',
-    '## Findings',
+    '## 审查发现',
     '',
     ...findings.map((item) => `- ${item}`),
     '',
-    '## Rollback Recommendation',
+    '## 代码审查',
     '',
-    `- ${rollbackTarget}`,
-    rollbackRationale ? `- ${rollbackRationale}` : '- none',
+    codeReview ? `- 状态：${codeReview.status}` : '- 状态：未执行',
+    codeReview ? `- 结论：${codeReview.verdict}` : '- 结论：未知',
+    codeReview ? `- 摘要：${codeReview.summary}` : '- 摘要：无',
+    codeReview && codeReview.changedFiles.length > 0 ? `- 变更文件：${codeReview.changedFiles.join(', ')}` : '- 变更文件：无',
+    ...(codeReview && codeReview.findings.length > 0 ? codeReview.findings.map((item) => `- ${codeReviewFindingText(item)}`) : ['- 未发现阻断性代码问题。']),
+    '',
+    '## 回退建议',
+    '',
+    `- ${rollbackTargetLabel(rollbackTarget)}`,
+    rollbackRationale ? `- ${rollbackRationale}` : '- 无',
   ].join('\n');
 }
 
@@ -1087,7 +1102,7 @@ export async function approveStage(cwd, slug, { from, to }) {
     next = {
       ...next,
       plan_docs_status: completion.docsStatus,
-      plan_docs_artifact_paths: completion.docPaths,
+      plan_docs_artifact_paths: null,
       plan_blockers: completion.blockers,
     };
     if (completion.blockers.length > 0) {
@@ -1180,7 +1195,7 @@ export async function planStage(cwd, slug, options = {}) {
       deliberateMode: Boolean(options.deliberate),
       interactiveMode: Boolean(options.interactive),
     });
-    const docPaths = await writePlanArtifacts(root, cwd, normalized, plannerDraft);
+    await writePlanArtifacts(root, cwd, normalized, plannerDraft);
     const artifactPaths = await writeCanonicalPlanArtifacts(cwd, root, normalized);
 
     architectReview = await adapter.architect({
@@ -1221,7 +1236,7 @@ export async function planStage(cwd, slug, options = {}) {
       plan_verification_steps_resolved: criticReview.verificationStepsResolved,
       plan_execution_inputs_resolved: criticReview.executionInputsResolved,
       plan_package_status: 'complete',
-      plan_docs_artifact_paths: docPaths,
+      plan_docs_artifact_paths: null,
       plan_review_artifact_paths: reviewArtifactPaths,
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
@@ -1251,7 +1266,7 @@ export async function planStage(cwd, slug, options = {}) {
     pending_user_decision: TRANSITIONS.NONE,
     requested_transition: TRANSITIONS.NONE,
     plan_docs_status: completion.docsStatus,
-    plan_docs_artifact_paths: completion.docPaths,
+    plan_docs_artifact_paths: null,
     plan_blockers: completion.blockers,
   });
   await writeState(root, next);
@@ -1342,8 +1357,8 @@ export async function buildStage(cwd, slug, options = {}) {
   return { root, state: next };
 }
 
-function reviewFindings({ executionMeta, executionStatus, reviewer }) {
-  const inputManifest = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md'];
+function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }) {
+  const inputManifest = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'review-support/code-review.json'];
   const evidenceManifest = Array.isArray(executionMeta.evidence_manifest) ? [...executionMeta.evidence_manifest] : [];
   const findings = [];
   let verdict = 'APPROVE';
@@ -1351,27 +1366,39 @@ function reviewFindings({ executionMeta, executionStatus, reviewer }) {
   let rollbackRationale = null;
 
   if (executionStatus !== 'complete') {
-    findings.push('execution-record.md is missing required execution or verification evidence.');
+    findings.push('execution-record.md 缺少必要的执行或验证证据。');
     verdict = 'REQUEST CHANGES';
     rollbackTarget = 'plan';
-    rollbackRationale = 'Execution evidence is incomplete, so the workflow must return to planning before another run.';
+    rollbackRationale = '执行证据不完整，工作流需要回退到计划阶段后再重新执行。';
   }
   if (!Array.isArray(executionMeta.evidence_manifest) || executionMeta.evidence_manifest.length === 0) {
-    findings.push('execution-record.md is missing the required evidence_manifest schema.');
+    findings.push('execution-record.md 缺少必需的 evidence_manifest 结构。');
     verdict = 'REQUEST CHANGES';
     rollbackTarget = 'plan';
-    rollbackRationale = 'Execution evidence schema is incomplete, so review cannot accept the run.';
+    rollbackRationale = '执行证据结构不完整，review 不能接受本次运行。';
   }
   if (executionMeta.actor_id === reviewer) {
-    findings.push('Reviewer provenance matches the execution actor and is not independent.');
+    findings.push('Reviewer 来源与执行者一致，不满足独立审查要求。');
     verdict = 'REQUEST CHANGES';
     rollbackTarget = 'plan';
-    rollbackRationale = 'Review independence failed because reviewer provenance matches the execution actor.';
+    rollbackRationale = 'review 独立性校验失败，因为 reviewer 与执行者来源一致。';
+  }
+  if (codeReview?.status === 'skipped') {
+    findings.push(`代码审查已跳过：${codeReview.summary}`);
+  }
+  if (codeReview?.verdict === 'request-changes') {
+    findings.push(`代码审查发现阻断问题：${codeReview.summary}`);
+    for (const finding of codeReview.findings || []) {
+      findings.push(codeReviewFindingText(finding));
+    }
+    verdict = 'REQUEST CHANGES';
+    rollbackTarget = 'plan';
+    rollbackRationale = '代码审查发现需要修改的问题，不能进入 done。';
   }
 
   return {
     verdict,
-    findings: findings.length > 0 ? findings : ['Structured evidence and provenance checks passed.'],
+    findings: findings.length > 0 ? findings : ['结构化证据与来源独立性检查均已通过。'],
     inputManifest,
     evidenceManifest,
     rollbackTarget,
@@ -1379,7 +1406,7 @@ function reviewFindings({ executionMeta, executionStatus, reviewer }) {
   };
 }
 
-export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer' } = {}) {
+export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer', adapter } = {}) {
   const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
 
   if (state.current_stage === STAGES.REVIEW && state.approval.complete === APPROVAL_STATES.APPROVED && state.review_verdict === 'approve') {
@@ -1393,7 +1420,13 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       completion_confirmed: true,
     });
     await writeState(root, next);
-    return { root, state: next, verdict: 'APPROVE', rollbackTarget: 'none' };
+    return {
+      root,
+      state: next,
+      verdict: 'APPROVE',
+      rollbackTarget: 'none',
+      reviewMessageZh: `Review 结果：${normalized} 已完成，工作流已进入 done。`,
+    };
   }
 
   if (state.current_stage === STAGES.REVIEW && state.approval.rollback === APPROVAL_STATES.APPROVED && state.review_verdict === 'request-changes') {
@@ -1413,15 +1446,34 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       },
     });
     await writeState(root, next);
-    return { root, state: next, verdict: 'REQUEST CHANGES', rollbackTarget: 'plan' };
+    return {
+      root,
+      state: next,
+      verdict: 'REQUEST CHANGES',
+      rollbackTarget: 'plan',
+      reviewMessageZh: `Review 结果：${normalized} 要求修改，已回退到 plan 阶段。`,
+    };
   }
 
   ensureApprovedTransition(state, TRANSITIONS.BUILD_TO_REVIEW, 'review');
   const { state: refreshed, executionSummary } = await refreshExecutionStatus(root, state);
+  const reviewAdapter = adapter || createDefaultReviewAdapter();
+  const codeReview = await reviewAdapter.codeReview({
+    cwd,
+    root,
+    slug: normalized,
+    reviewer,
+    executionRecordPath: artifactPath(root, 'execution-record.md'),
+    planArtifactPath: refreshed.plan_artifact_path,
+    testSpecArtifactPath: refreshed.test_spec_artifact_path,
+  });
+  await ensureDir(join(root, 'review-support'));
+  await writeText(join(root, 'review-support', 'code-review.json'), JSON.stringify(codeReview, null, 2));
   const reviewInput = reviewFindings({
     executionMeta: executionSummary.meta,
     executionStatus: refreshed.execution_record_status,
     reviewer,
+    codeReview,
   });
   const runId = executionSummary.meta.run_id || refreshed.active_run_id || `${normalized}-unknown-run`;
 
@@ -1437,6 +1489,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       inputManifest: reviewInput.inputManifest,
       evidenceManifest: reviewInput.evidenceManifest,
       findings: reviewInput.findings,
+      codeReview,
     }),
   );
 
@@ -1459,7 +1512,18 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     },
   });
   await writeState(root, next);
-  return { root, state: next, verdict: reviewInput.verdict, rollbackTarget: reviewInput.rollbackTarget };
+  return {
+    root,
+    state: next,
+    verdict: reviewInput.verdict,
+    rollbackTarget: reviewInput.rollbackTarget,
+    reviewMessageZh: reviewUserMessageZh({
+      slug: normalized,
+      verdict: reviewInput.verdict,
+      rollbackTarget: reviewInput.rollbackTarget,
+      findings: reviewInput.findings,
+    }),
+  };
 }
 
 async function writeAutopilotRun(rootPath, payload) {
@@ -1695,7 +1759,11 @@ export async function statusSummary(cwd, slug) {
   const normalized = normalizeSlug(slug);
   const root = resolveWorkflowRoot(cwd, normalized);
   const state = await readState(cwd, normalized);
-  const legacy = detectLegacyContract(root, state);
+  let effectiveState = state;
+  if (state?.current_stage === STAGES.CLARIFY) {
+    effectiveState = withClarifySummary(state, await readSpecSummary(root));
+  }
+  const legacy = detectLegacyContract(root, effectiveState);
   const artifacts = collectArtifactPresence(root, legacy ? LEGACY_ARTIFACTS : V1_ARTIFACTS);
   const missing = Object.entries(artifacts).filter(([, present]) => !present).map(([name]) => name);
   return {
@@ -1704,12 +1772,12 @@ export async function statusSummary(cwd, slug) {
     config,
     slug: normalized,
     root,
-    state: state ? withRecommendedAction(state, legacy) : null,
+    state: effectiveState ? withRecommendedAction(effectiveState, legacy) : null,
     legacy,
     contract: legacy ? 'legacy-codex-helper' : 'loopx-v1',
-    schema_version: state?.schema_version ?? 0,
+    schema_version: effectiveState?.schema_version ?? 0,
     artifacts,
     missing_artifacts: missing,
-    next_action: state ? recommendedAction(state, legacy) : 'Run loopx clarify to start a workflow.',
+    next_action: effectiveState ? recommendedAction(effectiveState, legacy) : 'Run loopx clarify to start a workflow.',
   };
 }

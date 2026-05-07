@@ -59,8 +59,8 @@ If no requirements artifact is provided, derive a task slug and run pre-context 
 Before planning:
 
 1. Derive a task slug.
-2. Reuse the latest relevant `.omx/context/{slug}-*.md` snapshot when available.
-3. If none exists, create `.omx/context/{slug}-{timestamp}.md` with:
+2. Reuse the latest relevant `.loopx/context/{slug}-*.md` snapshot when available.
+3. If none exists, create `.loopx/context/{slug}-{timestamp}.md` with:
    - task statement
    - desired outcome
    - source requirements artifact
