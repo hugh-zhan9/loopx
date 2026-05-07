@@ -69,6 +69,32 @@ When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use
 `build` may persist support artifacts for runtime inspection, but they must not replace `execution-record.md`.
 </Execution_Model>
 
+<Continuation_Discipline>
+`build` is a persistence loop, not a "one phase per invocation" runner.
+
+If approved plan work remains, continue executing within the same `$build` invocation until either review handoff gates are satisfied or a real blocker prevents further progress.
+
+The following are **not** real blockers by themselves:
+
+- a planned phase is unfinished
+- a runtime adapter is not fully migrated yet
+- store-layer branches still need to be moved to the new service/client path
+- more files remain in the approved implementation scope
+- verification has not been rerun after the latest edits
+
+Those are remaining execution work. Keep working them down.
+
+A real blocker must identify why execution cannot safely continue now, such as:
+
+- missing human product/architecture decision that is not specified by the approved plan
+- unavailable credential, service, fixture, dependency, or environment that cannot be mocked or bypassed responsibly
+- verification failure caused by a pre-existing repository condition that blocks evaluating this change and cannot be isolated
+- repeated implementation failure after the build iteration budget is exhausted
+- a conflict between the approved plan and current repository facts that requires re-planning
+
+Do not end a build response with "continue in the next build" for unfinished approved work. If work remains and no real blocker exists, keep executing. If a real blocker exists, name the concrete blocker and record it in `execution-record.md`.
+</Continuation_Discipline>
+
 <Runtime_State_Machine>
 `build` should track at minimum:
 

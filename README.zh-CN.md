@@ -247,6 +247,22 @@ loopx repair-install
 node scripts/install-skills.mjs --check
 ```
 
+## Codex Stop Hook
+
+loopx 内置一个 Codex stop-hook 辅助脚本，用于防止活跃 build 在达到 review handoff 之前提前停止：
+
+```bash
+node scripts/codex-stop-hook.mjs
+```
+
+`loopx build` 运行期间会写入持久状态：
+
+```text
+.loopx/build-active.json
+```
+
+如果状态显示 build 仍处于 `starting`、`executing`、`verifying` 或 `fixing`，hook 会返回 `allow: false` 和继续执行提示。只有 build 已经 `review-ready`、被真实 blocker 阻塞、失败、取消或不活跃时，hook 才允许停止。
+
 ## 环境变量
 
 安装和 discovery 逻辑支持以下环境变量：
@@ -288,6 +304,7 @@ node src/cli.mjs status --json
 - `README.zh-CN.md`
 - `package.json`
 - `scripts/install-skills.mjs`
+- `scripts/codex-stop-hook.mjs`
 - `src/`
 - `skills/`，包含公开 loopx skills 以及随包发布的兼容/内部 skill 源文件
 - `templates/`
