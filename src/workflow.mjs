@@ -329,6 +329,7 @@ function createInitialState(slug, profile) {
     plan_critic_verdict: 'none',
     plan_acceptance_criteria_testable: false,
     plan_verification_steps_resolved: false,
+    plan_execution_inputs_resolved: false,
     plan_docs_status: 'missing',
     plan_docs_artifact_paths: null,
     plan_review_artifact_paths: [],
@@ -587,6 +588,9 @@ async function readPlanCompletion(cwd, root, slug, state) {
   }
   if (!state.plan_verification_steps_resolved) {
     blockers.push('verification_steps_unresolved');
+  }
+  if (!state.plan_execution_inputs_resolved) {
+    blockers.push('execution_inputs_unresolved');
   }
   if (!state.plan_artifact_path || !existsSync(state.plan_artifact_path)) {
     blockers.push('missing_prd');
@@ -1215,6 +1219,7 @@ export async function planStage(cwd, slug, options = {}) {
       plan_critic_verdict: criticReview.verdict,
       plan_acceptance_criteria_testable: criticReview.acceptanceCriteriaTestable,
       plan_verification_steps_resolved: criticReview.verificationStepsResolved,
+      plan_execution_inputs_resolved: criticReview.executionInputsResolved,
       plan_package_status: 'complete',
       plan_docs_artifact_paths: docPaths,
       plan_review_artifact_paths: reviewArtifactPaths,
@@ -1322,7 +1327,7 @@ export async function buildStage(cwd, slug, options = {}) {
     build_support_evidence_paths: supportArtifacts,
     build_no_deslop: noDeslop,
     active_run_id: current?.runId || null,
-    pending_user_decision: TRANSITIONS.NONE,
+    pending_user_decision: finalBlocked ? TRANSITIONS.NONE : TRANSITIONS.BUILD_TO_REVIEW,
     requested_transition: TRANSITIONS.NONE,
     last_confirmed_transition: TRANSITIONS.PLAN_TO_BUILD,
     approval: {

@@ -2,6 +2,7 @@
 
 import { autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { installBundledSkills } from './install-discovery.mjs';
+import { withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 
 function usage() {
@@ -118,7 +119,7 @@ async function main() {
       case 'clarify': {
         const profile = options.get('--deep') ? 'deep' : 'standard';
         const result = await clarifyStage(process.cwd(), positionals[0], { profile });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
       }
       case 'approve': {
@@ -126,7 +127,7 @@ async function main() {
           from: options.get('--from'),
           to: options.get('--to'),
         });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
       }
       case 'plan': {
@@ -135,21 +136,21 @@ async function main() {
           interactive: Boolean(options.get('--interactive')),
           deliberate: Boolean(options.get('--deliberate')),
         });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
       }
       case 'build': {
         const result = await buildStage(process.cwd(), positionals[0], {
           noDeslop: Boolean(options.get('--no-deslop')),
         });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
       }
       case 'review': {
         const result = await reviewStage(process.cwd(), positionals[0], {
           reviewer: options.get('--reviewer') || 'independent-reviewer',
         });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict }, null, 2));
+        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict }, result.state), null, 2));
         return;
       }
       case 'autopilot': {

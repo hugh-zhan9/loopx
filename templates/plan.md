@@ -24,6 +24,12 @@ stage_owner: plan
 2. keep the loop bounded and deterministic
 3. verify outputs before review
 
+## Execution Inputs
+
+- list every required build-time input for new or changed entrypoints
+- map each input to a concrete source: config, filename, payload, upstream API, user input, or default
+- no item may remain TBD before plan approval
+
 ## Risks
 
 - skipping approval or verification would break the loopx contract
