@@ -130,6 +130,7 @@ Critic evaluates:
 - clarity of risk mitigation
 - testable acceptance criteria
 - concrete verification steps
+- execution-input completeness for each new or changed ingress / workflow entrypoint
 - explicit non-goals and decision boundaries
 - in deliberate mode: pre-mortem and expanded test plan quality
 
@@ -166,6 +167,7 @@ The final plan must include:
 
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
+- execution inputs mapped to concrete sources before build starts
 - available execution lanes and recommended lane
 - test and verification commands
 - residual risks and assumptions
@@ -199,6 +201,7 @@ Without `--interactive`, report the approved plan and recommended next command, 
 - `plan_package_status`: `missing|partial|complete`
 - `plan_acceptance_criteria_testable`: `true|false`
 - `plan_verification_steps_resolved`: `true|false`
+- `plan_execution_inputs_resolved`: `true|false`
 - `requested_transition`: remains explicit before build/autopilot
 
 The plan gate is blocked until:
@@ -208,6 +211,7 @@ The plan gate is blocked until:
 - Critic verdict is `approve`
 - acceptance criteria are testable
 - verification steps are concrete
+- execution inputs are fully mapped to concrete sources
 - user approval exists for any execution transition
 </Runtime_State_Machine>
 

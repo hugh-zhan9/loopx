@@ -65,6 +65,8 @@ function chineseBulletList(items) {
 
 function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
   const summary = buildSourceSummary(sourceText);
+  const executionInputs = bulletsFromSection(extractSection(sourceText, 'Execution Inputs'), []);
+  const executionInputsResolved = executionInputs.length > 0 && executionInputs.every((item) => !/\b(TBD|待定|unknown|later)\b/i.test(item));
   const preMortem = deliberateMode
     ? [
         '如果运行时没有独立的规划适配层，真实编排与测试替身会相互污染。',
@@ -113,10 +115,14 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '## Implementation Steps',
       '',
       '1. Add a plan orchestration adapter for planner, architect, and critic.',
-      '2. Record plan iteration, review verdicts, and docs blockers in workflow state.',
+      '2. Record plan iteration, review verdicts, execution-input blockers, and docs blockers in workflow state.',
       '3. Generate canonical plan artifacts and Chinese docs outputs from the approved planning source.',
       '4. Expose plan-stage progress in CLI status.',
-      '5. Add deterministic regression coverage for happy path, iterate path, and docs blockers.',
+      '5. Add deterministic regression coverage for happy path, iterate path, docs blockers, and unresolved execution inputs.',
+      '',
+      '## Execution Inputs',
+      '',
+      ...(executionInputs.length > 0 ? executionInputs.map((item) => `- ${item}`) : ['- TBD: execution inputs not yet mapped to concrete sources.']),
       '',
       '## Risks',
       '',
@@ -187,10 +193,11 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
       '- clarify -> plan happy path',
       '- critic iterate then approve path',
       '- docs missing or non-Chinese blocking path',
+      '- execution inputs missing or marked TBD blocking path',
       '',
       '## Observability',
       '',
-      '- status exposes iteration, architect review status, critic verdict, and docs blockers',
+      '- status exposes iteration, architect review status, critic verdict, execution input blockers, and docs blockers',
     ].join('\n'),
     docs: {
       architecture: [
@@ -241,6 +248,7 @@ function plannerDraftFromSource({ slug, sourceText, deliberateMode }) {
     optionsReviewed: true,
     acceptanceCriteriaTestable: true,
     verificationStepsResolved: true,
+    executionInputsResolved,
   };
 }
 
@@ -284,12 +292,16 @@ function defaultCriticReview({ plannerDraft, iteration }) {
   if (!plannerDraft.verificationStepsResolved) {
     findings.push('Verification steps are not concrete.');
   }
+  if (!plannerDraft.executionInputsResolved) {
+    findings.push('Execution inputs are not fully mapped to concrete sources.');
+  }
   if (!containsChinese(plannerDraft.docs.architecture) || !containsChinese(plannerDraft.docs.design) || !containsChinese(plannerDraft.docs.testPlan)) {
     findings.push('Required docs outputs are not Chinese.');
   }
   return reviewArtifact('critic', iteration, findings.length > 0 ? 'iterate' : 'approve', findings, {
     acceptanceCriteriaTestable: plannerDraft.acceptanceCriteriaTestable,
     verificationStepsResolved: plannerDraft.verificationStepsResolved,
+    executionInputsResolved: plannerDraft.executionInputsResolved,
   });
 }
 
@@ -302,6 +314,9 @@ function scriptedVerdict(script, index, fallback) {
 }
 
 function scriptedCriticReview({ plannerDraft, iteration }, script, index) {
+  if (!Array.isArray(script) || script.length === 0) {
+    return defaultCriticReview({ plannerDraft, iteration });
+  }
   const verdict = scriptedVerdict(script, index, 'approve');
   const findings = verdict === 'approve'
     ? ['Structured planning outputs satisfy the scripted approval path.']
@@ -309,6 +324,7 @@ function scriptedCriticReview({ plannerDraft, iteration }, script, index) {
   return reviewArtifact('critic', iteration, verdict, findings, {
     acceptanceCriteriaTestable: plannerDraft.acceptanceCriteriaTestable,
     verificationStepsResolved: plannerDraft.verificationStepsResolved,
+    executionInputsResolved: plannerDraft.executionInputsResolved,
   });
 }
 
@@ -321,6 +337,9 @@ export function createScriptedPlanAdapter(script = {}) {
     },
     async architect(context) {
       const base = defaultArchitectReview(context);
+      if (!Array.isArray(script.architect) || script.architect.length === 0) {
+        return base;
+      }
       const mode = scriptedVerdict(script.architect, architectIndex, 'approve');
       architectIndex += 1;
       return {
@@ -363,7 +382,8 @@ export function createRealPlanAdapter({ model } = {}) {
         '  "principlesResolved": boolean,',
         '  "optionsReviewed": boolean,',
         '  "acceptanceCriteriaTestable": boolean,',
-        '  "verificationStepsResolved": boolean',
+        '  "verificationStepsResolved": boolean,',
+        '  "executionInputsResolved": boolean',
         '}',
         `Deliberate mode: ${Boolean(context.deliberateMode)}`,
         '',
@@ -433,7 +453,8 @@ export function createRealPlanAdapter({ model } = {}) {
         '  "verdict": "approve" | "iterate" | "reject",',
         '  "findings": string[],',
         '  "acceptanceCriteriaTestable": boolean,',
-        '  "verificationStepsResolved": boolean',
+        '  "verificationStepsResolved": boolean,',
+        '  "executionInputsResolved": boolean',
         '}',
         'Do not ask questions. Do not wrap JSON in markdown.',
         '',

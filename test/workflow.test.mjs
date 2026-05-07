@@ -10,6 +10,7 @@ import { describe, it } from 'node:test';
 import { installBundledSkills, verifyInstallState } from '../src/install-discovery.mjs';
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createScriptedBuildAdapter } from '../src/build-runtime.mjs';
+import { withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
@@ -102,6 +103,11 @@ async function writeResolvedSpec(root, slug, overrides = {}) {
       '## Decision Boundaries',
       '',
       '- Human approval is required before stage promotion.',
+      '',
+      '## Execution Inputs',
+      '',
+      '- workflow slug: CLI argument provided by the operator',
+      '- source spec path: resolved from the approved clarify artifact',
       '',
       '## Success Criteria',
       '',
@@ -455,6 +461,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(built.state.build_deslop_status, 'complete');
     assert.equal(built.state.build_regression_status, 'complete');
     assert.equal(built.state.execution_record_status, 'complete');
+    assert.equal(built.state.pending_user_decision, 'build->review');
     await approveStage(wd, 'flow', { from: 'build', to: 'review' });
 
     const review = await reviewStage(wd, 'flow', { reviewer: 'qa-1' });
@@ -533,6 +540,11 @@ describe('loopx skill-first workflow contract', () => {
         '',
         '- Plan stops after approved artifacts exist.',
         '',
+        '## Execution Inputs',
+        '',
+        '- direct spec path: provided via --direct or planStage directSpecPath option',
+        '- workflow slug: derived from the direct spec filename when not explicitly provided',
+        '',
         '## Constraints',
         '',
         '- Docs outputs are required.',
@@ -568,6 +580,30 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.plan_docs_status, 'partial');
     assert.equal(state.plan_blockers.includes('doc_not_chinese_design'), true);
     assert.equal(state.plan_critic_verdict, 'approve');
+  });
+
+  it('keeps plan blocked when execution inputs are not resolved', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-inputs-block-'));
+    const clarified = await clarifyStage(wd, 'inputs-block');
+    await writeResolvedSpec(clarified.root, 'inputs-block');
+    await approveStage(wd, 'inputs-block', { from: 'clarify', to: 'plan' });
+    const specPath = join(clarified.root, 'spec.md');
+    const specText = await readFile(specPath, 'utf8');
+    const unresolvedSpec = specText.replace(
+      '## Execution Inputs\n\n- workflow slug: CLI argument provided by the operator\n- source spec path: resolved from the approved clarify artifact\n\n',
+      '',
+    );
+    await writeFile(specPath, unresolvedSpec);
+
+    const planned = await planStage(wd, 'inputs-block', { adapter: createScriptedPlanAdapter() });
+
+    assert.equal(planned.state.plan_critic_verdict, 'iterate');
+    assert.equal(planned.state.plan_execution_inputs_resolved, false);
+    assert.equal(planned.state.plan_blockers.includes('execution_inputs_unresolved'), true);
+    await assert.rejects(
+      () => approveStage(wd, 'inputs-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*execution_inputs_unresolved/,
+    );
   });
 
   it('revises plan when critic requests iterate before approval', async () => {
@@ -663,6 +699,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /build_parallel_mode: true/);
     assert.match(stdout, /build_architect_verification_status: approve/);
     assert.match(stdout, /build_regression_status: complete/);
+    assert.match(stdout, /pending_user_decision: build->review/);
+    assert.match(stdout, /next: Approve build -> review when execution-record\.md is complete\./);
   });
 
   it('CLI clarify defaults to standard and accepts --deep', async () => {
@@ -673,12 +711,33 @@ describe('loopx skill-first workflow contract', () => {
     const standard = JSON.parse(standardOut);
     assert.equal(standard.state.clarify_profile, 'standard');
     assert.equal(standard.state.clarify_max_rounds, 15);
+    assert.equal(standard.next_skill_command, null);
 
     const { stdout: deepOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'cli-deep', '--deep'], { cwd: repoRoot, env });
     const deep = JSON.parse(deepOut);
     assert.equal(deep.state.clarify_profile, 'deep');
     assert.equal(deep.state.clarify_target_ambiguity_threshold, 0.1);
     assert.equal(deep.state.clarify_max_rounds, 25);
+    assert.equal(deep.next_skill_command, null);
+  });
+
+  it('CLI payload adds the next skill command for a completed build', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-build-cli-next-'));
+    const clarified = await clarifyStage(wd, 'build-cli-next');
+    await writeResolvedSpec(clarified.root, 'build-cli-next');
+    await approveStage(wd, 'build-cli-next', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'build-cli-next', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'build-cli-next', { from: 'plan', to: 'build' });
+    const built = await buildStage(wd, 'build-cli-next', {
+      adapter: createScriptedBuildAdapter(),
+    });
+
+    const payload = withNextSkill({ ok: true, command: 'build', root: built.root, state: built.state }, built.state);
+    assert.equal(payload.command, 'build');
+    assert.equal(payload.state.current_stage, 'build');
+    assert.equal(payload.state.pending_user_decision, 'build->review');
+    assert.equal(payload.next_skill_command, '$review build-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next: $review build-cli-next');
   });
 
   it('autopilot composes clarify, plan, build, and review with internal control events', async () => {
