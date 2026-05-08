@@ -15,6 +15,8 @@ const LOOPX_SKILLS = [
   'debug',
   'tdd',
   'verify',
+  'go-style',
+  'kratos',
 ];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 
