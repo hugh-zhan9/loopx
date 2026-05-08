@@ -12,6 +12,9 @@ const LOOPX_SKILLS = [
   'build',
   'review',
   'autopilot',
+  'debug',
+  'tdd',
+  'verify',
 ];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 

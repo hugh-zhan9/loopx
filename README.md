@@ -14,7 +14,7 @@ clarify -> plan -> build -> review
 
 ## Features
 
-- Installs and exposes five public loopx Codex skills: `clarify`, `plan`, `build`, `review`, and `autopilot`.
+- Installs and exposes eight bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, and `autopilot`, plus quality support skills `debug`, `tdd`, and `verify`.
 - Supports npm global install and Codex plugin install through the same install/discovery core.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
 - Runs `plan` with a Planner -> Architect -> Critic consensus loop by default.
@@ -135,7 +135,7 @@ loopx migrate
 loopx repair-install
 ```
 
-The CLI is primarily for runtime, debugging, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, and `$autopilot`.
+The CLI is primarily for runtime, debugging, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$autopilot`, `$debug`, `$tdd`, and `$verify`.
 
 ## Skills
 
@@ -196,6 +196,18 @@ The orchestration ledger is written to:
 ```text
 .loopx/autopilot/<slug>/run.json
 ```
+
+### debug
+
+`debug` is a quality support skill for bugs, failures, regressions, and unexpected behavior. It requires root-cause investigation before proposing fixes, then moves through pattern analysis, hypothesis testing, and implementation.
+
+### tdd
+
+`tdd` is a quality support skill for feature work and bug fixes. It requires writing a failing test first, confirming the failure is meaningful, then implementing the smallest change needed to pass.
+
+### verify
+
+`verify` is a quality support skill for final claims. It requires fresh verification evidence before saying work is complete, fixed, passing, ready to commit, or ready for review.
 
 ## Runtime Layout
 

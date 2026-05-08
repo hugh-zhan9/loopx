@@ -14,7 +14,7 @@ clarify -> plan -> build -> review
 
 ## 特性
 
-- 安装并公开 `clarify`、`plan`、`build`、`review`、`autopilot` 五个 loopx Codex skills。
+- 安装并公开 8 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`autopilot`，以及质量辅助 skills `debug`、`tdd`、`verify`。
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
@@ -135,7 +135,7 @@ loopx migrate
 loopx repair-install
 ```
 
-CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`。
+CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`、`$debug`、`$tdd`、`$verify`。
 
 ## Skill 说明
 
@@ -196,6 +196,18 @@ loopx build <slug> --no-deslop
 ```text
 .loopx/autopilot/<slug>/run.json
 ```
+
+### debug
+
+`debug` 是用于 bug、测试失败、回归和异常行为的质量辅助 skill。它要求先完成根因调查，再进入模式对比、假设验证和修复实现，避免直接猜测式打补丁。
+
+### tdd
+
+`tdd` 是用于功能开发和 bug 修复的质量辅助 skill。它要求先写失败测试，确认失败原因正确，再实现最小可通过改动。
+
+### verify
+
+`verify` 是用于最终完成声明前的质量辅助 skill。它要求在声称完成、修好、测试通过、可提交或可评审之前，先运行 fresh verification 并读取真实输出。
 
 ## 运行时目录
 

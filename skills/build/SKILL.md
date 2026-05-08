@@ -29,6 +29,9 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 - Execution may parallelize internally without exposing a public `team` stage.
 - `build` does not replace `review`.
 - `execution-record.md` remains the sole canonical execution and verification artifact.
+- Feature work and bug fixes should use `tdd`: write a failing test, confirm it fails for the intended reason, then implement the smallest passing change.
+- Bug, test-failure, build-failure, and unexpected-behavior work should use `debug` before proposing fixes.
+- Completion and review-ready claims should use `verify` before they are stated.
 - Fresh evidence is required before review handoff.
 - Deslop and regression re-verification are part of the default build path.
 </Core_Principles>
@@ -59,12 +62,14 @@ When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use
 
 1. Initialize or resume build iteration state.
 2. Run internal execution / evidence / verification lanes in parallel.
-3. Aggregate lane results into canonical `execution-record.md`.
-4. Run fresh verification and read actual output.
-5. Run architect verification as a hard pre-review gate.
-6. Run deslop on build-owned changes.
-7. Re-run regression verification after deslop.
-8. Stop only when review handoff gates are satisfied or a real blocker remains.
+3. For implementation work, apply `tdd` unless the approved plan explicitly classifies the change as non-behavioral or test-inapplicable.
+4. For failures discovered during execution or verification, apply `debug` before attempting fixes.
+5. Aggregate lane results into canonical `execution-record.md`.
+6. Run fresh verification and read actual output using `verify` discipline.
+7. Run architect verification as a hard pre-review gate.
+8. Run deslop on build-owned changes.
+9. Re-run regression verification after deslop.
+10. Stop only when review handoff gates are satisfied or a real blocker remains.
 
 `build` may persist support artifacts for runtime inspection, but they must not replace `execution-record.md`.
 </Execution_Model>
