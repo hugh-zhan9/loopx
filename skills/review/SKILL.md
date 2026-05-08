@@ -43,6 +43,18 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 - Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.
 - If code review finds blocking high or medium severity issues, return a no-go verdict and rollback guidance instead of approving completion.
 
+## Support Skill Review Lenses
+
+Use loopx support skills as review lenses, not as implementation instructions:
+
+- `verify`: Evidence lens. Reject completion, passing, or review-ready claims that lack fresh command output and exit status.
+- `tdd`: Behavior-change lens. Feature work and bug fixes should include failing-test or regression-test evidence unless the execution record explicitly explains why tests are not applicable.
+- `debug`: Failure-analysis lens. Fixes for bugs, test failures, build failures, and unexpected behavior should document root cause, not only symptoms or attempted patches.
+- `go-style`: Go diff lens. For `.go` changes, review happy-path structure, error handling, context usage, interface boundaries, naming, table tests, and `gofmt`/Go verification evidence.
+- `kratos`: Kratos diff lens. For Kratos/proto/service/biz/data/middleware/auth/config changes, review layer boundaries, generated-code flow, proto/package contracts, middleware/auth ordering, config compatibility, and project-native verification.
+
+These lenses can produce review findings when the execution package violates them. Do not run new build work from `review`; request rollback or changes instead.
+
 ## Must Not Decide Automatically
 
 - final completion without an explicit approval step
