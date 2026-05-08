@@ -1,0 +1,71 @@
+---
+name: go-style
+description: Go language style support for loopx. Use before creating or editing Go (.go) files, especially inside build execution lanes.
+---
+
+# Go Style
+
+## Purpose
+
+`go-style` is a lightweight Go coding discipline skill. It should guide edits to `.go` files without overriding the repository's established conventions.
+
+Use it as a support skill from `build` when Go files are created or modified, and directly when the user asks for Go style, idiomatic Go, or Go code cleanup.
+
+## Core Rules
+
+- Preserve local project style first. If nearby code conflicts with this skill, follow the local pattern unless it is clearly broken.
+- Keep the happy path straight down. Return early for errors and guard clauses.
+- Put `context.Context` first in functions that accept a context.
+- Wrap propagated errors with operation context using `%w` when the caller benefits from the cause.
+- Do not wrap errors when returning framework/status errors that must preserve exact type or code semantics.
+- Use sentinel errors, typed errors, or framework errors according to the existing project pattern; do not force sentinel errors everywhere.
+- Avoid shadowing Go predeclared identifiers such as `len`, `error`, `string`, `copy`, `new`, and `make`.
+- Keep interfaces small and define them at the consumer boundary when practical.
+- Prefer table-driven tests for behavior matrices.
+- Run `gofmt` on edited Go files before verification.
+
+## Error Handling
+
+Good default:
+
+```go
+user, err := repo.GetUser(ctx, userID)
+if err != nil {
+    return nil, fmt.Errorf("get user %s: %w", userID, err)
+}
+```
+
+Use exact framework errors when the framework contract requires them:
+
+```go
+if !allowed {
+    return nil, errors.Forbidden("PERMISSION_DENIED", "permission denied")
+}
+```
+
+Expected error categories may be represented by:
+
+- package-level sentinel errors with `errors.Is`
+- typed errors with structured fields
+- Kratos/API status errors
+- existing project domain error helpers
+
+Choose the one already used in the codebase.
+
+## Comments
+
+- Exported symbols should have Go doc comments that start with the symbol name.
+- Short local comments are acceptable when they explain why, not what.
+- Prefer complete sentences for package, exported type, exported function, and non-obvious behavior comments.
+
+## Verification
+
+For Go edits, prefer the narrowest meaningful verification first, then broaden if the touched surface is shared:
+
+```bash
+gofmt -w <edited-go-files>
+go test ./...
+go vet ./...
+```
+
+Use project-specific commands when present, such as `make test`, `make lint`, `golangci-lint run`, or repository scripts.

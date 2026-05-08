@@ -14,7 +14,7 @@ clarify -> plan -> build -> review
 
 ## Features
 
-- Installs and exposes eight bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, and `autopilot`, plus quality support skills `debug`, `tdd`, and `verify`.
+- Installs and exposes ten bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, and `autopilot`; quality support skills `debug`, `tdd`, and `verify`; and Go support skills `go-style` and `kratos`.
 - Supports npm global install and Codex plugin install through the same install/discovery core.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
 - Runs `plan` with a Planner -> Architect -> Critic consensus loop by default.
@@ -135,7 +135,7 @@ loopx migrate
 loopx repair-install
 ```
 
-The CLI is primarily for runtime, debugging, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$autopilot`, `$debug`, `$tdd`, and `$verify`.
+The CLI is primarily for runtime, debugging, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$autopilot`, `$debug`, `$tdd`, `$verify`, `$go-style`, and `$kratos`.
 
 ## Skills
 
@@ -208,6 +208,14 @@ The orchestration ledger is written to:
 ### verify
 
 `verify` is a quality support skill for final claims. It requires fresh verification evidence before saying work is complete, fixed, passing, ready to commit, or ready for review.
+
+### go-style
+
+`go-style` is a Go language support skill. It guides `.go` edits toward idiomatic structure, local project conventions, clear error handling, small interfaces, table-driven tests, and `gofmt`/Go verification.
+
+### kratos
+
+`kratos` is a Go-Kratos framework support skill. It applies when a project uses Kratos signals such as `buf.yaml`, proto APIs, `internal/service`, `internal/biz`, `internal/data`, or `github.com/go-kratos/kratos/v2`, and includes focused references for proto design, layered architecture, config, middleware, auth, HTTP customization, and troubleshooting.
 
 ## Runtime Layout
 

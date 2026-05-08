@@ -14,7 +14,7 @@ clarify -> plan -> build -> review
 
 ## 特性
 
-- 安装并公开 8 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`autopilot`，以及质量辅助 skills `debug`、`tdd`、`verify`。
+- 安装并公开 10 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`autopilot`，质量辅助 skills `debug`、`tdd`、`verify`，以及 Go 支持 skills `go-style`、`kratos`。
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
@@ -135,7 +135,7 @@ loopx migrate
 loopx repair-install
 ```
 
-CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`、`$debug`、`$tdd`、`$verify`。
+CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`、`$debug`、`$tdd`、`$verify`、`$go-style`、`$kratos`。
 
 ## Skill 说明
 
@@ -208,6 +208,14 @@ loopx build <slug> --no-deslop
 ### verify
 
 `verify` 是用于最终完成声明前的质量辅助 skill。它要求在声称完成、修好、测试通过、可提交或可评审之前，先运行 fresh verification 并读取真实输出。
+
+### go-style
+
+`go-style` 是 Go 语言支持 skill。它用于指导 `.go` 文件编辑，强调 idiomatic Go、保留项目本地风格、清晰错误处理、小接口、表驱动测试，以及 `gofmt` 和 Go 验证。
+
+### kratos
+
+`kratos` 是 Go-Kratos 框架支持 skill。当项目出现 `buf.yaml`、proto API、`internal/service`、`internal/biz`、`internal/data` 或 `github.com/go-kratos/kratos/v2` 等信号时使用，并提供 proto 设计、分层架构、配置、中间件、认证、HTTP 定制和排错参考。
 
 ## 运行时目录
 
