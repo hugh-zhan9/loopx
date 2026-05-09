@@ -5,10 +5,19 @@ import { fileURLToPath } from 'node:url';
 
 import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-runtime.mjs';
 import { writeBuildActiveState } from './build-stop-gate.mjs';
-import { ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
+import {
+  buildContextManifestPath,
+  generateBuildContextManifest,
+  generateReviewContextManifest,
+  manifestRowsToInputManifest,
+  readContextManifest,
+  reviewContextManifestPath,
+} from './context-manifest.mjs';
+import { doctorRuntime, ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
 import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build-runtime.mjs';
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
 import { createDefaultReviewAdapter } from './review-runtime.mjs';
+import { appendWorkspaceJournal } from './workspace-memory.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_SCHEMA_VERSION = 1;
@@ -34,7 +43,9 @@ export const TRANSITIONS = {
   CLARIFY_TO_PLAN: 'clarify->plan',
   PLAN_TO_BUILD: 'plan->build',
   BUILD_TO_REVIEW: 'build->review',
+  REVIEW_TO_BUILD: 'review->build',
   REVIEW_TO_PLAN: 'review->plan',
+  REVIEW_TO_CLARIFY: 'review->clarify',
   REVIEW_TO_DONE: 'review->done',
 };
 
@@ -64,6 +75,13 @@ function normalizeSlug(raw) {
     throw new Error('workflow_slug_required');
   }
   return slug;
+}
+
+function slugFromBuildInput(raw) {
+  const value = String(raw || '');
+  const name = basename(value);
+  const match = /^prd-(.+)\.md$/.exec(name);
+  return match ? normalizeSlug(match[1]) : normalizeSlug(value);
 }
 
 function nowIso() {
@@ -616,6 +634,14 @@ function buildIterationBlockers(iterationData, { noDeslop = false } = {}) {
   return blockers;
 }
 
+function buildHasInfrastructureFailure(iterationData) {
+  const limitationText = [
+    ...(Array.isArray(iterationData.limitations) ? iterationData.limitations : []),
+    ...(Array.isArray(iterationData.lanes) ? iterationData.lanes.flatMap((lane) => [lane.summary, ...(Array.isArray(lane.limitations) ? lane.limitations : [])]) : []),
+  ].join('\n');
+  return /codex_exec_failed:|codex_exec_invalid_json:|timeout/i.test(limitationText);
+}
+
 function buildExecutionRecordContent({ slug, iterationData, complete }) {
   const placeholder = complete ? null : 'TODO: build iteration is not review-ready yet.';
   return [
@@ -820,9 +846,22 @@ function recommendedAction(state, legacy = false) {
           : 'Approve review -> done to complete the workflow.';
       }
       if (state.review_verdict === 'request-changes') {
-        return state.approval.rollback === APPROVAL_STATES.APPROVED
-          ? 'Run loopx review again to consume the approved review -> plan transition.'
-          : 'Approve review -> plan to roll back for another planning pass.';
+        if (state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD && state.approval.build === APPROVAL_STATES.APPROVED) {
+          return 'Run loopx build to consume the approved review -> build transition.';
+        }
+        if (state.requested_transition === TRANSITIONS.REVIEW_TO_PLAN && state.approval.rollback === APPROVAL_STATES.APPROVED) {
+          return 'Run loopx plan to consume the approved review -> plan transition.';
+        }
+        if (state.requested_transition === TRANSITIONS.REVIEW_TO_CLARIFY && state.approval.rollback === APPROVAL_STATES.APPROVED) {
+          return 'Run loopx clarify to consume the approved review -> clarify transition.';
+        }
+        if (state.rollback_target === STAGES.BUILD) {
+          return 'Approve review -> build to fix implementation issues.';
+        }
+        if (state.rollback_target === STAGES.CLARIFY) {
+          return 'Approve review -> clarify to resolve requirement ambiguity.';
+        }
+        return 'Approve review -> plan to revise the plan package.';
       }
       return 'Run loopx review after build completes.';
     case STAGES.DONE:
@@ -872,7 +911,10 @@ function approvalKeyForTransition(transition) {
       return 'build';
     case TRANSITIONS.BUILD_TO_REVIEW:
       return 'review';
+    case TRANSITIONS.REVIEW_TO_BUILD:
+      return 'build';
     case TRANSITIONS.REVIEW_TO_PLAN:
+    case TRANSITIONS.REVIEW_TO_CLARIFY:
       return 'rollback';
     case TRANSITIONS.REVIEW_TO_DONE:
       return 'complete';
@@ -885,6 +927,34 @@ function ensureApprovedTransition(state, expectedTransition, key) {
   if (state.requested_transition !== expectedTransition || state.approval[key] !== APPROVAL_STATES.APPROVED) {
     throw new Error(`approved_transition_required:${expectedTransition}`);
   }
+}
+
+function ensureValidContextManifest(manifest, stage) {
+  if (manifest?.status === 'invalid') {
+    throw new Error(`context_manifest_invalid:${stage}:${manifest.error || 'unknown'}`);
+  }
+}
+
+async function writeReviewJournal({ cwd, slug, verdict, reviewMessageZh, evidenceManifest = [], findings = [], followUps = [] }) {
+  return appendWorkspaceJournal({
+    cwd,
+    workspaceRoot: resolveWorkspaceRoot(cwd),
+    slug,
+    stage: STAGES.REVIEW,
+    verdict,
+    reviewMessageZh,
+    verificationEvidence: evidenceManifest.map((item) => item.summary || item.ref || JSON.stringify(item)),
+    decisions: ['review 已执行 code review 与证据完整性检查。'],
+    risks: verdict === 'APPROVE' ? ['暂无阻断风险。'] : findings,
+    followUps,
+  });
+}
+
+async function writeReviewChangedFiles(root, changedFiles = []) {
+  await ensureDir(join(root, 'review-support'));
+  const path = join(root, 'review-support', 'changed-files.json');
+  await writeText(path, `${JSON.stringify(Array.isArray(changedFiles) ? changedFiles : [], null, 2)}\n`);
+  return path;
 }
 
 function executionRecordTemplate(slug, stage, actorId, runId) {
@@ -935,17 +1005,61 @@ function rollbackTargetLabel(rollbackTarget) {
   if (rollbackTarget === 'none') {
     return '无需回滚';
   }
+  if (rollbackTarget === 'build') {
+    return '回到 build 阶段修复实现问题';
+  }
   if (rollbackTarget === 'plan') {
     return '回退到 plan 阶段';
   }
+  if (rollbackTarget === 'clarify') {
+    return '回到 clarify 阶段澄清需求';
+  }
   return rollbackTarget;
+}
+
+function transitionForRollbackTarget(target) {
+  if (target === STAGES.BUILD) {
+    return TRANSITIONS.REVIEW_TO_BUILD;
+  }
+  if (target === STAGES.CLARIFY) {
+    return TRANSITIONS.REVIEW_TO_CLARIFY;
+  }
+  return TRANSITIONS.REVIEW_TO_PLAN;
+}
+
+function nextCommandForRollbackTarget(slug, target) {
+  if (target === STAGES.BUILD) {
+    return [
+      'Next:',
+      `loopx approve ${slug} --from review --to build`,
+      `$build .loopx/plans/prd-${slug}.md`,
+    ].join('\n');
+  }
+  if (target === STAGES.CLARIFY) {
+    return [
+      'Next:',
+      `loopx approve ${slug} --from review --to clarify`,
+      `$clarify ${slug}`,
+    ].join('\n');
+  }
+  if (target === 'none') {
+    return [
+      'Next:',
+      `loopx approve ${slug} --from review --to done`,
+    ].join('\n');
+  }
+  return [
+    'Next:',
+    `loopx approve ${slug} --from review --to plan`,
+    `$plan ${slug}`,
+  ].join('\n');
 }
 
 function reviewUserMessageZh({ slug, verdict, rollbackTarget, findings }) {
   const label = reviewVerdictLabel(verdict);
   const next = verdict === 'APPROVE'
-    ? '下一步：批准 review -> done 后完成工作流。'
-    : `下一步：按审查发现处理，并${rollbackTargetLabel(rollbackTarget)}。`;
+    ? `下一步：批准 review -> done 后完成工作流。\n${nextCommandForRollbackTarget(slug, 'none')}`
+    : `下一步：按审查发现处理，并${rollbackTargetLabel(rollbackTarget)}。\n${nextCommandForRollbackTarget(slug, rollbackTarget)}`;
   const findingText = Array.isArray(findings) && findings.length > 0 ? findings.join('；') : '无额外发现。';
   return `Review 结果：${slug} ${label}。审查发现：${findingText} ${next}`;
 }
@@ -953,6 +1067,23 @@ function reviewUserMessageZh({ slug, verdict, rollbackTarget, findings }) {
 function codeReviewFindingText(finding) {
   const location = finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ''}` : '未定位文件';
   return `[${finding.severity || 'medium'}] ${location}：${finding.message}`;
+}
+
+function codeReviewFailureResult(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    status: 'failed',
+    verdict: 'request-changes',
+    summary: `code-review 子流程失败，review 不能接受本次运行：${message}`,
+    rollbackTarget: STAGES.BUILD,
+    changedFiles: [],
+    findings: [{
+      severity: 'high',
+      file: 'review-support/code-review.raw.json',
+      line: null,
+      message: `code-review 子流程未返回有效结构化 JSON：${message}`,
+    }],
+  };
 }
 
 function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, rollbackRationale, inputManifest, evidenceManifest, findings, codeReview }) {
@@ -1049,21 +1180,62 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
   const normalized = normalizeSlug(slug);
   const clarifyProfile = normalizeClarifyProfile(profile);
   const root = resolveWorkflowRoot(cwd, normalized);
+  const existing = await readState(cwd, normalized);
+  const consumesReviewClarify = existing?.current_stage === STAGES.REVIEW
+    && existing?.requested_transition === TRANSITIONS.REVIEW_TO_CLARIFY
+    && existing?.approval?.rollback === APPROVAL_STATES.APPROVED
+    && existing?.review_verdict === 'request-changes';
+  const resumesConsumedReviewClarify = existing?.current_stage === STAGES.CLARIFY
+    && existing?.last_confirmed_transition === TRANSITIONS.REVIEW_TO_CLARIFY
+    && existing?.approval?.rollback === APPROVAL_STATES.APPROVED;
+  const preservesExistingClarifySpec = consumesReviewClarify || resumesConsumedReviewClarify;
   await ensureLoopxRoot(cwd);
   await ensureDir(root);
   const stamp = nowStamp();
-  await writeTemplateArtifact(root, 'spec.md', {
-    'task name': normalized,
-    'workflow id': normalized,
-    profile: clarifyProfile,
-    'target ambiguity threshold': CLARIFY_PROFILES[clarifyProfile].threshold,
-    'max rounds': CLARIFY_PROFILES[clarifyProfile].maxRounds,
-  });
+  if (!preservesExistingClarifySpec) {
+    await writeTemplateArtifact(root, 'spec.md', {
+      'task name': normalized,
+      'workflow id': normalized,
+      profile: clarifyProfile,
+      'target ambiguity threshold': CLARIFY_PROFILES[clarifyProfile].threshold,
+      'max rounds': CLARIFY_PROFILES[clarifyProfile].maxRounds,
+    });
+  }
   const specArtifactPath = canonicalClarifySpecPath(cwd, normalized, stamp);
   await copyArtifact(root, specArtifactPath, 'spec.md');
-  const state = withRecommendedAction({
-    ...createInitialState(normalized, clarifyProfile),
+	  const state = withRecommendedAction({
+	    ...(preservesExistingClarifySpec ? existing : createInitialState(normalized, clarifyProfile)),
+	    current_stage: STAGES.CLARIFY,
+	    stage_status: 'blocked',
+	    clarify_profile: clarifyProfile,
+	    clarify_target_ambiguity_threshold: CLARIFY_PROFILES[clarifyProfile].threshold,
+	    clarify_max_rounds: CLARIFY_PROFILES[clarifyProfile].maxRounds,
+	    clarify_current_round: preservesExistingClarifySpec ? existing.clarify_current_round : 0,
+	    clarify_ambiguity_score: 1,
+	    clarify_pressure_pass_complete: false,
+	    clarify_non_goals_resolved: false,
+	    clarify_decision_boundaries_resolved: false,
+	    ambiguity_items: preservesExistingClarifySpec ? existing.ambiguity_items : [
+      {
+        id: 'A-1',
+        question: 'What specific task should loopx execute in this workflow?',
+        status: 'open',
+        resolution: null,
+      },
+    ],
+	    unresolved_ambiguity_count: preservesExistingClarifySpec ? Math.max(1, Number(existing.unresolved_ambiguity_count || 0)) : 1,
     spec_artifact_path: specArtifactPath,
+    pending_user_decision: TRANSITIONS.NONE,
+    requested_transition: TRANSITIONS.NONE,
+    last_confirmed_transition: preservesExistingClarifySpec ? TRANSITIONS.REVIEW_TO_CLARIFY : TRANSITIONS.NONE,
+    approval: {
+      ...(preservesExistingClarifySpec ? existing.approval : createInitialState(normalized, clarifyProfile).approval),
+      plan: APPROVAL_STATES.NOT_REQUESTED,
+      build: APPROVAL_STATES.NOT_REQUESTED,
+      review: APPROVAL_STATES.NOT_REQUESTED,
+      rollback: preservesExistingClarifySpec ? APPROVAL_STATES.APPROVED : APPROVAL_STATES.NOT_REQUESTED,
+      complete: APPROVAL_STATES.NOT_REQUESTED,
+    },
   });
   await writeState(root, state);
   return { root, state };
@@ -1137,6 +1309,22 @@ export async function approveStage(cwd, slug, { from, to }) {
   }
 
   if (transition === TRANSITIONS.REVIEW_TO_PLAN) {
+    if (next.review_verdict !== 'request-changes' || next.rollback_target !== STAGES.PLAN) {
+      throw new Error('review_plan_fix_not_requested');
+    }
+    if (!next.rollback_rationale) {
+      throw new Error('rollback_rationale_required');
+    }
+  }
+  if (transition === TRANSITIONS.REVIEW_TO_BUILD) {
+    if (next.review_verdict !== 'request-changes' || next.rollback_target !== STAGES.BUILD) {
+      throw new Error('review_build_fix_not_requested');
+    }
+  }
+  if (transition === TRANSITIONS.REVIEW_TO_CLARIFY) {
+    if (next.review_verdict !== 'request-changes' || next.rollback_target !== STAGES.CLARIFY) {
+      throw new Error('review_clarify_fix_not_requested');
+    }
     if (!next.rollback_rationale) {
       throw new Error('rollback_rationale_required');
     }
@@ -1144,6 +1332,44 @@ export async function approveStage(cwd, slug, { from, to }) {
 
   if (transition === TRANSITIONS.REVIEW_TO_DONE && next.review_verdict !== 'approve') {
     throw new Error('review_not_approved');
+  }
+
+  if (transition === TRANSITIONS.REVIEW_TO_DONE) {
+    let doneJournal = null;
+    let doneJournalWarning = null;
+    if (next.workspace_journal_status !== 'written' || !next.workspace_journal_path) {
+      try {
+        doneJournal = await writeReviewJournal({
+          cwd,
+          slug: state.slug,
+          verdict: 'APPROVE',
+          reviewMessageZh: `Review 结果：${state.slug} 已批准完成，工作流进入 done。`,
+          evidenceManifest: [],
+          findings: [],
+          followUps: ['工作流已完成。'],
+        });
+      } catch (error) {
+        doneJournalWarning = error instanceof Error ? error.message : String(error);
+      }
+    }
+    next = withRecommendedAction({
+      ...next,
+      current_stage: STAGES.DONE,
+      stage_status: 'completed',
+      pending_user_decision: TRANSITIONS.NONE,
+      requested_transition: TRANSITIONS.NONE,
+      last_confirmed_transition: TRANSITIONS.REVIEW_TO_DONE,
+      completion_confirmed: true,
+      workspace_journal_status: doneJournal ? 'written' : (next.workspace_journal_status || 'failed'),
+      workspace_journal_path: doneJournal?.journalPath || next.workspace_journal_path || null,
+      workspace_journal_error: doneJournalWarning || next.workspace_journal_error || null,
+      approval: {
+        ...next.approval,
+        [approvalKey]: APPROVAL_STATES.APPROVED,
+      },
+    });
+    await writeState(root, next);
+    return { root, state: next };
   }
 
   next = withRecommendedAction({
@@ -1170,9 +1396,20 @@ export async function planStage(cwd, slug, options = {}) {
   const loaded = await loadWorkflowState(cwd, normalized, { allowLegacy: false });
   const { root } = loaded;
   let { state } = loaded;
+  const consumesReviewPlan = state.current_stage === STAGES.REVIEW
+    && state.requested_transition === TRANSITIONS.REVIEW_TO_PLAN
+    && state.approval.rollback === APPROVAL_STATES.APPROVED
+    && state.review_verdict === 'request-changes';
+  const resumesConsumedReviewPlan = state.current_stage === STAGES.PLAN
+    && state.last_confirmed_transition === TRANSITIONS.REVIEW_TO_PLAN
+    && state.approval.rollback === APPROVAL_STATES.APPROVED;
   if (!options.directSpecPath) {
-    ensureApprovedTransition(state, TRANSITIONS.CLARIFY_TO_PLAN, 'plan');
-    if (state.spec_artifact_path) {
+    if (consumesReviewPlan || resumesConsumedReviewPlan) {
+      // A no-go review may route back to plan; the printed Next command is $plan.
+    } else {
+      ensureApprovedTransition(state, TRANSITIONS.CLARIFY_TO_PLAN, 'plan');
+    }
+    if (!consumesReviewPlan && !resumesConsumedReviewPlan && state.spec_artifact_path) {
       await copyArtifact(root, state.spec_artifact_path, 'spec.md');
     }
   }
@@ -1242,13 +1479,13 @@ export async function planStage(cwd, slug, options = {}) {
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
       plan_source_spec_path: sourceSpecPath,
-      last_confirmed_transition: TRANSITIONS.CLARIFY_TO_PLAN,
+      last_confirmed_transition: consumesReviewPlan || resumesConsumedReviewPlan ? TRANSITIONS.REVIEW_TO_PLAN : TRANSITIONS.CLARIFY_TO_PLAN,
       approval: {
         ...state.approval,
         plan: APPROVAL_STATES.APPROVED,
         build: APPROVAL_STATES.NOT_REQUESTED,
         review: APPROVAL_STATES.NOT_REQUESTED,
-        rollback: APPROVAL_STATES.NOT_REQUESTED,
+        rollback: consumesReviewPlan || resumesConsumedReviewPlan ? APPROVAL_STATES.APPROVED : APPROVAL_STATES.NOT_REQUESTED,
         complete: APPROVAL_STATES.NOT_REQUESTED,
       },
     };
@@ -1260,23 +1497,38 @@ export async function planStage(cwd, slug, options = {}) {
   }
 
   const completion = await readPlanCompletion(cwd, root, normalized, state);
+  const buildManifest = completion.blockers.length > 0
+    ? null
+    : await generateBuildContextManifest({ cwd, root, state, slug: normalized });
   const next = withRecommendedAction({
     ...state,
     current_stage: STAGES.PLAN,
     stage_status: completion.blockers.length > 0 ? 'blocked' : 'awaiting-approval',
-    pending_user_decision: TRANSITIONS.NONE,
+    pending_user_decision: completion.blockers.length > 0 ? TRANSITIONS.NONE : TRANSITIONS.PLAN_TO_BUILD,
     requested_transition: TRANSITIONS.NONE,
     plan_docs_status: completion.docsStatus,
     plan_docs_artifact_paths: null,
     plan_blockers: completion.blockers,
+    context_manifest_status: buildManifest ? 'hit' : 'fallback',
+    build_context_manifest_path: buildManifest?.path || buildContextManifestPath(root),
   });
   await writeState(root, next);
   return { root, state: next, architectReview, criticReview };
 }
 
 export async function buildStage(cwd, slug, options = {}) {
-  const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
-  ensureApprovedTransition(state, TRANSITIONS.PLAN_TO_BUILD, 'build');
+  const buildSlug = slugFromBuildInput(slug);
+  const { root, state, slug: normalized } = await loadWorkflowState(cwd, buildSlug, { allowLegacy: false });
+  const consumesReviewBuild = state.current_stage === STAGES.REVIEW
+    && state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD
+    && state.approval.build === APPROVAL_STATES.APPROVED
+    && state.review_verdict === 'request-changes';
+  const resumesConsumedReviewBuild = state.current_stage === STAGES.BUILD
+    && state.last_confirmed_transition === TRANSITIONS.REVIEW_TO_BUILD
+    && state.approval.build === APPROVAL_STATES.APPROVED;
+  if (!consumesReviewBuild && !resumesConsumedReviewBuild) {
+    ensureApprovedTransition(state, TRANSITIONS.PLAN_TO_BUILD, 'build');
+  }
   if (!PLAN_ARTIFACTS.every((name) => existsSync(artifactPath(root, name)))) {
     throw new Error('build_requires_workflow_plan_artifacts');
   }
@@ -1292,6 +1544,9 @@ export async function buildStage(cwd, slug, options = {}) {
   let iteration = 1;
   let current = null;
   let blockers = ['build_not_started'];
+  const buildManifest = await readContextManifest(buildContextManifestPath(root), { cwd });
+  ensureValidContextManifest(buildManifest, STAGES.BUILD);
+  const contextManifestStatus = buildManifest.status;
 
   await writeBuildActiveState(cwd, {
     active: true,
@@ -1324,6 +1579,9 @@ export async function buildStage(cwd, slug, options = {}) {
       noDeslop,
       planArtifactPath: state.plan_artifact_path,
       testSpecArtifactPath: state.test_spec_artifact_path,
+      contextManifestPath: buildContextManifestPath(root),
+      contextManifestRows: buildManifest.rows,
+      contextManifestStatus,
     });
     blockers = buildIterationBlockers(current, { noDeslop });
     await writeBuildActiveState(cwd, {
@@ -1349,10 +1607,16 @@ export async function buildStage(cwd, slug, options = {}) {
     if (blockers.length === 0) {
       break;
     }
+    if (buildHasInfrastructureFailure(current)) {
+      break;
+    }
     iteration += 1;
   }
 
   const finalBlocked = blockers.length > 0;
+  const reviewManifest = finalBlocked
+    ? null
+    : await generateReviewContextManifest({ cwd, root, state, slug: normalized });
   const refreshed = await refreshExecutionStatus(root, state);
   const next = withRecommendedAction({
     ...refreshed.state,
@@ -1373,10 +1637,19 @@ export async function buildStage(cwd, slug, options = {}) {
     build_progress_artifact_paths: progressArtifacts,
     build_support_evidence_paths: supportArtifacts,
     build_no_deslop: noDeslop,
+    context_manifest_status: contextManifestStatus,
+    build_context_manifest_path: buildContextManifestPath(root),
+    review_context_manifest_path: reviewManifest?.path || reviewContextManifestPath(root),
     active_run_id: current?.runId || null,
     pending_user_decision: finalBlocked ? TRANSITIONS.NONE : TRANSITIONS.BUILD_TO_REVIEW,
     requested_transition: TRANSITIONS.NONE,
-    last_confirmed_transition: TRANSITIONS.PLAN_TO_BUILD,
+    last_confirmed_transition: consumesReviewBuild || resumesConsumedReviewBuild ? TRANSITIONS.REVIEW_TO_BUILD : TRANSITIONS.PLAN_TO_BUILD,
+    review_verdict: 'none',
+    rollback_target: null,
+    rollback_rationale: null,
+    workspace_journal_path: null,
+    workspace_journal_status: 'skipped',
+    workspace_journal_error: null,
     approval: {
       ...state.approval,
       build: APPROVAL_STATES.APPROVED,
@@ -1436,8 +1709,14 @@ function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }
       findings.push(codeReviewFindingText(finding));
     }
     verdict = 'REQUEST CHANGES';
-    rollbackTarget = 'plan';
-    rollbackRationale = '代码审查发现需要修改的问题，不能进入 done。';
+    if (rollbackTarget === 'none' || rollbackTarget === STAGES.BUILD) {
+      rollbackTarget = codeReview.rollbackTarget || STAGES.BUILD;
+    }
+    rollbackRationale = rollbackTarget === STAGES.BUILD
+      ? '代码审查发现实现问题，需要回到 build 阶段修复后重新 review。'
+      : rollbackTarget === STAGES.CLARIFY
+        ? '代码审查暴露需求歧义，需要回到 clarify 阶段重新澄清。'
+        : '代码审查发现计划或架构问题，需要回到 plan 阶段修订后重新执行。';
   }
 
   return {
@@ -1451,7 +1730,14 @@ function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }
 }
 
 export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer', adapter } = {}) {
-  const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
+  const reviewSlug = String(slug || '').endsWith('execution-record.md')
+    ? basename(dirname(resolve(cwd, slug)))
+    : slug;
+  const { root, state, slug: normalized } = await loadWorkflowState(cwd, reviewSlug, { allowLegacy: false });
+  const rerunsAwaitingCompletionReview = state.current_stage === STAGES.REVIEW
+    && state.review_verdict === 'approve'
+    && state.pending_user_decision === TRANSITIONS.REVIEW_TO_DONE
+    && state.requested_transition === TRANSITIONS.NONE;
 
   if (state.current_stage === STAGES.REVIEW && state.approval.complete === APPROVAL_STATES.APPROVED && state.review_verdict === 'approve') {
     const next = withRecommendedAction({
@@ -1473,17 +1759,63 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     };
   }
 
-  if (state.current_stage === STAGES.REVIEW && state.approval.rollback === APPROVAL_STATES.APPROVED && state.review_verdict === 'request-changes') {
+	  if (state.current_stage === STAGES.REVIEW && state.approval.build === APPROVAL_STATES.APPROVED && state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD && state.review_verdict === 'request-changes') {
+	    const next = withRecommendedAction({
+	      ...state,
+	      current_stage: STAGES.BUILD,
+	      stage_status: 'pending-rework',
+	      review_status: 'pending-fix',
+	      pending_user_decision: TRANSITIONS.NONE,
+	      requested_transition: TRANSITIONS.NONE,
+	      last_confirmed_transition: TRANSITIONS.REVIEW_TO_BUILD,
+	      execution_record_status: 'pending-rework',
+	      build_verification_status: 'pending',
+	      build_architect_verification_status: 'pending',
+	      build_deslop_status: state.build_no_deslop ? 'skipped' : 'pending',
+	      build_regression_status: state.build_no_deslop ? 'skipped' : 'pending',
+	      build_blockers: ['review_rework_required'],
+	      approval: {
+	        ...state.approval,
+        build: APPROVAL_STATES.APPROVED,
+        review: APPROVAL_STATES.NOT_REQUESTED,
+        rollback: APPROVAL_STATES.NOT_REQUESTED,
+        complete: APPROVAL_STATES.NOT_REQUESTED,
+      },
+    });
+    await writeState(root, next);
+    return {
+      root,
+      state: next,
+      verdict: 'REQUEST CHANGES',
+      rollbackTarget: 'build',
+      reviewMessageZh: `Review 结果：${normalized} 要求修改，已回到 build 阶段。\nNext:\n$build .loopx/plans/prd-${normalized}.md`,
+    };
+  }
+
+  if (state.current_stage === STAGES.REVIEW && state.approval.rollback === APPROVAL_STATES.APPROVED && state.requested_transition === TRANSITIONS.REVIEW_TO_PLAN && state.review_verdict === 'request-changes') {
     const next = withRecommendedAction({
       ...state,
       current_stage: STAGES.PLAN,
-      stage_status: 'awaiting-approval',
-      pending_user_decision: TRANSITIONS.NONE,
-      requested_transition: TRANSITIONS.NONE,
-      last_confirmed_transition: TRANSITIONS.REVIEW_TO_PLAN,
-      plan_package_status: 'complete',
+	      stage_status: 'pending-rework',
+	      pending_user_decision: TRANSITIONS.NONE,
+	      requested_transition: TRANSITIONS.NONE,
+	      last_confirmed_transition: TRANSITIONS.REVIEW_TO_PLAN,
+	      plan_package_status: 'pending-rework',
+	      plan_principles_resolved: false,
+	      plan_options_reviewed: false,
+	      plan_architect_review_status: 'pending',
+	      plan_critic_verdict: 'pending',
+	      plan_acceptance_criteria_testable: false,
+	      plan_verification_steps_resolved: false,
+	      plan_execution_inputs_resolved: false,
+	      plan_docs_status: 'pending-rework',
+	      plan_blockers: ['review_rework_required'],
+	      plan_current_iteration: 0,
+	      build_blockers: ['plan_rework_required'],
+	      review_status: 'pending-fix',
       approval: {
         ...state.approval,
+        plan: APPROVAL_STATES.NOT_REQUESTED,
         build: APPROVAL_STATES.NOT_REQUESTED,
         review: APPROVAL_STATES.NOT_REQUESTED,
         rollback: APPROVAL_STATES.APPROVED,
@@ -1499,26 +1831,84 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     };
   }
 
-  ensureApprovedTransition(state, TRANSITIONS.BUILD_TO_REVIEW, 'review');
+  if (state.current_stage === STAGES.REVIEW && state.approval.rollback === APPROVAL_STATES.APPROVED && state.requested_transition === TRANSITIONS.REVIEW_TO_CLARIFY && state.review_verdict === 'request-changes') {
+    const next = withRecommendedAction({
+      ...state,
+	      current_stage: STAGES.CLARIFY,
+	      stage_status: 'pending-rework',
+	      clarify_ambiguity_score: 1,
+	      clarify_pressure_pass_complete: false,
+	      clarify_non_goals_resolved: false,
+	      clarify_decision_boundaries_resolved: false,
+	      unresolved_ambiguity_count: Math.max(1, Number(state.unresolved_ambiguity_count || 0)),
+	      plan_package_status: 'pending-rework',
+	      plan_principles_resolved: false,
+	      plan_options_reviewed: false,
+	      plan_architect_review_status: 'pending',
+	      plan_critic_verdict: 'pending',
+	      plan_acceptance_criteria_testable: false,
+	      plan_verification_steps_resolved: false,
+	      plan_execution_inputs_resolved: false,
+	      plan_docs_status: 'pending-rework',
+	      plan_blockers: ['clarify_rework_required'],
+      build_blockers: ['clarify_rework_required'],
+      review_status: 'pending-fix',
+      pending_user_decision: TRANSITIONS.NONE,
+      requested_transition: TRANSITIONS.NONE,
+      last_confirmed_transition: TRANSITIONS.REVIEW_TO_CLARIFY,
+      approval: {
+        ...state.approval,
+        plan: APPROVAL_STATES.NOT_REQUESTED,
+        build: APPROVAL_STATES.NOT_REQUESTED,
+        review: APPROVAL_STATES.NOT_REQUESTED,
+        rollback: APPROVAL_STATES.APPROVED,
+        complete: APPROVAL_STATES.NOT_REQUESTED,
+      },
+    });
+    await writeState(root, next);
+    return {
+      root,
+      state: next,
+      verdict: 'REQUEST CHANGES',
+      rollbackTarget: 'clarify',
+      reviewMessageZh: `Review 结果：${normalized} 要求修改，已回到 clarify 阶段。\nNext:\n$clarify ${normalized}`,
+    };
+  }
+
+  if (!rerunsAwaitingCompletionReview) {
+    ensureApprovedTransition(state, TRANSITIONS.BUILD_TO_REVIEW, 'review');
+  }
   const { state: refreshed, executionSummary } = await refreshExecutionStatus(root, state);
+  const reviewManifest = await readContextManifest(reviewContextManifestPath(root), { cwd });
+  ensureValidContextManifest(reviewManifest, STAGES.REVIEW);
   const reviewAdapter = adapter || createDefaultReviewAdapter();
-  const codeReview = await reviewAdapter.codeReview({
-    cwd,
-    root,
-    slug: normalized,
-    reviewer,
-    executionRecordPath: artifactPath(root, 'execution-record.md'),
-    planArtifactPath: refreshed.plan_artifact_path,
-    testSpecArtifactPath: refreshed.test_spec_artifact_path,
-  });
+  let codeReview = null;
+  try {
+    codeReview = await reviewAdapter.codeReview({
+      cwd,
+      root,
+      slug: normalized,
+      reviewer,
+      executionRecordPath: artifactPath(root, 'execution-record.md'),
+      planArtifactPath: refreshed.plan_artifact_path,
+      testSpecArtifactPath: refreshed.test_spec_artifact_path,
+      contextManifestStatus: reviewManifest.status,
+      contextManifestPath: reviewContextManifestPath(root),
+      contextManifestRows: reviewManifest.rows,
+    });
+  } catch (error) {
+    codeReview = codeReviewFailureResult(error);
+  }
   await ensureDir(join(root, 'review-support'));
   await writeText(join(root, 'review-support', 'code-review.json'), JSON.stringify(codeReview, null, 2));
+  await writeReviewChangedFiles(root, codeReview?.changedFiles || []);
   const reviewInput = reviewFindings({
     executionMeta: executionSummary.meta,
     executionStatus: refreshed.execution_record_status,
     reviewer,
     codeReview,
   });
+  reviewInput.inputManifest = manifestRowsToInputManifest(reviewManifest.rows, reviewInput.inputManifest);
   const runId = executionSummary.meta.run_id || refreshed.active_run_id || `${normalized}-unknown-run`;
 
   await writeText(
@@ -1537,21 +1927,58 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     }),
   );
 
+  const reviewMessage = reviewUserMessageZh({
+    slug: normalized,
+    verdict: reviewInput.verdict,
+    rollbackTarget: reviewInput.rollbackTarget,
+    findings: reviewInput.findings,
+  });
+  let journal = null;
+  let journalWarning = null;
+  const shouldReuseReviewJournal = reviewInput.verdict === 'APPROVE'
+    && rerunsAwaitingCompletionReview
+    && refreshed.workspace_journal_status === 'written'
+    && refreshed.workspace_journal_path;
+  const shouldWriteReviewJournal = reviewInput.verdict === 'APPROVE' && !shouldReuseReviewJournal;
+  if (shouldReuseReviewJournal) {
+    journal = { journalPath: refreshed.workspace_journal_path };
+  }
+  if (shouldWriteReviewJournal) {
+    try {
+      journal = await writeReviewJournal({
+        cwd,
+        slug: normalized,
+        verdict: reviewInput.verdict,
+        reviewMessageZh: reviewMessage,
+        evidenceManifest: reviewInput.evidenceManifest,
+        followUps: ['等待 review -> done 审批。'],
+      });
+    } catch (error) {
+      journalWarning = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   const next = withRecommendedAction({
     ...refreshed,
     current_stage: STAGES.REVIEW,
     stage_status: 'awaiting-approval',
     review_status: 'in-review',
-    pending_user_decision: reviewInput.verdict === 'APPROVE' ? TRANSITIONS.REVIEW_TO_DONE : TRANSITIONS.REVIEW_TO_PLAN,
+    pending_user_decision: reviewInput.verdict === 'APPROVE' ? TRANSITIONS.REVIEW_TO_DONE : transitionForRollbackTarget(reviewInput.rollbackTarget),
     requested_transition: TRANSITIONS.NONE,
     last_confirmed_transition: TRANSITIONS.BUILD_TO_REVIEW,
     review_verdict: reviewInput.verdict === 'APPROVE' ? 'approve' : 'request-changes',
     rollback_target: reviewInput.rollbackTarget,
     rollback_rationale: reviewInput.rollbackRationale,
+    context_manifest_status: reviewManifest.status,
+    review_context_manifest_path: reviewContextManifestPath(root),
+    workspace_journal_status: reviewInput.verdict === 'APPROVE' ? (journal ? 'written' : 'failed') : 'skipped',
+    workspace_journal_path: journal?.journalPath || null,
+    workspace_journal_error: journalWarning,
     approval: {
       ...refreshed.approval,
       review: APPROVAL_STATES.APPROVED,
-      rollback: reviewInput.verdict === 'APPROVE' ? APPROVAL_STATES.NOT_REQUESTED : APPROVAL_STATES.REQUESTED,
+      build: reviewInput.verdict === 'REQUEST CHANGES' && reviewInput.rollbackTarget === STAGES.BUILD ? APPROVAL_STATES.REQUESTED : refreshed.approval.build,
+      rollback: reviewInput.verdict === 'APPROVE' || reviewInput.rollbackTarget === STAGES.BUILD ? APPROVAL_STATES.NOT_REQUESTED : APPROVAL_STATES.REQUESTED,
       complete: reviewInput.verdict === 'APPROVE' ? APPROVAL_STATES.REQUESTED : APPROVAL_STATES.NOT_REQUESTED,
     },
   });
@@ -1561,12 +1988,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     state: next,
     verdict: reviewInput.verdict,
     rollbackTarget: reviewInput.rollbackTarget,
-    reviewMessageZh: reviewUserMessageZh({
-      slug: normalized,
-      verdict: reviewInput.verdict,
-      rollbackTarget: reviewInput.rollbackTarget,
-      findings: reviewInput.findings,
-    }),
+    reviewMessageZh: `${reviewMessage} 代码审查：${codeReview.summary}${journalWarning ? ` journal 写入失败：${journalWarning}` : ''}`,
   };
 }
 
@@ -1724,9 +2146,8 @@ export async function autopilotStage(cwd, slug, { reviewer = 'autopilot-reviewer
     });
     throw new Error('autopilot_review_failed');
   }
-  await approveStage(cwd, normalized, { from: STAGES.REVIEW, to: STAGES.DONE });
+  const done = await approveStage(cwd, normalized, { from: STAGES.REVIEW, to: STAGES.DONE });
   recordEvent(TRANSITIONS.REVIEW_TO_DONE);
-  const done = await reviewStage(cwd, normalized, { reviewer });
   await persistRun({
     currentPhase: 'complete',
     completed: true,
@@ -1786,6 +2207,7 @@ export async function statusSummary(cwd, slug) {
   const initialized = existsSync(workspaceRoot);
   const config = await readWorkspaceConfig(cwd);
   const workflowsRoot = join(workspaceRoot, 'workflows');
+  const { hook } = await doctorRuntime(cwd);
 
   if (!slug) {
     const workflows = await listWorkflowSummaries(workflowsRoot);
@@ -1796,6 +2218,7 @@ export async function statusSummary(cwd, slug) {
       workflows,
       workflow_count: workflows.length,
       summary: summarizeWorkspace(workflows),
+      hook,
       next_action: initialized ? 'Run loopx clarify <slug> to start a workflow, or inspect one with loopx status <slug>.' : 'Run loopx init to prepare the workspace.',
     };
   }
@@ -1822,6 +2245,7 @@ export async function statusSummary(cwd, slug) {
     schema_version: effectiveState?.schema_version ?? 0,
     artifacts,
     missing_artifacts: missing,
+    hook,
     next_action: effectiveState ? recommendedAction(effectiveState, legacy) : 'Run loopx clarify to start a workflow.',
   };
 }

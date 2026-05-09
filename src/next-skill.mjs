@@ -19,8 +19,32 @@ export function nextSkillCommand(state) {
   if (state.current_stage === 'plan' && Array.isArray(state.plan_blockers) && state.plan_blockers.length === 0) {
     return `$build .loopx/plans/prd-${state.slug}.md`;
   }
-  if (state.current_stage === 'build' && Array.isArray(state.build_blockers) && state.build_blockers.length === 0) {
+  if (state.current_stage === 'build'
+    && state.stage_status === 'awaiting-approval'
+    && state.pending_user_decision === 'build->review'
+    && state.review_status === 'ready-for-review'
+    && state.execution_record_status === 'complete'
+    && Array.isArray(state.build_blockers)
+    && state.build_blockers.length === 0) {
     return `$review .loopx/workflows/${state.slug}/execution-record.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->build'
+    && state.approval?.build === 'approved') {
+    return `$build .loopx/plans/prd-${state.slug}.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->plan'
+    && state.approval?.rollback === 'approved') {
+    return `$plan ${state.slug}`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->clarify'
+    && state.approval?.rollback === 'approved') {
+    return `$clarify ${state.slug}`;
   }
   return null;
 }

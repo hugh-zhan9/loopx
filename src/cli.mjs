@@ -88,7 +88,14 @@ function printHumanStatus(status) {
     console.log(`build_architect_verification_status: ${status.state.build_architect_verification_status}`);
     console.log(`build_deslop_status: ${status.state.build_deslop_status}`);
     console.log(`build_regression_status: ${status.state.build_regression_status}`);
+    console.log(`context_manifest_status: ${status.state.context_manifest_status ?? 'unknown'}`);
     console.log(`build_blockers: ${Array.isArray(status.state.build_blockers) && status.state.build_blockers.length > 0 ? status.state.build_blockers.join(', ') : '(none)'}`);
+  }
+  if (status.state?.workspace_journal_path) {
+    console.log(`workspace_journal_path: ${status.state.workspace_journal_path}`);
+  }
+  if (status.hook) {
+    console.log(`hook_enabled: ${status.hook.enabled}`);
   }
   if (status.state?.autopilot_current_phase && status.state.autopilot_current_phase !== 'none') {
     console.log(`autopilot_current_phase: ${status.state.autopilot_current_phase}`);

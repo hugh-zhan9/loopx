@@ -5,6 +5,7 @@ import { runCodexExecJson } from './codex-exec-runtime.mjs';
 
 const DEFAULT_BUILD_MAX_ITERATIONS = 10;
 const DEFAULT_BUILD_LANES = ['execution', 'evidence', 'verification'];
+const DEFAULT_BUILD_CODEX_TIMEOUT_MS = 300000;
 
 function defaultLaneResult(name, iteration) {
   return {
@@ -129,6 +130,10 @@ async function runJsonReport(executor, options, fallback) {
       ...fallback,
       error: message,
       summary: `${fallback.summary || 'Codex execution failed'}: ${message}`,
+      limitations: [
+        ...normalizeArray(fallback.limitations),
+        message,
+      ],
     };
   }
 }
@@ -137,13 +142,21 @@ export function createDefaultBuildAdapter() {
   return createRealBuildAdapter();
 }
 
-function commonBuildContextLines(context) {
+export function buildContextPromptLines(context) {
   return [
     `workflow: ${context.slug}`,
     `iteration: ${context.iteration}`,
     `noDeslop: ${Boolean(context.noDeslop)}`,
     `planArtifactPath: ${context.planArtifactPath}`,
     `testSpecArtifactPath: ${context.testSpecArtifactPath}`,
+    `contextManifestStatus: ${context.contextManifestStatus || 'fallback'}`,
+    `contextManifestPath: ${context.contextManifestPath || ''}`,
+    `contextManifestRows: ${JSON.stringify((context.contextManifestRows || []).map((row) => ({
+      kind: row.kind,
+      path: row.path,
+      reason: row.reason,
+      priority: row.priority,
+    })))}`,
   ];
 }
 
@@ -157,6 +170,8 @@ function lanePrompt(context, laneName) {
     evidence: [
       'You are the evidence lane. Independently inspect the current implementation and collect evidence that the approved plan is or is not satisfied.',
       'Do not edit files. Focus on artifacts, changed files, API surface coverage, and gaps between the plan and the current worktree.',
+      'Do not treat the live workflow state from the build currently in progress, such as current_stage=build, stage_status=blocked, execution_record_status=partial, or pre-existing build_blockers, as evidence that this current iteration is incomplete.',
+      'Use live state only for locating artifacts or confirming context manifest paths; judge this iteration from current code, fresh artifacts, tests, and concrete acceptance gaps.',
     ],
     verification: [
       'You are the verification lane. Independently run or identify the strongest practical verification for the current implementation.',
@@ -166,7 +181,7 @@ function lanePrompt(context, laneName) {
 
   return [
     `You are acting as the real loopx build ${laneName} lane.`,
-    ...commonBuildContextLines(context),
+    ...buildContextPromptLines(context),
     '',
     ...(laneInstructions[laneName] || []),
     '',
@@ -186,7 +201,7 @@ function lanePrompt(context, laneName) {
 function architectPrompt(context, lanes) {
   return [
     `You are the independent loopx build architect gate for workflow "${context.slug}".`,
-    ...commonBuildContextLines(context),
+    ...buildContextPromptLines(context),
     '',
     'Review the implementation lane plus evidence and verification lane reports.',
     'Do not edit files. Return only raw JSON matching this shape:',
@@ -197,6 +212,8 @@ function architectPrompt(context, lanes) {
     '}',
     '',
     'Reject or iterate when approved work remains, evidence is thin, verification is not fresh, or architecture risks remain.',
+    'Do not reject or iterate solely because a lane cites the live workflow state from the build currently in progress, such as current_stage=build, stage_status=blocked, execution_record_status=partial, or pre-existing build_blockers.',
+    'Treat that self-referential live-state evidence as stale unless it is tied to a concrete code, artifact, test, or acceptance gap.',
     'Lane reports:',
     JSON.stringify(lanes, null, 2),
   ].join('\n');
@@ -205,7 +222,7 @@ function architectPrompt(context, lanes) {
 function deslopPrompt(context, changedEvidence) {
   return [
     `You are the loopx deslop lane for workflow "${context.slug}".`,
-    ...commonBuildContextLines(context),
+    ...buildContextPromptLines(context),
     '',
     'Run a focused cleanup pass on build-owned changes only. Real edits are allowed, but do not widen scope beyond this build iteration.',
     'Return only raw JSON matching this shape:',
@@ -224,7 +241,7 @@ function deslopPrompt(context, changedEvidence) {
 function regressionPrompt(context, deslopReport) {
   return [
     `You are the loopx post-deslop regression lane for workflow "${context.slug}".`,
-    ...commonBuildContextLines(context),
+    ...buildContextPromptLines(context),
     '',
     'Run fresh regression verification after the latest implementation/deslop changes. Do not edit files.',
     'Read actual command output when running verification.',
@@ -248,6 +265,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
     async executeLanes(context) {
       const supportRoot = join(context.root || context.cwd, 'build-support');
       await mkdir(supportRoot, { recursive: true });
+      const timeoutMs = Number(process.env.LOOPX_BUILD_CODEX_TIMEOUT_MS || DEFAULT_BUILD_CODEX_TIMEOUT_MS);
 
       const runLane = async (laneName) => {
         const raw = await runJsonReport(codexExecJson, {
@@ -255,6 +273,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
           prompt: lanePrompt(context, laneName),
           outputPath: join(supportRoot, `runtime-${laneName}-iteration-${context.iteration}.json`),
           model,
+          timeoutMs,
         }, {
           status: 'failed',
           summary: `${laneName} lane failed`,
@@ -278,6 +297,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
         prompt: architectPrompt(context, lanes),
         outputPath: join(supportRoot, `runtime-architect-iteration-${context.iteration}.json`),
         model,
+        timeoutMs,
       }, {
         verdict: 'reject',
         findings: ['Architect gate failed before returning structured evidence.'],
@@ -296,6 +316,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
           prompt: deslopPrompt(context, lanes.flatMap((lane) => lane.evidence || [])),
           outputPath: join(supportRoot, `runtime-deslop-iteration-${context.iteration}.json`),
           model,
+          timeoutMs,
         }, {
           status: 'failed',
           summary: 'Deslop lane failed before returning structured evidence.',
@@ -316,6 +337,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
           prompt: regressionPrompt(context, deslopReport),
           outputPath: join(supportRoot, `runtime-regression-iteration-${context.iteration}.json`),
           model,
+          timeoutMs,
         }, {
           status: 'failed',
           summary: 'Regression lane failed before returning structured evidence.',

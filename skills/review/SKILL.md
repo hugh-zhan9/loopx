@@ -27,7 +27,8 @@ When invoked with an execution record path, derive `<slug>` from the workflow di
 - a review artifact tied to the run being evaluated
 - verdict and rationale
 - code review findings for the implementation diff, including file / line references when issues are found
-- rollback guidance when execution is incomplete or unstable
+- rollback/fix guidance when execution is incomplete, unstable, or needs another iteration
+- an explicit `Next:` block with the exact next skill command when more work remains
 
 ## User Notification Language
 
@@ -42,6 +43,46 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 - Review must include code review of the build-owned implementation diff. Do not limit review to artifact/schema checks.
 - Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.
 - If code review finds blocking high or medium severity issues, return a no-go verdict and rollback guidance instead of approving completion.
+- Route request-changes by problem type:
+  - implementation bugs, missing tests, small contract fixes: `review -> build`
+  - wrong plan, wrong architecture, unresolved execution inputs: `review -> plan`
+  - unclear product requirements or decision boundaries: `review -> clarify`
+- Do not route implementation-only fixes back to plan unless the plan itself is wrong.
+
+## Next Step Format
+
+Every no-go review result must end with a concrete next command block.
+
+For implementation fixes:
+
+```text
+Next:
+loopx approve <slug> --from review --to build
+$build .loopx/plans/prd-<slug>.md
+```
+
+For plan fixes:
+
+```text
+Next:
+loopx approve <slug> --from review --to plan
+$plan <slug>
+```
+
+For clarify fixes:
+
+```text
+Next:
+loopx approve <slug> --from review --to clarify
+$clarify <slug>
+```
+
+For approval:
+
+```text
+Next:
+loopx approve <slug> --from review --to done
+```
 
 ## Support Skill Review Lenses
 

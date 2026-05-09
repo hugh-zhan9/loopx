@@ -2,7 +2,8 @@ import { mkdir, rename } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { inspectInstallState, verifyInstallState } from './install-discovery.mjs';
+import { getTemplateBaselinePath, inspectInstallState, verifyInstallState } from './install-discovery.mjs';
+import { inspectTemplateGovernance } from './template-governance.mjs';
 
 export function resolveLoopxRoot(cwd) {
   return join(resolve(cwd), '.loopx');
@@ -94,6 +95,20 @@ export async function doctorRuntime(cwd, env = process.env) {
   const uppercaseRoot = resolveUppercaseLoopxRoot(cwd);
   const installState = await inspectInstallState(env);
   const installCheck = await verifyInstallState(env);
+  const installTemplateBaselinePath = getTemplateBaselinePath(env);
+  const workspaceTemplateBaselinePath = join(loopxRoot, 'template-hashes.json');
+  const templateGovernance = await inspectTemplateGovernance(
+    existsSync(installTemplateBaselinePath) ? installTemplateBaselinePath : workspaceTemplateBaselinePath,
+  );
+  const workflowHookPath = join(resolve(cwd), 'scripts', 'codex-workflow-hook.mjs');
+  const installedWorkflowHookPath = installState.managedArtifacts?.['codex-workflow-hook']?.targetPath
+    || join(resolve(env.LOOPX_HOME || env.HOME || process.cwd()), '.codex', 'hooks', 'codex-workflow-hook.mjs');
+  const hook = {
+    enabled: env.LOOPX_HOOKS !== '0',
+    workflowHookPath,
+    installedWorkflowHookPath,
+    installed: existsSync(installedWorkflowHookPath),
+  };
 
   return {
     loopxRoot,
@@ -105,5 +120,7 @@ export async function doctorRuntime(cwd, env = process.env) {
     mixedRuntimeRoots: existsExactPath(loopxRoot) && (existsExactPath(legacyRoot) || existsExactPath(uppercaseRoot)),
     installState,
     installCheck,
+    templateGovernance,
+    hook,
   };
 }
