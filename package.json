@@ -23,6 +23,7 @@
     "package.json",
     "scripts/install-skills.mjs",
     "scripts/codex-stop-hook.mjs",
+    "scripts/codex-workflow-hook.mjs",
     "src/",
     "skills/",
     "templates/",

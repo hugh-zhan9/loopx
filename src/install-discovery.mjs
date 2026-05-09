@@ -4,6 +4,14 @@ import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  classifyTemplateDrift,
+  createTemplateBaseline,
+  inspectTemplateGovernance,
+  readTemplateBaseline,
+  writeTemplateBaseline,
+} from './template-governance.mjs';
+
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(MODULE_DIR, '..');
 const LOOPX_SKILLS = [
@@ -19,6 +27,61 @@ const LOOPX_SKILLS = [
   'kratos',
 ];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
+const LOOPX_MANAGED_SCRIPT_ITEMS = [
+  {
+    name: 'codex-workflow-hook',
+    kind: 'hook',
+    sourceRelativePath: 'scripts/codex-workflow-hook.mjs',
+    targetRelativePath: '.codex/hooks/codex-workflow-hook.mjs',
+  },
+];
+const LOOPX_GOVERNED_SOURCE_ITEMS = [
+  {
+    name: 'loopx-plugin-manifest',
+    kind: 'plugin',
+    sourceRelativePath: 'plugins/loopx/.codex-plugin/plugin.json',
+  },
+  {
+    name: 'loopx-plugin-install-script',
+    kind: 'plugin',
+    sourceRelativePath: 'plugins/loopx/scripts/plugin-install.mjs',
+  },
+  {
+    name: 'workflow-template-architecture',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/architecture.md',
+  },
+  {
+    name: 'workflow-template-development-plan',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/development-plan.md',
+  },
+  {
+    name: 'workflow-template-execution-record',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/execution-record.md',
+  },
+  {
+    name: 'workflow-template-plan',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/plan.md',
+  },
+  {
+    name: 'workflow-template-review-report',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/review-report.md',
+  },
+  {
+    name: 'workflow-template-spec',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/spec.md',
+  },
+  {
+    name: 'workflow-template-test-plan',
+    kind: 'workflow-template',
+    sourceRelativePath: 'templates/test-plan.md',
+  },
+];
 
 function jsonClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -49,17 +112,31 @@ export function getSkillSourceRoot(env = process.env) {
   return resolve(env.LOOPX_SKILL_SOURCE_ROOT || join(getProjectRoot(env), 'skills'));
 }
 
+export function getTemplateBaselinePath(env = process.env) {
+  const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+  return resolve(env.LOOPX_TEMPLATE_BASELINE_PATH || join(home, '.loopx', 'template-hashes.json'));
+}
+
 function getInstallOptions(options = {}, env = process.env) {
   return {
     installationIdentity: options.installationIdentity || env.LOOPX_INSTALLATION_IDENTITY || LOOPX_INSTALLATION_IDENTITY,
     distributionChannel: options.distributionChannel || env.LOOPX_DISTRIBUTION_CHANNEL || 'npm',
     sourceUrl: resolve(options.sourceUrl || env.LOOPX_SOURCE_URL || getProjectRoot(env)),
     skillSourceRoot: resolve(options.skillSourceRoot || getSkillSourceRoot(env)),
+    installMethod: options.installMethod || env.LOOPX_INSTALL_METHOD || 'copy',
   };
 }
 
 function skillSourceDir(skillName, env = process.env, skillSourceRoot = getSkillSourceRoot(env)) {
   return join(skillSourceRoot, skillName);
+}
+
+function projectSourceEntry(relativePath, env = process.env) {
+  const configuredPath = join(getProjectRoot(env), relativePath);
+  if (existsSync(configuredPath)) {
+    return configuredPath;
+  }
+  return join(PROJECT_ROOT, relativePath);
 }
 
 function skillSourceEntry(skillName, env = process.env, skillSourceRoot = getSkillSourceRoot(env)) {
@@ -68,6 +145,10 @@ function skillSourceEntry(skillName, env = process.env, skillSourceRoot = getSki
 
 function installedSkillDir(skillName, env = process.env) {
   return join(getInstalledSkillsRoot(env), skillName);
+}
+
+function installedManagedScriptPath(item, env = process.env) {
+  return join(installTemplateRoot(env), item.targetRelativePath);
 }
 
 async function fileHash(path) {
@@ -136,11 +217,15 @@ async function materializeSkill(skillName, env = process.env, options = {}) {
   await ensureDir(dirname(targetDir));
   await removeInstalledSkill(targetDir);
 
-  let installMethod = 'symlink';
-  try {
-    await symlink(sourceDir, targetDir, 'dir');
-  } catch {
-    installMethod = 'copy';
+  let installMethod = options.installMethod === 'symlink' ? 'symlink' : 'copy';
+  if (installMethod === 'symlink') {
+    try {
+      await symlink(sourceDir, targetDir, 'dir');
+    } catch {
+      installMethod = 'copy';
+      await cp(sourceDir, targetDir, { recursive: true });
+    }
+  } else {
     await cp(sourceDir, targetDir, { recursive: true });
   }
 
@@ -150,6 +235,119 @@ async function materializeSkill(skillName, env = process.env, options = {}) {
     targetDir,
     installMethod,
     skillFolderHash: await fileHash(sourceDir),
+  };
+}
+
+function installTemplateRoot(env = process.env) {
+  return resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+}
+
+function templateItemKey(item) {
+  return `${item.kind || 'file'}:${item.path}`;
+}
+
+function skillTemplatePaths(skillName, env = process.env, options = {}) {
+  return {
+    targetPath: skillSourceEntry(skillName, env, getInstalledSkillsRoot(env)),
+    sourcePath: skillSourceEntry(skillName, env, options.skillSourceRoot),
+  };
+}
+
+function managedScriptTemplatePaths(item, env = process.env) {
+  return {
+    targetPath: installedManagedScriptPath(item, env),
+    sourcePath: projectSourceEntry(item.sourceRelativePath, env),
+  };
+}
+
+function governedSourceTemplatePaths(item, env = process.env) {
+  const sourcePath = projectSourceEntry(item.sourceRelativePath, env);
+  return {
+    targetPath: sourcePath,
+    sourcePath,
+  };
+}
+
+async function createSkillTemplateItem(skillName, env = process.env, options = {}) {
+  const { targetPath, sourcePath } = skillTemplatePaths(skillName, env, options);
+  const baseline = await createTemplateBaseline(installTemplateRoot(env), [{
+    path: targetPath,
+    sourcePath,
+    kind: 'skill',
+  }], {
+    registryRevision: options.sourceUrl || 'local',
+  });
+  return baseline.items[0];
+}
+
+async function createManagedScriptTemplateItem(item, env = process.env) {
+  const { targetPath, sourcePath } = managedScriptTemplatePaths(item, env);
+  if (!existsSync(sourcePath)) {
+    return null;
+  }
+  const baseline = await createTemplateBaseline(installTemplateRoot(env), [{
+    path: targetPath,
+    sourcePath,
+    kind: item.kind || 'file',
+  }], {
+    registryRevision: item.sourceRelativePath,
+  });
+  return baseline.items[0];
+}
+
+async function createGovernedSourceTemplateItem(item, env = process.env, options = {}) {
+  const { targetPath, sourcePath } = governedSourceTemplatePaths(item, env);
+  if (!existsSync(sourcePath)) {
+    return null;
+  }
+  const baseline = await createTemplateBaseline(installTemplateRoot(env), [{
+    path: targetPath,
+    sourcePath,
+    kind: item.kind || 'file',
+  }], {
+    registryRevision: options.sourceUrl || item.sourceRelativePath,
+  });
+  return baseline.items[0];
+}
+
+async function templateGovernanceBeforeInstall(skillName, baselineItemsByPath, env = process.env, options = {}) {
+  const { targetPath, sourcePath } = skillTemplatePaths(skillName, env, options);
+  const probe = await createSkillTemplateItem(skillName, env, options);
+  const existing = baselineItemsByPath.get(templateItemKey(probe));
+  if (!existing) {
+    return { action: 'install', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null };
+  }
+  const drift = await classifyTemplateDrift(existing, {
+    root: installTemplateRoot(env),
+    targetPath,
+    sourcePath,
+  });
+  if (drift.status === 'user-modified' || drift.status === 'conflict') {
+    return { action: 'skip-user-modified', drift, item: existing };
+  }
+  return { action: 'install', drift, item: existing };
+}
+
+async function mergedSkippedTemplateItem(skillName, existing, env = process.env, options = {}) {
+  const latest = await createSkillTemplateItem(skillName, env, options);
+  return {
+    ...existing,
+    source_path: latest.source_path,
+    registry_hash: latest.registry_hash,
+    registry_managed_block_hashes: latest.registry_managed_block_hashes,
+  };
+}
+
+async function mergedSkippedManagedScriptItem(item, existing, env = process.env) {
+  const latest = await createManagedScriptTemplateItem(item, env);
+  if (!latest) {
+    return existing;
+  }
+  return {
+    ...existing,
+    source_path: latest.source_path,
+    registry_hash: latest.registry_hash,
+    registry_managed_block_hashes: latest.registry_managed_block_hashes,
   };
 }
 
@@ -204,6 +402,18 @@ async function removeStaleOwnedInstall(currentRow) {
   await removeInstalledSkill(currentRow.installedPath);
 }
 
+async function removeInstalledFile(path) {
+  if (!existsSync(path)) {
+    return;
+  }
+  const stat = await lstat(path);
+  if (stat.isSymbolicLink()) {
+    await unlink(path);
+    return;
+  }
+  await rm(path, { force: true });
+}
+
 async function canonicalTargetOwnership(skillName, env = process.env, options = {}) {
   const targetDir = installedSkillDir(skillName, env);
   const sourceDir = skillSourceDir(skillName, env, options.skillSourceRoot);
@@ -225,6 +435,31 @@ async function canonicalTargetOwnership(skillName, env = process.env, options = 
     return {
       exists: true,
       owned: await fileHash(targetDir) === await fileHash(sourceDir),
+    };
+  }
+
+  return { exists: true, owned: false };
+}
+
+async function canonicalFileOwnership(targetPath, sourcePath) {
+  if (!existsSync(targetPath)) {
+    return { exists: false, owned: false };
+  }
+
+  const stat = await lstat(targetPath);
+  if (stat.isSymbolicLink()) {
+    const linkTarget = await readlink(targetPath);
+    const resolvedLink = resolve(dirname(targetPath), linkTarget);
+    return {
+      exists: true,
+      owned: resolvedLink === sourcePath,
+    };
+  }
+
+  if (stat.isFile()) {
+    return {
+      exists: true,
+      owned: await fileHash(targetPath) === await fileHash(sourcePath),
     };
   }
 
@@ -288,11 +523,40 @@ export async function inspectInstallState(env = process.env) {
     };
   }
 
+  const managedArtifacts = {};
+  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+    const targetPath = installedManagedScriptPath(item, env);
+    const sourcePath = projectSourceEntry(item.sourceRelativePath, env);
+    if (!existsSync(sourcePath)) {
+      managedArtifacts[item.name] = {
+        kind: item.kind,
+        targetPath,
+        sourcePath,
+        installed: existsSync(targetPath),
+        discovered: false,
+        loopxOwned: false,
+        available: false,
+      };
+      continue;
+    }
+    const ownership = await canonicalFileOwnership(targetPath, sourcePath);
+    managedArtifacts[item.name] = {
+      kind: item.kind,
+      targetPath,
+      sourcePath,
+      installed: ownership.exists,
+      discovered: ownership.exists && ownership.owned,
+      loopxOwned: ownership.owned,
+      available: true,
+    };
+  }
+
   return {
     projectRoot: getProjectRoot(env),
     installedSkillsRoot: installedRoot,
     skillLockPath: getSkillLockPath(env),
     skills: bySkill,
+    managedArtifacts,
   };
 }
 
@@ -313,6 +577,19 @@ export async function verifyInstallState(env = process.env) {
     }
   }
 
+  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+    const info = inspection.managedArtifacts?.[item.name];
+    if (!info?.available) {
+      continue;
+    }
+    if (!info?.installed) {
+      failures.push(`missing_managed_artifact:${item.name}`);
+    }
+    if (!info?.discovered) {
+      failures.push(`managed_artifact_unowned:${item.name}`);
+    }
+  }
+
   return {
     ok: failures.length === 0,
     failures,
@@ -326,9 +603,14 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const nextData = jsonClone(data);
   nextData.version = nextData.version || 3;
   nextData.skills = nextData.skills || {};
+  const baselinePath = getTemplateBaselinePath(env);
+  const existingBaseline = await readTemplateBaseline(baselinePath);
+  const baselineItemsByPath = new Map((existingBaseline?.items || []).map((item) => [templateItemKey(item), item]));
 
   const installed = [];
   const conflicts = [];
+  const skipped = [];
+  const nextTemplateItems = [];
   for (const skillName of LOOPX_SKILLS) {
     const current = nextData.skills[skillName];
     const ownership = await assertLoopxOwnedTarget(skillName, current, env, installOptions);
@@ -338,6 +620,16 @@ export async function installBundledSkills(env = process.env, options = {}) {
         reason: ownership.reason,
         installedPath: ownership.targetDir,
       });
+      continue;
+    }
+    const governance = await templateGovernanceBeforeInstall(skillName, baselineItemsByPath, env, installOptions);
+    if (governance.action === 'skip-user-modified') {
+      skipped.push({
+        skillName,
+        reason: governance.drift.status,
+        installedPath: ownership.targetDir,
+      });
+      nextTemplateItems.push(await mergedSkippedTemplateItem(skillName, governance.item, env, installOptions));
       continue;
     }
     const record = await materializeSkill(skillName, env, installOptions);
@@ -353,14 +645,63 @@ export async function installBundledSkills(env = process.env, options = {}) {
       row.provenance = mergedProvenance;
     }
     nextData.skills[skillName] = row;
+    nextTemplateItems.push(await createSkillTemplateItem(skillName, env, installOptions));
     installed.push(row);
   }
 
+  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+    const { targetPath, sourcePath } = managedScriptTemplatePaths(item, env);
+    if (!existsSync(sourcePath)) {
+      continue;
+    }
+    const probe = await createManagedScriptTemplateItem(item, env);
+    if (!probe) {
+      continue;
+    }
+    const existing = baselineItemsByPath.get(templateItemKey(probe));
+    if (existing) {
+      const drift = await classifyTemplateDrift(existing, {
+        root: installTemplateRoot(env),
+        targetPath,
+        sourcePath,
+      });
+      if (drift.status === 'user-modified' || drift.status === 'conflict') {
+        skipped.push({
+          skillName: item.name,
+          reason: drift.status,
+          installedPath: targetPath,
+        });
+        nextTemplateItems.push(await mergedSkippedManagedScriptItem(item, existing, env));
+        continue;
+      }
+    }
+    await ensureDir(dirname(targetPath));
+    await removeInstalledFile(targetPath);
+    await cp(sourcePath, targetPath);
+    nextTemplateItems.push(await createManagedScriptTemplateItem(item, env));
+  }
+
+  for (const item of LOOPX_GOVERNED_SOURCE_ITEMS) {
+    const templateItem = await createGovernedSourceTemplateItem(item, env, installOptions);
+    if (templateItem) {
+      nextTemplateItems.push(templateItem);
+    }
+  }
+
   await writeSkillLock(nextData, env);
+  await writeTemplateBaseline(baselinePath, {
+    schema_version: 1,
+    generated_by: 'loopx',
+    registry_revision: installOptions.sourceUrl || 'local',
+    items: nextTemplateItems,
+  });
+  const templateGovernance = await inspectTemplateGovernance(baselinePath);
   return {
     ok: conflicts.length === 0,
     installed,
     conflicts,
+    skipped,
+    templateGovernance,
     inspection: await inspectInstallState(env),
   };
 }

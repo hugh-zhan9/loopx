@@ -11,7 +11,7 @@ import { installBundledSkills, verifyInstallState } from '../src/install-discove
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createRealBuildAdapter, createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { buildActivePath, evaluateBuildStopGate, readBuildActiveState, writeBuildActiveState } from '../src/build-stop-gate.mjs';
-import { withNextSkill } from '../src/next-skill.mjs';
+import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
 import { doctorRuntime, migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
@@ -181,14 +181,19 @@ describe('loopx skill-first workflow contract', () => {
   it('postinstall bootstrap creates discoverable loopx skills with local registry rows', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-install-home-'));
     const env = loopxEnv(home);
+    const baselinePath = join(home, '.loopx', 'template-hashes.json');
 
     const before = await verifyInstallState(env);
     assert.equal(before.ok, false);
 
     await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
     const after = await verifyInstallState(env);
+    const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
 
     assert.equal(after.ok, true);
+    assert.equal(baseline.schema_version, 1);
+    assert.equal(baseline.items.length, 20);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), true);
     for (const [skillName, info] of Object.entries(after.inspection.skills)) {
       assert.equal(info.installedDirExists, true, skillName);
       assert.equal(info.registryRowExists, true, skillName);
@@ -201,7 +206,68 @@ describe('loopx skill-first workflow contract', () => {
       assert.equal(info.registryRow.provenance.length, 1);
       assert.equal(info.registryRow.provenance[0].distributionChannel, 'npm');
       assert.equal(info.registryRow.provenance[0].sourceUrl, repoRoot);
+      assert.equal(
+        baseline.items.some((item) => item.path === `.agents/skills/${skillName}/SKILL.md` && item.source_path.endsWith(`/skills/${skillName}/SKILL.md`)),
+        true,
+        `${skillName}-template-baseline`,
+      );
     }
+    assert.equal(after.inspection.managedArtifacts['codex-workflow-hook'].installed, true);
+    assert.equal(after.inspection.managedArtifacts['codex-workflow-hook'].discovered, true);
+    assert.equal(
+      baseline.items.some((item) => item.path === '.codex/hooks/codex-workflow-hook.mjs' && item.source_path.endsWith('/scripts/codex-workflow-hook.mjs')),
+      true,
+      'codex-workflow-hook-template-baseline',
+    );
+    assert.equal(
+      baseline.items.some((item) => item.kind === 'plugin' && item.source_path.endsWith('/plugins/loopx/.codex-plugin/plugin.json')),
+      true,
+      'plugin-manifest-template-baseline',
+    );
+    assert.equal(
+      baseline.items.some((item) => item.kind === 'workflow-template' && item.source_path.endsWith('/templates/spec.md')),
+      true,
+      'workflow-template-baseline',
+    );
+  });
+
+  it('repair-install upgrades pristine loopx skills and preserves user-modified skills', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-template-repair-home-'));
+    const sourceRoot = join(home, 'registry', 'skills');
+    const env = {
+      ...loopxEnv(home),
+      LOOPX_SKILL_SOURCE_ROOT: sourceRoot,
+      LOOPX_PROJECT_ROOT: join(home, 'registry'),
+    };
+
+    for (const skillName of ['clarify', 'plan', 'build', 'review', 'autopilot', 'debug', 'tdd', 'verify', 'go-style', 'kratos']) {
+      await mkdir(join(sourceRoot, skillName), { recursive: true });
+      await writeFile(join(sourceRoot, skillName, 'SKILL.md'), `${skillName} v1\n`);
+    }
+    await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
+
+    await writeFile(join(sourceRoot, 'clarify', 'SKILL.md'), 'clarify v2\n');
+    await writeFile(join(sourceRoot, 'plan', 'SKILL.md'), 'plan v2\n');
+    await writeFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'plan user edit\n');
+    await writeFile(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs'), 'user hook edit\n');
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'repair-install'], { cwd: repoRoot, env });
+    const payload = JSON.parse(stdout);
+
+    assert.equal(payload.ok, true);
+    assert.equal(payload.skipped.some((item) => item.skillName === 'codex-workflow-hook' && item.reason === 'user-modified'), true);
+    assert.equal(payload.skipped.some((item) => item.skillName === 'plan' && item.reason === 'conflict'), true);
+    assert.equal(payload.templateGovernance.summary['conflict'], 1);
+    assert.equal(payload.templateGovernance.summary['user-modified'], 1);
+    assert.equal(await readFile(join(home, '.agents', 'skills', 'clarify', 'SKILL.md'), 'utf8'), 'clarify v2\n');
+    assert.equal(await readFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'utf8'), 'plan user edit\n');
+    assert.equal(await readFile(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs'), 'utf8'), 'user hook edit\n');
+
+    const baseline = JSON.parse(await readFile(join(home, '.loopx', 'template-hashes.json'), 'utf8'));
+    const clarifyItem = baseline.items.find((item) => item.path === '.agents/skills/clarify/SKILL.md');
+    const planItem = baseline.items.find((item) => item.path === '.agents/skills/plan/SKILL.md');
+    assert.equal(clarifyItem.registry_hash, clarifyItem.hash);
+    assert.notEqual(planItem.registry_hash, planItem.hash);
   });
 
   it('npm install followed by plugin install converges on one loopx identity with merged provenance', async () => {
@@ -392,6 +458,22 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(lock.skills['clarify'].installedPath, staleDir);
   });
 
+  it('doctor reports installed workflow hook state from managed artifacts', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-hook-doctor-home-'));
+    const env = loopxEnv(home);
+    const otherCwd = await mkdtemp(join(tmpdir(), 'loopx-hook-doctor-cwd-'));
+
+    await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
+    const runtime = await doctorRuntime(otherCwd, env);
+
+    assert.equal(runtime.hook.enabled, true);
+    assert.equal(runtime.hook.installed, true);
+    assert.equal(runtime.hook.installedWorkflowHookPath, join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs'));
+    assert.equal(existsSync(runtime.hook.installedWorkflowHookPath), true);
+    assert.equal(runtime.templateGovernance.baselinePath, join(home, '.loopx', 'template-hashes.json'));
+    assert.equal(runtime.templateGovernance.status, 'current');
+  });
+
   it('initializes a loopx workspace and requires approval before planning', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-init-'));
     const result = await initWorkspace(wd, { slug: 'demo-init' });
@@ -494,9 +576,46 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(reportText, /脚本化 code review 未发现阻断问题。/);
     assert.match(reportText, /结构化证据与来源独立性检查均已通过。/);
 
-    await approveStage(wd, 'flow', { from: 'review', to: 'done' });
-    const done = await reviewStage(wd, 'flow', { reviewer: 'qa-1' });
+    const done = await approveStage(wd, 'flow', { from: 'review', to: 'done' });
     assert.equal(done.state.current_stage, 'done');
+    assert.equal(done.state.last_confirmed_transition, 'review->done');
+    assert.equal(done.state.completion_confirmed, true);
+  });
+
+  it('can rerun review from an execution record path while review is awaiting completion approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-rerun-'));
+    const clarified = await clarifyStage(wd, 'review-rerun');
+    await writeResolvedSpec(clarified.root, 'review-rerun');
+    await approveStage(wd, 'review-rerun', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-rerun', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-rerun', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-rerun', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-rerun', { from: 'build', to: 'review' });
+    const firstReview = await reviewStage(wd, 'review-rerun', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    const firstJournalPath = firstReview.state.workspace_journal_path;
+
+    const reviewedAgain = await reviewStage(wd, '.loopx/workflows/review-rerun/execution-record.md', {
+      reviewer: 'qa-2',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '重新审查通过。',
+          findings: [],
+        },
+      }),
+    });
+
+    assert.equal(reviewedAgain.verdict, 'APPROVE');
+    assert.equal(reviewedAgain.state.current_stage, 'review');
+    assert.equal(reviewedAgain.state.pending_user_decision, 'review->done');
+    assert.equal(reviewedAgain.state.requested_transition, 'none');
+    assert.equal(reviewedAgain.state.workspace_journal_path, firstJournalPath);
+    assert.equal(reviewedAgain.state.workspace_journal_status, 'written');
+    assert.match(reviewedAgain.reviewMessageZh, /重新审查通过。/);
   });
 
   it('review fails when code review finds blocking issues', async () => {
@@ -515,7 +634,8 @@ describe('loopx skill-first workflow contract', () => {
         changedFiles: ['src/workflow.mjs'],
         codeReview: {
           status: 'complete',
-          verdict: 'request-changes',
+          verdict: 'REQUEST CHANGES',
+          rollbackTarget: 'BUILD',
           summary: '发现状态流转回归风险。',
           findings: [{
             severity: 'high',
@@ -528,17 +648,247 @@ describe('loopx skill-first workflow contract', () => {
     });
 
     assert.equal(review.verdict, 'REQUEST CHANGES');
-    assert.equal(review.rollbackTarget, 'plan');
+    assert.equal(review.rollbackTarget, 'build');
     assert.match(review.reviewMessageZh, /要求修改/);
     assert.match(review.reviewMessageZh, /代码审查发现阻断问题/);
+    assert.match(review.reviewMessageZh, /\$build \.loopx\/plans\/prd-review-code\.md/);
+    assert.equal(review.state.pending_user_decision, 'review->build');
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     const report = parseFrontmatter(reportText);
     assert.equal(report.verdict, 'request-changes');
+    assert.equal(report.rollback_target, 'build');
     assert.equal(report.code_review.verdict, 'request-changes');
     assert.equal(existsSync(join(review.root, 'review-support', 'code-review.json')), true);
     assert.match(reportText, /## 代码审查/);
     assert.match(reportText, /src\/workflow\.mjs:1430/);
     assert.match(reportText, /review 通过前可能错误进入 done。/);
+
+    const approvedFix = await approveStage(wd, 'review-code', { from: 'review', to: 'build' });
+    assert.equal(approvedFix.state.current_stage, 'review');
+    assert.equal(approvedFix.state.requested_transition, 'review->build');
+    const rebuilt = await buildStage(wd, '.loopx/plans/prd-review-code.md', {
+      adapter: createScriptedBuildAdapter(),
+    });
+    assert.equal(rebuilt.state.current_stage, 'build');
+    assert.equal(rebuilt.state.pending_user_decision, 'build->review');
+    assert.equal(rebuilt.state.last_confirmed_transition, 'review->build');
+    assert.equal(rebuilt.state.approval.review, 'not-requested');
+    assert.equal(rebuilt.state.review_verdict, 'none');
+    assert.equal(rebuilt.state.rollback_target, null);
+    assert.equal(rebuilt.state.rollback_rationale, null);
+    assert.equal(rebuilt.state.workspace_journal_status, 'skipped');
+  });
+
+  it('review returns structured request-changes when code review execution fails', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-code-failure-'));
+    const clarified = await clarifyStage(wd, 'review-code-failure');
+    await writeResolvedSpec(clarified.root, 'review-code-failure');
+    await approveStage(wd, 'review-code-failure', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-code-failure', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-code-failure', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-code-failure', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-code-failure', { from: 'build', to: 'review' });
+
+    const review = await reviewStage(wd, 'review-code-failure', {
+      reviewer: 'qa-1',
+      adapter: {
+        async codeReview() {
+          throw new Error('codex_exec_invalid_json:Unexpected end of JSON input\nbody:');
+        },
+      },
+    });
+
+    assert.equal(review.verdict, 'REQUEST CHANGES');
+    assert.equal(review.rollbackTarget, 'build');
+    assert.equal(review.state.current_stage, 'review');
+    assert.equal(review.state.pending_user_decision, 'review->build');
+    assert.equal(review.state.review_verdict, 'request-changes');
+    assert.equal(review.state.rollback_target, 'build');
+    assert.match(review.reviewMessageZh, /code-review 子流程失败/);
+    assert.match(review.reviewMessageZh, /\$build \.loopx\/plans\/prd-review-code-failure\.md/);
+    const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
+    assert.match(reportText, /code-review 子流程失败/);
+    const codeReview = JSON.parse(await readFile(join(review.root, 'review-support', 'code-review.json'), 'utf8'));
+    assert.equal(codeReview.verdict, 'request-changes');
+    assert.equal(codeReview.rollbackTarget, 'build');
+  });
+
+  it('keeps plan rollback when review evidence gates and code review fail together', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-evidence-priority-'));
+    const clarified = await clarifyStage(wd, 'review-evidence-priority');
+    await writeResolvedSpec(clarified.root, 'review-evidence-priority');
+    await approveStage(wd, 'review-evidence-priority', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-evidence-priority', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-evidence-priority', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-evidence-priority', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-evidence-priority', { from: 'build', to: 'review' });
+
+    const recordPath = join(clarified.root, 'execution-record.md');
+    const record = await readFile(recordPath, 'utf8');
+    await writeFile(recordPath, record.replace(/evidence_manifest: .+\n/, 'evidence_manifest: []\n'));
+
+    const review = await reviewStage(wd, 'review-evidence-priority', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          rollbackTarget: 'build',
+          summary: '实现也有问题。',
+          findings: [{ severity: 'medium', file: 'src/workflow.mjs', line: 1, message: '需要修实现。' }],
+        },
+      }),
+    });
+
+    assert.equal(review.verdict, 'REQUEST CHANGES');
+    assert.equal(review.rollbackTarget, 'plan');
+    assert.equal(review.state.rollback_target, 'plan');
+    assert.equal(review.state.pending_user_decision, 'review->plan');
+    assert.match(review.reviewMessageZh, /\$plan review-evidence-priority/);
+  });
+
+  it('routes review request-changes to plan or clarify when review target requires it', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-targets-'));
+    const clarified = await clarifyStage(wd, 'review-targets');
+    await writeResolvedSpec(clarified.root, 'review-targets');
+    await approveStage(wd, 'review-targets', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-targets', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-targets', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-targets', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-targets', { from: 'build', to: 'review' });
+
+    const planReview = await reviewStage(wd, 'review-targets', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          rollbackTarget: 'plan',
+          summary: '计划验收标准缺失。',
+          findings: [{ severity: 'high', file: 'plan.md', line: 1, message: '计划需要重写。' }],
+        },
+      }),
+    });
+    assert.equal(planReview.rollbackTarget, 'plan');
+    assert.equal(planReview.state.pending_user_decision, 'review->plan');
+    assert.match(planReview.reviewMessageZh, /\$plan review-targets/);
+    await approveStage(wd, 'review-targets', { from: 'review', to: 'plan' });
+    const approvedPlanRollback = await readState(wd, 'review-targets');
+    assert.equal(approvedPlanRollback.requested_transition, 'review->plan');
+    assert.equal(nextSkillCommand(approvedPlanRollback), '$plan review-targets');
+    const replanned = await planStage(wd, 'review-targets', { adapter: createScriptedPlanAdapter() });
+    assert.equal(replanned.state.current_stage, 'plan');
+    assert.equal(replanned.state.pending_user_decision, 'plan->build');
+    assert.equal(replanned.state.last_confirmed_transition, 'review->plan');
+
+    await approveStage(wd, 'review-targets', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-targets', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'review-targets', { from: 'build', to: 'review' });
+    const clarifyReview = await reviewStage(wd, 'review-targets', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          rollbackTarget: 'clarify',
+          summary: '需求边界仍不清楚。',
+          findings: [{ severity: 'high', file: 'spec.md', line: 1, message: '需求需要重新澄清。' }],
+        },
+      }),
+    });
+    assert.equal(clarifyReview.rollbackTarget, 'clarify');
+    assert.equal(clarifyReview.state.pending_user_decision, 'review->clarify');
+    assert.match(clarifyReview.reviewMessageZh, /\$clarify review-targets/);
+    await approveStage(wd, 'review-targets', { from: 'review', to: 'clarify' });
+    const approvedClarifyRollback = await readState(wd, 'review-targets');
+    assert.equal(approvedClarifyRollback.requested_transition, 'review->clarify');
+    assert.equal(nextSkillCommand(approvedClarifyRollback), '$clarify review-targets');
+    const reclarified = await clarifyStage(wd, 'review-targets');
+    assert.equal(reclarified.state.current_stage, 'clarify');
+    assert.equal(reclarified.state.last_confirmed_transition, 'review->clarify');
+    assert.equal(reclarified.state.approval.plan, 'not-requested');
+    assert.equal(nextSkillCommand(reclarified.state), null);
+  });
+
+  it('keeps target commands executable after legacy review rollback consumption', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-legacy-rollback-'));
+    const clarified = await clarifyStage(wd, 'legacy-rollback');
+    await writeResolvedSpec(clarified.root, 'legacy-rollback');
+    await approveStage(wd, 'legacy-rollback', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'legacy-rollback', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'legacy-rollback', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'legacy-rollback', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'legacy-rollback', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'legacy-rollback', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          summary: '实现需要修改。',
+          findings: [{ severity: 'high', file: 'src/workflow.mjs', line: 1, message: '需要回 build。' }],
+        },
+      }),
+    });
+
+    await approveStage(wd, 'legacy-rollback', { from: 'review', to: 'build' });
+    const consumedByReview = await reviewStage(wd, 'legacy-rollback', { reviewer: 'qa-1' });
+    assert.equal(consumedByReview.state.current_stage, 'build');
+    assert.equal(nextSkillCommand(consumedByReview.state), null);
+
+    const rebuilt = await buildStage(wd, '.loopx/plans/prd-legacy-rollback.md', {
+      adapter: createScriptedBuildAdapter(),
+    });
+    assert.equal(rebuilt.state.current_stage, 'build');
+    assert.equal(rebuilt.state.pending_user_decision, 'build->review');
+
+    await approveStage(wd, 'legacy-rollback', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'legacy-rollback', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          rollbackTarget: 'plan',
+          summary: '计划需要修改。',
+          findings: [{ severity: 'medium', file: 'plan.md', line: 1, message: '需要回 plan。' }],
+        },
+      }),
+    });
+    await approveStage(wd, 'legacy-rollback', { from: 'review', to: 'plan' });
+    const planConsumedByReview = await reviewStage(wd, 'legacy-rollback', { reviewer: 'qa-1' });
+    assert.equal(planConsumedByReview.state.current_stage, 'plan');
+    assert.equal(nextSkillCommand(planConsumedByReview.state), null);
+    const replanned = await planStage(wd, 'legacy-rollback', { adapter: createScriptedPlanAdapter() });
+    assert.equal(replanned.state.current_stage, 'plan');
+    assert.equal(replanned.state.pending_user_decision, 'plan->build');
+
+    await approveStage(wd, 'legacy-rollback', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'legacy-rollback', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'legacy-rollback', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'legacy-rollback', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter({
+        codeReview: {
+          status: 'complete',
+          verdict: 'request-changes',
+          rollbackTarget: 'clarify',
+          summary: '需求需要澄清。',
+          findings: [{ severity: 'medium', file: 'spec.md', line: 1, message: '需要回 clarify。' }],
+        },
+      }),
+    });
+    await approveStage(wd, 'legacy-rollback', { from: 'review', to: 'clarify' });
+    const clarifyConsumedByReview = await reviewStage(wd, 'legacy-rollback', { reviewer: 'qa-1' });
+    assert.equal(clarifyConsumedByReview.state.current_stage, 'clarify');
+    assert.equal(nextSkillCommand(clarifyConsumedByReview.state), null);
+    const specBeforeReclarify = await readFile(join(clarifyConsumedByReview.root, 'spec.md'), 'utf8');
+    const reclarified = await clarifyStage(wd, 'legacy-rollback');
+    assert.equal(reclarified.state.current_stage, 'clarify');
+    assert.equal(reclarified.state.last_confirmed_transition, 'review->clarify');
+    const specAfterReclarify = await readFile(join(reclarified.root, 'spec.md'), 'utf8');
+    assert.equal(specAfterReclarify, specBeforeReclarify);
+    assert.equal(reclarified.state.clarify_current_round, clarifyConsumedByReview.state.clarify_current_round);
   });
 
   it('supports deep clarify mode with stricter threshold and larger max rounds', async () => {
@@ -750,15 +1100,17 @@ describe('loopx skill-first workflow contract', () => {
 
   it('real build adapter uses independent review lanes and gates', async () => {
     const calls = [];
+    const timeouts = [];
     let reviewLaneCalls = 0;
     let releaseReviewLanes;
     const reviewLaneBarrier = new Promise((resolve) => {
       releaseReviewLanes = resolve;
     });
     const adapter = createRealBuildAdapter({
-      codexExecJson: async ({ outputPath }) => {
+      codexExecJson: async ({ outputPath, timeoutMs }) => {
         const file = outputPath.split('/').pop();
         calls.push(file);
+        timeouts.push(timeoutMs);
         if (file.includes('runtime-evidence-') || file.includes('runtime-verification-')) {
           reviewLaneCalls += 1;
           if (reviewLaneCalls === 2) {
@@ -840,6 +1192,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(result.deslopStatus, 'complete');
     assert.equal(result.regressionStatus, 'complete');
     assert.equal(reviewLaneCalls, 2);
+    assert.equal(timeouts.every((timeoutMs) => timeoutMs === 300000), true);
     assert.deepEqual(calls, [
       'runtime-execution-iteration-1.json',
       'runtime-evidence-iteration-1.json',
@@ -848,6 +1201,33 @@ describe('loopx skill-first workflow contract', () => {
       'runtime-deslop-iteration-1.json',
       'runtime-regression-iteration-1.json',
     ]);
+  });
+
+  it('real build adapter converts codex timeouts into build blockers', async () => {
+    const adapter = createRealBuildAdapter({
+      codexExecJson: async () => {
+        throw new Error('codex_exec_failed:timeout');
+      },
+    });
+
+    const result = await adapter.executeLanes({
+      cwd: await mkdtemp(join(tmpdir(), 'loopx-build-timeout-')),
+      root: await mkdtemp(join(tmpdir(), 'loopx-build-timeout-root-')),
+      slug: 'build-timeout',
+      iteration: 1,
+      noDeslop: false,
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'build-context.jsonl',
+      contextManifestRows: [],
+    });
+
+    assert.equal(result.lanes.every((lane) => lane.status === 'failed'), true);
+    assert.equal(result.architectVerdict, 'reject');
+    assert.equal(result.deslopStatus, 'failed');
+    assert.equal(result.regressionStatus, 'failed');
+    assert.match(result.limitations.join('\n'), /timeout/);
   });
 
   it('build writes stop-gate state and allows stop only after review handoff readiness', async () => {
@@ -866,6 +1246,45 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.phase, 'review-ready');
     assert.equal(state.review_handoff_ready, true);
     assert.equal(evaluateBuildStopGate(state).allow, true);
+  });
+
+  it('build stops after codex infrastructure failures instead of exhausting iterations', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-build-infra-failure-'));
+    const clarified = await clarifyStage(wd, 'build-infra-failure');
+    await writeResolvedSpec(clarified.root, 'build-infra-failure');
+    await approveStage(wd, 'build-infra-failure', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'build-infra-failure', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'build-infra-failure', { from: 'plan', to: 'build' });
+
+    const result = await buildStage(wd, 'build-infra-failure', {
+      adapter: createScriptedBuildAdapter({
+        maxIterations: 10,
+        iterations: [{
+          lanes: [{
+            name: 'execution',
+            status: 'failed',
+            summary: 'Codex execution failed: codex_exec_failed:timeout',
+          }],
+          verificationStatus: 'failed',
+          architectVerdict: 'reject',
+          deslopStatus: 'failed',
+          regressionStatus: 'failed',
+          limitations: ['codex_exec_failed:timeout'],
+        }],
+      }),
+    });
+
+    assert.equal(result.state.build_current_iteration, 1);
+    assert.deepEqual(result.state.build_blockers, [
+      'lane_incomplete_execution',
+      'verification_failed',
+      'architect_reject',
+      'deslop_failed',
+      'regression_failed',
+    ]);
+    const active = await readBuildActiveState(wd);
+    assert.equal(active.active, false);
+    assert.equal(active.phase, 'blocked');
   });
 
   it('stop hook blocks while build is still active', async () => {
@@ -983,6 +1402,26 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.state.pending_user_decision, 'build->review');
     assert.equal(payload.next_skill_command, '$review .loopx/workflows/build-cli-next/execution-record.md');
     assert.equal(payload.next_skill_hint, 'Next: $review .loopx/workflows/build-cli-next/execution-record.md');
+  });
+
+  it('does not infer review next command from empty build blockers alone', () => {
+    const base = {
+      slug: 'build-next-gate',
+      current_stage: 'build',
+      stage_status: 'awaiting-approval',
+      pending_user_decision: 'none',
+      review_status: 'pending-fix',
+      execution_record_status: 'pending-rework',
+      build_blockers: [],
+    };
+
+    assert.equal(nextSkillCommand(base), null);
+    assert.equal(nextSkillCommand({
+      ...base,
+      pending_user_decision: 'build->review',
+      review_status: 'ready-for-review',
+      execution_record_status: 'complete',
+    }), '$review .loopx/workflows/build-next-gate/execution-record.md');
   });
 
   it('CLI status shows the next skill command for a handoff-ready clarify workflow', async () => {
