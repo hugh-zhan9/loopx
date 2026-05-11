@@ -29,6 +29,7 @@ By default, `plan` includes the full consensus review loop formerly documented u
 - Default planning is consensus-first, not lightweight-by-default.
 - Treat the clarify spec as source of truth; do not re-interview unless the spec is incomplete or contradictory.
 - Keep planning artifact-bound: produce PRD, architecture, development plan, and test plan outputs.
+- Preserve accepted intent as durable change artifacts: proposal, spec delta, design, tasks, and artifact dependency graph.
 - Separate planning approval from execution approval.
 - Do not start implementation from `plan`.
 - Prefer a smaller executable plan over a broad plan that cannot be verified.
@@ -130,6 +131,7 @@ Critic evaluates:
 - clarity of risk mitigation
 - testable acceptance criteria
 - concrete verification steps
+- execution-input completeness for each new or changed ingress / workflow entrypoint
 - explicit non-goals and decision boundaries
 - in deliberate mode: pre-mortem and expanded test plan quality
 
@@ -161,11 +163,18 @@ On approval, write canonical planning artifacts:
 - `.loopx/workflows/<slug>/test-plan.md`
 - `.loopx/plans/prd-<slug>.md`
 - `.loopx/plans/test-spec-<slug>.md`
+- `.loopx/changes/active/<change-id>/proposal.md`
+- `.loopx/changes/active/<change-id>/spec-delta.md`
+- `.loopx/changes/active/<change-id>/design.md`
+- `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/artifact-graph.json`
 
 The final plan must include:
 
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
+- target long-lived spec domains and the requirements delta for archive
+- execution inputs mapped to concrete sources before build starts
 - available execution lanes and recommended lane
 - test and verification commands
 - residual risks and assumptions
@@ -197,17 +206,23 @@ Without `--interactive`, report the approved plan and recommended next command, 
 - `plan_architect_review_status`: `not-started|complete|changes-requested`
 - `plan_critic_verdict`: `none|approve|iterate|reject`
 - `plan_package_status`: `missing|partial|complete`
+- `change_artifacts_status`: `missing|partial|complete|archived`
+- `spec_delta_status`: `missing|partial|complete`
 - `plan_acceptance_criteria_testable`: `true|false`
 - `plan_verification_steps_resolved`: `true|false`
+- `plan_execution_inputs_resolved`: `true|false`
 - `requested_transition`: remains explicit before build/autopilot
 
 The plan gate is blocked until:
 
 - plan package artifacts exist
+- change proposal, spec delta, design, tasks, and artifact graph exist
+- spec delta declares target domains and added or modified requirements
 - Architect review is complete
 - Critic verdict is `approve`
 - acceptance criteria are testable
 - verification steps are concrete
+- execution inputs are fully mapped to concrete sources
 - user approval exists for any execution transition
 </Runtime_State_Machine>
 
@@ -225,6 +240,7 @@ Primary outputs:
 
 - approved plan package under `.loopx/workflows/<slug>/`
 - canonical PRD and test spec under `.loopx/plans/`
+- change artifacts under `.loopx/changes/active/<change-id>/`
 - consensus review summary with Planner / Architect / Critic evidence
 - next-step recommendation
 

@@ -13,6 +13,11 @@ export function nextSkillCommand(state) {
     && state.clarify_ambiguity_score <= state.clarify_target_ambiguity_threshold) {
     return `$plan ${state.slug}`;
   }
+  if (state.current_stage === 'done'
+    && state.completion_confirmed === true
+    && state.archive_status !== 'archived') {
+    return `$archive ${state.slug}`;
+  }
   if (state.stage_status !== 'awaiting-approval') {
     return null;
   }

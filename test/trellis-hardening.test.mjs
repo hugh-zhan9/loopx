@@ -511,6 +511,7 @@ describe('trellis-inspired loopx hardening', () => {
 
   it('doctor exposes template governance status', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-doctor-template-'));
+    const home = await mkdtemp(join(tmpdir(), 'loopx-doctor-template-home-'));
     await mkdir(join(wd, '.loopx'), { recursive: true });
     await writeTemplateBaseline(join(wd, '.loopx', 'template-hashes.json'), {
       schema_version: 1,
@@ -519,7 +520,18 @@ describe('trellis-inspired loopx hardening', () => {
       items: [],
     });
 
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'doctor'], { cwd: wd });
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'doctor'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        HOME: home,
+        LOOPX_HOME: home,
+        LOOPX_AGENTS_ROOT: join(home, '.agents'),
+        LOOPX_SKILLS_ROOT: join(home, '.agents', 'skills'),
+        LOOPX_SKILL_LOCK_PATH: join(home, '.agents', '.skill-lock.json'),
+        LOOPX_PROJECT_ROOT: repoRoot,
+      },
+    });
     const payload = JSON.parse(stdout);
     assert.equal(payload.templateGovernance.schema_version, 1);
     assert.equal(payload.templateGovernance.status, 'current');

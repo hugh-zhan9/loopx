@@ -16,6 +16,7 @@ import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
 import { doctorRuntime, migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
+  archiveStage,
   approveStage,
   autopilotStage,
   buildStage,
@@ -192,8 +193,10 @@ describe('loopx skill-first workflow contract', () => {
 
     assert.equal(after.ok, true);
     assert.equal(baseline.schema_version, 1);
-    assert.equal(baseline.items.length, 20);
+    assert.equal(baseline.items.length, 21);
     assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), true);
+    assert.equal(after.inspection.skills.archive.installedDirExists, true);
+    assert.equal(after.inspection.skills.status, undefined);
     for (const [skillName, info] of Object.entries(after.inspection.skills)) {
       assert.equal(info.installedDirExists, true, skillName);
       assert.equal(info.registryRowExists, true, skillName);
@@ -240,7 +243,7 @@ describe('loopx skill-first workflow contract', () => {
       LOOPX_PROJECT_ROOT: join(home, 'registry'),
     };
 
-    for (const skillName of ['clarify', 'plan', 'build', 'review', 'autopilot', 'debug', 'tdd', 'verify', 'go-style', 'kratos']) {
+    for (const skillName of ['clarify', 'plan', 'build', 'review', 'autopilot', 'archive', 'debug', 'tdd', 'verify', 'go-style', 'kratos']) {
       await mkdir(join(sourceRoot, skillName), { recursive: true });
       await writeFile(join(sourceRoot, skillName, 'SKILL.md'), `${skillName} v1\n`);
     }
@@ -981,6 +984,111 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'prd-direct-spec.md')), true);
   });
 
+  it('plan writes change delta artifacts and an artifact dependency graph', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-plan-'));
+    const clarified = await clarifyStage(wd, 'change-delta');
+    await writeResolvedSpec(clarified.root, 'change-delta');
+    await approveStage(wd, 'change-delta', { from: 'clarify', to: 'plan' });
+
+    const planned = await planStage(wd, 'change-delta', { adapter: createScriptedPlanAdapter() });
+    const changesRoot = join(resolveWorkspaceRoot(wd), 'changes', 'active', planned.state.change_id);
+    const deltaPath = join(changesRoot, 'spec-delta.md');
+    const graphPath = join(changesRoot, 'artifact-graph.json');
+    const deltaText = await readFile(deltaPath, 'utf8');
+    const graph = JSON.parse(await readFile(graphPath, 'utf8'));
+
+    assert.equal(planned.state.change_id, 'chg-change-delta');
+    assert.equal(planned.state.change_id === planned.state.slug, false);
+    assert.equal(planned.state.change_artifacts_status, 'complete');
+    assert.equal(planned.state.spec_delta_status, 'complete');
+    assert.equal(planned.state.change_artifact_paths.specDelta, deltaPath);
+    assert.match(deltaText, /## Target Spec Domains/);
+    assert.match(deltaText, /- general/);
+    assert.match(deltaText, /## Added Requirements/);
+    assert.equal(graph.change, planned.state.change_id);
+    assert.equal(graph.workflow, 'change-delta');
+    assert.equal(graph.artifacts.specDelta.status, 'done');
+    assert.deepEqual(graph.artifacts.tasks.dependsOn, ['proposal', 'specDelta', 'design']);
+    assert.equal(graph.nextReady.length, 0);
+    assert.equal(existsSync(join(changesRoot, 'proposal.md')), true);
+    assert.equal(existsSync(join(changesRoot, 'design.md')), true);
+    assert.equal(existsSync(join(changesRoot, 'tasks.md')), true);
+  });
+
+  it('blocks build approval when the change delta artifact is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-block-'));
+    const clarified = await clarifyStage(wd, 'delta-block');
+    await writeResolvedSpec(clarified.root, 'delta-block');
+    await approveStage(wd, 'delta-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'delta-block', { adapter: createScriptedPlanAdapter() });
+    await writeFile(planned.state.change_artifact_paths.specDelta, '');
+
+    await assert.rejects(
+      () => approveStage(wd, 'delta-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*spec_delta_empty/,
+    );
+
+    const state = await readState(wd, 'delta-block');
+    assert.equal(state.spec_delta_status, 'partial');
+    assert.equal(state.plan_blockers.includes('spec_delta_empty'), true);
+  });
+
+  it('archives approved change deltas into long-lived specs', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-archive-'));
+    const clarified = await clarifyStage(wd, 'archive-delta');
+    await writeResolvedSpec(clarified.root, 'archive-delta');
+    await approveStage(wd, 'archive-delta', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-delta', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-delta', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-delta', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'archive-delta', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'archive-delta', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    await approveStage(wd, 'archive-delta', { from: 'review', to: 'done' });
+
+    const archived = await archiveStage(wd, 'archive-delta');
+    const specPath = join(resolveWorkspaceRoot(wd), 'specs', 'general', 'spec.md');
+    const archivedDeltaPath = join(resolveWorkspaceRoot(wd), 'changes', 'archive', archived.state.change_id, 'spec-delta.md');
+    const specText = await readFile(specPath, 'utf8');
+
+    assert.equal(archived.state.archive_status, 'archived');
+    assert.equal(archived.state.spec_sync_status, 'synced');
+    assert.equal(archived.state.change_id, 'chg-archive-delta');
+    assert.equal(archived.state.archived_change_path, join(resolveWorkspaceRoot(wd), 'changes', 'archive', 'chg-archive-delta'));
+    assert.equal(existsSync(archivedDeltaPath), true);
+    assert.match(specText, /# loopx Spec Domain: general/);
+    assert.match(specText, /## Requirements/);
+    assert.match(specText, /archive-delta/);
+  });
+
+  it('keeps archive idempotent after change deltas are synced', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-archive-idempotent-'));
+    const clarified = await clarifyStage(wd, 'archive-repeat');
+    await writeResolvedSpec(clarified.root, 'archive-repeat');
+    await approveStage(wd, 'archive-repeat', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-repeat', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-repeat', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-repeat', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'archive-repeat', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'archive-repeat', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    await approveStage(wd, 'archive-repeat', { from: 'review', to: 'done' });
+
+    const first = await archiveStage(wd, 'archive-repeat');
+    const specPath = first.state.archived_spec_paths[0];
+    const before = await readFile(specPath, 'utf8');
+    const second = await archiveStage(wd, 'archive-repeat');
+    const after = await readFile(specPath, 'utf8');
+
+    assert.equal(second.state.archive_status, 'archived');
+    assert.equal(second.state.archived_change_path, first.state.archived_change_path);
+    assert.equal(after, before);
+  });
+
   it('keeps plan blocked when workflow planning artifacts are not Chinese', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-artifact-block-'));
     const clarified = await clarifyStage(wd, 'artifact-block');
@@ -1402,6 +1510,28 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.state.pending_user_decision, 'build->review');
     assert.equal(payload.next_skill_command, '$review .loopx/workflows/build-cli-next/execution-record.md');
     assert.equal(payload.next_skill_hint, 'Next: $review .loopx/workflows/build-cli-next/execution-record.md');
+  });
+
+  it('CLI payload adds the archive skill command after done approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-archive-cli-next-'));
+    const clarified = await clarifyStage(wd, 'archive-cli-next');
+    await writeResolvedSpec(clarified.root, 'archive-cli-next');
+    await approveStage(wd, 'archive-cli-next', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-cli-next', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-cli-next', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-cli-next', {
+      adapter: createScriptedBuildAdapter(),
+    });
+    await approveStage(wd, 'archive-cli-next', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'archive-cli-next', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    const done = await approveStage(wd, 'archive-cli-next', { from: 'review', to: 'done' });
+
+    const payload = withNextSkill({ ok: true, command: 'approve', root: done.root, state: done.state }, done.state);
+    assert.equal(payload.next_skill_command, '$archive archive-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next: $archive archive-cli-next');
   });
 
   it('does not infer review next command from empty build blockers alone', () => {
