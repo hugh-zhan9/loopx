@@ -84,6 +84,14 @@ Next:
 loopx approve <slug> --from review --to done
 ```
 
+After the workflow reaches `done`, run:
+
+```text
+$archive <slug>
+```
+
+This syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived `.loopx/specs/` files and moves the change folder under `.loopx/changes/archive/<change-id>/`.
+
 ## Support Skill Review Lenses
 
 Use loopx support skills as review lenses, not as implementation instructions:

@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,7 @@ const V1_ARTIFACTS = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'revi
 const LEGACY_ARTIFACTS = ['brief.md', 'plan.md', 'detailed-design.md', 'architecture.md', 'test-plan.md', 'build-result.md', 'review-report.md'];
 const PLAN_REVIEW_DIR = 'plan-reviews';
 const BUILD_SUPPORT_DIR = 'build-support';
+const CHANGE_ARTIFACTS = ['proposal.md', 'spec-delta.md', 'design.md', 'tasks.md', 'artifact-graph.json'];
 const CLARIFY_PROFILES = {
   standard: {
     threshold: 0.2,
@@ -223,6 +224,22 @@ function resolveSpecsRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'specs');
 }
 
+function resolveChangesRoot(cwd) {
+  return join(resolveWorkspaceRoot(cwd), 'changes');
+}
+
+function changeIdForWorkflowSlug(slug) {
+  return `chg-${normalizeSlug(slug)}`;
+}
+
+function resolveChangeRoot(cwd, changeId) {
+  return join(resolveChangesRoot(cwd), 'active', normalizeSlug(changeId));
+}
+
+function resolveArchivedChangeRoot(cwd, changeId) {
+  return join(resolveChangesRoot(cwd), 'archive', normalizeSlug(changeId));
+}
+
 function resolvePlansRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'plans');
 }
@@ -340,6 +357,14 @@ function createInitialState(slug, profile) {
     plan_review_artifact_paths: [],
     plan_blockers: [],
     plan_source_spec_path: null,
+    change_id: changeIdForWorkflowSlug(slug),
+    change_artifacts_status: 'missing',
+    change_artifact_paths: null,
+    spec_delta_status: 'missing',
+    spec_sync_status: 'pending',
+    archive_status: 'pending',
+    archived_change_path: null,
+    archived_spec_paths: [],
     build_run_id: null,
     build_current_iteration: 0,
     build_max_iterations: DEFAULT_BUILD_MAX_ITERATIONS,
@@ -420,6 +445,10 @@ async function copyArtifact(fromRoot, toPath, name) {
   await writeText(toPath, content);
 }
 
+async function writeJson(path, value) {
+  await writeText(path, JSON.stringify(value, null, 2));
+}
+
 async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   const plansRoot = resolvePlansRoot(cwd);
   await ensureDir(plansRoot);
@@ -450,6 +479,265 @@ async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   );
   await writeText(testSpecPath, testPlanText);
   return { planPath, testSpecPath };
+}
+
+function dedupeStrings(items) {
+  return [...new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function bulletsFromSectionText(text, heading) {
+  const pattern = new RegExp(`## ${heading}\\n\\n([\\s\\S]*?)(?=\\n## |$)`, 'i');
+  const match = text.match(pattern);
+  if (!match) {
+    return [];
+  }
+  return match[1]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2).trim())
+    .filter(Boolean);
+}
+
+function targetDomainsForChange(slug, sourceText) {
+  const explicit = bulletsFromSectionText(sourceText, 'Target Spec Domains');
+  if (explicit.length > 0) {
+    return dedupeStrings(explicit.map((item) => item.replace(/`/g, '')));
+  }
+  return ['general'];
+}
+
+function requirementsForDelta(slug, plannerDraft) {
+  const requirements = String(plannerDraft.planText || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^\d+\.\s+/.test(line))
+    .map((line) => line.replace(/^\d+\.\s+/, '').trim());
+  return dedupeStrings(requirements.length > 0 ? requirements : [
+    `Workflow ${slug} SHALL implement the approved loopx plan package.`,
+  ]);
+}
+
+function changeArtifactGraph({ changeId, slug, artifacts }) {
+  const graph = {
+    schema_version: 1,
+    change: changeId,
+    workflow: slug,
+    philosophy: 'artifact-dependency-graph',
+    artifacts: {
+      proposal: {
+        path: artifacts.proposal,
+        status: existsSync(artifacts.proposal) ? 'done' : 'missing',
+        dependsOn: [],
+      },
+      specDelta: {
+        path: artifacts.specDelta,
+        status: existsSync(artifacts.specDelta) ? 'done' : 'missing',
+        dependsOn: ['proposal'],
+      },
+      design: {
+        path: artifacts.design,
+        status: existsSync(artifacts.design) ? 'done' : 'missing',
+        dependsOn: ['proposal', 'specDelta'],
+      },
+      tasks: {
+        path: artifacts.tasks,
+        status: existsSync(artifacts.tasks) ? 'done' : 'missing',
+        dependsOn: ['proposal', 'specDelta', 'design'],
+      },
+    },
+  };
+  graph.nextReady = Object.entries(graph.artifacts)
+    .filter(([, node]) => node.status !== 'done')
+    .filter(([, node]) => node.dependsOn.every((dependency) => graph.artifacts[dependency]?.status === 'done'))
+    .map(([name]) => name);
+  return graph;
+}
+
+async function writeChangeArtifacts(cwd, root, slug, sourceText, plannerDraft, changeId = changeIdForWorkflowSlug(slug)) {
+  const normalizedChangeId = normalizeSlug(changeId);
+  const changeRoot = resolveChangeRoot(cwd, normalizedChangeId);
+  const specsRoot = join(changeRoot, 'specs');
+  await ensureDir(specsRoot);
+  const paths = {
+    root: changeRoot,
+    proposal: join(changeRoot, 'proposal.md'),
+    specDelta: join(changeRoot, 'spec-delta.md'),
+    design: join(changeRoot, 'design.md'),
+    tasks: join(changeRoot, 'tasks.md'),
+    graph: join(changeRoot, 'artifact-graph.json'),
+  };
+  const domains = targetDomainsForChange(slug, sourceText);
+  const requirements = requirementsForDelta(slug, plannerDraft);
+
+  await writeText(paths.proposal, [
+    `# loopx Change Proposal: ${normalizedChangeId}`,
+    '',
+    '## Why',
+    '',
+    '- Preserve the approved workflow intent as a durable change proposal.',
+    '',
+    '## What Changes',
+    '',
+    ...requirements.map((item) => `- ${item}`),
+    '',
+    '## Target Spec Domains',
+    '',
+    ...domains.map((domain) => `- ${domain}`),
+    '',
+    '## Source',
+    '',
+    `- change id: ${normalizedChangeId}`,
+    `- workflow slug: ${slug}`,
+    `- workflow: ${artifactPath(root, 'state.json')}`,
+    `- source spec: ${artifactPath(root, 'spec.md')}`,
+  ].join('\n'));
+
+  await writeText(paths.specDelta, [
+    `# loopx Spec Delta: ${normalizedChangeId}`,
+    '',
+    '## Target Spec Domains',
+    '',
+    ...domains.map((domain) => `- ${domain}`),
+    '',
+    '## Added Requirements',
+    '',
+    ...requirements.map((item) => `- ${item}`),
+    '',
+    '## Modified Requirements',
+    '',
+    '- none',
+    '',
+    '## Removed Requirements',
+    '',
+    '- none',
+    '',
+    '## Scenarios',
+    '',
+    `- GIVEN workflow ${slug} has an approved plan`,
+    '- WHEN build and review complete successfully',
+    '- THEN the accepted behavior is merged into long-lived loopx specs during archive',
+  ].join('\n'));
+
+  await writeText(paths.design, [
+    `# loopx Change Design: ${normalizedChangeId}`,
+    '',
+    '## Technical Approach',
+    '',
+    plannerDraft.architectureText || '- See workflow architecture artifact.',
+    '',
+    '## Task Plan',
+    '',
+    plannerDraft.developmentPlanText || '- See workflow development plan artifact.',
+  ].join('\n'));
+
+  await writeText(paths.tasks, [
+    `# loopx Change Tasks: ${normalizedChangeId}`,
+    '',
+    '## Tasks',
+    '',
+    ...requirements.map((item, index) => `- [ ] ${index + 1}. ${item}`),
+    '',
+    '## Verification',
+    '',
+    plannerDraft.testPlanText || '- See workflow test plan artifact.',
+  ].join('\n'));
+
+  await writeJson(paths.graph, changeArtifactGraph({ changeId: normalizedChangeId, slug, artifacts: paths }));
+  for (const domain of domains) {
+    const specDeltaPath = join(specsRoot, ...domain.split('/'), 'spec.md');
+    await ensureDir(dirname(specDeltaPath));
+    await copyArtifact(changeRoot, specDeltaPath, 'spec-delta.md');
+  }
+  return paths;
+}
+
+async function readChangeArtifactStatus(paths) {
+  if (!paths || typeof paths !== 'object') {
+    return {
+      status: 'missing',
+      specDeltaStatus: 'missing',
+      blockers: ['missing_change_artifacts'],
+    };
+  }
+  const blockers = [];
+  for (const name of ['proposal', 'specDelta', 'design', 'tasks', 'graph']) {
+    const path = paths[name];
+    if (!path || !existsSync(path)) {
+      blockers.push(`missing_change_artifact_${name}`);
+    }
+  }
+  let specDeltaStatus = 'missing';
+  if (paths.specDelta && existsSync(paths.specDelta)) {
+    const text = await readFile(paths.specDelta, 'utf8');
+    const hasDomains = /## Target Spec Domains\n\n- /i.test(text);
+    const hasRequirements = /## Added Requirements\n\n- /i.test(text) || /## Modified Requirements\n\n- (?!none\b)/i.test(text);
+    if (!text.trim()) {
+      specDeltaStatus = 'partial';
+      blockers.push('spec_delta_empty');
+    } else if (!hasDomains || !hasRequirements) {
+      specDeltaStatus = 'partial';
+      if (!hasDomains) {
+        blockers.push('spec_delta_missing_domains');
+      }
+      if (!hasRequirements) {
+        blockers.push('spec_delta_missing_requirements');
+      }
+    } else {
+      specDeltaStatus = 'complete';
+    }
+  }
+  return {
+    status: blockers.length > 0 ? 'partial' : 'complete',
+    specDeltaStatus,
+    blockers,
+  };
+}
+
+function parseSpecDelta(text) {
+  return {
+    domains: targetDomainsForChange('general', text),
+    added: bulletsFromSectionText(text, 'Added Requirements').filter((item) => item !== 'none'),
+    modified: bulletsFromSectionText(text, 'Modified Requirements').filter((item) => item !== 'none'),
+    removed: bulletsFromSectionText(text, 'Removed Requirements').filter((item) => item !== 'none'),
+    scenarios: bulletsFromSectionText(text, 'Scenarios'),
+  };
+}
+
+function specDomainPath(cwd, domain) {
+  return join(resolveSpecsRoot(cwd), ...String(domain).split('/').map((part) => normalizeSlug(part)), 'spec.md');
+}
+
+async function mergeSpecDeltaIntoLongLivedSpecs(cwd, slug, specDeltaPath) {
+  const deltaText = await readFile(specDeltaPath, 'utf8');
+  const delta = parseSpecDelta(deltaText);
+  const updated = [];
+  for (const domain of delta.domains) {
+    const path = specDomainPath(cwd, domain);
+    await ensureDir(dirname(path));
+    const existing = await readTextIfExists(path);
+    const next = [
+      existing || [
+        `# loopx Spec Domain: ${domain}`,
+        '',
+        '## Purpose',
+        '',
+        `Long-lived accepted behavior for ${domain}.`,
+        '',
+        '## Requirements',
+      ].join('\n'),
+      '',
+      `### Change: ${slug}`,
+      '',
+      ...(delta.added.length > 0 ? ['#### Added Requirements', '', ...delta.added.map((item) => `- ${item}`), ''] : []),
+      ...(delta.modified.length > 0 ? ['#### Modified Requirements', '', ...delta.modified.map((item) => `- ${item}`), ''] : []),
+      ...(delta.removed.length > 0 ? ['#### Removed Requirements', '', ...delta.removed.map((item) => `- ${item}`), ''] : []),
+      ...(delta.scenarios.length > 0 ? ['#### Scenarios', '', ...delta.scenarios.map((item) => `- ${item}`)] : []),
+    ].join('\n');
+    await writeText(path, next);
+    updated.push(path);
+  }
+  return updated;
 }
 
 function deriveSlugFromSpecPath(path, text) {
@@ -605,10 +893,14 @@ async function readPlanCompletion(cwd, root, slug, state) {
       blockers.push(`plan_artifact_not_chinese_${key}`);
     }
   }
+  const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
+  blockers.push(...changeStatus.blockers);
 
   return {
     blockers,
     docsStatus: blockers.some((blocker) => blocker.startsWith('missing_plan_artifact_') || blocker.startsWith('plan_artifact_not_chinese_')) ? 'partial' : 'complete',
+    changeArtifactsStatus: changeStatus.status,
+    specDeltaStatus: changeStatus.specDeltaStatus,
   };
 }
 
@@ -867,6 +1159,9 @@ function recommendedAction(state, legacy = false) {
     case STAGES.DONE:
       if (state.autopilot_current_phase && state.autopilot_current_phase !== 'none' && state.autopilot_completed) {
         return 'Autopilot run is complete.';
+      }
+      if (state.archive_status !== 'archived') {
+        return 'Run loopx archive to sync the approved change delta into long-lived specs.';
       }
       return 'Workflow is complete.';
     default:
@@ -1151,6 +1446,9 @@ export async function initWorkspace(cwd, { slug } = {}) {
   await ensureDir(join(workspaceRoot, 'context'));
   await ensureDir(join(workspaceRoot, 'workflows'));
   await ensureDir(join(workspaceRoot, 'specs'));
+  await ensureDir(join(workspaceRoot, 'changes'));
+  await ensureDir(join(workspaceRoot, 'changes', 'active'));
+  await ensureDir(join(workspaceRoot, 'changes', 'archive'));
   await ensureDir(join(workspaceRoot, 'plans'));
   await ensureDir(join(workspaceRoot, 'autopilot'));
 
@@ -1158,8 +1456,8 @@ export async function initWorkspace(cwd, { slug } = {}) {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'skill-first-v1',
-    default_flow: ['clarify', 'plan', 'build', 'review', 'done'],
-    preferred_surface: ['clarify', 'plan', 'build', 'review', 'autopilot'],
+    default_flow: ['clarify', 'plan', 'build', 'review', 'done', 'archive'],
+    preferred_surface: ['clarify', 'plan', 'build', 'review', 'archive', 'autopilot'],
   };
 
   if (!existsSync(workspaceConfigPath(workspaceRoot))) {
@@ -1276,6 +1574,8 @@ export async function approveStage(cwd, slug, { from, to }) {
       ...next,
       plan_docs_status: completion.docsStatus,
       plan_docs_artifact_paths: null,
+      change_artifacts_status: completion.changeArtifactsStatus,
+      spec_delta_status: completion.specDeltaStatus,
       plan_blockers: completion.blockers,
     };
     if (completion.blockers.length > 0) {
@@ -1386,6 +1686,59 @@ export async function approveStage(cwd, slug, { from, to }) {
   return { root, state: next };
 }
 
+export async function archiveStage(cwd, slug) {
+  const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
+  if (state.current_stage !== STAGES.DONE || !state.completion_confirmed) {
+    throw new Error('archive_requires_done_workflow');
+  }
+  if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
+    return { root, state: withRecommendedAction(state) };
+  }
+  const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
+  if (changeStatus.blockers.length > 0) {
+    const blocked = withRecommendedAction({
+      ...state,
+      archive_status: 'blocked',
+      spec_sync_status: changeStatus.specDeltaStatus,
+      plan_blockers: [...(state.plan_blockers || []), ...changeStatus.blockers],
+    });
+    await writeState(root, blocked);
+    throw new Error(`archive_blocked:${changeStatus.blockers.join(',')}`);
+  }
+
+  const changeId = normalizeSlug(state.change_id || changeIdForWorkflowSlug(normalized));
+  const archivedSpecPaths = await mergeSpecDeltaIntoLongLivedSpecs(cwd, changeId, state.change_artifact_paths.specDelta);
+  const archiveRoot = resolveArchivedChangeRoot(cwd, changeId);
+  await ensureDir(dirname(archiveRoot));
+  if (existsSync(archiveRoot)) {
+    await cp(state.change_artifact_paths.root, archiveRoot, { recursive: true, force: true });
+  } else {
+    await rename(state.change_artifact_paths.root, archiveRoot);
+  }
+  const archivedPaths = {
+    ...state.change_artifact_paths,
+    root: archiveRoot,
+    proposal: join(archiveRoot, 'proposal.md'),
+    specDelta: join(archiveRoot, 'spec-delta.md'),
+    design: join(archiveRoot, 'design.md'),
+    tasks: join(archiveRoot, 'tasks.md'),
+    graph: join(archiveRoot, 'artifact-graph.json'),
+  };
+  const next = withRecommendedAction({
+    ...state,
+    archive_status: 'archived',
+    spec_sync_status: 'synced',
+    spec_delta_status: 'complete',
+    change_id: changeId,
+    change_artifacts_status: 'archived',
+    archived_change_path: archiveRoot,
+    archived_spec_paths: archivedSpecPaths,
+    change_artifact_paths: archivedPaths,
+  });
+  await writeState(root, next);
+  return { root, state: next };
+}
+
 export async function planStage(cwd, slug, options = {}) {
   let normalized = slug ? normalizeSlug(slug) : null;
   if (options.directSpecPath) {
@@ -1435,6 +1788,9 @@ export async function planStage(cwd, slug, options = {}) {
     });
     await writePlanArtifacts(root, cwd, normalized, plannerDraft);
     const artifactPaths = await writeCanonicalPlanArtifacts(cwd, root, normalized);
+    const changeId = state.change_id || changeIdForWorkflowSlug(normalized);
+    const changeArtifactPaths = await writeChangeArtifacts(cwd, root, normalized, sourceText, plannerDraft, changeId);
+    const changeArtifactStatus = await readChangeArtifactStatus(changeArtifactPaths);
 
     architectReview = await adapter.architect({
       cwd,
@@ -1478,6 +1834,10 @@ export async function planStage(cwd, slug, options = {}) {
       plan_review_artifact_paths: reviewArtifactPaths,
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
+      change_id: normalizeSlug(changeId),
+      change_artifacts_status: changeArtifactStatus.status,
+      change_artifact_paths: changeArtifactPaths,
+      spec_delta_status: changeArtifactStatus.specDeltaStatus,
       plan_source_spec_path: sourceSpecPath,
       last_confirmed_transition: consumesReviewPlan || resumesConsumedReviewPlan ? TRANSITIONS.REVIEW_TO_PLAN : TRANSITIONS.CLARIFY_TO_PLAN,
       approval: {
@@ -1508,6 +1868,8 @@ export async function planStage(cwd, slug, options = {}) {
     requested_transition: TRANSITIONS.NONE,
     plan_docs_status: completion.docsStatus,
     plan_docs_artifact_paths: null,
+    change_artifacts_status: completion.changeArtifactsStatus,
+    spec_delta_status: completion.specDeltaStatus,
     plan_blockers: completion.blockers,
     context_manifest_status: buildManifest ? 'hit' : 'fallback',
     build_context_manifest_path: buildManifest?.path || buildContextManifestPath(root),
@@ -2176,6 +2538,7 @@ async function listWorkflowSummaries(workflowsRoot) {
     workflows.push({
       slug,
       current_stage: state?.current_stage ?? null,
+      archive_status: state?.archive_status ?? null,
       contract: legacy ? 'legacy-codex-helper' : 'loopx-v1',
       legacy,
       schema_version: state?.schema_version ?? 0,

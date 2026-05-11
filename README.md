@@ -10,16 +10,20 @@ Current public flow:
 clarify -> plan -> build -> review
 ```
 
+Accepted reviews can be archived after `done` so the approved change delta is merged into long-lived specs.
+
 `autopilot` is the end-to-end orchestration entrypoint. Internally it reuses the public flow instead of creating a second source of workflow truth.
 
 ## Features
 
-- Installs and exposes ten bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, and `autopilot`; quality support skills `debug`, `tdd`, and `verify`; and Go support skills `go-style` and `kratos`.
+- Installs and exposes eleven bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, `archive`, and `autopilot`; quality support skills `debug`, `tdd`, and `verify`; and Go support skills `go-style` and `kratos`.
 - Supports npm global install and Codex plugin install through the same install/discovery core.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
 - Runs `plan` with a Planner -> Architect -> Critic consensus loop by default.
+- Writes OpenSpec-inspired change artifacts during `plan`: proposal, spec delta, design, tasks, and an artifact dependency graph.
 - Runs `build` with execution records, verification evidence, architect validation, deslop cleanup, and regression re-verification.
 - Keeps `review` as an independent acceptance surface with go/no-go verdicts.
+- Supports `archive` to sync approved change deltas into long-lived `.loopx/specs/` source-of-truth files.
 - Supports migration from the legacy `.codex-helper/` runtime namespace to `.loopx/`.
 
 ## Installation
@@ -106,6 +110,12 @@ loopx approve my-task --from review --to done
 loopx review my-task
 ```
 
+Archive accepted behavior into long-lived specs:
+
+```text
+$archive my-task
+```
+
 Check status:
 
 ```bash
@@ -128,6 +138,7 @@ loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
+loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx status [slug] [--json]
 loopx doctor
@@ -135,7 +146,9 @@ loopx migrate
 loopx repair-install
 ```
 
-The CLI is primarily for runtime, debugging, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$autopilot`, `$debug`, `$tdd`, `$verify`, `$go-style`, and `$kratos`.
+The CLI is primarily for runtime, debugging, status inspection, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$archive`, `$autopilot`, `$debug`, `$tdd`, `$verify`, `$go-style`, and `$kratos`.
+
+`loopx status` remains a CLI/runtime diagnostic command rather than a Codex skill.
 
 ## Skills
 
@@ -156,6 +169,11 @@ Main artifacts:
 
 - `.loopx/plans/prd-<slug>.md`
 - `.loopx/plans/test-spec-<slug>.md`
+- `.loopx/changes/active/<change-id>/proposal.md`
+- `.loopx/changes/active/<change-id>/spec-delta.md`
+- `.loopx/changes/active/<change-id>/design.md`
+- `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/artifact-graph.json`
 - `.loopx/workflows/<slug>/plan.md`
 - `.loopx/workflows/<slug>/architecture.md`
 - `.loopx/workflows/<slug>/development-plan.md`
@@ -186,6 +204,14 @@ loopx build <slug> --no-deslop
 The user-facing review result is expected to be written in Chinese.
 
 If review approves the run, the workflow still requires an explicit `review -> done` approval. If review requests changes, approve `review -> plan` and run `loopx review <slug>` again to consume the rollback transition.
+
+### archive
+
+`archive` consumes a completed workflow and syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived domain specs under `.loopx/specs/`. The change folder is moved to:
+
+```text
+.loopx/changes/archive/<change-id>/
+```
 
 ### autopilot
 
@@ -226,6 +252,18 @@ loopx writes runtime state under `.loopx/` in the current project:
   README.md
   config.json
   specs/
+    <domain>/
+      spec.md
+  changes/
+    active/
+      <change-id>/
+        proposal.md
+        spec-delta.md
+        design.md
+        tasks.md
+        artifact-graph.json
+    archive/
+      <change-id>/
   plans/
   context/
   workflows/
