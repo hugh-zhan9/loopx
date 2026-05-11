@@ -1162,6 +1162,26 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /plan_architect_review_status: complete/);
     assert.match(stdout, /plan_critic_verdict: approve/);
     assert.match(stdout, /plan_artifact_status: complete/);
+    assert.match(stdout, /readiness_build: true/);
+    assert.match(stdout, /authorization_build: false/);
+  });
+
+  it('status separates readiness from authorization and exposes current evidence chain', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-readiness-auth-'));
+    const clarified = await clarifyStage(wd, 'readiness-auth');
+    await writeResolvedSpec(clarified.root, 'readiness-auth');
+
+    const beforeApproval = await statusSummary(wd, 'readiness-auth');
+    assert.equal(beforeApproval.state.readiness.plan.ready, true);
+    assert.equal(beforeApproval.state.authorization.plan.authorized, false);
+    assert.equal(beforeApproval.state.current_evidence_chain.some((entry) => entry.claim === 'clarify_ready_for_plan'), true);
+    assert.equal(beforeApproval.state.current_evidence_chain.some((entry) => entry.claim === 'plan_authorized'), false);
+
+    await approveStage(wd, 'readiness-auth', { from: 'clarify', to: 'plan' });
+    const afterApproval = await statusSummary(wd, 'readiness-auth');
+    assert.equal(afterApproval.state.readiness.plan.ready, true);
+    assert.equal(afterApproval.state.authorization.plan.authorized, true);
+    assert.equal(afterApproval.state.current_evidence_chain.some((entry) => entry.claim === 'plan_authorized'), true);
   });
 
   it('blocks review entry when build architect gate rejects', async () => {
@@ -1353,6 +1373,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.active, false);
     assert.equal(state.phase, 'review-ready');
     assert.equal(state.review_handoff_ready, true);
+    assert.equal(state.completion_signal, 'execution-record.md is complete and build -> review handoff is ready.');
     assert.equal(evaluateBuildStopGate(state).allow, true);
   });
 
@@ -1406,9 +1427,16 @@ describe('loopx skill-first workflow contract', () => {
       max_iterations: 10,
       review_handoff_ready: false,
       blockers: ['verification_pending'],
+      next_action: 'Continue $build verification and update execution-record.md.',
+      completion_signal: 'Build may stop only after review handoff readiness or a real blocker is recorded.',
     });
 
-    assert.equal(evaluateBuildStopGate(await readBuildActiveState(wd)).allow, false);
+    const decision = evaluateBuildStopGate(await readBuildActiveState(wd));
+    assert.equal(decision.allow, false);
+    assert.match(decision.reason, /contract-covered next step/);
+    assert.match(decision.reason, /completion signal: Build may stop only after review handoff readiness/);
+    assert.match(decision.reason, /If the work is genuinely blocked, record the blocker/);
+    assert.match(decision.reason, /return to plan\/clarify instead of stopping/);
 
     const escapedInput = JSON.stringify({ cwd: wd }).replace(/'/g, "'\\''");
     await assert.rejects(
@@ -1418,6 +1446,7 @@ describe('loopx skill-first workflow contract', () => {
         assert.equal(parsed.allow, false);
         assert.match(parsed.reason, /loopx build is still active/);
         assert.match(parsed.reason, /verification_pending/);
+        assert.match(parsed.reason, /contract-covered next step/);
         return true;
       },
     );

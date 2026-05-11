@@ -69,9 +69,11 @@ export function evaluateBuildStopGate(state) {
   if (ACTIVE_PHASES.has(state.phase) || state.review_handoff_ready !== true) {
     const blockers = Array.isArray(state.blockers) ? state.blockers.filter(Boolean) : [];
     const blockerText = blockers.length > 0 ? ` blockers=${blockers.join(',')}` : '';
+    const nextAction = state.next_action ? ` next action: ${state.next_action}` : ' next action: continue the contract-covered next step in $build.';
+    const completionSignal = state.completion_signal ? ` completion signal: ${state.completion_signal}` : ' completion signal: review handoff readiness, a real blocker, user stop, or a return to plan/clarify.';
     return {
       allow: false,
-      reason: `loopx build is still active for workflow "${state.slug ?? 'unknown'}" (phase: ${state.phase ?? 'unknown'}; iteration: ${state.iteration ?? 0}/${state.max_iterations ?? '?'}; state: .loopx/build-active.json). Continue $build and gather fresh verification evidence before stopping.${blockerText}`,
+      reason: `loopx build is still active for workflow "${state.slug ?? 'unknown'}" (phase: ${state.phase ?? 'unknown'}; iteration: ${state.iteration ?? 0}/${state.max_iterations ?? '?'}; state: .loopx/build-active.json). Do not stop while a contract-covered next step remains.${nextAction}${completionSignal} If the work is genuinely blocked, record the blocker and leave build in a blocked state. If new evidence changes the contract, return to plan/clarify instead of stopping.${blockerText}`,
       state,
     };
   }
