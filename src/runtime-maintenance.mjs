@@ -194,14 +194,14 @@ async function inferReviewState(workflowRoot) {
     || '';
   const reviewMeta = parseFrontmatter(reviewText);
   const rawVerdict = String(reviewMeta.verdict || '').toLowerCase();
-  const textVerdict = /\bAPPROVE\b/i.test(reviewText)
-    ? 'approve'
-    : /\bREQUEST\s+CHANGES\b/i.test(reviewText)
-      ? 'request-changes'
+  const textVerdict = /(^|\n)\s*(REQUEST\s+CHANGES|NO-?GO)\s*($|\n)/i.test(reviewText)
+    ? 'request-changes'
+    : /(^|\n)\s*(APPROVE|GO)\s*($|\n)/i.test(reviewText)
+      ? 'approve'
       : 'none';
-  const reviewVerdict = rawVerdict.includes('approve')
+  const reviewVerdict = rawVerdict === 'go' || rawVerdict.includes('approve')
     ? 'approve'
-    : rawVerdict.includes('request')
+    : rawVerdict.includes('request') || rawVerdict === 'no-go' || rawVerdict === 'nogo'
       ? 'request-changes'
       : textVerdict;
   if (reviewVerdict === 'approve') {

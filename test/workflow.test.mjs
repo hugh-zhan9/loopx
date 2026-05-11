@@ -1212,6 +1212,56 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(specText, /The migrated workflow must be archivable/);
   });
 
+  it('migrates old schema GO review verdicts as approved reviews', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-workflow-go-migrate-'));
+    await initWorkspace(wd);
+
+    const slug = 'go-review';
+    const workflowRoot = join(resolveWorkspaceRoot(wd), 'workflows', slug);
+    await mkdir(workflowRoot, { recursive: true });
+    await writeFile(
+      join(workflowRoot, 'state.json'),
+      JSON.stringify({
+        slug,
+        stage: 'review',
+        review_status: 'complete',
+        review_verdict: 'go',
+        requested_transition_after_review: 'done',
+      }, null, 2),
+    );
+    await writeFile(join(workflowRoot, 'plan.md'), '# Plan\n');
+    await writeFile(join(workflowRoot, 'architecture.md'), '# Architecture\n');
+    await writeFile(join(workflowRoot, 'development-plan.md'), '# Development Plan\n');
+    await writeFile(join(workflowRoot, 'test-plan.md'), '# Test Plan\n');
+    await writeFile(join(workflowRoot, 'execution-record.md'), `---\nslug: ${slug}\nstage: build\nstatus: review-ready\nexecution_approved_for_review: true\n---\n\n## Verification Evidence\n\n- PASS\n`);
+    await writeFile(
+      join(workflowRoot, 'review.md'),
+      [
+        `# Review: ${slug}`,
+        '',
+        '## Verdict',
+        '',
+        'GO',
+        '',
+        '## Rationale',
+        '',
+        '上一轮 NO-GO 已复核，本轮可以进入 done。',
+      ].join('\n'),
+    );
+
+    await migrateLegacyRuntime(wd);
+    const migratedStatus = await statusSummary(wd, slug);
+
+    assert.equal(migratedStatus.legacy, false);
+    assert.equal(migratedStatus.state.current_stage, 'review');
+    assert.equal(migratedStatus.state.review_verdict, 'approve');
+    assert.equal(migratedStatus.state.pending_user_decision, 'review->done');
+
+    const done = await approveStage(wd, slug, { from: 'review', to: 'done' });
+    assert.equal(done.state.current_stage, 'done');
+    assert.equal(done.state.completion_confirmed, true);
+  });
+
   it('archives old domain-section spec deltas into matching long-lived specs only', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-domain-section-archive-'));
     await initWorkspace(wd);
