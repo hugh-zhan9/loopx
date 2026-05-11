@@ -101,6 +101,16 @@ function printHumanStatus(status) {
     console.log(`spec_sync_status: ${status.state.spec_sync_status ?? 'unknown'}`);
     console.log(`archive_status: ${status.state.archive_status ?? 'unknown'}`);
   }
+  if (status.state?.readiness && status.state?.authorization) {
+    for (const key of ['plan', 'build', 'review', 'done', 'archive']) {
+      if (status.state.readiness[key]) {
+        console.log(`readiness_${key}: ${status.state.readiness[key].ready}`);
+      }
+      if (status.state.authorization[key]) {
+        console.log(`authorization_${key}: ${status.state.authorization[key].authorized}`);
+      }
+    }
+  }
   if (status.hook) {
     console.log(`hook_enabled: ${status.hook.enabled}`);
   }

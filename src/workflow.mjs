@@ -209,7 +209,7 @@ async function writeText(path, text) {
 }
 
 async function writeState(root, state) {
-  await writeText(statePath(root), JSON.stringify(state, null, 2));
+  await writeText(statePath(root), JSON.stringify(enrichRuntimeJudgment(state), null, 2));
 }
 
 export function resolveWorkspaceRoot(cwd) {
@@ -1078,6 +1078,207 @@ function clarifyReadinessBlockers(state) {
   return blockers;
 }
 
+function planReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.plan_architect_review_status !== 'complete') {
+    blockers.push('architect_review_incomplete');
+  }
+  if (state.plan_critic_verdict !== 'approve') {
+    blockers.push(`critic_verdict_${state.plan_critic_verdict}`);
+  }
+  if (state.plan_package_status !== 'complete') {
+    blockers.push(`plan_package_${state.plan_package_status}`);
+  }
+  if (!state.plan_acceptance_criteria_testable) {
+    blockers.push('acceptance_criteria_unresolved');
+  }
+  if (!state.plan_verification_steps_resolved) {
+    blockers.push('verification_steps_unresolved');
+  }
+  if (!state.plan_execution_inputs_resolved) {
+    blockers.push('execution_inputs_unresolved');
+  }
+  if (!state.plan_artifact_path) {
+    blockers.push('missing_prd');
+  }
+  if (!state.test_spec_artifact_path) {
+    blockers.push('missing_test_spec');
+  }
+  if (state.change_artifacts_status !== 'complete' && state.change_artifacts_status !== 'archived') {
+    blockers.push(`change_artifacts_${state.change_artifacts_status || 'missing'}`);
+  }
+  if (state.spec_delta_status !== 'complete') {
+    blockers.push(`spec_delta_${state.spec_delta_status || 'missing'}`);
+  }
+  if (Array.isArray(state.plan_blockers)) {
+    blockers.push(...state.plan_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function buildReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.execution_record_status !== 'complete') {
+    blockers.push(`execution_record_${state.execution_record_status || 'missing'}`);
+  }
+  if (Array.isArray(state.build_blockers)) {
+    blockers.push(...state.build_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function reviewReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.review_status !== 'ready-for-review' && state.review_status !== 'in-review') {
+    blockers.push(`review_status_${state.review_status || 'not-started'}`);
+  }
+  if (state.execution_record_status !== 'complete') {
+    blockers.push(`execution_record_${state.execution_record_status || 'missing'}`);
+  }
+  if (Array.isArray(state.build_blockers)) {
+    blockers.push(...state.build_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function doneReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.review_verdict !== 'approve') {
+    blockers.push(`review_verdict_${state.review_verdict || 'none'}`);
+  }
+  return blockers;
+}
+
+function archiveReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.current_stage !== STAGES.DONE || state.completion_confirmed !== true) {
+    blockers.push('workflow_not_done');
+  }
+  if (state.spec_delta_status !== 'complete') {
+    blockers.push(`spec_delta_${state.spec_delta_status || 'missing'}`);
+  }
+  if (!state.change_artifact_paths?.specDelta) {
+    blockers.push('missing_spec_delta_path');
+  }
+  return dedupeStrings(blockers);
+}
+
+function readinessEntry(blockers) {
+  const unique = dedupeStrings(blockers);
+  return {
+    ready: unique.length === 0,
+    blockers: unique,
+  };
+}
+
+function authorizationEntry(state, key, transition) {
+  return {
+    authorized: state.approval?.[key] === APPROVAL_STATES.APPROVED,
+    approval_status: state.approval?.[key] || APPROVAL_STATES.NOT_REQUESTED,
+    transition,
+  };
+}
+
+function buildReadiness(state) {
+  return {
+    plan: readinessEntry(clarifyReadinessBlockers(state)),
+    build: readinessEntry(planReadinessBlockersSync(state)),
+    review: readinessEntry(buildReadinessBlockersSync(state)),
+    done: readinessEntry(doneReadinessBlockersSync(state)),
+    archive: readinessEntry(archiveReadinessBlockersSync(state)),
+  };
+}
+
+function buildAuthorization(state) {
+  return {
+    plan: authorizationEntry(state, 'plan', TRANSITIONS.CLARIFY_TO_PLAN),
+    build: authorizationEntry(state, 'build', TRANSITIONS.PLAN_TO_BUILD),
+    review: authorizationEntry(state, 'review', TRANSITIONS.BUILD_TO_REVIEW),
+    done: authorizationEntry(state, 'complete', TRANSITIONS.REVIEW_TO_DONE),
+    rollback: authorizationEntry(state, 'rollback', state.requested_transition || TRANSITIONS.NONE),
+  };
+}
+
+function evidenceEntry(claim, basis, implication) {
+  return { claim, basis, implication };
+}
+
+function buildCurrentEvidenceChain(state, readiness = buildReadiness(state), authorization = buildAuthorization(state)) {
+  const evidence = [];
+  if (readiness.plan.ready) {
+    evidence.push(evidenceEntry(
+      'clarify_ready_for_plan',
+      'Clarify ambiguity score, non-goals, decision boundaries, pressure pass, and unresolved ambiguity gates are satisfied.',
+      authorization.plan.authorized ? 'The approved clarify -> plan transition can be consumed by plan.' : 'Plan readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.plan.authorized) {
+    evidence.push(evidenceEntry(
+      'plan_authorized',
+      'approval.plan is approved for clarify -> plan.',
+      'Planning may proceed without treating readiness alone as authorization.',
+    ));
+  }
+  if (readiness.build.ready) {
+    evidence.push(evidenceEntry(
+      'plan_ready_for_build',
+      'Planner, architect, critic, plan artifacts, execution inputs, and change delta gates are satisfied.',
+      authorization.build.authorized ? 'The approved plan -> build transition can be consumed by build.' : 'Build readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.build.authorized) {
+    evidence.push(evidenceEntry(
+      'build_authorized',
+      'approval.build is approved for plan -> build or review-requested build rework.',
+      'Build may consume the approved transition while preserving gate evidence.',
+    ));
+  }
+  if (readiness.review.ready) {
+    evidence.push(evidenceEntry(
+      'build_ready_for_review',
+      'Execution record is complete and no build blockers remain.',
+      authorization.review.authorized ? 'The approved build -> review transition can be consumed by review.' : 'Review readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.review.authorized) {
+    evidence.push(evidenceEntry(
+      'review_authorized',
+      'approval.review is approved for build -> review.',
+      'Review may proceed as an independent acceptance gate.',
+    ));
+  }
+  if (state.review_verdict === 'approve') {
+    evidence.push(evidenceEntry(
+      'review_approved',
+      'Review verdict is approve.',
+      authorization.done.authorized ? 'The approved review -> done transition can be consumed.' : 'Completion still requires explicit review -> done authorization.',
+    ));
+  }
+  if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
+    evidence.push(evidenceEntry(
+      'change_delta_archived',
+      'Archive synced the accepted spec delta into long-lived specs.',
+      'The workflow has durable spec memory and can remain closed.',
+    ));
+  }
+  return evidence;
+}
+
+function enrichRuntimeJudgment(state, legacy = false) {
+  if (!state || legacy) {
+    return state;
+  }
+  const readiness = buildReadiness(state);
+  const authorization = buildAuthorization(state);
+  return {
+    ...state,
+    readiness,
+    authorization,
+    current_evidence_chain: buildCurrentEvidenceChain(state, readiness, authorization),
+    recommended_next_action: recommendedAction(state, legacy),
+  };
+}
+
 async function readExecutionRecordSummary(root) {
   const text = await readTextIfExists(artifactPath(root, 'execution-record.md'));
   if (!text) {
@@ -1170,10 +1371,7 @@ function recommendedAction(state, legacy = false) {
 }
 
 function withRecommendedAction(state, legacy = false) {
-  return {
-    ...state,
-    recommended_next_action: recommendedAction(state, legacy),
-  };
+  return enrichRuntimeJudgment(state, legacy);
 }
 
 async function loadWorkflowState(cwd, slug, { allowLegacy = true } = {}) {
@@ -1918,6 +2116,8 @@ export async function buildStage(cwd, slug, options = {}) {
     max_iterations: maxIterations,
     review_handoff_ready: false,
     blockers,
+    next_action: 'Run build execution lanes and write execution-record.md.',
+    completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     workflow_root: root,
     execution_record_path: artifactPath(root, 'execution-record.md'),
     started_at: nowIso(),
@@ -1932,6 +2132,8 @@ export async function buildStage(cwd, slug, options = {}) {
       max_iterations: maxIterations,
       review_handoff_ready: false,
       blockers,
+      next_action: 'Continue $build execution and gather fresh implementation evidence.',
+      completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
     current = await adapter.executeLanes({
       cwd,
@@ -1954,6 +2156,10 @@ export async function buildStage(cwd, slug, options = {}) {
       max_iterations: maxIterations,
       review_handoff_ready: false,
       blockers,
+      next_action: blockers.length === 0
+        ? 'Verify execution evidence and prepare build -> review handoff.'
+        : 'Continue $build to resolve blockers before review handoff.',
+      completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
     const supportPaths = await writeBuildSupportArtifacts(root, current, noDeslop);
     progressArtifacts.push(supportPaths.laneSummary);
@@ -2029,6 +2235,8 @@ export async function buildStage(cwd, slug, options = {}) {
     max_iterations: maxIterations,
     review_handoff_ready: !finalBlocked,
     blockers,
+    next_action: finalBlocked ? 'Run $build again after resolving recorded blockers.' : 'Approve build -> review and run $review.',
+    completion_signal: finalBlocked ? 'Build is stopped because real blockers remain recorded.' : 'execution-record.md is complete and build -> review handoff is ready.',
     execution_record_status: next.execution_record_status,
     execution_record_path: artifactPath(root, 'execution-record.md'),
     completed_at: nowIso(),
