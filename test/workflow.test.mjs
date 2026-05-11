@@ -1089,6 +1089,238 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(after, before);
   });
 
+  it('migrates old schema .loopx workflows so approved review can archive existing change deltas', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-workflow-schema-migrate-'));
+    await initWorkspace(wd);
+
+    const slug = 'mixed-schema';
+    const workflowRoot = join(resolveWorkspaceRoot(wd), 'workflows', slug);
+    const changeId = `${slug}-20260511172248`;
+    const changeRoot = join(resolveWorkspaceRoot(wd), 'changes', 'active', changeId);
+    await mkdir(workflowRoot, { recursive: true });
+    await mkdir(changeRoot, { recursive: true });
+
+    await writeFile(
+      join(workflowRoot, 'state.json'),
+      JSON.stringify({
+        slug,
+        profile: 'standard',
+        clarify_current_round: 8,
+        clarify_max_rounds: 15,
+        clarify_target_ambiguity_threshold: 0.2,
+        clarify_ambiguity_score: 0.12,
+        clarify_non_goals_resolved: true,
+        clarify_decision_boundaries_resolved: true,
+        clarify_pressure_pass_complete: true,
+        unresolved_ambiguity_count: 0,
+        request: '第一次使用 loopx 生成的旧 schema workflow 状态。',
+      }, null, 2),
+    );
+    await writeFile(join(workflowRoot, 'plan.md'), '# Plan\n');
+    await writeFile(join(workflowRoot, 'architecture.md'), '# Architecture\n');
+    await writeFile(join(workflowRoot, 'development-plan.md'), '# Development Plan\n');
+    await writeFile(join(workflowRoot, 'test-plan.md'), '# Test Plan\n');
+    await writeFile(
+      join(workflowRoot, 'execution-record.md'),
+      [
+        '---',
+        `slug: ${slug}`,
+        'stage: build',
+        `build_run_id: ${slug}-build-run`,
+        'status: review-ready',
+        'execution_approved_for_review: true',
+        '---',
+        '',
+        '# Execution Record',
+        '',
+        '## Verification Evidence',
+        '',
+        '- PASS: npm test',
+      ].join('\n'),
+    );
+    await writeFile(
+      join(workflowRoot, 'review.md'),
+      [
+        '---',
+        `slug: ${slug}`,
+        'stage: review',
+        `review_run_id: ${slug}-review-run`,
+        'verdict: approve',
+        '---',
+        '',
+        '# Review',
+        '',
+        '## Verdict',
+        '',
+        'APPROVE',
+      ].join('\n'),
+    );
+    await writeFile(join(changeRoot, 'proposal.md'), '# Proposal\n');
+    await writeFile(join(changeRoot, 'design.md'), '# Design\n');
+    await writeFile(join(changeRoot, 'tasks.md'), '# Tasks\n');
+    await writeFile(
+      join(changeRoot, 'spec-delta.md'),
+      [
+        '---',
+        `change_id: ${changeId}`,
+        `slug: ${slug}`,
+        'status: planned',
+        'target_domains:',
+        '  - frontend-ui',
+        '---',
+        '',
+        '# Spec Delta',
+        '',
+        '## frontend-ui',
+        '',
+        '### Added Requirements',
+        '',
+        '- The migrated workflow must be archivable.',
+      ].join('\n'),
+    );
+    await writeFile(
+      join(changeRoot, 'artifact-graph.json'),
+      JSON.stringify({
+        change_id: changeId,
+        slug,
+        change_artifacts: {
+          proposal: `.loopx/changes/active/${changeId}/proposal.md`,
+          spec_delta: `.loopx/changes/active/${changeId}/spec-delta.md`,
+          design: `.loopx/changes/active/${changeId}/design.md`,
+          tasks: `.loopx/changes/active/${changeId}/tasks.md`,
+        },
+      }, null, 2),
+    );
+
+    const migration = await migrateLegacyRuntime(wd);
+    assert.equal(migration.workflowStateMigrations.length, 1);
+
+    const migratedStatus = await statusSummary(wd, slug);
+    assert.equal(migratedStatus.legacy, false);
+    assert.equal(migratedStatus.state.current_stage, 'review');
+    assert.equal(migratedStatus.state.review_verdict, 'approve');
+    assert.equal(migratedStatus.state.change_id, changeId);
+    assert.equal(migratedStatus.state.change_artifact_paths.specDelta, join(changeRoot, 'spec-delta.md'));
+
+    await approveStage(wd, slug, { from: 'review', to: 'done' });
+    const archived = await archiveStage(wd, slug);
+    const specPath = join(resolveWorkspaceRoot(wd), 'specs', 'frontend-ui', 'spec.md');
+    const specText = await readFile(specPath, 'utf8');
+
+    assert.equal(archived.state.archive_status, 'archived');
+    assert.equal(archived.state.archived_change_path, join(resolveWorkspaceRoot(wd), 'changes', 'archive', changeId));
+    assert.match(specText, /The migrated workflow must be archivable/);
+  });
+
+  it('archives old domain-section spec deltas into matching long-lived specs only', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-domain-section-archive-'));
+    await initWorkspace(wd);
+
+    const slug = 'domain-sections';
+    const workflowRoot = join(resolveWorkspaceRoot(wd), 'workflows', slug);
+    const changeId = `${slug}-20260511172248`;
+    const changeRoot = join(resolveWorkspaceRoot(wd), 'changes', 'active', changeId);
+    await mkdir(workflowRoot, { recursive: true });
+    await mkdir(changeRoot, { recursive: true });
+
+    await writeFile(join(workflowRoot, 'state.json'), JSON.stringify({ slug, request: 'old domain delta' }, null, 2));
+    await writeFile(join(workflowRoot, 'review.md'), `---\nslug: ${slug}\nstage: review\nverdict: approve\n---\n\nAPPROVE\n`);
+    await writeFile(join(workflowRoot, 'execution-record.md'), `---\nslug: ${slug}\nstage: build\nstatus: review-ready\nexecution_approved_for_review: true\n---\n\n## Verification Evidence\n\n- PASS\n`);
+    await writeFile(join(workflowRoot, 'plan.md'), '# Plan\n');
+    await writeFile(join(workflowRoot, 'architecture.md'), '# Architecture\n');
+    await writeFile(join(workflowRoot, 'development-plan.md'), '# Development Plan\n');
+    await writeFile(join(workflowRoot, 'test-plan.md'), '# Test Plan\n');
+    await writeFile(join(changeRoot, 'proposal.md'), '# Proposal\n');
+    await writeFile(join(changeRoot, 'design.md'), '# Design\n');
+    await writeFile(join(changeRoot, 'tasks.md'), '# Tasks\n');
+    await writeFile(
+      join(changeRoot, 'spec-delta.md'),
+      [
+        '---',
+        `change_id: ${changeId}`,
+        `slug: ${slug}`,
+        'target_domains:',
+        '  - alpha-ui',
+        '  - beta-api',
+        '---',
+        '',
+        '# Spec Delta',
+        '',
+        '## alpha-ui',
+        '',
+        '### Added Requirements',
+        '',
+        '- Alpha UI requirement.',
+        '',
+        '## beta-api',
+        '',
+        '### Added Requirements',
+        '',
+        '- Beta API requirement.',
+      ].join('\n'),
+    );
+    await writeFile(join(changeRoot, 'artifact-graph.json'), JSON.stringify({ change_id: changeId, slug }, null, 2));
+
+    await migrateLegacyRuntime(wd);
+    await approveStage(wd, slug, { from: 'review', to: 'done' });
+    await archiveStage(wd, slug);
+
+    const alphaSpec = await readFile(join(resolveWorkspaceRoot(wd), 'specs', 'alpha-ui', 'spec.md'), 'utf8');
+    const betaSpec = await readFile(join(resolveWorkspaceRoot(wd), 'specs', 'beta-api', 'spec.md'), 'utf8');
+
+    assert.match(alphaSpec, /Alpha UI requirement/);
+    assert.doesNotMatch(alphaSpec, /Beta API requirement/);
+    assert.match(betaSpec, /Beta API requirement/);
+    assert.doesNotMatch(betaSpec, /Alpha UI requirement/);
+  });
+
+  it('re-syncs already archived changes by replacing the existing long-lived spec block', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-archive-resync-'));
+    const clarified = await clarifyStage(wd, 'archive-resync');
+    await writeResolvedSpec(clarified.root, 'archive-resync');
+    await approveStage(wd, 'archive-resync', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-resync', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-resync', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-resync', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'archive-resync', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'archive-resync', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    await approveStage(wd, 'archive-resync', { from: 'review', to: 'done' });
+
+    const first = await archiveStage(wd, 'archive-resync');
+    const specPath = first.state.archived_spec_paths[0];
+    await writeFile(
+      join(first.state.archived_change_path, 'spec-delta.md'),
+      [
+        '# loopx Spec Delta: chg-archive-resync',
+        '',
+        '## Target Spec Domains',
+        '',
+        '- general',
+        '',
+        '## Added Requirements',
+        '',
+        '- Replacement requirement after archive parser repair.',
+        '',
+        '## Modified Requirements',
+        '',
+        '- none',
+        '',
+        '## Removed Requirements',
+        '',
+        '- none',
+      ].join('\n'),
+    );
+
+    await archiveStage(wd, 'archive-resync');
+    const specText = await readFile(specPath, 'utf8');
+
+    assert.match(specText, /Replacement requirement after archive parser repair/);
+    assert.equal((specText.match(/### Change: chg-archive-resync/g) || []).length, 1);
+  });
+
   it('keeps plan blocked when workflow planning artifacts are not Chinese', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-artifact-block-'));
     const clarified = await clarifyStage(wd, 'artifact-block');
@@ -1106,6 +1338,57 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.plan_docs_status, 'partial');
     assert.equal(state.plan_blockers.includes('plan_artifact_not_chinese_developmentPlan'), true);
     assert.equal(state.plan_critic_verdict, 'approve');
+  });
+
+  it('keeps plan blocked when plan.md is not Chinese even if critic approves', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-main-language-block-'));
+    const clarified = await clarifyStage(wd, 'main-language-block');
+    await writeResolvedSpec(clarified.root, 'main-language-block');
+    await approveStage(wd, 'main-language-block', { from: 'clarify', to: 'plan' });
+
+    const englishDraft = {
+      principles: ['中文 docs are required, but this draft body is English.'],
+      decisionDrivers: ['Keep plan gates machine checkable.'],
+      options: [{ name: 'English draft', pros: ['simple'], cons: ['wrong language'] }],
+      planText: '# Plan\n\n## Summary\n\nThis plan is intentionally written in English with only one 中文 token.',
+      architectureText: '# 架构文档\n\n## 目标\n\n- 这个架构文档使用中文描述，并且应该通过语言检查。',
+      developmentPlanText: '# 开发计划\n\n## 步骤\n\n1. 这个开发计划使用中文描述，并且应该通过语言检查。',
+      testPlanText: '# 测试计划\n\n## 验证\n\n- 这个测试计划使用中文描述，并且应该通过语言检查。',
+      principlesResolved: true,
+      optionsReviewed: true,
+      acceptanceCriteriaTestable: true,
+      verificationStepsResolved: true,
+      executionInputsResolved: true,
+    };
+
+    const planned = await planStage(wd, 'main-language-block', {
+      adapter: {
+        async planner() {
+          return englishDraft;
+        },
+        async architect() {
+          return { status: 'complete', verdict: 'approve', findings: [] };
+        },
+        async critic() {
+          return {
+            verdict: 'approve',
+            findings: [],
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: true,
+          };
+        },
+      },
+    });
+
+    assert.equal(planned.state.stage_status, 'blocked');
+    assert.equal(planned.state.plan_docs_status, 'partial');
+    assert.equal(planned.state.plan_blockers.includes('plan_artifact_not_chinese_plan'), true);
+
+    await assert.rejects(
+      () => approveStage(wd, 'main-language-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*plan_artifact_not_chinese_plan/,
+    );
   });
 
   it('keeps plan blocked when execution inputs are not resolved', async () => {

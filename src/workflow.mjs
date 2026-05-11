@@ -486,7 +486,7 @@ function dedupeStrings(items) {
 }
 
 function bulletsFromSectionText(text, heading) {
-  const pattern = new RegExp(`## ${heading}\\n\\n([\\s\\S]*?)(?=\\n## |$)`, 'i');
+  const pattern = new RegExp(`#{2,3} ${heading}\\n\\n([\\s\\S]*?)(?=\\n#{2,3} |$)`, 'i');
   const match = text.match(pattern);
   if (!match) {
     return [];
@@ -499,12 +499,66 @@ function bulletsFromSectionText(text, heading) {
     .filter(Boolean);
 }
 
+function frontmatterList(text, key) {
+  if (!text.startsWith('---\n')) {
+    return [];
+  }
+  const end = text.indexOf('\n---\n', 4);
+  if (end === -1) {
+    return [];
+  }
+  const lines = text.slice(4, end).split('\n');
+  const values = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trim() === `${key}:`) {
+      for (let child = index + 1; child < lines.length; child += 1) {
+        const childLine = lines[child];
+        if (!/^\s+-\s+/.test(childLine)) {
+          break;
+        }
+        values.push(childLine.replace(/^\s+-\s+/, '').trim());
+      }
+      break;
+    }
+  }
+  return values.filter(Boolean);
+}
+
 function targetDomainsForChange(slug, sourceText) {
   const explicit = bulletsFromSectionText(sourceText, 'Target Spec Domains');
   if (explicit.length > 0) {
     return dedupeStrings(explicit.map((item) => item.replace(/`/g, '')));
   }
+  const frontmatterDomains = frontmatterList(sourceText, 'target_domains');
+  if (frontmatterDomains.length > 0) {
+    return dedupeStrings(frontmatterDomains.map((item) => item.replace(/`/g, '')));
+  }
   return ['general'];
+}
+
+function sectionTextForHeading(text, heading, level = 2) {
+  const hashes = '#'.repeat(level);
+  const pattern = new RegExp(`${hashes} ${heading}\\n\\n([\\s\\S]*?)(?=\\n${hashes} |$)`, 'i');
+  return text.match(pattern)?.[1] || '';
+}
+
+function parseLegacyDomainDeltas(text) {
+  const domains = targetDomainsForChange('general', text);
+  const entries = new Map();
+  for (const domain of domains) {
+    const domainText = sectionTextForHeading(text, domain, 2);
+    if (!domainText.trim()) {
+      continue;
+    }
+    entries.set(domain, {
+      added: bulletsFromSectionText(domainText, 'Added Requirements').filter((item) => item !== 'none'),
+      modified: bulletsFromSectionText(domainText, 'Modified Requirements').filter((item) => item !== 'none'),
+      removed: bulletsFromSectionText(domainText, 'Removed Requirements').filter((item) => item !== 'none'),
+      scenarios: bulletsFromSectionText(domainText, 'Scenarios'),
+    });
+  }
+  return entries;
 }
 
 function requirementsForDelta(slug, plannerDraft) {
@@ -670,8 +724,12 @@ async function readChangeArtifactStatus(paths) {
   let specDeltaStatus = 'missing';
   if (paths.specDelta && existsSync(paths.specDelta)) {
     const text = await readFile(paths.specDelta, 'utf8');
-    const hasDomains = /## Target Spec Domains\n\n- /i.test(text);
-    const hasRequirements = /## Added Requirements\n\n- /i.test(text) || /## Modified Requirements\n\n- (?!none\b)/i.test(text);
+    const parsedDelta = parseSpecDelta(text);
+    const domainDeltas = Array.from(parsedDelta.domainDeltas?.values() || []);
+    const hasDomains = parsedDelta.domains.length > 0;
+    const hasRequirements = parsedDelta.added.length > 0
+      || parsedDelta.modified.length > 0
+      || domainDeltas.some((delta) => delta.added.length > 0 || delta.modified.length > 0);
     if (!text.trim()) {
       specDeltaStatus = 'partial';
       blockers.push('spec_delta_empty');
@@ -695,12 +753,14 @@ async function readChangeArtifactStatus(paths) {
 }
 
 function parseSpecDelta(text) {
+  const domainDeltas = parseLegacyDomainDeltas(text);
   return {
     domains: targetDomainsForChange('general', text),
     added: bulletsFromSectionText(text, 'Added Requirements').filter((item) => item !== 'none'),
     modified: bulletsFromSectionText(text, 'Modified Requirements').filter((item) => item !== 'none'),
     removed: bulletsFromSectionText(text, 'Removed Requirements').filter((item) => item !== 'none'),
     scenarios: bulletsFromSectionText(text, 'Scenarios'),
+    domainDeltas,
   };
 }
 
@@ -708,32 +768,49 @@ function specDomainPath(cwd, domain) {
   return join(resolveSpecsRoot(cwd), ...String(domain).split('/').map((part) => normalizeSlug(part)), 'spec.md');
 }
 
+function replaceChangeBlock(existing, slug, nextBlock) {
+  if (!existing) {
+    return nextBlock;
+  }
+  const marker = `### Change: ${slug}`;
+  const start = existing.indexOf(marker);
+  if (start === -1) {
+    return [existing.replace(/\s+$/, ''), '', nextBlock].join('\n');
+  }
+  const before = existing.slice(0, start).replace(/\s+$/, '');
+  const rest = existing.slice(start);
+  const nextStart = rest.slice(marker.length).search(/\n### Change: /);
+  const after = nextStart === -1 ? '' : rest.slice(marker.length + nextStart).replace(/^\s+/, '\n');
+  return [before, nextBlock, after.trimEnd()].filter(Boolean).join('\n\n');
+}
+
 async function mergeSpecDeltaIntoLongLivedSpecs(cwd, slug, specDeltaPath) {
   const deltaText = await readFile(specDeltaPath, 'utf8');
   const delta = parseSpecDelta(deltaText);
   const updated = [];
   for (const domain of delta.domains) {
+    const domainDelta = delta.domainDeltas?.get(domain) || delta;
     const path = specDomainPath(cwd, domain);
     await ensureDir(dirname(path));
     const existing = await readTextIfExists(path);
-    const next = [
-      existing || [
-        `# loopx Spec Domain: ${domain}`,
-        '',
-        '## Purpose',
-        '',
-        `Long-lived accepted behavior for ${domain}.`,
-        '',
-        '## Requirements',
-      ].join('\n'),
+    const base = existing || [
+      `# loopx Spec Domain: ${domain}`,
       '',
+      '## Purpose',
+      '',
+      `Long-lived accepted behavior for ${domain}.`,
+      '',
+      '## Requirements',
+    ].join('\n');
+    const changeBlock = [
       `### Change: ${slug}`,
       '',
-      ...(delta.added.length > 0 ? ['#### Added Requirements', '', ...delta.added.map((item) => `- ${item}`), ''] : []),
-      ...(delta.modified.length > 0 ? ['#### Modified Requirements', '', ...delta.modified.map((item) => `- ${item}`), ''] : []),
-      ...(delta.removed.length > 0 ? ['#### Removed Requirements', '', ...delta.removed.map((item) => `- ${item}`), ''] : []),
-      ...(delta.scenarios.length > 0 ? ['#### Scenarios', '', ...delta.scenarios.map((item) => `- ${item}`)] : []),
+      ...(domainDelta.added.length > 0 ? ['#### Added Requirements', '', ...domainDelta.added.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.modified.length > 0 ? ['#### Modified Requirements', '', ...domainDelta.modified.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.removed.length > 0 ? ['#### Removed Requirements', '', ...domainDelta.removed.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.scenarios.length > 0 ? ['#### Scenarios', '', ...domainDelta.scenarios.map((item) => `- ${item}`)] : []),
     ].join('\n');
+    const next = replaceChangeBlock(base, slug, changeBlock);
     await writeText(path, next);
     updated.push(path);
   }
@@ -750,7 +827,13 @@ function deriveSlugFromSpecPath(path, text) {
 }
 
 function containsChineseText(text) {
-  return /[\u3400-\u9fff]/.test(text);
+  const chineseChars = text.match(/[\u3400-\u9fff]/g) || [];
+  const latinChars = text.match(/[A-Za-z]/g) || [];
+  const signalChars = chineseChars.length + latinChars.length;
+  if (signalChars === 0) {
+    return false;
+  }
+  return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
 }
 
 async function ensurePlanWorkflowFromDirectSpec(cwd, directSpecPath, explicitSlug, options = {}) {
@@ -879,6 +962,7 @@ async function readPlanCompletion(cwd, root, slug, state) {
     blockers.push('missing_test_spec');
   }
   const workflowDocs = {
+    plan: artifactPath(root, 'plan.md'),
     architecture: artifactPath(root, 'architecture.md'),
     developmentPlan: artifactPath(root, 'development-plan.md'),
     testPlan: artifactPath(root, 'test-plan.md'),
@@ -1889,9 +1973,6 @@ export async function archiveStage(cwd, slug) {
   if (state.current_stage !== STAGES.DONE || !state.completion_confirmed) {
     throw new Error('archive_requires_done_workflow');
   }
-  if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
-    return { root, state: withRecommendedAction(state) };
-  }
   const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
   if (changeStatus.blockers.length > 0) {
     const blocked = withRecommendedAction({
@@ -1908,7 +1989,9 @@ export async function archiveStage(cwd, slug) {
   const archivedSpecPaths = await mergeSpecDeltaIntoLongLivedSpecs(cwd, changeId, state.change_artifact_paths.specDelta);
   const archiveRoot = resolveArchivedChangeRoot(cwd, changeId);
   await ensureDir(dirname(archiveRoot));
-  if (existsSync(archiveRoot)) {
+  if (state.change_artifact_paths.root === archiveRoot) {
+    // Already archived; keep paths stable and use merge as an idempotent re-sync.
+  } else if (existsSync(archiveRoot)) {
     await cp(state.change_artifact_paths.root, archiveRoot, { recursive: true, force: true });
   } else {
     await rename(state.change_artifact_paths.root, archiveRoot);

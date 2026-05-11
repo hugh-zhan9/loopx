@@ -227,7 +227,13 @@ function defaultArchitectReview({ plannerDraft, iteration }) {
 }
 
 function containsChinese(text) {
-  return /[\u3400-\u9fff]/.test(text);
+  const chineseChars = text.match(/[\u3400-\u9fff]/g) || [];
+  const latinChars = text.match(/[A-Za-z]/g) || [];
+  const signalChars = chineseChars.length + latinChars.length;
+  if (signalChars === 0) {
+    return false;
+  }
+  return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
 }
 
 function defaultCriticReview({ plannerDraft, iteration }) {
@@ -247,7 +253,7 @@ function defaultCriticReview({ plannerDraft, iteration }) {
   if (!plannerDraft.executionInputsResolved) {
     findings.push('Execution inputs are not fully mapped to concrete sources.');
   }
-  if (!containsChinese(plannerDraft.architectureText) || !containsChinese(plannerDraft.developmentPlanText) || !containsChinese(plannerDraft.testPlanText)) {
+  if (!containsChinese(plannerDraft.planText) || !containsChinese(plannerDraft.architectureText) || !containsChinese(plannerDraft.developmentPlanText) || !containsChinese(plannerDraft.testPlanText)) {
     findings.push('Required workflow planning artifacts are not Chinese.');
   }
   return reviewArtifact('critic', iteration, findings.length > 0 ? 'iterate' : 'approve', findings, {
