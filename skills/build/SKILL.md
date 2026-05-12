@@ -1,7 +1,7 @@
 ---
 name: build
 description: Ralph-style loopx execution runtime under the public build stage.
-argument-hint: "[--no-deslop] <approved PRD path or workflow slug>"
+argument-hint: "[--no-deslop] <approved PRD path or workflow slug> | --from-review <review artifact path>"
 ---
 
 # loopx Build
@@ -14,6 +14,7 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 
 <Use_When>
 - `plan -> build` has already been explicitly approved.
+- `review -> build` was requested for implementation fixes and a review artifact is supplied with `--from-review`.
 - Canonical plan artifacts already exist and execution should now proceed.
 - The task needs execution persistence, verification evidence, and explicit pre-review quality gates.
 </Use_When>
@@ -36,15 +37,23 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 - Go-Kratos work should use `kratos` when Kratos project signals or Kratos-specific tasks are present.
 - Fresh evidence is required before review handoff.
 - Deslop and regression re-verification are part of the default build path.
+- `build` has one owner for persistence. Delegation may run in parallel, but the owner remains accountable for draining delegated work and proving completion before review handoff.
 </Core_Principles>
 
 <Preconditions>
-`build` starts only when all of the following are true:
+For initial execution, `build` starts only when all of the following are true:
 
 - approved `plan -> build` transition exists
 - `.loopx/plans/prd-<slug>.md` exists
 - `.loopx/plans/test-spec-<slug>.md` exists
 - workflow-local planning artifacts required by the execution lane exist
+
+For review-requested implementation fixes, `build` may instead start from:
+
+- `$build --from-review .loopx/workflows/<slug>/review-report.md`
+- or `$build --from-review .loopx/workflows/<slug>/review.md`
+
+In that mode, the review artifact is the direct rework contract. The approved PRD, test spec, previous execution record, and workflow-local plan package remain required context, but they are not the primary user-facing argument.
 </Preconditions>
 
 <Inputs>
@@ -52,27 +61,36 @@ Preferred skill input:
 
 - `.loopx/plans/prd-<slug>.md`
 
+Preferred review rework input:
+
+- `--from-review .loopx/workflows/<slug>/review-report.md`
+
 Compatible skill / CLI input:
 
 - `<slug>`
 
 When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use the matching workflow-local plan package and test spec.
+
+When invoked with `--from-review`, derive `<slug>` from the workflow directory, treat the review artifact as the implementation-fix contract, and load the matching PRD, test spec, previous `execution-record.md`, and workflow-local plan package as supporting context. This Codex skill invocation consumes the `review -> build` rework intent; users should not need a separate bash `loopx approve ... --from review --to build` step for the normal Codex-facing flow.
 </Inputs>
 
 <Execution_Model>
 `build` should behave like a Ralph-style execution runtime:
 
 1. Initialize or resume build iteration state.
-2. Run internal execution / evidence / verification lanes in parallel.
-3. For implementation work, apply `tdd` unless the approved plan explicitly classifies the change as non-behavioral or test-inapplicable.
-4. For failures discovered during execution or verification, apply `debug` before attempting fixes.
-5. For `.go` edits, apply `go-style`; for Kratos API/service/biz/data work, apply `kratos` before changing framework structure.
-6. Aggregate lane results into canonical `execution-record.md`.
-7. Run fresh verification and read actual output using `verify` discipline.
-8. Run architect verification as a hard pre-review gate.
-9. Run deslop on build-owned changes.
-10. Re-run regression verification after deslop.
-11. Stop only when review handoff gates are satisfied or a real blocker remains.
+2. If running from `--from-review`, load the review artifact first and constrain implementation work to the requested implementation fixes unless the review artifact exposes a real plan or clarify blocker.
+3. Run internal execution / evidence / verification lanes in parallel.
+4. For implementation work, apply `tdd` unless the approved plan explicitly classifies the change as non-behavioral or test-inapplicable.
+5. For failures discovered during execution or verification, apply `debug` before attempting fixes.
+6. For `.go` edits, apply `go-style`; for Kratos API/service/biz/data work, apply `kratos` before changing framework structure.
+7. Aggregate lane results into canonical `execution-record.md`.
+8. Run fresh verification and read actual output using `verify` discipline.
+9. Run architect verification as a hard pre-review gate.
+10. Run deslop on build-owned changes.
+11. Re-run regression verification after deslop.
+12. Write/update the build delegation ledger and ensure blocking delegated work is drained.
+13. Write/update the completion audit mapping approved plan, slices, and review rework inputs to evidence.
+14. Stop only when review handoff gates are satisfied or a real blocker remains.
 
 `build` may persist support artifacts for runtime inspection, but they must not replace `execution-record.md`.
 </Execution_Model>
@@ -118,6 +136,14 @@ Do not end a build response with "continue in the next build" for unfinished app
 - `build_blockers`
 - `build_progress_artifact_paths`
 - `build_support_evidence_paths`
+- `build_owner_id`
+- `build_owner_session_id`
+- `build_owner_status`
+- `build_delegation_status`
+- `build_delegation_ledger_path`
+- `build_active_delegation_count`
+- `build_completion_audit_status`
+- `build_completion_audit_path`
 - `execution_record_status`
 
 `build -> review` is blocked until:
@@ -127,6 +153,8 @@ Do not end a build response with "continue in the next build" for unfinished app
 - architect verification is approved
 - deslop is complete, unless explicitly skipped
 - post-deslop regression passes
+- blocking delegated build work is drained
+- completion audit passes
 - `execution-record.md` is complete
 </Runtime_State_Machine>
 
@@ -135,6 +163,15 @@ Canonical artifact:
 
 - `execution-record.md`
 
+`execution-record.md` must make the completion scope explicit when a plan is larger than the current implementation slice:
+
+- `planned_scope`: the approved PRD/workflow scope being measured.
+- `implemented_scope`: the scope actually completed in this build run.
+- `remaining_scope`: empty only when the approved workflow scope is fully implemented.
+- `completion_claim`: use `full` only when the whole approved workflow is complete; use `slice` or another non-full value for partial implementation.
+
+If `remaining_scope` is non-empty or `completion_claim` is not `full`, build may still hand off for slice review, but review/archive must not treat that as full workflow completion.
+
 Support artifacts may exist for:
 
 - iteration progress
@@ -142,6 +179,8 @@ Support artifacts may exist for:
 - architect gate summaries
 - deslop summaries
 - regression summaries
+- `build-support/delegation-ledger.json`
+- `build-support/completion-audit.json`
 
 These support artifacts are runtime aids only. They must not become new canonical review inputs.
 </Artifact_Contract>

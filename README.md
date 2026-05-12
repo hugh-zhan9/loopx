@@ -7,10 +7,10 @@
 Current public flow:
 
 ```text
-clarify -> plan -> build -> review
+clarify -> plan -> build -> review -> approve review->done -> archive
 ```
 
-Accepted reviews can be archived after `done` so the approved change delta is merged into long-lived specs.
+`done` is a runtime completion state reached by `loopx approve <slug> --from review --to done`, not a separate Codex skill.
 
 `autopilot` is the end-to-end orchestration entrypoint. Internally it reuses the public flow instead of creating a second source of workflow truth.
 
@@ -20,10 +20,11 @@ Accepted reviews can be archived after `done` so the approved change delta is me
 - Supports npm global install and Codex plugin install through the same install/discovery core.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
 - Runs `plan` with a Planner -> Architect -> Critic consensus loop by default.
-- Writes OpenSpec-inspired change artifacts during `plan`: proposal, spec delta, design, tasks, and an artifact dependency graph.
+- Writes OpenSpec-inspired change artifacts during `plan`: proposal, spec delta, design, vertical slices, tasks, and an artifact dependency graph.
+- Provides per-repo agent context under `.loopx/agents/` and `.loopx/context/domain.md`, consumed by build/review context manifests.
 - Runs `build` with execution records, verification evidence, architect validation, deslop cleanup, and regression re-verification.
-- Keeps `review` as an independent acceptance surface with go/no-go verdicts.
-- Supports `archive` to sync approved change deltas into long-lived `.loopx/specs/` source-of-truth files.
+- Keeps `review` as an independent acceptance surface with code review plus an internal architecture-smell lane.
+- Supports `archive` to sync approved change deltas into long-lived `.loopx/specs/` source-of-truth files and emit ADR candidates.
 - Supports migration from the legacy `.codex-helper/` runtime namespace to `.loopx/`.
 
 ## Installation
@@ -137,10 +138,12 @@ loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
+loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx status [slug] [--json]
+loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
@@ -173,6 +176,7 @@ Main artifacts:
 - `.loopx/changes/active/<change-id>/spec-delta.md`
 - `.loopx/changes/active/<change-id>/design.md`
 - `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/slices.json`
 - `.loopx/changes/active/<change-id>/artifact-graph.json`
 - `.loopx/workflows/<slug>/plan.md`
 - `.loopx/workflows/<slug>/architecture.md`
@@ -193,9 +197,17 @@ Deslop cleanup is enabled by default. To skip it explicitly:
 loopx build <slug> --no-deslop
 ```
 
+When review requests implementation changes, the normal Codex-facing handoff uses the review artifact as the direct rework contract:
+
+```text
+$build --from-review .loopx/workflows/<slug>/review-report.md
+```
+
+The approved PRD, test spec, previous execution record, and workflow-local plan package remain supporting context.
+
 ### review
 
-`review` consumes the build `execution-record.md`, runs independent acceptance and code review, and generates:
+`review` consumes the build `execution-record.md`, runs independent acceptance, code review, and a lightweight architecture-smell lane, and generates:
 
 ```text
 .loopx/workflows/<slug>/review-report.md
@@ -203,7 +215,9 @@ loopx build <slug> --no-deslop
 
 The user-facing review result is expected to be written in Chinese.
 
-If review approves the run, the workflow still requires an explicit `review -> done` approval. If review requests changes, approve `review -> plan` and run `loopx review <slug>` again to consume the rollback transition.
+If review approves the run, the workflow still requires an explicit `review -> done` approval. If review requests implementation changes, run `$build --from-review .loopx/workflows/<slug>/review-report.md`. Plan and clarify rollbacks still use `$plan <slug>` or `$clarify <slug>` when the review finding says the plan or requirements are wrong.
+
+The architecture-smell lane is part of review; it does not add a new stage. It records findings under `review-support/architecture-smell.json` and only blocks when module seams, testability, domain vocabulary, or plan architecture assumptions are materially wrong.
 
 ### archive
 
@@ -212,6 +226,8 @@ If review approves the run, the workflow still requires an explicit `review -> d
 ```text
 .loopx/changes/archive/<change-id>/
 ```
+
+Archive also writes an advisory ADR candidate under `.loopx/decisions/adr-candidates/<change-id>.md`. It is not promoted to `docs/adr/` automatically.
 
 ### autopilot
 
@@ -261,11 +277,19 @@ loopx writes runtime state under `.loopx/` in the current project:
         spec-delta.md
         design.md
         tasks.md
+        slices.json
         artifact-graph.json
     archive/
       <change-id>/
+  decisions/
+    adr-candidates/
   plans/
+  agents/
+    issue-tracker.md
+    domain.md
+    triage-labels.md
   context/
+    domain.md
   workflows/
     <slug>/
       state.json

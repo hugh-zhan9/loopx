@@ -11,6 +11,7 @@ import { buildContextPromptLines, createRealBuildAdapter, createScriptedBuildAda
 import { runCodexExecJson, runCodexReviewJson } from '../src/codex-exec-runtime.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import {
+  buildArchitectureReviewPrompt,
   buildReviewDiffEvidence,
   buildCodeReviewPrompt,
   createRealReviewAdapter,
@@ -687,6 +688,37 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(prompt, /完整 git diff evidence 文件/);
     assert.match(prompt, /\.loopx\/workflows\/compact-review\/review-support\/code-review-diff\.patch/);
     assert.match(prompt, /必须读取该文件/);
+  });
+
+  it('architecture review prompt stays inside review while checking slices and domain context', () => {
+    const prompt = buildArchitectureReviewPrompt({
+      slug: 'architecture-lane',
+      executionRecordPath: '.loopx/workflows/architecture-lane/execution-record.md',
+      planArtifactPath: '.loopx/plans/prd-architecture-lane.md',
+      testSpecArtifactPath: '.loopx/plans/test-spec-architecture-lane.md',
+      changeArtifactPaths: {
+        slices: '.loopx/changes/active/chg-architecture-lane/slices.json',
+      },
+      contextManifestStatus: 'hit',
+      contextManifestPath: '.loopx/workflows/architecture-lane/review-context.jsonl',
+      contextManifestRows: [
+        { kind: 'vertical-slices', path: '.loopx/changes/active/chg-architecture-lane/slices.json', reason: 'slice_verification_contract', priority: 22 },
+        { kind: 'domain-context', path: '.loopx/context/domain.md', reason: 'terminology_and_boundary_review', priority: 23 },
+      ],
+      gitStatusShort: ' M src/workflow.mjs',
+      gitDiffStat: 'src/workflow.mjs | 10 +++++',
+      gitDiff: 'diff --git a/src/workflow.mjs b/src/workflow.mjs',
+      gitDiffEvidencePath: '.loopx/workflows/architecture-lane/review-support/code-review-diff.patch',
+    }, ['src/workflow.mjs']);
+
+    assert.match(prompt, /architecture smell reviewer/);
+    assert.match(prompt, /不是新阶段/);
+    assert.match(prompt, /浅模块/);
+    assert.match(prompt, /缺少稳定测试 seam/);
+    assert.match(prompt, /领域概念泄漏/);
+    assert.match(prompt, /"verdict": "pass" \| "warn" \| "block"/);
+    assert.match(prompt, /vertical-slices/);
+    assert.match(prompt, /domain-context/);
   });
 
   it('parses git status paths for code review without trimming path characters', () => {

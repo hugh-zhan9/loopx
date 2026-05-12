@@ -167,6 +167,7 @@ On approval, write canonical planning artifacts:
 - `.loopx/changes/active/<change-id>/spec-delta.md`
 - `.loopx/changes/active/<change-id>/design.md`
 - `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/slices.json`
 - `.loopx/changes/active/<change-id>/artifact-graph.json`
 
 The final plan must include:
@@ -174,6 +175,7 @@ The final plan must include:
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
 - target long-lived spec domains and the requirements delta for archive
+- vertical slices sized as independently verifiable tracer bullets, not horizontal layer-only task groups
 - execution inputs mapped to concrete sources before build starts
 - available execution lanes and recommended lane
 - test and verification commands
@@ -208,6 +210,7 @@ Without `--interactive`, report the approved plan and recommended next command, 
 - `plan_package_status`: `missing|partial|complete`
 - `change_artifacts_status`: `missing|partial|complete|archived`
 - `spec_delta_status`: `missing|partial|complete`
+- `slice_artifacts_status`: `missing|partial|complete`
 - `plan_acceptance_criteria_testable`: `true|false`
 - `plan_verification_steps_resolved`: `true|false`
 - `plan_execution_inputs_resolved`: `true|false`
@@ -216,8 +219,9 @@ Without `--interactive`, report the approved plan and recommended next command, 
 The plan gate is blocked until:
 
 - plan package artifacts exist
-- change proposal, spec delta, design, tasks, and artifact graph exist
+- change proposal, spec delta, design, tasks, vertical slices, and artifact graph exist
 - spec delta declares target domains and added or modified requirements
+- vertical slices contain at least one `AFK` or `HITL` end-to-end slice with acceptance criteria and verification signal
 - Architect review is complete
 - Critic verdict is `approve`
 - acceptance criteria are testable
