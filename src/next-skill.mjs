@@ -2,6 +2,7 @@ export function nextSkillCommand(state) {
   if (!state || !state.slug) {
     return null;
   }
+  const reviewBuildCommand = `$build --from-review .loopx/workflows/${state.slug}/review-report.md`;
   if (state.current_stage === 'clarify'
     && state.clarify_current_round > 0
     && state.unresolved_ambiguity_count === 0
@@ -12,6 +13,11 @@ export function nextSkillCommand(state) {
     && typeof state.clarify_target_ambiguity_threshold === 'number'
     && state.clarify_ambiguity_score <= state.clarify_target_ambiguity_threshold) {
     return `$plan ${state.slug}`;
+  }
+  if (state.current_stage === 'done'
+    && state.completion_confirmed === true
+    && state.archive_status !== 'archived') {
+    return `$archive ${state.slug}`;
   }
   if (state.stage_status !== 'awaiting-approval') {
     return null;
@@ -30,9 +36,20 @@ export function nextSkillCommand(state) {
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'
+    && state.rollback_target === 'build'
+    && (
+      state.pending_user_decision === 'review->build'
+      || state.requested_transition === 'review->build'
+      || state.approval?.build === 'requested'
+      || state.approval?.build === 'approved'
+    )) {
+    return reviewBuildCommand;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
     && state.requested_transition === 'review->build'
     && state.approval?.build === 'approved') {
-    return `$build .loopx/plans/prd-${state.slug}.md`;
+    return reviewBuildCommand;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'

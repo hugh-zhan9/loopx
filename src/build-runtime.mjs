@@ -46,6 +46,14 @@ function normalizeStatus(raw, fallback = 'complete') {
   return fallback;
 }
 
+function normalizeDelegationStatus(raw, fallback = 'pending') {
+  const value = String(raw ?? fallback).trim().toLowerCase();
+  if (['active', 'complete', 'failed', 'blocked', 'pending', 'skipped'].includes(value)) {
+    return value;
+  }
+  return fallback;
+}
+
 function normalizeArray(raw, fallback = []) {
   return Array.isArray(raw) ? raw.filter((item) => item !== null && item !== undefined).map(String) : fallback;
 }
@@ -61,6 +69,20 @@ function normalizeEvidence(raw, fallback = []) {
     : fallback;
 }
 
+function normalizeDelegations(raw) {
+  return Array.isArray(raw)
+    ? raw.map((item, index) => ({
+      id: item?.id || `delegation-${index + 1}`,
+      role: item?.role || 'implementation',
+      status: normalizeDelegationStatus(item?.status, 'pending'),
+      blocking: item?.blocking !== false,
+      scope: Array.isArray(item?.scope) ? item.scope.map(String) : [],
+      evidence_path: item?.evidence_path || item?.evidencePath || null,
+      summary: item?.summary || 'Build delegation entry',
+    }))
+    : [];
+}
+
 function normalizeLaneReport(name, iteration, raw = {}) {
   const fallback = defaultLaneResult(name, iteration);
   return {
@@ -70,6 +92,7 @@ function normalizeLaneReport(name, iteration, raw = {}) {
     status: normalizeStatus(raw.status, fallback.status),
     summary: raw.summary || fallback.summary,
     evidence: normalizeEvidence(raw.evidence, fallback.evidence),
+    delegations: normalizeDelegations(raw.delegations),
   };
 }
 
@@ -112,6 +135,7 @@ function buildIterationData({ slug, iteration, noDeslop = false }, scriptEntry =
       `deslop=${deslopStatus}`,
       `regression=${regressionStatus}`,
     ],
+    delegations: normalizeDelegations(scriptEntry.delegations),
     architectFindings: scriptEntry.architectFindings || (
       architectVerdict === 'approve'
         ? ['Architect gate approved the build iteration.']
@@ -149,6 +173,7 @@ export function buildContextPromptLines(context) {
     `noDeslop: ${Boolean(context.noDeslop)}`,
     `planArtifactPath: ${context.planArtifactPath}`,
     `testSpecArtifactPath: ${context.testSpecArtifactPath}`,
+    `reviewReworkArtifactPath: ${context.reviewReworkArtifactPath || ''}`,
     `contextManifestStatus: ${context.contextManifestStatus || 'fallback'}`,
     `contextManifestPath: ${context.contextManifestPath || ''}`,
     `contextManifestRows: ${JSON.stringify((context.contextManifestRows || []).map((row) => ({
@@ -164,17 +189,23 @@ function lanePrompt(context, laneName) {
   const laneInstructions = {
     execution: [
       'You are the implementation lane. Continue executing the approved plan in the repository.',
+      'If reviewReworkArtifactPath is present, treat that review artifact as the direct implementation-fix contract while keeping the approved plan and test spec as supporting context.',
+      'You are the build owner for critical-path implementation. You may use native Codex subagents for independent sidecar work, but you remain responsible for integrating results.',
+      'If you delegate work, report each active or completed delegation in the delegations array with a stable id, role, status, blocking flag, scope, and evidence_path.',
+      'Do not report final completion while a blocking delegated task remains active, pending, failed, or blocked.',
       'Real code edits are allowed. Do not stop because approved plan phases remain; keep working until implementation is complete or a real blocker prevents progress.',
       'Return status "pending" only when approved work remains but cannot be completed in this lane result, and explain the concrete blocker in limitations.',
     ],
     evidence: [
       'You are the evidence lane. Independently inspect the current implementation and collect evidence that the approved plan is or is not satisfied.',
+      'You may use native Codex subagents for independent evidence gathering. If you do, report each delegation in the delegations array.',
       'Do not edit files. Focus on artifacts, changed files, API surface coverage, and gaps between the plan and the current worktree.',
       'Do not treat the live workflow state from the build currently in progress, such as current_stage=build, stage_status=blocked, execution_record_status=partial, or pre-existing build_blockers, as evidence that this current iteration is incomplete.',
       'Use live state only for locating artifacts or confirming context manifest paths; judge this iteration from current code, fresh artifacts, tests, and concrete acceptance gaps.',
     ],
     verification: [
       'You are the verification lane. Independently run or identify the strongest practical verification for the current implementation.',
+      'You may use native Codex subagents for independent verification checks. If you do, report each delegation in the delegations array.',
       'Do not edit files. Read actual command output when you run tests/builds/checks. Report failed, pending, skipped, or complete accurately.',
     ],
   };
@@ -190,6 +221,7 @@ function lanePrompt(context, laneName) {
     '  "status": "complete" | "failed" | "pending" | "skipped",',
     '  "summary": string,',
     '  "evidence": [{"id": string, "kind": string, "summary": string, "ref": string}],',
+    '  "delegations": [{"id": string, "role": string, "status": "active" | "complete" | "failed" | "blocked" | "pending" | "skipped", "blocking": boolean, "scope": string[], "evidence_path": string | null, "summary": string}],',
     '  "executionEvidence": string[],',
     '  "verificationEvidence": string[],',
     '  "limitations": string[]',
@@ -364,6 +396,7 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
           ...normalizeEvidence(regressionReport.evidence).map((item) => `${item.kind}:${item.summary}:${item.ref}`),
         ],
         architectFindings: normalizeArray(architectReport.findings, ['Architect gate returned no findings.']),
+        delegations: lanes.flatMap((lane) => normalizeDelegations(lane.delegations)),
         limitations: [
           ...normalizeArray(executionLane.limitations),
           ...normalizeArray(evidenceLane.limitations),

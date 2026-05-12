@@ -23,6 +23,7 @@ const LOOPX_SKILLS = [
   'plan',
   'build',
   'review',
+  'archive',
   'autopilot',
 ];
 

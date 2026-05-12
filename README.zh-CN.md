@@ -10,16 +10,20 @@
 clarify -> plan -> build -> review
 ```
 
+评审通过并进入 `done` 后，可以执行 archive，把本次被接受的 change delta 合并到长期 specs。
+
 其中 `autopilot` 是端到端编排入口，会在内部复用这套公开阶段，而不是引入另一套流程真相。
 
 ## 特性
 
-- 安装并公开 10 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`autopilot`，质量辅助 skills `debug`、`tdd`、`verify`，以及 Go 支持 skills `go-style`、`kratos`。
+- 安装并公开 11 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`archive`、`autopilot`，质量辅助 skills `debug`、`tdd`、`verify`，以及 Go 支持 skills `go-style`、`kratos`。
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
+- `plan` 会写入借鉴 OpenSpec 的 change artifacts：proposal、spec delta、design、tasks 和 artifact dependency graph。
 - `build` 默认包含执行记录、验证证据、架构验收、deslop 清理和回归再验证。
 - `review` 作为独立验收面，输出中文评审结论和 go/no-go 判断。
+- 支持 `archive`，把已批准的 change delta 同步进长期 `.loopx/specs/` source of truth。
 - 支持从旧 `.codex-helper/` 运行时迁移到 `.loopx/`。
 
 ## 安装
@@ -106,6 +110,12 @@ loopx approve my-task --from review --to done
 loopx review my-task
 ```
 
+把已接受行为归档到长期 specs：
+
+```text
+$archive my-task
+```
+
 查看状态：
 
 ```bash
@@ -127,15 +137,20 @@ loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
+loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
+loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx status [slug] [--json]
+loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
 ```
 
-CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$autopilot`、`$debug`、`$tdd`、`$verify`、`$go-style`、`$kratos`。
+CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$archive`、`$autopilot`、`$debug`、`$tdd`、`$verify`、`$go-style`、`$kratos`。
+
+`loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。
 
 ## Skill 说明
 
@@ -156,6 +171,11 @@ CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是
 
 - `.loopx/plans/prd-<slug>.md`
 - `.loopx/plans/test-spec-<slug>.md`
+- `.loopx/changes/active/<change-id>/proposal.md`
+- `.loopx/changes/active/<change-id>/spec-delta.md`
+- `.loopx/changes/active/<change-id>/design.md`
+- `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/artifact-graph.json`
 - `.loopx/workflows/<slug>/plan.md`
 - `.loopx/workflows/<slug>/architecture.md`
 - `.loopx/workflows/<slug>/development-plan.md`
@@ -169,11 +189,28 @@ CLI 主要用于运行时、调试和维护。日常面向 Codex 的主入口是
 .loopx/workflows/<slug>/execution-record.md
 ```
 
+`build` 内部保留结构化 runtime lanes，同时增加 Ralph-like owner loop：单一 owner 持续推进，可并行 delegation，但进入 review handoff 前必须满足 blocking delegation 已 drain，并通过 completion audit。相关运行态证据写入：
+
+```text
+.loopx/workflows/<slug>/build-support/delegation-ledger.json
+.loopx/workflows/<slug>/build-support/completion-audit.json
+```
+
+这些仍然是 build 支撑证据，不替代 `execution-record.md`。
+
 默认流程包含 deslop 清理；如果确实要跳过，可以使用：
 
 ```bash
 loopx build <slug> --no-deslop
 ```
+
+当 review 要求修实现问题时，Codex 侧的正常回路把 review artifact 作为本轮返工合同：
+
+```text
+$build --from-review .loopx/workflows/<slug>/review-report.md
+```
+
+已批准 PRD、test spec、上次 `execution-record.md` 和 workflow-local plan package 仍会作为支撑上下文加载，但不再让用户把 PRD 当成本轮返工的主参数。
 
 ### review
 
@@ -185,7 +222,15 @@ loopx build <slug> --no-deslop
 
 最终用户可见评审结果要求使用中文。
 
-如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修改，则批准 `review -> plan` 后再次运行 `loopx review <slug>` 来消费回退转换。
+如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修实现问题，则运行 `$build --from-review .loopx/workflows/<slug>/review-report.md`。只有当 review 明确指出计划或需求本身错误时，才回到 `$plan <slug>` 或 `$clarify <slug>`。
+
+### archive
+
+`archive` 消费已完成工作流，并把 `.loopx/changes/active/<change-id>/spec-delta.md` 合并进 `.loopx/specs/` 下的长期领域规格。归档后的 change 目录会移动到：
+
+```text
+.loopx/changes/archive/<change-id>/
+```
 
 ### autopilot
 
@@ -226,6 +271,18 @@ loopx 在当前项目下写入 `.loopx/`：
   README.md
   config.json
   specs/
+    <domain>/
+      spec.md
+  changes/
+    active/
+      <change-id>/
+        proposal.md
+        spec-delta.md
+        design.md
+        tasks.md
+        artifact-graph.json
+    archive/
+      <change-id>/
   plans/
   context/
   workflows/
