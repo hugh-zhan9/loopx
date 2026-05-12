@@ -4,6 +4,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { getTemplateBaselinePath, inspectInstallState, verifyInstallState } from './install-discovery.mjs';
 import { inspectTemplateGovernance } from './template-governance.mjs';
+import { inspectWorkspaceContext } from './workspace-context.mjs';
 
 const WORKFLOW_SCHEMA_VERSION = 1;
 
@@ -34,6 +35,7 @@ const CHANGE_ARTIFACT_FILE_MAP = {
   specDelta: 'spec-delta.md',
   design: 'design.md',
   tasks: 'tasks.md',
+  slices: 'slices.json',
   graph: 'artifact-graph.json',
 };
 
@@ -502,6 +504,7 @@ export async function doctorRuntime(cwd, env = process.env) {
     installState,
     installCheck,
     templateGovernance,
+    contextSetup: await inspectWorkspaceContext(cwd),
     hook,
   };
 }

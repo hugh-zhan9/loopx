@@ -137,10 +137,12 @@ loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
+loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx status [slug] [--json]
+loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
@@ -187,11 +189,28 @@ CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 
 .loopx/workflows/<slug>/execution-record.md
 ```
 
+`build` 内部保留结构化 runtime lanes，同时增加 Ralph-like owner loop：单一 owner 持续推进，可并行 delegation，但进入 review handoff 前必须满足 blocking delegation 已 drain，并通过 completion audit。相关运行态证据写入：
+
+```text
+.loopx/workflows/<slug>/build-support/delegation-ledger.json
+.loopx/workflows/<slug>/build-support/completion-audit.json
+```
+
+这些仍然是 build 支撑证据，不替代 `execution-record.md`。
+
 默认流程包含 deslop 清理；如果确实要跳过，可以使用：
 
 ```bash
 loopx build <slug> --no-deslop
 ```
+
+当 review 要求修实现问题时，Codex 侧的正常回路把 review artifact 作为本轮返工合同：
+
+```text
+$build --from-review .loopx/workflows/<slug>/review-report.md
+```
+
+已批准 PRD、test spec、上次 `execution-record.md` 和 workflow-local plan package 仍会作为支撑上下文加载，但不再让用户把 PRD 当成本轮返工的主参数。
 
 ### review
 
@@ -203,7 +222,7 @@ loopx build <slug> --no-deslop
 
 最终用户可见评审结果要求使用中文。
 
-如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修改，则批准 `review -> plan` 后再次运行 `loopx review <slug>` 来消费回退转换。
+如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修实现问题，则运行 `$build --from-review .loopx/workflows/<slug>/review-report.md`。只有当 review 明确指出计划或需求本身错误时，才回到 `$plan <slug>` 或 `$clarify <slug>`。
 
 ### archive
 

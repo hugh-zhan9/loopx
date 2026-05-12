@@ -4,6 +4,7 @@ import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, i
 import { installBundledSkills } from './install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
+import { setupWorkspaceContext } from './workspace-context.mjs';
 
 function usage() {
   return [
@@ -13,10 +14,12 @@ function usage() {
     '  loopx approve <slug> --from <stage> --to <stage>',
     '  loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]',
     '  loopx build <slug> [--no-deslop]',
+    '  loopx build --from-review <review-report-path> [--no-deslop]',
     '  loopx review <slug> [--reviewer <name>]',
     '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
     '  loopx status [slug] [--json]',
+    '  loopx setup-context',
     '  loopx doctor',
     '  loopx migrate',
     '  loopx repair-install',
@@ -144,6 +147,11 @@ async function main() {
         console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
         return;
       }
+      case 'setup-context': {
+        const contextSetup = await setupWorkspaceContext(process.cwd());
+        console.log(JSON.stringify({ ok: true, command, contextSetup }, null, 2));
+        return;
+      }
       case 'clarify': {
         const profile = options.get('--deep') ? 'deep' : 'standard';
         const result = await clarifyStage(process.cwd(), positionals[0], { profile });
@@ -168,8 +176,9 @@ async function main() {
         return;
       }
       case 'build': {
-        const result = await buildStage(process.cwd(), positionals[0], {
+        const result = await buildStage(process.cwd(), options.get('--from-review') ? undefined : positionals[0], {
           noDeslop: Boolean(options.get('--no-deslop')),
+          fromReviewPath: options.get('--from-review'),
         });
         console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
