@@ -1,6 +1,6 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-runtime.mjs';
@@ -18,6 +18,7 @@ import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
 import { createDefaultReviewAdapter } from './review-runtime.mjs';
 import { appendWorkspaceJournal } from './workspace-memory.mjs';
+import { inspectWorkspaceContext, setupWorkspaceContext } from './workspace-context.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_SCHEMA_VERSION = 1;
@@ -54,6 +55,7 @@ const V1_ARTIFACTS = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'revi
 const LEGACY_ARTIFACTS = ['brief.md', 'plan.md', 'detailed-design.md', 'architecture.md', 'test-plan.md', 'build-result.md', 'review-report.md'];
 const PLAN_REVIEW_DIR = 'plan-reviews';
 const BUILD_SUPPORT_DIR = 'build-support';
+const CHANGE_ARTIFACTS = ['proposal.md', 'spec-delta.md', 'design.md', 'tasks.md', 'slices.json', 'artifact-graph.json'];
 const CLARIFY_PROFILES = {
   standard: {
     threshold: 0.2,
@@ -82,6 +84,32 @@ function slugFromBuildInput(raw) {
   const name = basename(value);
   const match = /^prd-(.+)\.md$/.exec(name);
   return match ? normalizeSlug(match[1]) : normalizeSlug(value);
+}
+
+function isReviewReworkArtifactInput(raw) {
+  const name = basename(String(raw || ''));
+  return name === 'review-report.md' || name === 'review.md';
+}
+
+function slugFromReviewReworkInput(raw) {
+  if (!isReviewReworkArtifactInput(raw)) {
+    throw new Error('build_from_review_artifact_required');
+  }
+  return normalizeSlug(basename(dirname(resolve(String(raw)))));
+}
+
+function displayPath(cwd, path) {
+  const resolved = resolve(cwd, path);
+  const rel = relative(cwd, resolved);
+  return rel && !rel.startsWith('..') ? rel : resolved;
+}
+
+function reviewReportArtifactPath(slug) {
+  return `.loopx/workflows/${normalizeSlug(slug)}/review-report.md`;
+}
+
+function reviewReworkBuildCommand(slug) {
+  return `$build --from-review ${reviewReportArtifactPath(slug)}`;
 }
 
 function nowIso() {
@@ -208,7 +236,7 @@ async function writeText(path, text) {
 }
 
 async function writeState(root, state) {
-  await writeText(statePath(root), JSON.stringify(state, null, 2));
+  await writeText(statePath(root), JSON.stringify(enrichRuntimeJudgment(state), null, 2));
 }
 
 export function resolveWorkspaceRoot(cwd) {
@@ -221,6 +249,22 @@ export function resolveWorkflowRoot(cwd, slug) {
 
 function resolveSpecsRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'specs');
+}
+
+function resolveChangesRoot(cwd) {
+  return join(resolveWorkspaceRoot(cwd), 'changes');
+}
+
+function changeIdForWorkflowSlug(slug) {
+  return `chg-${normalizeSlug(slug)}`;
+}
+
+function resolveChangeRoot(cwd, changeId) {
+  return join(resolveChangesRoot(cwd), 'active', normalizeSlug(changeId));
+}
+
+function resolveArchivedChangeRoot(cwd, changeId) {
+  return join(resolveChangesRoot(cwd), 'archive', normalizeSlug(changeId));
 }
 
 function resolvePlansRoot(cwd) {
@@ -249,6 +293,8 @@ function resolveBuildSupportPaths(root, iteration) {
     architect: join(supportRoot, `architect-iteration-${iteration}.md`),
     deslop: join(supportRoot, `deslop-iteration-${iteration}.md`),
     regression: join(supportRoot, `regression-iteration-${iteration}.md`),
+    delegationLedger: join(supportRoot, 'delegation-ledger.json'),
+    completionAudit: join(supportRoot, 'completion-audit.json'),
   };
 }
 
@@ -340,6 +386,16 @@ function createInitialState(slug, profile) {
     plan_review_artifact_paths: [],
     plan_blockers: [],
     plan_source_spec_path: null,
+    change_id: changeIdForWorkflowSlug(slug),
+    change_artifacts_status: 'missing',
+    change_artifact_paths: null,
+    slice_artifacts_status: 'missing',
+    spec_delta_status: 'missing',
+    spec_sync_status: 'pending',
+    archive_status: 'pending',
+    archived_change_path: null,
+    archived_spec_paths: [],
+    adr_candidate_path: null,
     build_run_id: null,
     build_current_iteration: 0,
     build_max_iterations: DEFAULT_BUILD_MAX_ITERATIONS,
@@ -353,6 +409,14 @@ function createInitialState(slug, profile) {
     build_progress_artifact_paths: [],
     build_support_evidence_paths: [],
     build_no_deslop: false,
+    build_owner_id: null,
+    build_owner_session_id: null,
+    build_owner_status: 'not-started',
+    build_delegation_status: 'not-started',
+    build_delegation_ledger_path: null,
+    build_active_delegation_count: 0,
+    build_completion_audit_status: 'not-started',
+    build_completion_audit_path: null,
     autopilot_current_phase: 'none',
     autopilot_phase_history: [],
     autopilot_blockers: [],
@@ -420,6 +484,10 @@ async function copyArtifact(fromRoot, toPath, name) {
   await writeText(toPath, content);
 }
 
+async function writeJson(path, value) {
+  await writeText(path, JSON.stringify(value, null, 2));
+}
+
 async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   const plansRoot = resolvePlansRoot(cwd);
   await ensureDir(plansRoot);
@@ -452,6 +520,477 @@ async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   return { planPath, testSpecPath };
 }
 
+function dedupeStrings(items) {
+  return [...new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function bulletsFromSectionText(text, heading) {
+  const pattern = new RegExp(`#{2,3} ${heading}\\n\\n([\\s\\S]*?)(?=\\n#{2,3} |$)`, 'i');
+  const match = text.match(pattern);
+  if (!match) {
+    return [];
+  }
+  return match[1]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2).trim())
+    .filter(Boolean);
+}
+
+function frontmatterList(text, key) {
+  if (!text.startsWith('---\n')) {
+    return [];
+  }
+  const end = text.indexOf('\n---\n', 4);
+  if (end === -1) {
+    return [];
+  }
+  const lines = text.slice(4, end).split('\n');
+  const values = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trim() === `${key}:`) {
+      for (let child = index + 1; child < lines.length; child += 1) {
+        const childLine = lines[child];
+        if (!/^\s+-\s+/.test(childLine)) {
+          break;
+        }
+        values.push(childLine.replace(/^\s+-\s+/, '').trim());
+      }
+      break;
+    }
+  }
+  return values.filter(Boolean);
+}
+
+function targetDomainsForChange(slug, sourceText) {
+  const explicit = bulletsFromSectionText(sourceText, 'Target Spec Domains');
+  if (explicit.length > 0) {
+    return dedupeStrings(explicit.map((item) => item.replace(/`/g, '')));
+  }
+  const frontmatterDomains = frontmatterList(sourceText, 'target_domains');
+  if (frontmatterDomains.length > 0) {
+    return dedupeStrings(frontmatterDomains.map((item) => item.replace(/`/g, '')));
+  }
+  return ['general'];
+}
+
+function sectionTextForHeading(text, heading, level = 2) {
+  const hashes = '#'.repeat(level);
+  const pattern = new RegExp(`${hashes} ${heading}\\n\\n([\\s\\S]*?)(?=\\n${hashes} |$)`, 'i');
+  return text.match(pattern)?.[1] || '';
+}
+
+function parseLegacyDomainDeltas(text) {
+  const domains = targetDomainsForChange('general', text);
+  const entries = new Map();
+  for (const domain of domains) {
+    const domainText = sectionTextForHeading(text, domain, 2);
+    if (!domainText.trim()) {
+      continue;
+    }
+    entries.set(domain, {
+      added: bulletsFromSectionText(domainText, 'Added Requirements').filter((item) => item !== 'none'),
+      modified: bulletsFromSectionText(domainText, 'Modified Requirements').filter((item) => item !== 'none'),
+      removed: bulletsFromSectionText(domainText, 'Removed Requirements').filter((item) => item !== 'none'),
+      scenarios: bulletsFromSectionText(domainText, 'Scenarios'),
+    });
+  }
+  return entries;
+}
+
+function requirementsForDelta(slug, plannerDraft) {
+  const requirements = String(plannerDraft.planText || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^\d+\.\s+/.test(line))
+    .map((line) => line.replace(/^\d+\.\s+/, '').trim());
+  return dedupeStrings(requirements.length > 0 ? requirements : [
+    `Workflow ${slug} SHALL implement the approved loopx plan package.`,
+  ]);
+}
+
+function verticalSlicesForChange(slug, plannerDraft) {
+  const requirements = requirementsForDelta(slug, plannerDraft);
+  const slices = requirements.slice(0, 8).map((requirement, index) => ({
+    id: `VS-${index + 1}`,
+    title: requirement.length > 90 ? `${requirement.slice(0, 87)}...` : requirement,
+    type: 'AFK',
+    blocked_by: index === 0 ? [] : [`VS-${index}`],
+    behavior: requirement,
+    acceptance_criteria: [
+      `完成端到端行为：${requirement}`,
+      '执行记录包含对应验证证据。',
+    ],
+    verification_signal: 'execution-record.md verification evidence',
+  }));
+  return {
+    schema_version: 1,
+    philosophy: 'tracer-bullet-vertical-slices',
+    workflow: slug,
+    slices: slices.length > 0 ? slices : [{
+      id: 'VS-1',
+      title: `Implement approved workflow ${slug}`,
+      type: 'AFK',
+      blocked_by: [],
+      behavior: `Workflow ${slug} delivers the approved plan end-to-end.`,
+      acceptance_criteria: ['Execution record verifies the approved behavior.'],
+      verification_signal: 'execution-record.md verification evidence',
+    }],
+  };
+}
+
+function changeArtifactGraph({ changeId, slug, artifacts }) {
+  const graph = {
+    schema_version: 1,
+    change: changeId,
+    workflow: slug,
+    philosophy: 'artifact-dependency-graph',
+    artifacts: {
+      proposal: {
+        path: artifacts.proposal,
+        status: existsSync(artifacts.proposal) ? 'done' : 'missing',
+        dependsOn: [],
+      },
+      specDelta: {
+        path: artifacts.specDelta,
+        status: existsSync(artifacts.specDelta) ? 'done' : 'missing',
+        dependsOn: ['proposal'],
+      },
+      design: {
+        path: artifacts.design,
+        status: existsSync(artifacts.design) ? 'done' : 'missing',
+        dependsOn: ['proposal', 'specDelta'],
+      },
+      tasks: {
+        path: artifacts.tasks,
+        status: existsSync(artifacts.tasks) ? 'done' : 'missing',
+        dependsOn: ['proposal', 'specDelta', 'design'],
+      },
+      slices: {
+        path: artifacts.slices,
+        status: existsSync(artifacts.slices) ? 'done' : 'missing',
+        dependsOn: ['proposal', 'specDelta', 'design'],
+      },
+    },
+  };
+  graph.nextReady = Object.entries(graph.artifacts)
+    .filter(([, node]) => node.status !== 'done')
+    .filter(([, node]) => node.dependsOn.every((dependency) => graph.artifacts[dependency]?.status === 'done'))
+    .map(([name]) => name);
+  return graph;
+}
+
+async function writeChangeArtifacts(cwd, root, slug, sourceText, plannerDraft, changeId = changeIdForWorkflowSlug(slug)) {
+  const normalizedChangeId = normalizeSlug(changeId);
+  const changeRoot = resolveChangeRoot(cwd, normalizedChangeId);
+  const specsRoot = join(changeRoot, 'specs');
+  await ensureDir(specsRoot);
+  const paths = {
+    root: changeRoot,
+    proposal: join(changeRoot, 'proposal.md'),
+    specDelta: join(changeRoot, 'spec-delta.md'),
+    design: join(changeRoot, 'design.md'),
+    tasks: join(changeRoot, 'tasks.md'),
+    slices: join(changeRoot, 'slices.json'),
+    graph: join(changeRoot, 'artifact-graph.json'),
+  };
+  const domains = targetDomainsForChange(slug, sourceText);
+  const requirements = requirementsForDelta(slug, plannerDraft);
+  const slices = verticalSlicesForChange(slug, plannerDraft);
+
+  await writeText(paths.proposal, [
+    `# loopx Change Proposal: ${normalizedChangeId}`,
+    '',
+    '## Why',
+    '',
+    '- Preserve the approved workflow intent as a durable change proposal.',
+    '',
+    '## What Changes',
+    '',
+    ...requirements.map((item) => `- ${item}`),
+    '',
+    '## Target Spec Domains',
+    '',
+    ...domains.map((domain) => `- ${domain}`),
+    '',
+    '## Source',
+    '',
+    `- change id: ${normalizedChangeId}`,
+    `- workflow slug: ${slug}`,
+    `- workflow: ${artifactPath(root, 'state.json')}`,
+    `- source spec: ${artifactPath(root, 'spec.md')}`,
+  ].join('\n'));
+
+  await writeText(paths.specDelta, [
+    `# loopx Spec Delta: ${normalizedChangeId}`,
+    '',
+    '## Target Spec Domains',
+    '',
+    ...domains.map((domain) => `- ${domain}`),
+    '',
+    '## Added Requirements',
+    '',
+    ...requirements.map((item) => `- ${item}`),
+    '',
+    '## Modified Requirements',
+    '',
+    '- none',
+    '',
+    '## Removed Requirements',
+    '',
+    '- none',
+    '',
+    '## Scenarios',
+    '',
+    `- GIVEN workflow ${slug} has an approved plan`,
+    '- WHEN build and review complete successfully',
+    '- THEN the accepted behavior is merged into long-lived loopx specs during archive',
+  ].join('\n'));
+
+  await writeText(paths.design, [
+    `# loopx Change Design: ${normalizedChangeId}`,
+    '',
+    '## Technical Approach',
+    '',
+    plannerDraft.architectureText || '- See workflow architecture artifact.',
+    '',
+    '## Task Plan',
+    '',
+    plannerDraft.developmentPlanText || '- See workflow development plan artifact.',
+  ].join('\n'));
+
+  await writeText(paths.tasks, [
+    `# loopx Change Tasks: ${normalizedChangeId}`,
+    '',
+    '## Vertical Slices',
+    '',
+    ...slices.slices.map((slice) => `- [ ] ${slice.id} ${slice.title} (${slice.type}) - verification: ${slice.verification_signal}`),
+    '',
+    '## Tasks',
+    '',
+    ...requirements.map((item, index) => `- [ ] ${index + 1}. ${item}`),
+    '',
+    '## Verification',
+    '',
+    plannerDraft.testPlanText || '- See workflow test plan artifact.',
+  ].join('\n'));
+
+  await writeJson(paths.slices, slices);
+  await writeJson(paths.graph, changeArtifactGraph({ changeId: normalizedChangeId, slug, artifacts: paths }));
+  for (const domain of domains) {
+    const specDeltaPath = join(specsRoot, ...domain.split('/'), 'spec.md');
+    await ensureDir(dirname(specDeltaPath));
+    await copyArtifact(changeRoot, specDeltaPath, 'spec-delta.md');
+  }
+  return paths;
+}
+
+async function readChangeArtifactStatus(paths) {
+  if (!paths || typeof paths !== 'object') {
+    return {
+      status: 'missing',
+      specDeltaStatus: 'missing',
+      blockers: ['missing_change_artifacts'],
+    };
+  }
+  const blockers = [];
+  for (const name of ['proposal', 'specDelta', 'design', 'tasks', 'slices', 'graph']) {
+    const path = paths[name];
+    if (!path || !existsSync(path)) {
+      blockers.push(`missing_change_artifact_${name}`);
+    }
+  }
+  let specDeltaStatus = 'missing';
+  if (paths.specDelta && existsSync(paths.specDelta)) {
+    const text = await readFile(paths.specDelta, 'utf8');
+    const parsedDelta = parseSpecDelta(text);
+    const domainDeltas = Array.from(parsedDelta.domainDeltas?.values() || []);
+    const hasDomains = parsedDelta.domains.length > 0;
+    const hasRequirements = parsedDelta.added.length > 0
+      || parsedDelta.modified.length > 0
+      || domainDeltas.some((delta) => delta.added.length > 0 || delta.modified.length > 0);
+    if (!text.trim()) {
+      specDeltaStatus = 'partial';
+      blockers.push('spec_delta_empty');
+    } else if (!hasDomains || !hasRequirements) {
+      specDeltaStatus = 'partial';
+      if (!hasDomains) {
+        blockers.push('spec_delta_missing_domains');
+      }
+      if (!hasRequirements) {
+        blockers.push('spec_delta_missing_requirements');
+      }
+    } else {
+      specDeltaStatus = 'complete';
+    }
+  }
+  if (paths.slices && existsSync(paths.slices)) {
+    try {
+      const payload = JSON.parse(await readFile(paths.slices, 'utf8'));
+      const slices = Array.isArray(payload.slices) ? payload.slices : [];
+      const valid = slices.length > 0 && slices.every((slice) => (
+        slice
+        && typeof slice.id === 'string'
+        && slice.id
+        && ['AFK', 'HITL'].includes(slice.type)
+        && typeof slice.behavior === 'string'
+        && slice.behavior
+        && Array.isArray(slice.acceptance_criteria)
+        && slice.acceptance_criteria.length > 0
+        && typeof slice.verification_signal === 'string'
+        && slice.verification_signal
+      ));
+      if (!valid) {
+        blockers.push('vertical_slices_missing');
+      }
+    } catch {
+      blockers.push('vertical_slices_invalid');
+    }
+  }
+  return {
+    status: blockers.length > 0 ? 'partial' : 'complete',
+    specDeltaStatus,
+    sliceArtifactsStatus: blockers.some((blocker) => blocker.startsWith('missing_change_artifact_slices') || blocker.startsWith('vertical_slices_')) ? 'partial' : 'complete',
+    blockers,
+  };
+}
+
+async function ensureArchiveSlicesArtifact(cwd, root, slug, state) {
+  if (state.change_artifact_paths?.slices && existsSync(state.change_artifact_paths.slices)) {
+    return state.change_artifact_paths;
+  }
+  if (!state.change_artifact_paths?.root || !existsSync(state.change_artifact_paths.root)) {
+    return state.change_artifact_paths;
+  }
+  const slicesPath = join(state.change_artifact_paths.root, 'slices.json');
+  const draft = {
+    planText: existsSync(state.change_artifact_paths.tasks)
+      ? await readFile(state.change_artifact_paths.tasks, 'utf8')
+      : `1. Archive approved workflow ${slug}`,
+  };
+  await writeJson(slicesPath, verticalSlicesForChange(slug, draft));
+  const nextPaths = {
+    ...state.change_artifact_paths,
+    slices: slicesPath,
+  };
+  if (nextPaths.graph && existsSync(nextPaths.graph)) {
+    await writeJson(nextPaths.graph, changeArtifactGraph({
+      changeId: state.change_id || changeIdForWorkflowSlug(slug),
+      slug,
+      artifacts: nextPaths,
+    }));
+  }
+  await writeState(root, withRecommendedAction({
+    ...state,
+    change_artifact_paths: nextPaths,
+    slice_artifacts_status: 'complete',
+  }));
+  return nextPaths;
+}
+
+function parseSpecDelta(text) {
+  const domainDeltas = parseLegacyDomainDeltas(text);
+  return {
+    domains: targetDomainsForChange('general', text),
+    added: bulletsFromSectionText(text, 'Added Requirements').filter((item) => item !== 'none'),
+    modified: bulletsFromSectionText(text, 'Modified Requirements').filter((item) => item !== 'none'),
+    removed: bulletsFromSectionText(text, 'Removed Requirements').filter((item) => item !== 'none'),
+    scenarios: bulletsFromSectionText(text, 'Scenarios'),
+    domainDeltas,
+  };
+}
+
+function specDomainPath(cwd, domain) {
+  return join(resolveSpecsRoot(cwd), ...String(domain).split('/').map((part) => normalizeSlug(part)), 'spec.md');
+}
+
+async function writeAdrCandidate(cwd, changeId, state, archivedSpecPaths) {
+  const path = join(resolveWorkspaceRoot(cwd), 'decisions', 'adr-candidates', `${normalizeSlug(changeId)}.md`);
+  await ensureDir(dirname(path));
+  await writeText(path, [
+    `# ADR Candidate: ${normalizeSlug(changeId)}`,
+    '',
+    '## Decision',
+    '',
+    `- Archive accepted workflow ${state.slug} into long-lived loopx specs.`,
+    '',
+    '## Drivers',
+    '',
+    '- The reviewed change delta has reached done.',
+    '- The change may affect future planning, build, and review context.',
+    '',
+    '## Alternatives Considered',
+    '',
+    '- Keep the decision only in workflow artifacts.',
+    '- Promote the accepted behavior into long-lived specs and keep this ADR candidate as advisory memory.',
+    '',
+    '## Why Candidate Only',
+    '',
+    '- loopx should not make irreversible architectural decisions without human confirmation.',
+    '- This file records the candidate so a future human can promote it to docs/adr if useful.',
+    '',
+    '## Consequences',
+    '',
+    ...archivedSpecPaths.map((item) => `- Updated spec: ${item}`),
+    '',
+    '## Follow-ups',
+    '',
+    '- Promote to a real ADR only if the decision is hard to reverse, surprising, and trade-off-heavy.',
+  ].join('\n'));
+  return path;
+}
+
+function replaceChangeBlock(existing, slug, nextBlock) {
+  if (!existing) {
+    return nextBlock;
+  }
+  const marker = `### Change: ${slug}`;
+  const start = existing.indexOf(marker);
+  if (start === -1) {
+    return [existing.replace(/\s+$/, ''), '', nextBlock].join('\n');
+  }
+  const before = existing.slice(0, start).replace(/\s+$/, '');
+  const rest = existing.slice(start);
+  const nextStart = rest.slice(marker.length).search(/\n### Change: /);
+  const after = nextStart === -1 ? '' : rest.slice(marker.length + nextStart).replace(/^\s+/, '\n');
+  return [before, nextBlock, after.trimEnd()].filter(Boolean).join('\n\n');
+}
+
+async function mergeSpecDeltaIntoLongLivedSpecs(cwd, slug, specDeltaPath) {
+  const deltaText = await readFile(specDeltaPath, 'utf8');
+  const delta = parseSpecDelta(deltaText);
+  const updated = [];
+  for (const domain of delta.domains) {
+    const domainDelta = delta.domainDeltas?.get(domain) || delta;
+    const path = specDomainPath(cwd, domain);
+    await ensureDir(dirname(path));
+    const existing = await readTextIfExists(path);
+    const base = existing || [
+      `# loopx Spec Domain: ${domain}`,
+      '',
+      '## Purpose',
+      '',
+      `Long-lived accepted behavior for ${domain}.`,
+      '',
+      '## Requirements',
+    ].join('\n');
+    const changeBlock = [
+      `### Change: ${slug}`,
+      '',
+      ...(domainDelta.added.length > 0 ? ['#### Added Requirements', '', ...domainDelta.added.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.modified.length > 0 ? ['#### Modified Requirements', '', ...domainDelta.modified.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.removed.length > 0 ? ['#### Removed Requirements', '', ...domainDelta.removed.map((item) => `- ${item}`), ''] : []),
+      ...(domainDelta.scenarios.length > 0 ? ['#### Scenarios', '', ...domainDelta.scenarios.map((item) => `- ${item}`)] : []),
+    ].join('\n');
+    const next = replaceChangeBlock(base, slug, changeBlock);
+    await writeText(path, next);
+    updated.push(path);
+  }
+  return updated;
+}
+
 function deriveSlugFromSpecPath(path, text) {
   const meta = parseFrontmatter(text);
   if (meta.workflow_id) {
@@ -462,7 +1001,13 @@ function deriveSlugFromSpecPath(path, text) {
 }
 
 function containsChineseText(text) {
-  return /[\u3400-\u9fff]/.test(text);
+  const chineseChars = text.match(/[\u3400-\u9fff]/g) || [];
+  const latinChars = text.match(/[A-Za-z]/g) || [];
+  const signalChars = chineseChars.length + latinChars.length;
+  if (signalChars === 0) {
+    return false;
+  }
+  return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
 }
 
 async function ensurePlanWorkflowFromDirectSpec(cwd, directSpecPath, explicitSlug, options = {}) {
@@ -591,6 +1136,7 @@ async function readPlanCompletion(cwd, root, slug, state) {
     blockers.push('missing_test_spec');
   }
   const workflowDocs = {
+    plan: artifactPath(root, 'plan.md'),
     architecture: artifactPath(root, 'architecture.md'),
     developmentPlan: artifactPath(root, 'development-plan.md'),
     testPlan: artifactPath(root, 'test-plan.md'),
@@ -605,10 +1151,15 @@ async function readPlanCompletion(cwd, root, slug, state) {
       blockers.push(`plan_artifact_not_chinese_${key}`);
     }
   }
+  const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
+  blockers.push(...changeStatus.blockers);
 
   return {
     blockers,
     docsStatus: blockers.some((blocker) => blocker.startsWith('missing_plan_artifact_') || blocker.startsWith('plan_artifact_not_chinese_')) ? 'partial' : 'complete',
+    changeArtifactsStatus: changeStatus.status,
+    specDeltaStatus: changeStatus.specDeltaStatus,
+    sliceArtifactsStatus: changeStatus.sliceArtifactsStatus,
   };
 }
 
@@ -632,6 +1183,160 @@ function buildIterationBlockers(iterationData, { noDeslop = false } = {}) {
     blockers.push(`regression_${iterationData.regressionStatus}`);
   }
   return blockers;
+}
+
+function buildOwnerId(slug) {
+  return `loopx-build-owner:${normalizeSlug(slug)}`;
+}
+
+function buildOwnerSessionId(slug, runId) {
+  return `${buildOwnerId(slug)}:${runId || 'pending'}`;
+}
+
+function normalizeBuildDelegations(iterationData = {}) {
+  return Array.isArray(iterationData.delegations)
+    ? iterationData.delegations.map((item, index) => ({
+      id: item?.id || `delegation-${index + 1}`,
+      role: item?.role || 'implementation',
+      status: ['active', 'complete', 'failed', 'blocked', 'pending', 'skipped'].includes(String(item?.status || '').trim().toLowerCase())
+        ? String(item.status).trim().toLowerCase()
+        : 'pending',
+      blocking: item?.blocking !== false,
+      scope: Array.isArray(item?.scope) ? item.scope.map(String) : [],
+      evidence_path: item?.evidence_path || item?.evidencePath || null,
+      summary: item?.summary || 'Build delegation entry',
+    }))
+    : [];
+}
+
+function isBlockingDelegationOpen(item) {
+  return item?.blocking && !['complete', 'skipped'].includes(String(item.status));
+}
+
+function buildDelegationLedger({ slug, ownerId, ownerSessionId, iterationData, previousLedger = null }) {
+  const delegationsById = new Map();
+  for (const item of previousLedger?.delegations || []) {
+    if (isBlockingDelegationOpen(item)) {
+      delegationsById.set(item.id, item);
+    }
+  }
+  for (const item of normalizeBuildDelegations(iterationData)) {
+    if (['complete', 'skipped'].includes(String(item.status))) {
+      delegationsById.delete(item.id);
+    } else {
+      delegationsById.set(item.id, item);
+    }
+  }
+  const delegations = [...delegationsById.values()];
+  const activeBlocking = delegations.filter((item) => item.blocking && !['complete', 'skipped'].includes(String(item.status)));
+  return {
+    schema_version: WORKFLOW_SCHEMA_VERSION,
+    slug,
+    owner_id: ownerId,
+    owner_session_id: ownerSessionId,
+    updated_at: nowIso(),
+    active_blocking_count: activeBlocking.length,
+    status: activeBlocking.length > 0 ? 'active' : 'drained',
+    delegations,
+  };
+}
+
+function buildDelegationBlockers(ledger) {
+  return (ledger.delegations || [])
+    .filter((item) => item.blocking && !['complete', 'skipped'].includes(String(item.status)))
+    .map((item) => `delegation_active_${item.id}`);
+}
+
+async function readJsonIfExists(path) {
+  if (!path || !existsSync(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function buildCompletionAudit({ cwd, root, slug, state, reviewReworkArtifactPath = null, iterationData, ledger, baseBlockers }) {
+  const checklist = [];
+  const addChecklistItem = (item) => {
+    checklist.push({
+      status: 'covered',
+      evidence: [],
+      ...item,
+    });
+  };
+
+  addChecklistItem({
+    id: 'approved-prd',
+    source: 'approved-plan',
+    requirement: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `prd-${slug}.md`),
+    evidence: [state.plan_artifact_path || 'approved plan artifact'],
+  });
+  addChecklistItem({
+    id: 'test-spec',
+    source: 'test-spec',
+    requirement: state.test_spec_artifact_path || join(cwd, '.loopx', 'plans', `test-spec-${slug}.md`),
+    evidence: iterationData.verificationEvidence || [],
+  });
+  const effectiveReviewReworkPath = reviewReworkArtifactPath || state.review_rework_artifact_path;
+  if (effectiveReviewReworkPath) {
+    addChecklistItem({
+      id: 'review-rework',
+      source: 'review-rework',
+      requirement: effectiveReviewReworkPath,
+      evidence: [
+        effectiveReviewReworkPath,
+        ...(iterationData.executionEvidence || []),
+        ...(iterationData.verificationEvidence || []),
+      ].filter(Boolean),
+    });
+  }
+
+  const slicesPayload = await readJsonIfExists(state.change_artifact_paths?.slices);
+  const slices = Array.isArray(slicesPayload?.slices) ? slicesPayload.slices : [];
+  for (const slice of slices) {
+    addChecklistItem({
+      id: slice.id || `slice-${checklist.length + 1}`,
+      source: 'vertical-slice',
+      requirement: slice.behavior || slice.verification_signal || 'vertical slice',
+      evidence: [
+        slice.verification_signal,
+        ...(iterationData.executionEvidence || []),
+        ...(iterationData.verificationEvidence || []),
+      ].filter(Boolean),
+    });
+  }
+
+  const verificationEvidence = [
+    ...(iterationData.verificationEvidence || []),
+    ...(iterationData.lanes || [])
+      .flatMap((lane) => Array.isArray(lane.evidence) ? lane.evidence : [])
+      .map((item) => `${item.kind}:${item.summary}:${item.ref}`),
+  ].filter(Boolean);
+  const blockers = dedupeStrings([
+    ...baseBlockers,
+    ...buildDelegationBlockers(ledger),
+  ]);
+  const missingEvidence = checklist.filter((item) => !Array.isArray(item.evidence) || item.evidence.length === 0);
+  if (checklist.length === 0 || missingEvidence.length > 0 || verificationEvidence.length === 0) {
+    blockers.push('completion_audit_missing_evidence');
+  }
+  const passed = blockers.length === 0;
+  return {
+    schema_version: WORKFLOW_SCHEMA_VERSION,
+    slug,
+    owner_id: ledger.owner_id,
+    owner_session_id: ledger.owner_session_id,
+    status: passed ? 'passed' : 'blocked',
+    passed,
+    updated_at: nowIso(),
+    blockers: dedupeStrings(blockers),
+    checklist,
+    verification_evidence: verificationEvidence,
+    lane_statuses: (iterationData.lanes || []).map((lane) => ({ name: lane.name, status: lane.status })),
+  };
 }
 
 function buildHasInfrastructureFailure(iterationData) {
@@ -682,7 +1387,7 @@ function buildExecutionRecordContent({ slug, iterationData, complete }) {
   ].join('\n');
 }
 
-async function writeBuildSupportArtifacts(root, iterationData, noDeslop) {
+async function writeBuildSupportArtifacts(root, iterationData, noDeslop, { delegationLedger = null, completionAudit = null } = {}) {
   const paths = resolveBuildSupportPaths(root, iterationData.iteration);
   await ensureDir(paths.supportRoot);
   await writeText(
@@ -719,6 +1424,22 @@ async function writeBuildSupportArtifacts(root, iterationData, noDeslop) {
       `- status: ${noDeslop ? 'skipped' : iterationData.regressionStatus}`,
     ].join('\n'),
   );
+  await writeJson(paths.delegationLedger, delegationLedger || {
+    schema_version: WORKFLOW_SCHEMA_VERSION,
+    slug: iterationData.slug,
+    status: 'drained',
+    active_blocking_count: 0,
+    delegations: [],
+  });
+  await writeJson(paths.completionAudit, completionAudit || {
+    schema_version: WORKFLOW_SCHEMA_VERSION,
+    slug: iterationData.slug,
+    status: 'blocked',
+    passed: false,
+    blockers: ['completion_audit_not_run'],
+    checklist: [],
+    verification_evidence: [],
+  });
   return paths;
 }
 
@@ -786,6 +1507,207 @@ function clarifyReadinessBlockers(state) {
   return blockers;
 }
 
+function planReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.plan_architect_review_status !== 'complete') {
+    blockers.push('architect_review_incomplete');
+  }
+  if (state.plan_critic_verdict !== 'approve') {
+    blockers.push(`critic_verdict_${state.plan_critic_verdict}`);
+  }
+  if (state.plan_package_status !== 'complete') {
+    blockers.push(`plan_package_${state.plan_package_status}`);
+  }
+  if (!state.plan_acceptance_criteria_testable) {
+    blockers.push('acceptance_criteria_unresolved');
+  }
+  if (!state.plan_verification_steps_resolved) {
+    blockers.push('verification_steps_unresolved');
+  }
+  if (!state.plan_execution_inputs_resolved) {
+    blockers.push('execution_inputs_unresolved');
+  }
+  if (!state.plan_artifact_path) {
+    blockers.push('missing_prd');
+  }
+  if (!state.test_spec_artifact_path) {
+    blockers.push('missing_test_spec');
+  }
+  if (state.change_artifacts_status !== 'complete' && state.change_artifacts_status !== 'archived') {
+    blockers.push(`change_artifacts_${state.change_artifacts_status || 'missing'}`);
+  }
+  if (state.spec_delta_status !== 'complete') {
+    blockers.push(`spec_delta_${state.spec_delta_status || 'missing'}`);
+  }
+  if (Array.isArray(state.plan_blockers)) {
+    blockers.push(...state.plan_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function buildReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.execution_record_status !== 'complete') {
+    blockers.push(`execution_record_${state.execution_record_status || 'missing'}`);
+  }
+  if (Array.isArray(state.build_blockers)) {
+    blockers.push(...state.build_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function reviewReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.review_status !== 'ready-for-review' && state.review_status !== 'in-review') {
+    blockers.push(`review_status_${state.review_status || 'not-started'}`);
+  }
+  if (state.execution_record_status !== 'complete') {
+    blockers.push(`execution_record_${state.execution_record_status || 'missing'}`);
+  }
+  if (Array.isArray(state.build_blockers)) {
+    blockers.push(...state.build_blockers);
+  }
+  return dedupeStrings(blockers);
+}
+
+function doneReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.review_verdict !== 'approve') {
+    blockers.push(`review_verdict_${state.review_verdict || 'none'}`);
+  }
+  return blockers;
+}
+
+function archiveReadinessBlockersSync(state) {
+  const blockers = [];
+  if (state.current_stage !== STAGES.DONE || state.completion_confirmed !== true) {
+    blockers.push('workflow_not_done');
+  }
+  if (state.spec_delta_status !== 'complete') {
+    blockers.push(`spec_delta_${state.spec_delta_status || 'missing'}`);
+  }
+  if (!state.change_artifact_paths?.specDelta) {
+    blockers.push('missing_spec_delta_path');
+  }
+  return dedupeStrings(blockers);
+}
+
+function readinessEntry(blockers) {
+  const unique = dedupeStrings(blockers);
+  return {
+    ready: unique.length === 0,
+    blockers: unique,
+  };
+}
+
+function authorizationEntry(state, key, transition) {
+  return {
+    authorized: state.approval?.[key] === APPROVAL_STATES.APPROVED,
+    approval_status: state.approval?.[key] || APPROVAL_STATES.NOT_REQUESTED,
+    transition,
+  };
+}
+
+function buildReadiness(state) {
+  return {
+    plan: readinessEntry(clarifyReadinessBlockers(state)),
+    build: readinessEntry(planReadinessBlockersSync(state)),
+    review: readinessEntry(buildReadinessBlockersSync(state)),
+    done: readinessEntry(doneReadinessBlockersSync(state)),
+    archive: readinessEntry(archiveReadinessBlockersSync(state)),
+  };
+}
+
+function buildAuthorization(state) {
+  return {
+    plan: authorizationEntry(state, 'plan', TRANSITIONS.CLARIFY_TO_PLAN),
+    build: authorizationEntry(state, 'build', TRANSITIONS.PLAN_TO_BUILD),
+    review: authorizationEntry(state, 'review', TRANSITIONS.BUILD_TO_REVIEW),
+    done: authorizationEntry(state, 'complete', TRANSITIONS.REVIEW_TO_DONE),
+    rollback: authorizationEntry(state, 'rollback', state.requested_transition || TRANSITIONS.NONE),
+  };
+}
+
+function evidenceEntry(claim, basis, implication) {
+  return { claim, basis, implication };
+}
+
+function buildCurrentEvidenceChain(state, readiness = buildReadiness(state), authorization = buildAuthorization(state)) {
+  const evidence = [];
+  if (readiness.plan.ready) {
+    evidence.push(evidenceEntry(
+      'clarify_ready_for_plan',
+      'Clarify ambiguity score, non-goals, decision boundaries, pressure pass, and unresolved ambiguity gates are satisfied.',
+      authorization.plan.authorized ? 'The approved clarify -> plan transition can be consumed by plan.' : 'Plan readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.plan.authorized) {
+    evidence.push(evidenceEntry(
+      'plan_authorized',
+      'approval.plan is approved for clarify -> plan.',
+      'Planning may proceed without treating readiness alone as authorization.',
+    ));
+  }
+  if (readiness.build.ready) {
+    evidence.push(evidenceEntry(
+      'plan_ready_for_build',
+      'Planner, architect, critic, plan artifacts, execution inputs, and change delta gates are satisfied.',
+      authorization.build.authorized ? 'The approved plan -> build transition can be consumed by build.' : 'Build readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.build.authorized) {
+    evidence.push(evidenceEntry(
+      'build_authorized',
+      'approval.build is approved for plan -> build or review-requested build rework.',
+      'Build may consume the approved transition while preserving gate evidence.',
+    ));
+  }
+  if (readiness.review.ready) {
+    evidence.push(evidenceEntry(
+      'build_ready_for_review',
+      'Execution record is complete and no build blockers remain.',
+      authorization.review.authorized ? 'The approved build -> review transition can be consumed by review.' : 'Review readiness exists, but user authorization is still separate.',
+    ));
+  }
+  if (authorization.review.authorized) {
+    evidence.push(evidenceEntry(
+      'review_authorized',
+      'approval.review is approved for build -> review.',
+      'Review may proceed as an independent acceptance gate.',
+    ));
+  }
+  if (state.review_verdict === 'approve') {
+    evidence.push(evidenceEntry(
+      'review_approved',
+      'Review verdict is approve.',
+      authorization.done.authorized ? 'The approved review -> done transition can be consumed.' : 'Completion still requires explicit review -> done authorization.',
+    ));
+  }
+  if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
+    evidence.push(evidenceEntry(
+      'change_delta_archived',
+      'Archive synced the accepted spec delta into long-lived specs.',
+      'The workflow has durable spec memory and can remain closed.',
+    ));
+  }
+  return evidence;
+}
+
+function enrichRuntimeJudgment(state, legacy = false) {
+  if (!state || legacy) {
+    return state;
+  }
+  const readiness = buildReadiness(state);
+  const authorization = buildAuthorization(state);
+  return {
+    ...state,
+    readiness,
+    authorization,
+    current_evidence_chain: buildCurrentEvidenceChain(state, readiness, authorization),
+    recommended_next_action: recommendedAction(state, legacy),
+  };
+}
+
 async function readExecutionRecordSummary(root) {
   const text = await readTextIfExists(artifactPath(root, 'execution-record.md'));
   if (!text) {
@@ -812,6 +1734,46 @@ async function readExecutionRecordSummary(root) {
   return {
     status: hasRequiredMeta && hasEvidenceManifest && hasExecutionEvidence && hasVerificationEvidence && !hasPlaceholder ? 'complete' : 'partial',
     meta,
+  };
+}
+
+function normalizeScopeList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (value === null || value === undefined || value === '') {
+    return [];
+  }
+  return String(value)
+    .split(/[,;\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function executionScopeGate(meta = {}) {
+  const plannedScope = String(meta.planned_scope || '').trim();
+  const implementedScope = String(meta.implemented_scope || '').trim();
+  const completionClaim = String(meta.completion_claim || '').trim().toLowerCase();
+  const remainingScope = normalizeScopeList(meta.remaining_scope);
+  const blockers = [];
+
+  if (remainingScope.length > 0) {
+    blockers.push('partial_scope_remaining');
+  }
+  if (completionClaim && !['full', 'complete', 'workflow', 'all'].includes(completionClaim)) {
+    blockers.push(`completion_claim_${completionClaim}`);
+  }
+  if (plannedScope && implementedScope && plannedScope !== implementedScope && completionClaim !== 'full') {
+    blockers.push('implemented_scope_mismatch');
+  }
+
+  return {
+    ok: blockers.length === 0,
+    blockers: dedupeStrings(blockers),
+    plannedScope,
+    implementedScope,
+    completionClaim,
+    remainingScope,
   };
 }
 
@@ -868,6 +1830,9 @@ function recommendedAction(state, legacy = false) {
       if (state.autopilot_current_phase && state.autopilot_current_phase !== 'none' && state.autopilot_completed) {
         return 'Autopilot run is complete.';
       }
+      if (state.archive_status !== 'archived') {
+        return 'Run loopx archive to sync the approved change delta into long-lived specs.';
+      }
       return 'Workflow is complete.';
     default:
       return 'Run loopx clarify to start a workflow.';
@@ -875,10 +1840,7 @@ function recommendedAction(state, legacy = false) {
 }
 
 function withRecommendedAction(state, legacy = false) {
-  return {
-    ...state,
-    recommended_next_action: recommendedAction(state, legacy),
-  };
+  return enrichRuntimeJudgment(state, legacy);
 }
 
 async function loadWorkflowState(cwd, slug, { allowLegacy = true } = {}) {
@@ -1031,8 +1993,7 @@ function nextCommandForRollbackTarget(slug, target) {
   if (target === STAGES.BUILD) {
     return [
       'Next:',
-      `loopx approve ${slug} --from review --to build`,
-      `$build .loopx/plans/prd-${slug}.md`,
+      reviewReworkBuildCommand(slug),
     ].join('\n');
   }
   if (target === STAGES.CLARIFY) {
@@ -1086,7 +2047,28 @@ function codeReviewFailureResult(error) {
   };
 }
 
-function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, rollbackRationale, inputManifest, evidenceManifest, findings, codeReview }) {
+function architectureReviewFailureResult(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    status: 'failed',
+    verdict: 'block',
+    summary: `architecture-smell 子流程失败，review 不能接受本次运行：${message}`,
+    rollbackTarget: STAGES.BUILD,
+    findings: [{
+      severity: 'high',
+      file: 'review-support/architecture-smell.raw.json',
+      line: null,
+      message: `architecture-smell 子流程未返回有效结构化 JSON：${message}`,
+    }],
+  };
+}
+
+function architectureReviewFindingText(finding) {
+  const location = finding.file ? `${finding.file}${finding.line ? `:${finding.line}` : ''}` : '未定位文件';
+  return `[${finding.severity || 'medium'}] ${location}：${finding.message}`;
+}
+
+function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, rollbackRationale, inputManifest, evidenceManifest, findings, codeReview, architectureReview }) {
   return [
     frontmatterBlock({
       schema_version: WORKFLOW_SCHEMA_VERSION,
@@ -1100,6 +2082,10 @@ function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, r
         status: codeReview.status,
         verdict: codeReview.verdict,
         changed_files: codeReview.changedFiles,
+      } : null,
+      architecture_smell: architectureReview ? {
+        status: architectureReview.status,
+        verdict: architectureReview.verdict,
       } : null,
       verdict: verdict.toLowerCase().replace('request changes', 'request-changes'),
       rollback_target: rollbackTarget,
@@ -1127,6 +2113,13 @@ function reviewReportContent({ slug, reviewer, runId, verdict, rollbackTarget, r
     codeReview && codeReview.changedFiles.length > 0 ? `- 变更文件：${codeReview.changedFiles.join(', ')}` : '- 变更文件：无',
     ...(codeReview && codeReview.findings.length > 0 ? codeReview.findings.map((item) => `- ${codeReviewFindingText(item)}`) : ['- 未发现阻断性代码问题。']),
     '',
+    '## Architecture Smell Scan',
+    '',
+    architectureReview ? `- 状态：${architectureReview.status}` : '- 状态：未执行',
+    architectureReview ? `- 结论：${architectureReview.verdict}` : '- 结论：未知',
+    architectureReview ? `- 摘要：${architectureReview.summary}` : '- 摘要：无',
+    ...(architectureReview && architectureReview.findings.length > 0 ? architectureReview.findings.map((item) => `- ${architectureReviewFindingText(item)}`) : ['- 架构 smell 扫描通过。']),
+    '',
     '## 回退建议',
     '',
     `- ${rollbackTargetLabel(rollbackTarget)}`,
@@ -1151,15 +2144,19 @@ export async function initWorkspace(cwd, { slug } = {}) {
   await ensureDir(join(workspaceRoot, 'context'));
   await ensureDir(join(workspaceRoot, 'workflows'));
   await ensureDir(join(workspaceRoot, 'specs'));
+  await ensureDir(join(workspaceRoot, 'changes'));
+  await ensureDir(join(workspaceRoot, 'changes', 'active'));
+  await ensureDir(join(workspaceRoot, 'changes', 'archive'));
   await ensureDir(join(workspaceRoot, 'plans'));
   await ensureDir(join(workspaceRoot, 'autopilot'));
+  await setupWorkspaceContext(cwd);
 
   const config = {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'skill-first-v1',
-    default_flow: ['clarify', 'plan', 'build', 'review', 'done'],
-    preferred_surface: ['clarify', 'plan', 'build', 'review', 'autopilot'],
+    default_flow: ['clarify', 'plan', 'build', 'review', 'done', 'archive'],
+    preferred_surface: ['clarify', 'plan', 'build', 'review', 'archive', 'autopilot'],
   };
 
   if (!existsSync(workspaceConfigPath(workspaceRoot))) {
@@ -1276,6 +2273,9 @@ export async function approveStage(cwd, slug, { from, to }) {
       ...next,
       plan_docs_status: completion.docsStatus,
       plan_docs_artifact_paths: null,
+      change_artifacts_status: completion.changeArtifactsStatus,
+      spec_delta_status: completion.specDeltaStatus,
+      slice_artifacts_status: completion.sliceArtifactsStatus,
       plan_blockers: completion.blockers,
     };
     if (completion.blockers.length > 0) {
@@ -1335,6 +2335,27 @@ export async function approveStage(cwd, slug, { from, to }) {
   }
 
   if (transition === TRANSITIONS.REVIEW_TO_DONE) {
+    const executionSummary = await readExecutionRecordSummary(root);
+    const scopeGate = executionScopeGate(executionSummary.meta);
+    if (!scopeGate.ok) {
+      const blocked = withRecommendedAction({
+        ...next,
+        stage_status: 'blocked',
+        pending_user_decision: TRANSITIONS.REVIEW_TO_BUILD,
+        requested_transition: TRANSITIONS.REVIEW_TO_BUILD,
+        review_verdict: 'request-changes',
+        rollback_target: STAGES.BUILD,
+        rollback_rationale: 'execution-record.md scope gate blocked review -> done because remaining workflow scope is declared.',
+        plan_blockers: dedupeStrings([...(next.plan_blockers || []), ...scopeGate.blockers]),
+        approval: {
+          ...next.approval,
+          build: APPROVAL_STATES.REQUESTED,
+          complete: APPROVAL_STATES.NOT_REQUESTED,
+        },
+      });
+      await writeState(root, blocked);
+      throw new Error(`review_done_scope_blocked:${scopeGate.blockers.join(',')}`);
+    }
     let doneJournal = null;
     let doneJournalWarning = null;
     if (next.workspace_journal_status !== 'written' || !next.workspace_journal_path) {
@@ -1381,6 +2402,79 @@ export async function approveStage(cwd, slug, { from, to }) {
       ...next.approval,
       [approvalKey]: APPROVAL_STATES.APPROVED,
     },
+  });
+  await writeState(root, next);
+  return { root, state: next };
+}
+
+export async function archiveStage(cwd, slug) {
+  const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
+  if (state.current_stage !== STAGES.DONE || !state.completion_confirmed) {
+    throw new Error('archive_requires_done_workflow');
+  }
+  const executionSummary = await readExecutionRecordSummary(root);
+  const scopeGate = executionScopeGate(executionSummary.meta);
+  if (!scopeGate.ok) {
+    const blocked = withRecommendedAction({
+      ...state,
+      archive_status: 'blocked',
+      plan_blockers: dedupeStrings([...(state.plan_blockers || []), ...scopeGate.blockers]),
+    });
+    await writeState(root, blocked);
+    throw new Error(`archive_scope_blocked:${scopeGate.blockers.join(',')}`);
+  }
+  const effectiveChangeArtifactPaths = await ensureArchiveSlicesArtifact(cwd, root, normalized, state);
+  const effectiveState = {
+    ...state,
+    change_artifact_paths: effectiveChangeArtifactPaths,
+    slice_artifacts_status: effectiveChangeArtifactPaths?.slices && existsSync(effectiveChangeArtifactPaths.slices) ? 'complete' : state.slice_artifacts_status,
+  };
+  const changeStatus = await readChangeArtifactStatus(effectiveState.change_artifact_paths);
+  if (changeStatus.blockers.length > 0) {
+    const blocked = withRecommendedAction({
+      ...effectiveState,
+      archive_status: 'blocked',
+      spec_sync_status: changeStatus.specDeltaStatus,
+      plan_blockers: [...(effectiveState.plan_blockers || []), ...changeStatus.blockers],
+    });
+    await writeState(root, blocked);
+    throw new Error(`archive_blocked:${changeStatus.blockers.join(',')}`);
+  }
+
+  const changeId = normalizeSlug(effectiveState.change_id || changeIdForWorkflowSlug(normalized));
+  const archivedSpecPaths = await mergeSpecDeltaIntoLongLivedSpecs(cwd, changeId, effectiveState.change_artifact_paths.specDelta);
+  const adrCandidatePath = await writeAdrCandidate(cwd, changeId, effectiveState, archivedSpecPaths);
+  const archiveRoot = resolveArchivedChangeRoot(cwd, changeId);
+  await ensureDir(dirname(archiveRoot));
+  if (effectiveState.change_artifact_paths.root === archiveRoot) {
+    // Already archived; keep paths stable and use merge as an idempotent re-sync.
+  } else if (existsSync(archiveRoot)) {
+    await cp(effectiveState.change_artifact_paths.root, archiveRoot, { recursive: true, force: true });
+  } else {
+    await rename(effectiveState.change_artifact_paths.root, archiveRoot);
+  }
+  const archivedPaths = {
+    ...effectiveState.change_artifact_paths,
+    root: archiveRoot,
+    proposal: join(archiveRoot, 'proposal.md'),
+    specDelta: join(archiveRoot, 'spec-delta.md'),
+    design: join(archiveRoot, 'design.md'),
+    tasks: join(archiveRoot, 'tasks.md'),
+    slices: join(archiveRoot, 'slices.json'),
+    graph: join(archiveRoot, 'artifact-graph.json'),
+  };
+  const next = withRecommendedAction({
+    ...effectiveState,
+    archive_status: 'archived',
+    spec_sync_status: 'synced',
+    spec_delta_status: 'complete',
+    slice_artifacts_status: 'complete',
+    change_id: changeId,
+    change_artifacts_status: 'archived',
+    archived_change_path: archiveRoot,
+    archived_spec_paths: archivedSpecPaths,
+    adr_candidate_path: adrCandidatePath,
+    change_artifact_paths: archivedPaths,
   });
   await writeState(root, next);
   return { root, state: next };
@@ -1435,6 +2529,9 @@ export async function planStage(cwd, slug, options = {}) {
     });
     await writePlanArtifacts(root, cwd, normalized, plannerDraft);
     const artifactPaths = await writeCanonicalPlanArtifacts(cwd, root, normalized);
+    const changeId = state.change_id || changeIdForWorkflowSlug(normalized);
+    const changeArtifactPaths = await writeChangeArtifacts(cwd, root, normalized, sourceText, plannerDraft, changeId);
+    const changeArtifactStatus = await readChangeArtifactStatus(changeArtifactPaths);
 
     architectReview = await adapter.architect({
       cwd,
@@ -1478,6 +2575,11 @@ export async function planStage(cwd, slug, options = {}) {
       plan_review_artifact_paths: reviewArtifactPaths,
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
+      change_id: normalizeSlug(changeId),
+      change_artifacts_status: changeArtifactStatus.status,
+      change_artifact_paths: changeArtifactPaths,
+      spec_delta_status: changeArtifactStatus.specDeltaStatus,
+      slice_artifacts_status: changeArtifactStatus.sliceArtifactsStatus,
       plan_source_spec_path: sourceSpecPath,
       last_confirmed_transition: consumesReviewPlan || resumesConsumedReviewPlan ? TRANSITIONS.REVIEW_TO_PLAN : TRANSITIONS.CLARIFY_TO_PLAN,
       approval: {
@@ -1508,6 +2610,9 @@ export async function planStage(cwd, slug, options = {}) {
     requested_transition: TRANSITIONS.NONE,
     plan_docs_status: completion.docsStatus,
     plan_docs_artifact_paths: null,
+    change_artifacts_status: completion.changeArtifactsStatus,
+    spec_delta_status: completion.specDeltaStatus,
+    slice_artifacts_status: completion.sliceArtifactsStatus,
     plan_blockers: completion.blockers,
     context_manifest_status: buildManifest ? 'hit' : 'fallback',
     build_context_manifest_path: buildManifest?.path || buildContextManifestPath(root),
@@ -1517,12 +2622,25 @@ export async function planStage(cwd, slug, options = {}) {
 }
 
 export async function buildStage(cwd, slug, options = {}) {
-  const buildSlug = slugFromBuildInput(slug);
+  const explicitReviewReworkPath = options.fromReviewPath || (isReviewReworkArtifactInput(slug) ? slug : null);
+  const buildSlug = explicitReviewReworkPath ? slugFromReviewReworkInput(explicitReviewReworkPath) : slugFromBuildInput(slug);
   const { root, state, slug: normalized } = await loadWorkflowState(cwd, buildSlug, { allowLegacy: false });
+  const reviewReworkArtifactDisplayPath = explicitReviewReworkPath ? displayPath(cwd, explicitReviewReworkPath) : null;
+  const reviewReworkArtifactResolvedPath = explicitReviewReworkPath ? resolve(cwd, explicitReviewReworkPath) : null;
+  const effectiveReviewReworkArtifactPath = reviewReworkArtifactDisplayPath || state.review_rework_artifact_path || null;
+  if (explicitReviewReworkPath && !existsSync(reviewReworkArtifactResolvedPath)) {
+    throw new Error('build_from_review_artifact_missing');
+  }
   const consumesReviewBuild = state.current_stage === STAGES.REVIEW
-    && state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD
-    && state.approval.build === APPROVAL_STATES.APPROVED
-    && state.review_verdict === 'request-changes';
+    && state.review_verdict === 'request-changes'
+    && state.rollback_target === STAGES.BUILD
+    && (
+      state.pending_user_decision === TRANSITIONS.REVIEW_TO_BUILD
+      || state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD
+      || state.approval.build === APPROVAL_STATES.REQUESTED
+      || state.approval.build === APPROVAL_STATES.APPROVED
+    )
+    && Boolean(explicitReviewReworkPath);
   const resumesConsumedReviewBuild = state.current_stage === STAGES.BUILD
     && state.last_confirmed_transition === TRANSITIONS.REVIEW_TO_BUILD
     && state.approval.build === APPROVAL_STATES.APPROVED;
@@ -1541,9 +2659,27 @@ export async function buildStage(cwd, slug, options = {}) {
   const noDeslop = Boolean(options.noDeslop);
   const progressArtifacts = [];
   const supportArtifacts = [];
+  const ownerId = buildOwnerId(normalized);
   let iteration = 1;
   let current = null;
   let blockers = ['build_not_started'];
+  let delegationLedger = null;
+  let completionAudit = null;
+  let delegationLedgerPath = resolveBuildSupportPaths(root, 1).delegationLedger;
+  let completionAuditPath = resolveBuildSupportPaths(root, 1).completionAudit;
+  if (consumesReviewBuild || resumesConsumedReviewBuild) {
+    await generateBuildContextManifest({
+      cwd,
+      root,
+      state: {
+        ...state,
+        current_stage: STAGES.BUILD,
+        last_confirmed_transition: TRANSITIONS.REVIEW_TO_BUILD,
+        review_rework_artifact_path: reviewReworkArtifactResolvedPath || state.review_rework_artifact_path || artifactPath(root, 'review-report.md'),
+      },
+      slug: normalized,
+    });
+  }
   const buildManifest = await readContextManifest(buildContextManifestPath(root), { cwd });
   ensureValidContextManifest(buildManifest, STAGES.BUILD);
   const contextManifestStatus = buildManifest.status;
@@ -1556,6 +2692,14 @@ export async function buildStage(cwd, slug, options = {}) {
     max_iterations: maxIterations,
     review_handoff_ready: false,
     blockers,
+    build_owner_id: ownerId,
+    build_owner_session_id: buildOwnerSessionId(normalized, null),
+    delegation_ledger_path: displayPath(cwd, delegationLedgerPath),
+    active_delegation_count: 0,
+    completion_audit_path: displayPath(cwd, completionAuditPath),
+    completion_audit_status: 'pending',
+    next_action: 'Run build execution lanes and write execution-record.md.',
+    completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     workflow_root: root,
     execution_record_path: artifactPath(root, 'execution-record.md'),
     started_at: nowIso(),
@@ -1570,6 +2714,14 @@ export async function buildStage(cwd, slug, options = {}) {
       max_iterations: maxIterations,
       review_handoff_ready: false,
       blockers,
+      build_owner_id: ownerId,
+      build_owner_session_id: buildOwnerSessionId(normalized, null),
+      delegation_ledger_path: displayPath(cwd, delegationLedgerPath),
+      active_delegation_count: delegationLedger?.active_blocking_count || 0,
+      completion_audit_path: displayPath(cwd, completionAuditPath),
+      completion_audit_status: completionAudit?.status || 'pending',
+      next_action: 'Continue $build execution and gather fresh implementation evidence.',
+      completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
     current = await adapter.executeLanes({
       cwd,
@@ -1579,11 +2731,39 @@ export async function buildStage(cwd, slug, options = {}) {
       noDeslop,
       planArtifactPath: state.plan_artifact_path,
       testSpecArtifactPath: state.test_spec_artifact_path,
+      reviewReworkArtifactPath: reviewReworkArtifactDisplayPath || state.review_rework_artifact_path || null,
       contextManifestPath: buildContextManifestPath(root),
       contextManifestRows: buildManifest.rows,
       contextManifestStatus,
     });
-    blockers = buildIterationBlockers(current, { noDeslop });
+    const supportPaths = resolveBuildSupportPaths(root, current.iteration);
+    delegationLedgerPath = supportPaths.delegationLedger;
+    completionAuditPath = supportPaths.completionAudit;
+    delegationLedger = buildDelegationLedger({
+      slug: normalized,
+      ownerId,
+      ownerSessionId: buildOwnerSessionId(normalized, current?.runId || null),
+      iterationData: current,
+      previousLedger: delegationLedger,
+    });
+    const baseBlockers = buildIterationBlockers(current, { noDeslop });
+    completionAudit = await buildCompletionAudit({
+      cwd,
+      root,
+      slug: normalized,
+      state,
+      reviewReworkArtifactPath: effectiveReviewReworkArtifactPath,
+      iterationData: current,
+      ledger: delegationLedger,
+      baseBlockers,
+    });
+    const auditBlocksHandoff = !completionAudit.passed
+      && baseBlockers.length === 0;
+    blockers = dedupeStrings([
+      ...baseBlockers,
+      ...buildDelegationBlockers(delegationLedger),
+      ...(auditBlocksHandoff ? ['completion_audit_blocked'] : []),
+    ]);
     await writeBuildActiveState(cwd, {
       active: true,
       slug: normalized,
@@ -1592,10 +2772,29 @@ export async function buildStage(cwd, slug, options = {}) {
       max_iterations: maxIterations,
       review_handoff_ready: false,
       blockers,
+      build_owner_id: ownerId,
+      build_owner_session_id: buildOwnerSessionId(normalized, current?.runId || null),
+      delegation_ledger_path: displayPath(cwd, delegationLedgerPath),
+      active_delegation_count: delegationLedger.active_blocking_count,
+      completion_audit_path: displayPath(cwd, completionAuditPath),
+      completion_audit_status: completionAudit.status,
+      next_action: blockers.length === 0
+        ? 'Verify execution evidence and prepare build -> review handoff.'
+        : 'Continue $build to resolve blockers before review handoff.',
+      completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
-    const supportPaths = await writeBuildSupportArtifacts(root, current, noDeslop);
-    progressArtifacts.push(supportPaths.laneSummary);
-    supportArtifacts.push(supportPaths.architect, supportPaths.deslop, supportPaths.regression);
+    const writtenSupportPaths = await writeBuildSupportArtifacts(root, current, noDeslop, {
+      delegationLedger,
+      completionAudit,
+    });
+    progressArtifacts.push(writtenSupportPaths.laneSummary);
+    supportArtifacts.push(
+      writtenSupportPaths.architect,
+      writtenSupportPaths.deslop,
+      writtenSupportPaths.regression,
+      writtenSupportPaths.delegationLedger,
+      writtenSupportPaths.completionAudit,
+    );
     await writeText(
       artifactPath(root, 'execution-record.md'),
       buildExecutionRecordContent({
@@ -1624,6 +2823,7 @@ export async function buildStage(cwd, slug, options = {}) {
     stage_status: finalBlocked ? 'blocked' : 'awaiting-approval',
     execution_record_status: finalBlocked ? 'partial' : refreshed.state.execution_record_status,
     review_status: finalBlocked ? 'pending-input' : 'ready-for-review',
+    review_handoff_ready: !finalBlocked,
     build_run_id: current?.runId || null,
     build_current_iteration: current?.iteration || 0,
     build_max_iterations: maxIterations,
@@ -1637,6 +2837,15 @@ export async function buildStage(cwd, slug, options = {}) {
     build_progress_artifact_paths: progressArtifacts,
     build_support_evidence_paths: supportArtifacts,
     build_no_deslop: noDeslop,
+    build_owner_id: ownerId,
+    build_owner_session_id: buildOwnerSessionId(normalized, current?.runId || null),
+    build_owner_status: finalBlocked ? 'blocked' : 'review-ready',
+    build_delegation_status: delegationLedger?.status || 'drained',
+    build_delegation_ledger_path: delegationLedgerPath,
+    build_active_delegation_count: delegationLedger?.active_blocking_count || 0,
+    build_completion_audit_status: completionAudit?.status || (finalBlocked ? 'blocked' : 'passed'),
+    build_completion_audit_path: completionAuditPath,
+    review_rework_artifact_path: reviewReworkArtifactDisplayPath || state.review_rework_artifact_path || null,
     context_manifest_status: contextManifestStatus,
     build_context_manifest_path: buildContextManifestPath(root),
     review_context_manifest_path: reviewManifest?.path || reviewContextManifestPath(root),
@@ -1667,6 +2876,14 @@ export async function buildStage(cwd, slug, options = {}) {
     max_iterations: maxIterations,
     review_handoff_ready: !finalBlocked,
     blockers,
+    build_owner_id: ownerId,
+    build_owner_session_id: buildOwnerSessionId(normalized, current?.runId || null),
+    delegation_ledger_path: displayPath(cwd, delegationLedgerPath),
+    active_delegation_count: delegationLedger?.active_blocking_count || 0,
+    completion_audit_path: displayPath(cwd, completionAuditPath),
+    completion_audit_status: completionAudit?.status || (finalBlocked ? 'blocked' : 'passed'),
+    next_action: finalBlocked ? 'Run $build again after resolving recorded blockers.' : 'Approve build -> review and run $review.',
+    completion_signal: finalBlocked ? 'Build is stopped because real blockers remain recorded.' : 'execution-record.md is complete and build -> review handoff is ready.',
     execution_record_status: next.execution_record_status,
     execution_record_path: artifactPath(root, 'execution-record.md'),
     completed_at: nowIso(),
@@ -1674,9 +2891,10 @@ export async function buildStage(cwd, slug, options = {}) {
   return { root, state: next };
 }
 
-function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }) {
-  const inputManifest = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'review-support/code-review.json'];
+function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview, architectureReview }) {
+  const inputManifest = ['spec.md', ...PLAN_ARTIFACTS, 'execution-record.md', 'review-support/code-review.json', 'review-support/architecture-smell.json'];
   const evidenceManifest = Array.isArray(executionMeta.evidence_manifest) ? [...executionMeta.evidence_manifest] : [];
+  const scopeGate = executionScopeGate(executionMeta);
   const findings = [];
   let verdict = 'APPROVE';
   let rollbackTarget = 'none';
@@ -1700,6 +2918,23 @@ function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }
     rollbackTarget = 'plan';
     rollbackRationale = 'review 独立性校验失败，因为 reviewer 与执行者来源一致。';
   }
+  if (!scopeGate.ok) {
+    findings.push(`execution-record.md 声明只完成了部分 scope，不能批准完整工作流完成：${scopeGate.blockers.join(', ')}`);
+    if (scopeGate.plannedScope) {
+      findings.push(`planned_scope=${scopeGate.plannedScope}`);
+    }
+    if (scopeGate.implementedScope) {
+      findings.push(`implemented_scope=${scopeGate.implementedScope}`);
+    }
+    if (scopeGate.remainingScope.length > 0) {
+      findings.push(`remaining_scope=${scopeGate.remainingScope.join(', ')}`);
+    }
+    verdict = 'REQUEST CHANGES';
+    if (rollbackTarget === 'none') {
+      rollbackTarget = STAGES.BUILD;
+      rollbackRationale = '执行记录显示当前 build 只完成了部分 scope，需要回到 build 继续执行剩余工作，或回到 plan 重新拆分独立 slice。';
+    }
+  }
   if (codeReview?.status === 'skipped') {
     findings.push(`代码审查已跳过：${codeReview.summary}`);
   }
@@ -1717,6 +2952,25 @@ function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview }
       : rollbackTarget === STAGES.CLARIFY
         ? '代码审查暴露需求歧义，需要回到 clarify 阶段重新澄清。'
         : '代码审查发现计划或架构问题，需要回到 plan 阶段修订后重新执行。';
+  }
+  if (architectureReview?.verdict === 'warn') {
+    findings.push(`架构 smell 扫描提示风险：${architectureReview.summary}`);
+    for (const finding of architectureReview.findings || []) {
+      findings.push(architectureReviewFindingText(finding));
+    }
+  }
+  if (architectureReview?.verdict === 'block') {
+    findings.push(`架构 smell 扫描发现阻断问题：${architectureReview.summary}`);
+    for (const finding of architectureReview.findings || []) {
+      findings.push(architectureReviewFindingText(finding));
+    }
+    verdict = 'REQUEST CHANGES';
+    rollbackTarget = architectureReview.rollbackTarget || STAGES.PLAN;
+    rollbackRationale = rollbackTarget === STAGES.BUILD
+      ? '架构 smell 扫描发现实现边界问题，需要回到 build 阶段修复后重新 review。'
+      : rollbackTarget === STAGES.CLARIFY
+        ? '架构 smell 扫描暴露需求或领域语言歧义，需要回到 clarify 阶段重新澄清。'
+        : '架构 smell 扫描发现计划或模块 seam 问题，需要回到 plan 阶段修订。';
   }
 
   return {
@@ -1788,7 +3042,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       state: next,
       verdict: 'REQUEST CHANGES',
       rollbackTarget: 'build',
-      reviewMessageZh: `Review 结果：${normalized} 要求修改，已回到 build 阶段。\nNext:\n$build .loopx/plans/prd-${normalized}.md`,
+      reviewMessageZh: `Review 结果：${normalized} 要求修改，已回到 build 阶段。\nNext:\n${reviewReworkBuildCommand(normalized)}`,
     };
   }
 
@@ -1902,11 +3156,40 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
   await ensureDir(join(root, 'review-support'));
   await writeText(join(root, 'review-support', 'code-review.json'), JSON.stringify(codeReview, null, 2));
   await writeReviewChangedFiles(root, codeReview?.changedFiles || []);
+  let architectureReview = null;
+  if (reviewAdapter.architectureReview) {
+    try {
+      architectureReview = await reviewAdapter.architectureReview({
+        cwd,
+        root,
+        slug: normalized,
+        reviewer,
+        executionRecordPath: artifactPath(root, 'execution-record.md'),
+        planArtifactPath: refreshed.plan_artifact_path,
+        testSpecArtifactPath: refreshed.test_spec_artifact_path,
+        changeArtifactPaths: refreshed.change_artifact_paths,
+        contextManifestStatus: reviewManifest.status,
+        contextManifestPath: reviewContextManifestPath(root),
+        contextManifestRows: reviewManifest.rows,
+      });
+    } catch (error) {
+      architectureReview = architectureReviewFailureResult(error);
+    }
+  } else {
+    architectureReview = {
+      status: 'complete',
+      verdict: 'pass',
+      summary: '架构 smell 扫描通过。',
+      findings: [],
+    };
+  }
+  await writeText(join(root, 'review-support', 'architecture-smell.json'), JSON.stringify(architectureReview, null, 2));
   const reviewInput = reviewFindings({
     executionMeta: executionSummary.meta,
     executionStatus: refreshed.execution_record_status,
     reviewer,
     codeReview,
+    architectureReview,
   });
   reviewInput.inputManifest = manifestRowsToInputManifest(reviewManifest.rows, reviewInput.inputManifest);
   const runId = executionSummary.meta.run_id || refreshed.active_run_id || `${normalized}-unknown-run`;
@@ -1924,6 +3207,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       evidenceManifest: reviewInput.evidenceManifest,
       findings: reviewInput.findings,
       codeReview,
+      architectureReview,
     }),
   );
 
@@ -1988,7 +3272,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     state: next,
     verdict: reviewInput.verdict,
     rollbackTarget: reviewInput.rollbackTarget,
-    reviewMessageZh: `${reviewMessage} 代码审查：${codeReview.summary}${journalWarning ? ` journal 写入失败：${journalWarning}` : ''}`,
+    reviewMessageZh: `${reviewMessage} 代码审查：${codeReview.summary} 架构扫描：${architectureReview.summary}${journalWarning ? ` journal 写入失败：${journalWarning}` : ''}`,
   };
 }
 
@@ -2176,6 +3460,7 @@ async function listWorkflowSummaries(workflowsRoot) {
     workflows.push({
       slug,
       current_stage: state?.current_stage ?? null,
+      archive_status: state?.archive_status ?? null,
       contract: legacy ? 'legacy-codex-helper' : 'loopx-v1',
       legacy,
       schema_version: state?.schema_version ?? 0,
@@ -2208,6 +3493,7 @@ export async function statusSummary(cwd, slug) {
   const config = await readWorkspaceConfig(cwd);
   const workflowsRoot = join(workspaceRoot, 'workflows');
   const { hook } = await doctorRuntime(cwd);
+  const contextSetup = await inspectWorkspaceContext(cwd);
 
   if (!slug) {
     const workflows = await listWorkflowSummaries(workflowsRoot);
@@ -2219,6 +3505,7 @@ export async function statusSummary(cwd, slug) {
       workflow_count: workflows.length,
       summary: summarizeWorkspace(workflows),
       hook,
+      contextSetup,
       next_action: initialized ? 'Run loopx clarify <slug> to start a workflow, or inspect one with loopx status <slug>.' : 'Run loopx init to prepare the workspace.',
     };
   }
@@ -2246,6 +3533,7 @@ export async function statusSummary(cwd, slug) {
     artifacts,
     missing_artifacts: missing,
     hook,
+    contextSetup,
     next_action: effectiveState ? recommendedAction(effectiveState, legacy) : 'Run loopx clarify to start a workflow.',
   };
 }

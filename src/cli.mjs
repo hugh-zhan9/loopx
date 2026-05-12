@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
+import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { installBundledSkills } from './install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
+import { setupWorkspaceContext } from './workspace-context.mjs';
 
 function usage() {
   return [
@@ -13,9 +14,12 @@ function usage() {
     '  loopx approve <slug> --from <stage> --to <stage>',
     '  loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]',
     '  loopx build <slug> [--no-deslop]',
+    '  loopx build --from-review <review-report-path> [--no-deslop]',
     '  loopx review <slug> [--reviewer <name>]',
+    '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
     '  loopx status [slug] [--json]',
+    '  loopx setup-context',
     '  loopx doctor',
     '  loopx migrate',
     '  loopx repair-install',
@@ -94,6 +98,22 @@ function printHumanStatus(status) {
   if (status.state?.workspace_journal_path) {
     console.log(`workspace_journal_path: ${status.state.workspace_journal_path}`);
   }
+  if (status.state?.change_artifacts_status) {
+    console.log(`change_artifacts_status: ${status.state.change_artifacts_status}`);
+    console.log(`spec_delta_status: ${status.state.spec_delta_status ?? 'unknown'}`);
+    console.log(`spec_sync_status: ${status.state.spec_sync_status ?? 'unknown'}`);
+    console.log(`archive_status: ${status.state.archive_status ?? 'unknown'}`);
+  }
+  if (status.state?.readiness && status.state?.authorization) {
+    for (const key of ['plan', 'build', 'review', 'done', 'archive']) {
+      if (status.state.readiness[key]) {
+        console.log(`readiness_${key}: ${status.state.readiness[key].ready}`);
+      }
+      if (status.state.authorization[key]) {
+        console.log(`authorization_${key}: ${status.state.authorization[key].authorized}`);
+      }
+    }
+  }
   if (status.hook) {
     console.log(`hook_enabled: ${status.hook.enabled}`);
   }
@@ -127,6 +147,11 @@ async function main() {
         console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
         return;
       }
+      case 'setup-context': {
+        const contextSetup = await setupWorkspaceContext(process.cwd());
+        console.log(JSON.stringify({ ok: true, command, contextSetup }, null, 2));
+        return;
+      }
       case 'clarify': {
         const profile = options.get('--deep') ? 'deep' : 'standard';
         const result = await clarifyStage(process.cwd(), positionals[0], { profile });
@@ -151,8 +176,9 @@ async function main() {
         return;
       }
       case 'build': {
-        const result = await buildStage(process.cwd(), positionals[0], {
+        const result = await buildStage(process.cwd(), options.get('--from-review') ? undefined : positionals[0], {
           noDeslop: Boolean(options.get('--no-deslop')),
+          fromReviewPath: options.get('--from-review'),
         });
         console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
         return;
@@ -162,6 +188,11 @@ async function main() {
           reviewer: options.get('--reviewer') || 'independent-reviewer',
         });
         console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict, review_message_zh: result.reviewMessageZh }, result.state), null, 2));
+        return;
+      }
+      case 'archive': {
+        const result = await archiveStage(process.cwd(), positionals[0]);
+        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
         return;
       }
       case 'autopilot': {

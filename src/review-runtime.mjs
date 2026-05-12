@@ -94,6 +94,24 @@ function normalizeFinding(item) {
   };
 }
 
+function normalizeArchitectureReview(raw = {}) {
+  const normalizedVerdict = normalizeToken(raw?.verdict || 'pass');
+  const verdict = normalizedVerdict === 'block'
+    ? 'block'
+    : normalizedVerdict === 'warn'
+      ? 'warn'
+      : 'pass';
+  const normalizedRollbackTarget = normalizeToken(raw?.rollbackTarget);
+  const rollbackTarget = ['build', 'plan', 'clarify'].includes(normalizedRollbackTarget) ? normalizedRollbackTarget : null;
+  return {
+    status: raw?.status || 'complete',
+    verdict,
+    summary: raw?.summary || (verdict === 'pass' ? '架构 smell 扫描通过。' : '架构 smell 扫描发现风险。'),
+    rollbackTarget,
+    findings: Array.isArray(raw?.findings) ? raw.findings.map(normalizeFinding) : [],
+  };
+}
+
 function normalizeToken(value) {
   return String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
 }
@@ -187,6 +205,57 @@ export function buildCodeReviewPrompt(context, changedFiles, diffCheck = '') {
   ].join('\n');
 }
 
+export function buildArchitectureReviewPrompt(context, changedFiles) {
+  const gitStatusShort = truncateForPrompt(context.gitStatusShort || '');
+  const gitDiffStat = truncateForPrompt(context.gitDiffStat || '');
+  const gitDiff = truncateForPrompt(context.gitDiff || '');
+  const gitDiffEvidencePath = context.gitDiffEvidencePath || '';
+  return [
+    `你是 loopx workflow "${context.slug}" 的 architecture smell reviewer。`,
+    '这是 `$review` 内部的轻量架构检查 lane，不是新阶段，不要修改文件，不要运行 build。',
+    '你的目标是发现会影响长期可维护性、测试 seam、领域边界或 plan 架构假设落地的真实问题。',
+    '只在问题足够严重、需要回退 plan/build/clarify 时返回 verdict "block"；普通建议用 "warn"；没有实质问题用 "pass"。',
+    '',
+    '重点检查：',
+    '- 浅模块：接口复杂度接近或超过实现复杂度。',
+    '- 缺少稳定测试 seam：关键行为无法通过公共接口验证。',
+    '- 领域概念泄漏：同一领域规则散落在无关模块或跨层穿透。',
+    '- 重复规则：同一业务规则被多处复制实现。',
+    '- plan 架构假设与实际实现不一致。',
+    '',
+    '请返回纯 JSON，不要 markdown，结构必须是：',
+    '{',
+    '  "status": "complete" | "skipped",',
+    '  "verdict": "pass" | "warn" | "block",',
+    '  "summary": "中文摘要",',
+    '  "rollbackTarget": "build" | "plan" | "clarify" | null,',
+    '  "findings": [{"severity": "high" | "medium" | "low", "file": "相对路径", "line": number | null, "message": "中文问题说明"}]',
+    '}',
+    '',
+    'verdict 为 "block" 时 rollbackTarget 必须非 null。',
+    '实现边界或测试 seam 可局部修复时 rollbackTarget 用 "build"。',
+    '计划模块 seam、架构方向或 slice 拆解错误时 rollbackTarget 用 "plan"。',
+    '领域语言或需求边界仍不清楚时 rollbackTarget 用 "clarify"。',
+    '',
+    `executionRecordPath: ${context.executionRecordPath}`,
+    `planArtifactPath: ${context.planArtifactPath || ''}`,
+    `testSpecArtifactPath: ${context.testSpecArtifactPath || ''}`,
+    `changeArtifactPaths: ${JSON.stringify(context.changeArtifactPaths || {})}`,
+    ...reviewContextPromptLines(context),
+    ...(gitDiffEvidencePath ? [
+      `完整 git diff evidence 文件: ${gitDiffEvidencePath}`,
+      '当前 prompt 中的 git diff 是紧凑预览；必须读取该文件后再判断是否存在架构 smell。',
+    ] : []),
+    `changedFiles: ${JSON.stringify(changedFiles)}`,
+    '',
+    `当前 git status --short:\n${gitStatusShort || '(empty)'}`,
+    '',
+    `当前 git diff --stat:\n${gitDiffStat || '(empty)'}`,
+    '',
+    `当前 git diff -- HEAD:\n${gitDiff || '(empty)'}`,
+  ].join('\n');
+}
+
 export function createRealReviewAdapter({ model, codexReviewJson = runCodexReviewJson } = {}) {
   return {
     async codeReview(context) {
@@ -243,6 +312,47 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
       });
       return normalizeCodeReview(raw, changedFiles);
     },
+    async architectureReview(context) {
+      if (!(await isGitWorktree(context.cwd))) {
+        return normalizeArchitectureReview({
+          status: 'skipped',
+          verdict: 'pass',
+          summary: '当前目录不是 git 工作区，已跳过架构 smell 扫描。',
+          findings: [],
+        });
+      }
+      const statusText = await gitOutput(context.cwd, ['status', '--short']);
+      const changedFiles = parseChangedFiles(statusText);
+      if (changedFiles.length === 0) {
+        return normalizeArchitectureReview({
+          status: 'complete',
+          verdict: 'pass',
+          summary: '未检测到代码差异，架构 smell 扫描通过。',
+          findings: [],
+        });
+      }
+      const gitDiffStat = await gitOutput(context.cwd, ['diff', '--stat', 'HEAD', '--']);
+      const gitDiff = await buildReviewDiffEvidence(context.cwd, statusText);
+      await mkdir(join(context.root, 'review-support'), { recursive: true });
+      const outputPath = join(context.root, 'review-support', 'architecture-smell.raw.json');
+      const gitDiffEvidencePath = join(context.root, 'review-support', 'code-review-diff.patch');
+      const prompt = buildArchitectureReviewPrompt({
+        ...context,
+        gitStatusShort: statusText,
+        gitDiffStat,
+        gitDiff,
+        gitDiffEvidencePath,
+      }, changedFiles);
+      const raw = await codexReviewJson({
+        cwd: context.cwd,
+        prompt,
+        outputPath,
+        model,
+        reviewMode: true,
+        uncommitted: true,
+      });
+      return normalizeArchitectureReview(raw);
+    },
   };
 }
 
@@ -255,6 +365,14 @@ export function createScriptedReviewAdapter(script = {}) {
         summary: '脚本化 code review 通过。',
         findings: [],
       }, script.changedFiles || []);
+    },
+    async architectureReview() {
+      return normalizeArchitectureReview(script.architectureReview || {
+        status: 'complete',
+        verdict: 'pass',
+        summary: '架构 smell 扫描通过。',
+        findings: [],
+      });
     },
   };
 }

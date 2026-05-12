@@ -20,6 +20,7 @@ const LOOPX_SKILLS = [
   'build',
   'review',
   'autopilot',
+  'archive',
   'debug',
   'tdd',
   'verify',

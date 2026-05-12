@@ -2,6 +2,8 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 
+import { inspectWorkspaceContext, resolveWorkspaceContextPaths } from './workspace-context.mjs';
+
 export const CONTEXT_MANIFEST_SCHEMA_VERSION = 1;
 const MAX_MANIFEST_ROWS = 80;
 
@@ -119,6 +121,11 @@ export function reviewContextManifestPath(root) {
 }
 
 export async function generateBuildContextManifest({ cwd, root, state, slug }) {
+  const contextPaths = resolveWorkspaceContextPaths(cwd);
+  const contextSetup = await inspectWorkspaceContext(cwd);
+  const reviewReworkPath = state.review_rework_artifact_path || join(root, 'review-report.md');
+  const requiresReviewRework = state.last_confirmed_transition === 'review->build'
+    || (state.current_stage === 'review' && state.rollback_target === 'build');
   const rows = [
     row(cwd, { stage: 'build', kind: 'spec', path: join(root, 'spec.md'), reason: 'clarified_requirements', priority: 10 }),
     row(cwd, { stage: 'build', kind: 'plan', path: join(root, 'plan.md'), reason: 'implementation_strategy', priority: 20 }),
@@ -127,6 +134,10 @@ export async function generateBuildContextManifest({ cwd, root, state, slug }) {
     row(cwd, { stage: 'build', kind: 'test-plan', path: join(root, 'test-plan.md'), reason: 'verification_strategy', priority: 23 }),
     row(cwd, { stage: 'build', kind: 'prd', path: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `prd-${slug}.md`), reason: 'requirements', priority: 30 }),
     row(cwd, { stage: 'build', kind: 'test-spec', path: state.test_spec_artifact_path || join(cwd, '.loopx', 'plans', `test-spec-${slug}.md`), reason: 'test_requirements', priority: 31 }),
+    row(cwd, { stage: 'build', kind: 'vertical-slices', path: state.change_artifact_paths?.slices || join(cwd, '.loopx', 'changes', 'active', state.change_id || `chg-${slug}`, 'slices.json'), reason: 'end_to_end_delivery_slices', priority: 32 }),
+    row(cwd, { stage: 'build', kind: 'review-rework', path: reviewReworkPath, reason: 'review_requested_implementation_fixes', priority: 33, required: requiresReviewRework }),
+    row(cwd, { stage: 'build', kind: 'domain-context', path: contextPaths.domainGlossary, reason: 'domain_vocabulary', priority: 34, required: contextSetup.status !== 'missing' }),
+    row(cwd, { stage: 'build', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 35, required: false }),
   ];
   const manifestPath = buildContextManifestPath(root);
   await writeContextManifest(manifestPath, rows);
@@ -134,13 +145,18 @@ export async function generateBuildContextManifest({ cwd, root, state, slug }) {
 }
 
 export async function generateReviewContextManifest({ cwd, root, state, slug }) {
+  const contextPaths = resolveWorkspaceContextPaths(cwd);
+  const contextSetup = await inspectWorkspaceContext(cwd);
   const rows = [
     row(cwd, { stage: 'review', kind: 'execution-record', path: join(root, 'execution-record.md'), reason: 'execution_evidence', priority: 10 }),
     row(cwd, { stage: 'review', kind: 'test-spec', path: state.test_spec_artifact_path || join(cwd, '.loopx', 'plans', `test-spec-${slug}.md`), reason: 'acceptance_tests', priority: 20 }),
     row(cwd, { stage: 'review', kind: 'prd', path: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `prd-${slug}.md`), reason: 'requirements', priority: 21 }),
+    row(cwd, { stage: 'review', kind: 'vertical-slices', path: state.change_artifact_paths?.slices || join(cwd, '.loopx', 'changes', 'active', state.change_id || `chg-${slug}`, 'slices.json'), reason: 'slice_verification_contract', priority: 22 }),
+    row(cwd, { stage: 'review', kind: 'domain-context', path: contextPaths.domainGlossary, reason: 'terminology_and_boundary_review', priority: 23, required: contextSetup.status !== 'missing' }),
     row(cwd, { stage: 'review', kind: 'changed-files', path: join(root, 'review-support', 'changed-files.json'), reason: 'changed_file_evidence', priority: 25, required: false }),
     row(cwd, { stage: 'review', kind: 'residual-risks', path: join(root, 'execution-record.md'), reason: 'residual_risk_reference', priority: 26, required: false }),
     row(cwd, { stage: 'review', kind: 'build-support', path: join(root, 'build-support'), reason: 'build_gate_evidence', priority: 30, required: false }),
+    row(cwd, { stage: 'review', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 31, required: false }),
     row(cwd, { stage: 'review', kind: 'state', path: join(root, 'state.json'), reason: 'workflow_state', priority: 40 }),
   ];
   const manifestPath = reviewContextManifestPath(root);

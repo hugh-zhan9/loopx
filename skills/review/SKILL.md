@@ -27,6 +27,7 @@ When invoked with an execution record path, derive `<slug>` from the workflow di
 - a review artifact tied to the run being evaluated
 - verdict and rationale
 - code review findings for the implementation diff, including file / line references when issues are found
+- architecture-smell findings from the internal review lane, focused on module depth, test seams, domain vocabulary, duplicated rules, and plan architecture alignment
 - rollback/fix guidance when execution is incomplete, unstable, or needs another iteration
 - an explicit `Next:` block with the exact next skill command when more work remains
 
@@ -41,8 +42,11 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 - Use this only after build has produced execution and verification evidence for a specific run.
 - Stop here if review evidence is incomplete. `review` remains an independent gate and does not auto-complete the workflow.
 - Review must include code review of the build-owned implementation diff. Do not limit review to artifact/schema checks.
+- Review must include the architecture-smell lane as part of review evidence. This is not a new workflow stage and must not create extra user steps.
+- Review must compare the execution scope against the approved workflow scope. If `execution-record.md` declares non-empty `remaining_scope`, `completion_claim` other than `full`, or a mismatch between `planned_scope` and `implemented_scope`, review must return no-go and route to build or plan. A partial slice may be accepted as useful work, but it must not be approved as full workflow completion.
 - Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.
 - If code review finds blocking high or medium severity issues, return a no-go verdict and rollback guidance instead of approving completion.
+- If architecture-smell findings are only advisory, record them as warnings without blocking. Block only when module seams, testability, domain boundaries, duplicated rules, or plan architecture assumptions are materially wrong.
 - Route request-changes by problem type:
   - implementation bugs, missing tests, small contract fixes: `review -> build`
   - wrong plan, wrong architecture, unresolved execution inputs: `review -> plan`
@@ -57,8 +61,15 @@ For implementation fixes:
 
 ```text
 Next:
-loopx approve <slug> --from review --to build
-$build .loopx/plans/prd-<slug>.md
+$build --from-review .loopx/workflows/<slug>/review-report.md
+```
+
+The review artifact is the direct rework contract for implementation fixes. `$build --from-review ...` must load the review findings first, while still using the approved PRD, test spec, previous `execution-record.md`, and workflow-local plan package as supporting context. Do not make the normal Codex-facing handoff require a separate bash `loopx approve ... --from review --to build` step.
+
+For CLI/runtime debugging only, the equivalent state transition is:
+
+```bash
+loopx build --from-review .loopx/workflows/<slug>/review-report.md
 ```
 
 For plan fixes:
@@ -84,11 +95,20 @@ Next:
 loopx approve <slug> --from review --to done
 ```
 
+After the workflow reaches `done`, run:
+
+```text
+$archive <slug>
+```
+
+This syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived `.loopx/specs/` files and moves the change folder under `.loopx/changes/archive/<change-id>/`.
+
 ## Support Skill Review Lenses
 
 Use loopx support skills as review lenses, not as implementation instructions:
 
 - `verify`: Evidence lens. Reject completion, passing, or review-ready claims that lack fresh command output and exit status.
+- `scope`: Completion lens. Reject full-completion claims when the execution record still declares remaining workflow scope or only a partial slice was implemented.
 - `tdd`: Behavior-change lens. Feature work and bug fixes should include failing-test or regression-test evidence unless the execution record explicitly explains why tests are not applicable.
 - `debug`: Failure-analysis lens. Fixes for bugs, test failures, build failures, and unexpected behavior should document root cause, not only symptoms or attempted patches.
 - `go-style`: Go diff lens. For `.go` changes, review happy-path structure, error handling, context usage, interface boundaries, naming, table tests, and `gofmt`/Go verification evidence.
