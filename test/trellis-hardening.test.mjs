@@ -744,7 +744,7 @@ describe('trellis-inspired loopx hardening', () => {
     ]);
   });
 
-  it('includes untracked file content in review diff evidence', async () => {
+  it('excludes untracked file content from default review diff evidence', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-review-diff-'));
     await execFileAsync('git', ['init'], { cwd: wd });
     await writeFile(join(wd, 'tracked.txt'), 'old\n');
@@ -769,11 +769,72 @@ describe('trellis-inspired loopx hardening', () => {
     const diff = await buildReviewDiffEvidence(wd, status);
 
     assert.match(diff, /tracked\.txt/);
-    assert.match(diff, /untracked\.txt/);
-    assert.match(diff, /untracked review evidence/);
-    assert.match(diff, /newdir\/nested\.txt/);
-    assert.match(diff, /nested untracked review evidence/);
+    assert.doesNotMatch(diff, /untracked\.txt/);
+    assert.doesNotMatch(diff, /untracked review evidence/);
+    assert.doesNotMatch(diff, /newdir\/nested\.txt/);
+    assert.doesNotMatch(diff, /nested untracked review evidence/);
     assert.doesNotMatch(diff, /Could not access/);
+  });
+
+  it('includes only build-owned untracked files in review diff evidence when allowlisted', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-build-owned-diff-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await writeFile(join(wd, 'src', 'new-feature.mjs'), 'export const ok = true;\n');
+    await writeFile(join(wd, '.tmp-secret.env'), 'SECRET=value\n');
+    const status = (await execFileAsync('git', ['status', '--short'], { cwd: wd })).stdout.trim();
+
+    const diff = await buildReviewDiffEvidence(wd, status, {
+      changedFiles: ['src/new-feature.mjs'],
+    });
+
+    assert.match(diff, /src\/new-feature\.mjs/);
+    assert.match(diff, /export const ok = true/);
+    assert.doesNotMatch(diff, /\.tmp-secret\.env/);
+    assert.doesNotMatch(diff, /SECRET=value/);
+  });
+
+  it('does not expand an untracked status directory beyond allowlisted files', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-build-owned-dir-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await writeFile(join(wd, 'src', 'a.mjs'), 'export const buildOwned = true;\n');
+    await writeFile(join(wd, 'src', 'local-secret.mjs'), 'export const secret = "local";\n');
+    const status = (await execFileAsync('git', ['status', '--short'], { cwd: wd })).stdout.trim();
+
+    assert.deepEqual(parseUntrackedFiles(status), ['src/']);
+    const diff = await buildReviewDiffEvidence(wd, status, {
+      changedFiles: ['src/a.mjs'],
+    });
+
+    assert.match(diff, /src\/a\.mjs/);
+    assert.match(diff, /buildOwned = true/);
+    assert.doesNotMatch(diff, /local-secret\.mjs/);
+    assert.doesNotMatch(diff, /secret = "local"/);
   });
 
   it('real review adapter uses the dedicated codex review executor', async () => {
@@ -821,12 +882,207 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(review.verdict, 'approve');
     assert.equal(captured.reviewMode, true);
     assert.equal(captured.uncommitted, true);
+    assert.equal(captured.model, 'gpt-5.4');
     assert.match(captured.prompt, /请返回纯 JSON/);
     assert.match(captured.prompt, /完整 git diff evidence 文件/);
     assert.match(captured.outputPath, /code-review\.raw\.json$/);
     assert.equal(existsSync(join(root, 'review-support', 'code-review-diff.patch')), true);
     const diffEvidence = await readFile(join(root, 'review-support', 'code-review-diff.patch'), 'utf8');
     assert.match(diffEvidence, /tracked\.txt/);
+  });
+
+  it('real review adapter uses build-owned changed files instead of all untracked files', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-build-owned-adapter-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await writeFile(join(wd, 'src', 'created-by-build.mjs'), 'export const built = true;\n');
+    await writeFile(join(wd, '.tmp-local.env'), 'LOCAL_SECRET=value\n');
+    const root = join(wd, '.loopx', 'workflows', 'review-build-owned');
+    let captured = null;
+    const adapter = createRealReviewAdapter({
+      codexReviewJson: async (options) => {
+        captured = options;
+        return {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '专用 review executor 通过。',
+          findings: [],
+        };
+      },
+    });
+
+    const review = await adapter.codeReview({
+      cwd: wd,
+      root,
+      slug: 'review-build-owned',
+      executionRecordPath: 'execution-record.md',
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'review-context.jsonl',
+      contextManifestRows: [],
+      buildOwnedChangedFiles: ['src/created-by-build.mjs'],
+    });
+
+    assert.equal(review.verdict, 'approve');
+    assert.deepEqual(review.changedFiles, ['src/created-by-build.mjs']);
+    assert.match(captured.prompt, /src\/created-by-build\.mjs/);
+    assert.doesNotMatch(captured.prompt, /\.tmp-local\.env/);
+    const diffEvidence = await readFile(join(root, 'review-support', 'code-review-diff.patch'), 'utf8');
+    assert.match(diffEvidence, /export const built = true/);
+    assert.doesNotMatch(diffEvidence, /LOCAL_SECRET=value/);
+  });
+
+  it('real review adapter treats explicit empty build-owned files as an empty review scope', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-empty-build-owned-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await writeFile(join(wd, 'tracked.txt'), 'new\n');
+    await writeFile(join(wd, '.tmp-local.env'), 'LOCAL_SECRET=value\n');
+    const root = join(wd, '.loopx', 'workflows', 'review-empty-build-owned');
+    let captured = null;
+    const adapter = createRealReviewAdapter({
+      codexReviewJson: async (options) => {
+        captured = options;
+        return {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '不应调用。',
+          findings: [],
+        };
+      },
+    });
+
+    const review = await adapter.codeReview({
+      cwd: wd,
+      root,
+      slug: 'review-empty-build-owned',
+      executionRecordPath: 'execution-record.md',
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'review-context.jsonl',
+      contextManifestRows: [],
+      buildOwnedChangedFiles: [],
+    });
+
+    assert.equal(review.verdict, 'approve');
+    assert.deepEqual(review.changedFiles, []);
+    assert.equal(captured, null);
+  });
+
+  it('real review adapter blocks unavailable build-owned file metadata instead of falling back to workspace diff', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-unavailable-build-owned-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await writeFile(join(wd, 'tracked.txt'), 'new\n');
+    await writeFile(join(wd, '.tmp-local.env'), 'LOCAL_SECRET=value\n');
+    const root = join(wd, '.loopx', 'workflows', 'review-unavailable-build-owned');
+    let captured = null;
+    const adapter = createRealReviewAdapter({
+      codexReviewJson: async (options) => {
+        captured = options;
+        return {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '不应调用。',
+          findings: [],
+        };
+      },
+    });
+
+    const review = await adapter.codeReview({
+      cwd: wd,
+      root,
+      slug: 'review-unavailable-build-owned',
+      executionRecordPath: 'execution-record.md',
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'review-context.jsonl',
+      contextManifestRows: [],
+      buildOwnedChangedFilesStatus: 'unavailable',
+    });
+
+    assert.equal(review.verdict, 'request-changes');
+    assert.equal(review.rollbackTarget, 'build');
+    assert.deepEqual(review.changedFiles, []);
+    assert.match(review.findings[0].message, /changed_files/);
+    assert.equal(captured, null);
+  });
+
+  it('real review adapter rejects directory entries in build-owned changed files', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-directory-build-owned-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await writeFile(join(wd, 'src', 'local-secret.mjs'), 'export const secret = "local";\n');
+    const root = join(wd, '.loopx', 'workflows', 'review-directory-build-owned');
+    let captured = null;
+    const adapter = createRealReviewAdapter({
+      codexReviewJson: async (options) => {
+        captured = options;
+        return {
+          status: 'complete',
+          verdict: 'approve',
+          summary: '不应调用。',
+          findings: [],
+        };
+      },
+    });
+
+    const review = await adapter.codeReview({
+      cwd: wd,
+      root,
+      slug: 'review-directory-build-owned',
+      executionRecordPath: 'execution-record.md',
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'review-context.jsonl',
+      contextManifestRows: [],
+      buildOwnedChangedFiles: ['src/'],
+      buildOwnedChangedFilesStatus: 'present',
+    });
+
+    assert.equal(review.verdict, 'request-changes');
+    assert.equal(review.rollbackTarget, 'build');
+    assert.deepEqual(review.changedFiles, []);
+    assert.match(review.findings[0].message, /具体文件/);
+    assert.equal(captured, null);
   });
 
   it('codex review executor uses schema-constrained stdin prompts', async () => {

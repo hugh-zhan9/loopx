@@ -7,8 +7,10 @@
 当前公开流程：
 
 ```text
-clarify -> plan -> build -> review
+clarify -> plan -> build -> review -> approve review->done -> archive
 ```
+
+`done` 是通过 `loopx approve <slug> --from review --to done` 进入的运行时完成状态，不是单独的 Codex skill。
 
 评审通过并进入 `done` 后，可以执行 archive，把本次被接受的 change delta 合并到长期 specs。
 
@@ -107,7 +109,6 @@ loopx review my-task
 
 ```bash
 loopx approve my-task --from review --to done
-loopx review my-task
 ```
 
 把已接受行为归档到长期 specs：

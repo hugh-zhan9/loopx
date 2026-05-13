@@ -1260,6 +1260,10 @@ async function readJsonIfExists(path) {
 
 async function buildCompletionAudit({ cwd, root, slug, state, reviewReworkArtifactPath = null, iterationData, ledger, baseBlockers }) {
   const checklist = [];
+  const iterationEvidence = [
+    ...(iterationData.executionEvidence || []),
+    ...(iterationData.verificationEvidence || []),
+  ].filter(Boolean).map(String);
   const addChecklistItem = (item) => {
     checklist.push({
       status: 'covered',
@@ -1297,15 +1301,17 @@ async function buildCompletionAudit({ cwd, root, slug, state, reviewReworkArtifa
   const slicesPayload = await readJsonIfExists(state.change_artifact_paths?.slices);
   const slices = Array.isArray(slicesPayload?.slices) ? slicesPayload.slices : [];
   for (const slice of slices) {
+    const signal = String(slice.verification_signal || '').trim();
+    const usesLegacyGenericSignal = signal === 'execution-record.md verification evidence';
+    const sliceEvidence = usesLegacyGenericSignal
+      ? iterationEvidence
+      : iterationEvidence.filter((item) => item.includes(signal));
     addChecklistItem({
       id: slice.id || `slice-${checklist.length + 1}`,
       source: 'vertical-slice',
-      requirement: slice.behavior || slice.verification_signal || 'vertical slice',
-      evidence: [
-        slice.verification_signal,
-        ...(iterationData.executionEvidence || []),
-        ...(iterationData.verificationEvidence || []),
-      ].filter(Boolean),
+      status: sliceEvidence.length > 0 ? 'covered' : 'missing-evidence',
+      requirement: slice.behavior || signal || 'vertical slice',
+      evidence: sliceEvidence,
     });
   }
 
@@ -1362,6 +1368,7 @@ function buildExecutionRecordContent({ slug, iterationData, complete }) {
       completed_at: nowIso(),
       checkpoint_count: iterationData.lanes.length,
       evidence_manifest: iterationData.lanes.flatMap((lane) => lane.evidence || []),
+      changed_files: iterationData.changedFiles || [],
     }),
     `# loopx Execution Record: ${slug}`,
     '',
@@ -2662,6 +2669,7 @@ export async function buildStage(cwd, slug, options = {}) {
   const ownerId = buildOwnerId(normalized);
   let iteration = 1;
   let current = null;
+  let accumulatedChangedFiles = [];
   let blockers = ['build_not_started'];
   let delegationLedger = null;
   let completionAudit = null;
@@ -2736,6 +2744,14 @@ export async function buildStage(cwd, slug, options = {}) {
       contextManifestRows: buildManifest.rows,
       contextManifestStatus,
     });
+    accumulatedChangedFiles = dedupeStrings([
+      ...accumulatedChangedFiles,
+      ...(Array.isArray(current.changedFiles) ? current.changedFiles : []),
+    ]);
+    current = {
+      ...current,
+      changedFiles: accumulatedChangedFiles,
+    };
     const supportPaths = resolveBuildSupportPaths(root, current.iteration);
     delegationLedgerPath = supportPaths.delegationLedger;
     completionAuditPath = supportPaths.completionAudit;
@@ -2903,14 +2919,14 @@ function reviewFindings({ executionMeta, executionStatus, reviewer, codeReview, 
   if (executionStatus !== 'complete') {
     findings.push('execution-record.md 缺少必要的执行或验证证据。');
     verdict = 'REQUEST CHANGES';
-    rollbackTarget = 'plan';
-    rollbackRationale = '执行证据不完整，工作流需要回退到计划阶段后再重新执行。';
+    rollbackTarget = STAGES.BUILD;
+    rollbackRationale = '执行证据不完整，工作流需要回到 build 阶段补齐执行和验证证据后重新 review。';
   }
   if (!Array.isArray(executionMeta.evidence_manifest) || executionMeta.evidence_manifest.length === 0) {
     findings.push('execution-record.md 缺少必需的 evidence_manifest 结构。');
     verdict = 'REQUEST CHANGES';
-    rollbackTarget = 'plan';
-    rollbackRationale = '执行证据结构不完整，review 不能接受本次运行。';
+    rollbackTarget = STAGES.BUILD;
+    rollbackRationale = '执行证据结构不完整，review 不能接受本次运行，需要回到 build 阶段补齐 evidence_manifest。';
   }
   if (executionMeta.actor_id === reviewer) {
     findings.push('Reviewer 来源与执行者一致，不满足独立审查要求。');
@@ -3133,6 +3149,12 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
     ensureApprovedTransition(state, TRANSITIONS.BUILD_TO_REVIEW, 'review');
   }
   const { state: refreshed, executionSummary } = await refreshExecutionStatus(root, state);
+  const buildOwnedChangedFilesStatus = Object.hasOwn(executionSummary.meta, 'changed_files')
+    ? 'present'
+    : 'unavailable';
+  const buildOwnedChangedFiles = buildOwnedChangedFilesStatus === 'present' && Array.isArray(executionSummary.meta.changed_files)
+    ? executionSummary.meta.changed_files
+    : [];
   const reviewManifest = await readContextManifest(reviewContextManifestPath(root), { cwd });
   ensureValidContextManifest(reviewManifest, STAGES.REVIEW);
   const reviewAdapter = adapter || createDefaultReviewAdapter();
@@ -3146,9 +3168,11 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
       executionRecordPath: artifactPath(root, 'execution-record.md'),
       planArtifactPath: refreshed.plan_artifact_path,
       testSpecArtifactPath: refreshed.test_spec_artifact_path,
+      buildOwnedChangedFiles,
       contextManifestStatus: reviewManifest.status,
       contextManifestPath: reviewContextManifestPath(root),
       contextManifestRows: reviewManifest.rows,
+      buildOwnedChangedFilesStatus,
     });
   } catch (error) {
     codeReview = codeReviewFailureResult(error);
@@ -3168,9 +3192,11 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
         planArtifactPath: refreshed.plan_artifact_path,
         testSpecArtifactPath: refreshed.test_spec_artifact_path,
         changeArtifactPaths: refreshed.change_artifact_paths,
+        buildOwnedChangedFiles,
         contextManifestStatus: reviewManifest.status,
         contextManifestPath: reviewContextManifestPath(root),
         contextManifestRows: reviewManifest.rows,
+        buildOwnedChangedFilesStatus,
       });
     } catch (error) {
       architectureReview = architectureReviewFailureResult(error);

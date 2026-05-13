@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { readdir, stat, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { runCodexReviewJson } from './codex-exec-runtime.mjs';
@@ -52,6 +52,14 @@ export function parseUntrackedFiles(statusText) {
     .filter((file) => file && !file.startsWith('.loopx/') && !file.startsWith('.codex-helper/') && !file.startsWith('.LoopX/'));
 }
 
+function normalizeChangedFiles(files = []) {
+  return [...new Set((Array.isArray(files) ? files : [])
+    .map((file) => String(file || '').trim())
+    .filter(Boolean)
+    .filter((file) => !isAbsolute(file) && !file.split(/[\\/]+/).includes('..'))
+    .filter((file) => !file.startsWith('.loopx/') && !file.startsWith('.codex-helper/') && !file.startsWith('.LoopX/')))];
+}
+
 async function expandUntrackedPath(cwd, file) {
   const fullPath = join(cwd, file);
   const info = await stat(fullPath);
@@ -65,9 +73,24 @@ async function expandUntrackedPath(cwd, file) {
   return nested.flat();
 }
 
-export async function buildReviewDiffEvidence(cwd, statusText) {
-  const trackedDiff = await gitOutput(cwd, ['diff', 'HEAD', '--']);
-  const untrackedFiles = parseUntrackedFiles(statusText);
+async function scopedUntrackedFiles(cwd, scopedFiles) {
+  const batches = await Promise.all(scopedFiles.map(async (file) => {
+    const output = await gitOutputAllowExit(cwd, ['ls-files', '--others', '--exclude-standard', '--', file]);
+    return output.split('\n').map((item) => item.trim()).filter(Boolean);
+  }));
+  return normalizeChangedFiles(batches.flat());
+}
+
+export async function buildReviewDiffEvidence(cwd, statusText, { changedFiles = null, includeUntracked = false } = {}) {
+  const scopedFiles = normalizeChangedFiles(changedFiles);
+  const pathspec = scopedFiles.length > 0 ? scopedFiles : [];
+  const trackedDiff = await gitOutput(cwd, ['diff', 'HEAD', '--', ...pathspec]);
+  if (!includeUntracked && scopedFiles.length === 0) {
+    return trackedDiff;
+  }
+  const untrackedFiles = scopedFiles.length > 0
+    ? await scopedUntrackedFiles(cwd, scopedFiles)
+    : parseUntrackedFiles(statusText).filter(() => includeUntracked);
   const untrackedDiffs = [];
   for (const file of untrackedFiles) {
     for (const expandedFile of await expandUntrackedPath(cwd, file)) {
@@ -75,6 +98,21 @@ export async function buildReviewDiffEvidence(cwd, statusText) {
     }
   }
   return [trackedDiff, ...untrackedDiffs].filter(Boolean).join('\n\n');
+}
+
+async function buildGitDiffStat(cwd, changedFiles = []) {
+  const scopedFiles = normalizeChangedFiles(changedFiles);
+  return gitOutput(cwd, ['diff', '--stat', 'HEAD', '--', ...scopedFiles]);
+}
+
+async function buildDiffCheck(cwd, changedFiles = []) {
+  const scopedFiles = normalizeChangedFiles(changedFiles);
+  try {
+    await gitOutput(cwd, ['diff', '--check', 'HEAD', '--', ...scopedFiles]);
+    return '';
+  } catch (error) {
+    return error?.stdout || error?.stderr || error?.message || String(error);
+  }
 }
 
 function normalizeFinding(item) {
@@ -92,6 +130,56 @@ function normalizeFinding(item) {
     line: item?.line || null,
     message: item?.message || item?.summary || '未提供具体说明。',
   };
+}
+
+function unavailableChangedFilesReview() {
+  return {
+    status: 'complete',
+    verdict: 'request-changes',
+    summary: 'build 执行记录未提供可审查的 changed_files 范围，review 已阻断以避免扩大到全工作区。',
+    rollbackTarget: 'build',
+    changedFiles: [],
+    findings: [{
+      severity: 'medium',
+      file: 'execution-record.md',
+      line: null,
+      message: 'execution-record.md 缺少 changed_files 或标记为 unavailable；需要 build 重新生成明确的 changed_files 后再 review。',
+    }],
+  };
+}
+
+function directoryChangedFilesReview(directoryFiles = []) {
+  return {
+    status: 'complete',
+    verdict: 'request-changes',
+    summary: 'build 执行记录的 changed_files 包含目录项，review 已阻断以避免扩大到目录内所有文件。',
+    rollbackTarget: 'build',
+    changedFiles: [],
+    findings: [{
+      severity: 'medium',
+      file: 'execution-record.md',
+      line: null,
+      message: `changed_files 必须列出具体文件，不能使用目录项：${directoryFiles.join(', ')}`,
+    }],
+  };
+}
+
+async function findDirectoryChangedFiles(cwd, changedFiles = []) {
+  const directories = [];
+  for (const file of changedFiles) {
+    if (file.endsWith('/') || file.endsWith('\\')) {
+      directories.push(file);
+      continue;
+    }
+    try {
+      if ((await stat(join(cwd, file))).isDirectory()) {
+        directories.push(file);
+      }
+    } catch {
+      // Missing paths can be valid deleted/renamed files in git diffs.
+    }
+  }
+  return directories;
 }
 
 function normalizeArchitectureReview(raw = {}) {
@@ -157,6 +245,14 @@ function truncateForPrompt(text, maxChars = MAX_DIFF_PROMPT_CHARS) {
   return `${value.slice(0, maxChars)}\n[truncated ${value.length - maxChars} chars]`;
 }
 
+function gitStatusPreview(statusText, changedFiles = []) {
+  const scopedFiles = normalizeChangedFiles(changedFiles);
+  if (scopedFiles.length === 0) {
+    return statusText || '';
+  }
+  return scopedFiles.map((file) => `build-owned ${file}`).join('\n');
+}
+
 export function buildCodeReviewPrompt(context, changedFiles, diffCheck = '') {
   const gitStatusShort = truncateForPrompt(context.gitStatusShort || '');
   const gitDiffStat = truncateForPrompt(context.gitDiffStat || '');
@@ -164,7 +260,9 @@ export function buildCodeReviewPrompt(context, changedFiles, diffCheck = '') {
   const gitDiffEvidencePath = context.gitDiffEvidencePath || '';
   return [
     `你是 loopx workflow "${context.slug}" 的独立 code reviewer。`,
-    '请审查当前 git 工作区相对 HEAD 的代码差异，包括 staged、unstaged 和 untracked 文件。',
+    context.buildOwnedScope
+      ? '请审查 build 记录的变更文件；这些文件可以包含 tracked 修改和 build 新建的 untracked 文件，但不要审查未被 build 归属的本地文件。'
+      : '请审查当前 git 工作区相对 HEAD 的代码差异，包括 staged、unstaged 和 untracked 文件。',
     gitDiffEvidencePath
       ? '必须以本 prompt 中的当前 git status/diff 预览和完整 git diff evidence 文件为事实来源；不要把既有 review-report.md 或 review-support/code-review.json 当作当前事实来源。'
       : '必须以本 prompt 中的当前 git status/diff 为事实来源；不要把既有 review-report.md 或 review-support/code-review.json 当作当前事实来源。',
@@ -213,6 +311,9 @@ export function buildArchitectureReviewPrompt(context, changedFiles) {
   return [
     `你是 loopx workflow "${context.slug}" 的 architecture smell reviewer。`,
     '这是 `$review` 内部的轻量架构检查 lane，不是新阶段，不要修改文件，不要运行 build。',
+    context.buildOwnedScope
+      ? '审查范围限制为 build 记录的变更文件；不要审查未被 build 归属的本地文件。'
+      : '审查范围为当前 git 工作区相对 HEAD 的代码差异。',
     '你的目标是发现会影响长期可维护性、测试 seam、领域边界或 plan 架构假设落地的真实问题。',
     '只在问题足够严重、需要回退 plan/build/clarify 时返回 verdict "block"；普通建议用 "warn"；没有实质问题用 "pass"。',
     '',
@@ -256,7 +357,7 @@ export function buildArchitectureReviewPrompt(context, changedFiles) {
   ].join('\n');
 }
 
-export function createRealReviewAdapter({ model, codexReviewJson = runCodexReviewJson } = {}) {
+export function createRealReviewAdapter({ model = DEFAULT_REVIEW_MODEL, codexReviewJson = runCodexReviewJson } = {}) {
   return {
     async codeReview(context) {
       if (!(await isGitWorktree(context.cwd))) {
@@ -270,7 +371,20 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
       }
 
       const statusText = await gitOutput(context.cwd, ['status', '--short']);
-      const changedFiles = parseChangedFiles(statusText);
+      if (context.buildOwnedChangedFilesStatus === 'unavailable') {
+        return unavailableChangedFilesReview();
+      }
+      const hasBuildOwnedScope = Object.hasOwn(context, 'buildOwnedChangedFiles') || context.buildOwnedChangedFilesStatus === 'present';
+      const buildOwnedChangedFiles = normalizeChangedFiles(context.buildOwnedChangedFiles);
+      const changedFiles = hasBuildOwnedScope
+        ? buildOwnedChangedFiles
+        : parseChangedFiles(statusText);
+      if (hasBuildOwnedScope) {
+        const directoryFiles = await findDirectoryChangedFiles(context.cwd, changedFiles);
+        if (directoryFiles.length > 0) {
+          return directoryChangedFilesReview(directoryFiles);
+        }
+      }
       if (changedFiles.length === 0) {
         return {
           status: 'complete',
@@ -281,14 +395,9 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
         };
       }
 
-      let diffCheck = '';
-      try {
-        await gitOutput(context.cwd, ['diff', '--check', 'HEAD', '--']);
-      } catch (error) {
-        diffCheck = error?.stdout || error?.stderr || error?.message || String(error);
-      }
-      const gitDiffStat = await gitOutput(context.cwd, ['diff', '--stat', 'HEAD', '--']);
-      const gitDiff = await buildReviewDiffEvidence(context.cwd, statusText);
+      const diffCheck = await buildDiffCheck(context.cwd, changedFiles);
+      const gitDiffStat = await buildGitDiffStat(context.cwd, changedFiles);
+      const gitDiff = await buildReviewDiffEvidence(context.cwd, statusText, { changedFiles });
 
       await mkdir(join(context.root, 'review-support'), { recursive: true });
       const outputPath = join(context.root, 'review-support', 'code-review.raw.json');
@@ -296,7 +405,8 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
       await writeFile(gitDiffEvidencePath, gitDiff || '');
       const prompt = buildCodeReviewPrompt({
         ...context,
-        gitStatusShort: statusText,
+        buildOwnedScope: hasBuildOwnedScope,
+        gitStatusShort: gitStatusPreview(statusText, changedFiles),
         gitDiffStat,
         gitDiff,
         gitDiffEvidencePath,
@@ -322,7 +432,34 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
         });
       }
       const statusText = await gitOutput(context.cwd, ['status', '--short']);
-      const changedFiles = parseChangedFiles(statusText);
+      if (context.buildOwnedChangedFilesStatus === 'unavailable') {
+        return normalizeArchitectureReview({
+          status: 'complete',
+          verdict: 'block',
+          summary: 'build 执行记录未提供 changed_files 范围，架构 smell 扫描已阻断以避免扩大到全工作区。',
+          rollbackTarget: 'build',
+          findings: [{
+            severity: 'medium',
+            file: 'execution-record.md',
+            line: null,
+            message: 'execution-record.md 缺少 changed_files 或标记为 unavailable；需要 build 重新生成明确范围。',
+          }],
+        });
+      }
+      const hasBuildOwnedScope = Object.hasOwn(context, 'buildOwnedChangedFiles') || context.buildOwnedChangedFilesStatus === 'present';
+      const buildOwnedChangedFiles = normalizeChangedFiles(context.buildOwnedChangedFiles);
+      const changedFiles = hasBuildOwnedScope
+        ? buildOwnedChangedFiles
+        : parseChangedFiles(statusText);
+      if (hasBuildOwnedScope) {
+        const directoryFiles = await findDirectoryChangedFiles(context.cwd, changedFiles);
+        if (directoryFiles.length > 0) {
+          return normalizeArchitectureReview({
+            ...directoryChangedFilesReview(directoryFiles),
+            verdict: 'block',
+          });
+        }
+      }
       if (changedFiles.length === 0) {
         return normalizeArchitectureReview({
           status: 'complete',
@@ -331,14 +468,15 @@ export function createRealReviewAdapter({ model, codexReviewJson = runCodexRevie
           findings: [],
         });
       }
-      const gitDiffStat = await gitOutput(context.cwd, ['diff', '--stat', 'HEAD', '--']);
-      const gitDiff = await buildReviewDiffEvidence(context.cwd, statusText);
+      const gitDiffStat = await buildGitDiffStat(context.cwd, changedFiles);
+      const gitDiff = await buildReviewDiffEvidence(context.cwd, statusText, { changedFiles });
       await mkdir(join(context.root, 'review-support'), { recursive: true });
       const outputPath = join(context.root, 'review-support', 'architecture-smell.raw.json');
       const gitDiffEvidencePath = join(context.root, 'review-support', 'code-review-diff.patch');
       const prompt = buildArchitectureReviewPrompt({
         ...context,
-        gitStatusShort: statusText,
+        buildOwnedScope: hasBuildOwnedScope,
+        gitStatusShort: gitStatusPreview(statusText, changedFiles),
         gitDiffStat,
         gitDiff,
         gitDiffEvidencePath,

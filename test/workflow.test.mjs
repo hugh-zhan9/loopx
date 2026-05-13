@@ -13,7 +13,7 @@ import { createRealBuildAdapter, createScriptedBuildAdapter } from '../src/build
 import { buildActivePath, evaluateBuildStopGate, readBuildActiveState, writeBuildActiveState } from '../src/build-stop-gate.mjs';
 import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
-import { createScriptedReviewAdapter } from '../src/review-runtime.mjs';
+import { createRealReviewAdapter, createScriptedReviewAdapter } from '../src/review-runtime.mjs';
 import { doctorRuntime, migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
 import {
   archiveStage,
@@ -695,6 +695,117 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(reviewedAgain.reviewMessageZh, /重新审查通过。/);
   });
 
+  it('review uses build-owned changed files recorded in execution record', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-build-owned-workflow-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    const clarified = await clarifyStage(wd, 'review-build-owned-workflow');
+    await writeResolvedSpec(clarified.root, 'review-build-owned-workflow');
+    await approveStage(wd, 'review-build-owned-workflow', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-build-owned-workflow', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-build-owned-workflow', { from: 'plan', to: 'build' });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await writeFile(join(wd, 'src', 'created-by-build.mjs'), 'export const built = true;\n');
+    await writeFile(join(wd, '.tmp-local.env'), 'LOCAL_SECRET=value\n');
+    await buildStage(wd, 'review-build-owned-workflow', {
+      adapter: createScriptedBuildAdapter({
+        iterations: [{
+          changedFiles: ['src/created-by-build.mjs'],
+        }],
+      }),
+    });
+    await approveStage(wd, 'review-build-owned-workflow', { from: 'build', to: 'review' });
+    let captured = null;
+
+    const review = await reviewStage(wd, 'review-build-owned-workflow', {
+      reviewer: 'qa-1',
+      adapter: createRealReviewAdapter({
+        codexReviewJson: async (options) => {
+          captured = options;
+          return {
+            status: 'complete',
+            verdict: 'approve',
+            summary: 'build-owned 范围审查通过。',
+            findings: [],
+          };
+        },
+      }),
+    });
+
+    assert.equal(review.verdict, 'APPROVE');
+    assert.match(captured.prompt, /src\/created-by-build\.mjs/);
+    assert.doesNotMatch(captured.prompt, /\.tmp-local\.env/);
+    const changedFiles = JSON.parse(await readFile(join(review.root, 'review-support', 'changed-files.json'), 'utf8'));
+    assert.deepEqual(changedFiles, ['src/created-by-build.mjs']);
+  });
+
+  it('review marks legacy execution records without changed_files as unavailable scope', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-review-legacy-changed-files-'));
+    const clarified = await clarifyStage(wd, 'review-legacy-changed-files');
+    await writeResolvedSpec(clarified.root, 'review-legacy-changed-files');
+    await approveStage(wd, 'review-legacy-changed-files', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'review-legacy-changed-files', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'review-legacy-changed-files', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'review-legacy-changed-files', {
+      adapter: createScriptedBuildAdapter({
+        iterations: [{
+          changedFiles: ['src/build-owned.mjs'],
+        }],
+      }),
+    });
+    const executionRecordPath = join(clarified.root, 'execution-record.md');
+    const executionRecord = await readFile(executionRecordPath, 'utf8');
+    await writeFile(
+      executionRecordPath,
+      executionRecord
+        .split('\n')
+        .filter((line) => !line.startsWith('changed_files:'))
+        .join('\n'),
+    );
+    await approveStage(wd, 'review-legacy-changed-files', { from: 'build', to: 'review' });
+
+    let capturedContext = null;
+    await reviewStage(wd, 'review-legacy-changed-files', {
+      reviewer: 'qa-1',
+      adapter: {
+        async codeReview(context) {
+          capturedContext = context;
+          return {
+            status: 'complete',
+            verdict: 'request-changes',
+            summary: 'changed_files 缺失。',
+            rollbackTarget: 'build',
+            changedFiles: [],
+            findings: [],
+          };
+        },
+        async architectureReview() {
+          return {
+            status: 'complete',
+            verdict: 'pass',
+            summary: '架构 smell 扫描通过。',
+            rollbackTarget: null,
+            findings: [],
+          };
+        },
+      },
+    });
+
+    assert.deepEqual(capturedContext.buildOwnedChangedFiles, []);
+    assert.equal(capturedContext.buildOwnedChangedFilesStatus, 'unavailable');
+  });
+
   it('review fails when code review finds blocking issues', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-review-code-'));
     const clarified = await clarifyStage(wd, 'review-code');
@@ -824,7 +935,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(reportText, /phase 4 video core/);
   });
 
-  it('keeps plan rollback when review evidence gates and code review fail together', async () => {
+  it('routes incomplete execution evidence back to build even when code review also fails', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-review-evidence-priority-'));
     const clarified = await clarifyStage(wd, 'review-evidence-priority');
     await writeResolvedSpec(clarified.root, 'review-evidence-priority');
@@ -852,10 +963,10 @@ describe('loopx skill-first workflow contract', () => {
     });
 
     assert.equal(review.verdict, 'REQUEST CHANGES');
-    assert.equal(review.rollbackTarget, 'plan');
-    assert.equal(review.state.rollback_target, 'plan');
-    assert.equal(review.state.pending_user_decision, 'review->plan');
-    assert.match(review.reviewMessageZh, /\$plan review-evidence-priority/);
+    assert.equal(review.rollbackTarget, 'build');
+    assert.equal(review.state.rollback_target, 'build');
+    assert.equal(review.state.pending_user_decision, 'review->build');
+    assert.match(review.reviewMessageZh, /\$build --from-review \.loopx\/workflows\/review-evidence-priority\/review-report\.md/);
   });
 
   it('routes review request-changes to plan or clarify when review target requires it', async () => {
@@ -1976,6 +2087,80 @@ describe('loopx skill-first workflow contract', () => {
     ]);
   });
 
+  it('real build adapter includes deslop changed files in iteration data', async () => {
+    const adapter = createRealBuildAdapter({
+      codexExecJson: async ({ outputPath }) => {
+        const file = outputPath.split('/').pop();
+        if (file.includes('runtime-execution-')) {
+          return {
+            status: 'complete',
+            summary: 'implementation complete',
+            evidence: [],
+            changedFiles: ['src/execution.mjs'],
+            executionEvidence: [],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-evidence-')) {
+          return {
+            status: 'complete',
+            summary: 'evidence complete',
+            evidence: [],
+            changedFiles: ['src/evidence.mjs'],
+            executionEvidence: [],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-verification-')) {
+          return {
+            status: 'complete',
+            summary: 'verification complete',
+            evidence: [],
+            executionEvidence: [],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-architect-')) {
+          return { verdict: 'approve', findings: [], limitations: [] };
+        }
+        if (file.includes('runtime-deslop-')) {
+          return {
+            status: 'complete',
+            summary: 'deslop complete',
+            evidence: [],
+            changedFiles: ['src/deslop.mjs'],
+            limitations: [],
+          };
+        }
+        if (file.includes('runtime-regression-')) {
+          return {
+            status: 'complete',
+            summary: 'regression complete',
+            evidence: [],
+            verificationEvidence: [],
+            limitations: [],
+          };
+        }
+        throw new Error(`unexpected output path: ${outputPath}`);
+      },
+    });
+
+    const result = await adapter.executeLanes({
+      cwd: repoRoot,
+      root: repoRoot,
+      slug: 'real-build-deslop-files',
+      iteration: 1,
+      noDeslop: false,
+      planArtifactPath: '.loopx/plans/prd-real-build-deslop-files.md',
+      testSpecArtifactPath: '.loopx/plans/test-spec-real-build-deslop-files.md',
+    });
+
+    assert.deepEqual(result.changedFiles, ['src/execution.mjs', 'src/evidence.mjs', 'src/deslop.mjs']);
+  });
+
   it('real build adapter converts codex timeouts into build blockers', async () => {
     const adapter = createRealBuildAdapter({
       codexExecJson: async () => {
@@ -2053,6 +2238,58 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(audit.owner_id, 'loopx-build-owner:build-owner-audit');
     assert.equal(audit.checklist.some((item) => item.source === 'vertical-slice'), true);
     assert.equal(audit.verification_evidence.length > 0, true);
+  });
+
+  it('build completion audit blocks specific vertical slices without matching evidence', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-build-slice-audit-'));
+    const clarified = await clarifyStage(wd, 'build-slice-audit');
+    await writeResolvedSpec(clarified.root, 'build-slice-audit');
+    await approveStage(wd, 'build-slice-audit', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'build-slice-audit', { adapter: createScriptedPlanAdapter() });
+    const slices = JSON.parse(await readFile(planned.state.change_artifact_paths.slices, 'utf8'));
+    slices.slices[0].verification_signal = 'slice-specific-proof:VS-1';
+    await writeFile(planned.state.change_artifact_paths.slices, `${JSON.stringify(slices, null, 2)}\n`);
+    await approveStage(wd, 'build-slice-audit', { from: 'plan', to: 'build' });
+
+    const result = await buildStage(wd, 'build-slice-audit', { adapter: createScriptedBuildAdapter() });
+    const audit = JSON.parse(await readFile(result.state.build_completion_audit_path, 'utf8'));
+
+    assert.equal(result.state.stage_status, 'blocked');
+    assert.equal(audit.passed, false);
+    assert.match(audit.blockers.join('\n'), /completion_audit_missing_evidence/);
+    assert.equal(
+      audit.checklist.some((item) => item.id === 'VS-1' && item.status === 'missing-evidence'),
+      true,
+    );
+  });
+
+  it('build accumulates changed files across iterations in execution record', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-build-changed-files-'));
+    const clarified = await clarifyStage(wd, 'build-changed-files');
+    await writeResolvedSpec(clarified.root, 'build-changed-files');
+    await approveStage(wd, 'build-changed-files', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'build-changed-files', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'build-changed-files', { from: 'plan', to: 'build' });
+
+    const result = await buildStage(wd, 'build-changed-files', {
+      adapter: createScriptedBuildAdapter({
+        maxIterations: 2,
+        iterations: [
+          {
+            architectVerdict: 'reject',
+            changedFiles: ['src/a.mjs'],
+          },
+          {
+            changedFiles: ['src/b.mjs'],
+          },
+        ],
+      }),
+    });
+
+    assert.equal(result.state.execution_record_status, 'complete');
+    const record = await readFile(join(result.root, 'execution-record.md'), 'utf8');
+    const meta = parseFrontmatter(record);
+    assert.deepEqual(meta.changed_files, ['src/a.mjs', 'src/b.mjs']);
   });
 
   it('build blocks review handoff while delegated build work has not drained', async () => {

@@ -135,6 +135,7 @@ function buildIterationData({ slug, iteration, noDeslop = false }, scriptEntry =
       `deslop=${deslopStatus}`,
       `regression=${regressionStatus}`,
     ],
+    changedFiles: normalizeArray(scriptEntry.changedFiles),
     delegations: normalizeDelegations(scriptEntry.delegations),
     architectFindings: scriptEntry.architectFindings || (
       architectVerdict === 'approve'
@@ -222,6 +223,7 @@ function lanePrompt(context, laneName) {
     '  "summary": string,',
     '  "evidence": [{"id": string, "kind": string, "summary": string, "ref": string}],',
     '  "delegations": [{"id": string, "role": string, "status": "active" | "complete" | "failed" | "blocked" | "pending" | "skipped", "blocking": boolean, "scope": string[], "evidence_path": string | null, "summary": string}],',
+    '  "changedFiles": string[],',
     '  "executionEvidence": string[],',
     '  "verificationEvidence": string[],',
     '  "limitations": string[]',
@@ -262,6 +264,7 @@ function deslopPrompt(context, changedEvidence) {
     '  "status": "complete" | "failed" | "pending" | "skipped",',
     '  "summary": string,',
     '  "evidence": [{"id": string, "kind": string, "summary": string, "ref": string}],',
+    '  "changedFiles": string[],',
     '  "limitations": string[]',
     '}',
     '',
@@ -396,6 +399,11 @@ export function createRealBuildAdapter({ model, codexExecJson = runCodexExecJson
           ...normalizeEvidence(regressionReport.evidence).map((item) => `${item.kind}:${item.summary}:${item.ref}`),
         ],
         architectFindings: normalizeArray(architectReport.findings, ['Architect gate returned no findings.']),
+        changedFiles: normalizeArray([
+          ...normalizeArray(executionLane.changedFiles),
+          ...normalizeArray(evidenceLane.changedFiles),
+          ...normalizeArray(deslopReport.changedFiles),
+        ]),
         delegations: lanes.flatMap((lane) => normalizeDelegations(lane.delegations)),
         limitations: [
           ...normalizeArray(executionLane.limitations),

@@ -108,7 +108,6 @@ Complete an approved review:
 
 ```bash
 loopx approve my-task --from review --to done
-loopx review my-task
 ```
 
 Archive accepted behavior into long-lived specs:
