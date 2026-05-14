@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -1889,6 +1889,250 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(Array.isArray(planned.state.plan_review_artifact_paths), true);
     assert.equal(planned.state.plan_review_artifact_paths.length, 2);
+  });
+
+  it('allows a blocked plan stage to rerun the planning loop without new clarify approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-rerun-'));
+    const clarified = await clarifyStage(wd, 'rerun-flow');
+    await writeResolvedSpec(clarified.root, 'rerun-flow');
+    await approveStage(wd, 'rerun-flow', { from: 'clarify', to: 'plan' });
+
+    const blocked = await planStage(wd, 'rerun-flow', {
+      adapter: createScriptedPlanAdapter({ critic: ['iterate', 'iterate', 'iterate', 'iterate', 'iterate'] }),
+    });
+    assert.equal(blocked.state.stage_status, 'blocked');
+    assert.equal(blocked.state.plan_current_iteration, 5);
+
+    const rerun = await planStage(wd, 'rerun-flow', {
+      adapter: createScriptedPlanAdapter({ critic: ['approve'] }),
+    });
+
+    assert.equal(rerun.state.stage_status, 'awaiting-approval');
+    assert.equal(rerun.state.plan_current_iteration, 1);
+    assert.equal(rerun.state.plan_critic_verdict, 'approve');
+  });
+
+  it('CLI plan can rerun a blocked planning workflow without the original clarify transition', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-cli-plan-rerun-'));
+    const clarified = await clarifyStage(wd, 'cli-rerun-flow');
+    await writeResolvedSpec(clarified.root, 'cli-rerun-flow');
+    await approveStage(wd, 'cli-rerun-flow', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'cli-rerun-flow', {
+      adapter: createScriptedPlanAdapter({ critic: ['iterate', 'iterate', 'iterate', 'iterate', 'iterate'] }),
+    });
+    const fakeCodex = join(wd, 'fake-codex.mjs');
+    await writeFile(
+      fakeCodex,
+      [
+        '#!/usr/bin/env node',
+        "import { writeFileSync } from 'node:fs';",
+        'const outputPath = process.argv[process.argv.indexOf(\'-o\') + 1];',
+        'let payload;',
+        "if (outputPath.includes('planner-iteration')) {",
+        '  payload = {',
+        "    principles: ['计划必须支持 CLI 续跑。'],",
+        "    decisionDrivers: ['blocked plan 需要继续修订。'],",
+        "    options: [{ name: 'CLI 续跑', pros: ['命令可用'], cons: ['需要 fake codex 测试'] }],",
+        "    planText: '# 计划\\n\\n## 摘要\\n\\n本轮计划通过 CLI 续跑并解决了阻断项。',",
+        "    architectureText: '# 架构\\n\\n## 摘要\\n\\n架构文档使用中文描述 CLI 续跑。',",
+        "    developmentPlanText: '# 开发计划\\n\\n## 摘要\\n\\n开发计划使用中文描述 CLI 续跑。',",
+        "    testPlanText: '# 测试计划\\n\\n## 摘要\\n\\n测试计划使用中文描述 CLI 续跑。',",
+        '    principlesResolved: true,',
+        '    optionsReviewed: true,',
+        '    acceptanceCriteriaTestable: true,',
+        '    verificationStepsResolved: true,',
+        '    executionInputsResolved: true,',
+        '  };',
+        "} else if (outputPath.includes('architect-iteration')) {",
+        "  payload = { status: 'complete', verdict: 'approve', findings: [], strongestObjection: 'none', tradeoffTension: 'none' };",
+        '} else {',
+        "  payload = { verdict: 'approve', findings: [], acceptanceCriteriaTestable: true, verificationStepsResolved: true, executionInputsResolved: true };",
+        '}',
+        'writeFileSync(outputPath, JSON.stringify(payload));',
+      ].join('\n'),
+    );
+    await chmod(fakeCodex, 0o755);
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'plan', 'cli-rerun-flow'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        LOOPX_CODEX_BIN: fakeCodex,
+      },
+    });
+    const payload = JSON.parse(stdout);
+
+    assert.equal(payload.ok, true);
+    assert.equal(payload.state.stage_status, 'awaiting-approval');
+    assert.equal(payload.state.plan_current_iteration, 1);
+    assert.equal(payload.state.plan_critic_verdict, 'approve');
+  });
+
+  it('does not rerun an approved plan that is only waiting for build approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-ready-rerun-block-'));
+    const clarified = await clarifyStage(wd, 'ready-rerun-block');
+    await writeResolvedSpec(clarified.root, 'ready-rerun-block');
+    await approveStage(wd, 'ready-rerun-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'ready-rerun-block', {
+      adapter: createScriptedPlanAdapter({ critic: ['approve'] }),
+    });
+
+    assert.equal(planned.state.stage_status, 'awaiting-approval');
+    await assert.rejects(
+      () => planStage(wd, 'ready-rerun-block', { adapter: createScriptedPlanAdapter({ critic: ['approve'] }) }),
+      /approved_transition_required:clarify->plan/,
+    );
+  });
+
+  it('passes prior architect and critic feedback into planner revisions', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-feedback-'));
+    const clarified = await clarifyStage(wd, 'feedback-flow');
+    await writeResolvedSpec(clarified.root, 'feedback-flow');
+    await approveStage(wd, 'feedback-flow', { from: 'clarify', to: 'plan' });
+    const plannerContexts = [];
+
+    const planned = await planStage(wd, 'feedback-flow', {
+      adapter: {
+        async planner(context) {
+          plannerContexts.push(context);
+          const hasPriorFeedback = context.reviewHistory
+            ?.some((entry) => entry.architectReview.findings.includes('Define the execution-record schema.'))
+            && context.reviewHistory
+              ?.some((entry) => entry.criticReview.findings.includes('Execution inputs remain unresolved.'));
+          return {
+            principles: ['计划必须吸收上一轮评审反馈。'],
+            decisionDrivers: ['评审反馈需要进入下一轮 Planner。'],
+            options: [{ name: '反馈驱动修订', pros: ['闭环真实'], cons: ['输入更多'] }],
+            planText: hasPriorFeedback
+              ? '# 计划\n\n## 摘要\n\n本轮计划已经吸收上一轮评审反馈，明确 execution-record schema 和执行输入来源。'
+              : '# 计划\n\n## 摘要\n\n本轮计划尚未吸收上一轮评审反馈，需要继续修订。',
+            architectureText: '# 架构\n\n## 摘要\n\n架构文档使用中文描述评审反馈进入 Planner 的闭环。',
+            developmentPlanText: '# 开发计划\n\n## 摘要\n\n开发计划使用中文描述反馈回灌和验证步骤。',
+            testPlanText: '# 测试计划\n\n## 摘要\n\n测试计划使用中文覆盖反馈回灌行为。',
+            principlesResolved: true,
+            optionsReviewed: true,
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: Boolean(hasPriorFeedback),
+          };
+        },
+        async architect(context) {
+          return {
+            status: context.plannerDraft.executionInputsResolved ? 'complete' : 'changes-requested',
+            verdict: context.plannerDraft.executionInputsResolved ? 'approve' : 'iterate',
+            findings: context.plannerDraft.executionInputsResolved ? [] : ['Define the execution-record schema.'],
+          };
+        },
+        async critic(context) {
+          return {
+            verdict: context.plannerDraft.executionInputsResolved ? 'approve' : 'iterate',
+            findings: context.plannerDraft.executionInputsResolved ? [] : ['Execution inputs remain unresolved.'],
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: context.plannerDraft.executionInputsResolved,
+          };
+        },
+      },
+    });
+
+    assert.equal(plannerContexts.length, 2);
+    assert.deepEqual(plannerContexts[0].reviewHistory, []);
+    assert.equal(plannerContexts[1].reviewHistory.length, 1);
+    assert.equal(planned.state.plan_current_iteration, 2);
+    assert.equal(planned.state.plan_critic_verdict, 'approve');
+  });
+
+  it('carries the last failed review feedback into a new planning run after max iterations', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-max-rerun-'));
+    const clarified = await clarifyStage(wd, 'max-rerun-flow');
+    await writeResolvedSpec(clarified.root, 'max-rerun-flow');
+    await approveStage(wd, 'max-rerun-flow', { from: 'clarify', to: 'plan' });
+
+    await planStage(wd, 'max-rerun-flow', {
+      adapter: {
+        async planner() {
+          return {
+            principles: ['计划必须定义续跑反馈。'],
+            decisionDrivers: ['达到迭代上限后仍需保留失败原因。'],
+            options: [{ name: '继续修订', pros: ['保留上下文'], cons: ['需要压缩反馈'] }],
+            planText: '# 计划\n\n## 摘要\n\n本轮计划中文内容足够，但故意保留执行输入未解决。',
+            architectureText: '# 架构\n\n## 摘要\n\n架构中文内容足够，但故意要求继续修订。',
+            developmentPlanText: '# 开发计划\n\n## 摘要\n\n开发计划中文内容足够，但还没有解决续跑反馈。',
+            testPlanText: '# 测试计划\n\n## 摘要\n\n测试计划中文内容足够，但还没有解决续跑反馈。',
+            principlesResolved: true,
+            optionsReviewed: true,
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: false,
+          };
+        },
+        async architect() {
+          return {
+            status: 'changes-requested',
+            verdict: 'iterate',
+            findings: ['Persist final failed review feedback for rerun.'],
+          };
+        },
+        async critic() {
+          return {
+            verdict: 'iterate',
+            findings: ['Carry feedback into the next planning run.'],
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: false,
+          };
+        },
+      },
+    });
+
+    const rerunPlannerContexts = [];
+    const rerun = await planStage(wd, 'max-rerun-flow', {
+      adapter: {
+        async planner(context) {
+          rerunPlannerContexts.push(context);
+          const inheritedFeedback = context.reviewHistory
+            ?.some((entry) => entry.architectReview.findings.includes('Persist final failed review feedback for rerun.'))
+            && context.reviewHistory
+              ?.some((entry) => entry.criticReview.findings.includes('Carry feedback into the next planning run.'));
+          return {
+            principles: ['计划必须继承上次失败反馈。'],
+            decisionDrivers: ['续跑需要有上下文。'],
+            options: [{ name: '带反馈续跑', pros: ['修订有目标'], cons: ['输入更长'] }],
+            planText: inheritedFeedback
+              ? '# 计划\n\n## 摘要\n\n本轮计划已经继承上次失败反馈，并解决续跑语义。'
+              : '# 计划\n\n## 摘要\n\n本轮计划没有继承上次失败反馈。',
+            architectureText: '# 架构\n\n## 摘要\n\n架构中文内容描述续跑反馈继承。',
+            developmentPlanText: '# 开发计划\n\n## 摘要\n\n开发计划中文内容描述续跑反馈继承。',
+            testPlanText: '# 测试计划\n\n## 摘要\n\n测试计划中文内容描述续跑反馈继承。',
+            principlesResolved: true,
+            optionsReviewed: true,
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: Boolean(inheritedFeedback),
+          };
+        },
+        async architect(context) {
+          return {
+            status: context.plannerDraft.executionInputsResolved ? 'complete' : 'changes-requested',
+            verdict: context.plannerDraft.executionInputsResolved ? 'approve' : 'iterate',
+            findings: [],
+          };
+        },
+        async critic(context) {
+          return {
+            verdict: context.plannerDraft.executionInputsResolved ? 'approve' : 'iterate',
+            findings: [],
+            acceptanceCriteriaTestable: true,
+            verificationStepsResolved: true,
+            executionInputsResolved: context.plannerDraft.executionInputsResolved,
+          };
+        },
+      },
+    });
+
+    assert.equal(rerunPlannerContexts[0].reviewHistory.length, 1);
+    assert.equal(rerun.state.plan_current_iteration, 1);
+    assert.equal(rerun.state.plan_critic_verdict, 'approve');
   });
 
   it('CLI status exposes plan consensus progression', async () => {
