@@ -214,6 +214,25 @@ function reviewArtifact(kind, iteration, verdict, findings, extras = {}) {
   };
 }
 
+function reviewHistoryText(reviewHistory = []) {
+  if (!Array.isArray(reviewHistory) || reviewHistory.length === 0) {
+    return 'None.';
+  }
+  return reviewHistory.map((entry) => [
+    `Iteration ${entry.iteration}:`,
+    `- Architect status: ${entry.architectReview?.status ?? 'unknown'}`,
+    `- Architect verdict: ${entry.architectReview?.verdict ?? 'unknown'}`,
+    `- Architect findings: ${(entry.architectReview?.findings || []).join(' | ') || 'none'}`,
+    `- Strongest objection: ${entry.architectReview?.strongestObjection || 'none'}`,
+    `- Tradeoff tension: ${entry.architectReview?.tradeoffTension || 'none'}`,
+    `- Critic verdict: ${entry.criticReview?.verdict ?? 'unknown'}`,
+    `- Critic findings: ${(entry.criticReview?.findings || []).join(' | ') || 'none'}`,
+    `- Acceptance criteria testable: ${Boolean(entry.criticReview?.acceptanceCriteriaTestable)}`,
+    `- Verification steps resolved: ${Boolean(entry.criticReview?.verificationStepsResolved)}`,
+    `- Execution inputs resolved: ${Boolean(entry.criticReview?.executionInputsResolved)}`,
+  ].join('\n')).join('\n\n');
+}
+
 function defaultArchitectReview({ plannerDraft, iteration }) {
   const findings = [
     'Real planning orchestration needs an adapter seam so production runtime and deterministic tests can share one state machine.',
@@ -345,7 +364,11 @@ export function createRealPlanAdapter({ model } = {}) {
         `Deliberate mode: ${Boolean(context.deliberateMode)}`,
         '',
         'Use Chinese for planText / architectureText / developmentPlanText / testPlanText.',
+        'If previous review feedback is present, revise the plan to explicitly resolve it. Do not repeat the same plan unchanged.',
         'Do not ask questions. Do not wrap JSON in markdown.',
+        '',
+        'Previous review feedback:',
+        reviewHistoryText(context.reviewHistory),
         '',
         'Source requirements:',
         context.sourceText,

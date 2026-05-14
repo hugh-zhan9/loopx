@@ -384,6 +384,7 @@ function createInitialState(slug, profile) {
     plan_docs_status: 'missing',
     plan_docs_artifact_paths: null,
     plan_review_artifact_paths: [],
+    plan_review_history: [],
     plan_blockers: [],
     plan_source_spec_path: null,
     change_id: changeIdForWorkflowSlug(slug),
@@ -1107,6 +1108,34 @@ async function writePlanReviewArtifacts(root, iteration, plannerDraft, architect
     ].join('\n'),
   );
   return paths;
+}
+
+function planReviewSummary(iteration, architectReview, criticReview) {
+  return {
+    iteration,
+    architectReview: {
+      status: architectReview.status,
+      verdict: architectReview.verdict,
+      findings: Array.isArray(architectReview.findings) ? architectReview.findings : [],
+      strongestObjection: architectReview.strongestObjection || null,
+      tradeoffTension: architectReview.tradeoffTension || null,
+    },
+    criticReview: {
+      verdict: criticReview.verdict,
+      findings: Array.isArray(criticReview.findings) ? criticReview.findings : [],
+      acceptanceCriteriaTestable: Boolean(criticReview.acceptanceCriteriaTestable),
+      verificationStepsResolved: Boolean(criticReview.verificationStepsResolved),
+      executionInputsResolved: Boolean(criticReview.executionInputsResolved),
+    },
+  };
+}
+
+function initialPlanReviewHistory(state) {
+  const history = Array.isArray(state.plan_review_history) ? state.plan_review_history : [];
+  if (state.current_stage !== STAGES.PLAN || state.stage_status !== 'blocked' || history.length === 0) {
+    return [];
+  }
+  return [history[history.length - 1]];
 }
 
 async function readPlanCompletion(cwd, root, slug, state) {
@@ -2504,13 +2533,17 @@ export async function planStage(cwd, slug, options = {}) {
   const resumesConsumedReviewPlan = state.current_stage === STAGES.PLAN
     && state.last_confirmed_transition === TRANSITIONS.REVIEW_TO_PLAN
     && state.approval.rollback === APPROVAL_STATES.APPROVED;
+  const resumesClarifyPlan = state.current_stage === STAGES.PLAN
+    && state.stage_status === 'blocked'
+    && state.last_confirmed_transition === TRANSITIONS.CLARIFY_TO_PLAN
+    && state.approval.plan === APPROVAL_STATES.APPROVED;
   if (!options.directSpecPath) {
-    if (consumesReviewPlan || resumesConsumedReviewPlan) {
-      // A no-go review may route back to plan; the printed Next command is $plan.
+    if (consumesReviewPlan || resumesConsumedReviewPlan || resumesClarifyPlan) {
+      // A no-go review or a blocked planning run may route back to plan; the printed Next command is $plan.
     } else {
       ensureApprovedTransition(state, TRANSITIONS.CLARIFY_TO_PLAN, 'plan');
     }
-    if (!consumesReviewPlan && !resumesConsumedReviewPlan && state.spec_artifact_path) {
+    if (!consumesReviewPlan && !resumesConsumedReviewPlan && !resumesClarifyPlan && state.spec_artifact_path) {
       await copyArtifact(root, state.spec_artifact_path, 'spec.md');
     }
   }
@@ -2523,6 +2556,7 @@ export async function planStage(cwd, slug, options = {}) {
   let architectReview = null;
   let criticReview = null;
   const reviewArtifactPaths = [];
+  const reviewHistory = initialPlanReviewHistory(state);
 
   while (iteration <= maxIterations) {
     const plannerDraft = await adapter.planner({
@@ -2531,6 +2565,7 @@ export async function planStage(cwd, slug, options = {}) {
       slug: normalized,
       sourceText,
       iteration,
+      reviewHistory: [...reviewHistory],
       deliberateMode: Boolean(options.deliberate),
       interactiveMode: Boolean(options.interactive),
     });
@@ -2561,6 +2596,7 @@ export async function planStage(cwd, slug, options = {}) {
     });
     const reviewPaths = await writePlanReviewArtifacts(root, iteration, plannerDraft, architectReview, criticReview);
     reviewArtifactPaths.push(reviewPaths);
+    reviewHistory.push(planReviewSummary(iteration, architectReview, criticReview));
 
     state = {
       ...state,
@@ -2580,6 +2616,7 @@ export async function planStage(cwd, slug, options = {}) {
       plan_package_status: 'complete',
       plan_docs_artifact_paths: null,
       plan_review_artifact_paths: reviewArtifactPaths,
+      plan_review_history: reviewHistory,
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
       change_id: normalizeSlug(changeId),

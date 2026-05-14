@@ -274,6 +274,7 @@ function createMigratedWorkflowBaseState(slug, legacyState, change) {
     plan_docs_status: 'missing',
     plan_docs_artifact_paths: null,
     plan_review_artifact_paths: [],
+    plan_review_history: [],
     plan_blockers: [],
     plan_source_spec_path: null,
     change_id: change?.changeId || `chg-${slug}`,
