@@ -3,7 +3,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { nextSkillCommand } from '../src/next-skill.mjs';
 
 function readStdin() {
   return new Promise((resolveValue) => {
@@ -29,9 +28,61 @@ function readStdin() {
 }
 
 function nextSkill(state) {
-  const command = nextSkillCommand(state);
-  if (command) {
-    return command;
+  if (!state || !state.slug) {
+    return null;
+  }
+  const reviewBuildCommand = `$build --from-review .loopx/workflows/${state.slug}/review-report.md`;
+  if (isClarifyReadyForPlan(state)) {
+    return `$plan ${state.slug}`;
+  }
+  if (state.current_stage === 'done'
+    && state.completion_confirmed === true
+    && state.archive_status !== 'archived') {
+    return `$archive ${state.slug}`;
+  }
+  if (state.stage_status === 'awaiting-approval'
+    && state.current_stage === 'plan'
+    && Array.isArray(state.plan_blockers)
+    && state.plan_blockers.length === 0) {
+    return `$build .loopx/plans/prd-${state.slug}.md`;
+  }
+  if (state.current_stage === 'build'
+    && state.stage_status === 'awaiting-approval'
+    && state.pending_user_decision === 'build->review'
+    && state.review_status === 'ready-for-review'
+    && state.execution_record_status === 'complete'
+    && Array.isArray(state.build_blockers)
+    && state.build_blockers.length === 0) {
+    return `$review .loopx/workflows/${state.slug}/execution-record.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.rollback_target === 'build'
+    && (
+      state.pending_user_decision === 'review->build'
+      || state.requested_transition === 'review->build'
+      || state.approval?.build === 'requested'
+      || state.approval?.build === 'approved'
+    )) {
+    return reviewBuildCommand;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->build'
+    && state.approval?.build === 'approved') {
+    return reviewBuildCommand;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->plan'
+    && state.approval?.rollback === 'approved') {
+    return `$plan ${state.slug}`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->clarify'
+    && state.approval?.rollback === 'approved') {
+    return `$clarify ${state.slug}`;
   }
   if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.pending_user_decision === 'review->done') {
     return `loopx approve ${state.slug} --from review --to done`;
@@ -57,6 +108,49 @@ function boolText(value) {
 
 function stateLine(key, value) {
   return `${key}: ${value ?? 'unknown'}`;
+}
+
+function isClarifyReadyForPlan(state) {
+  return (state.current_stage === 'clarify' || (!state.current_stage && typeof state.clarify_current_round === 'number'))
+    && state.clarify_current_round > 0
+    && state.unresolved_ambiguity_count === 0
+    && state.clarify_non_goals_resolved === true
+    && state.clarify_decision_boundaries_resolved === true
+    && state.clarify_pressure_pass_complete === true
+    && typeof state.clarify_ambiguity_score === 'number'
+    && typeof state.clarify_target_ambiguity_threshold === 'number'
+    && state.clarify_ambiguity_score <= state.clarify_target_ambiguity_threshold;
+}
+
+function isLegacyClarifyState(state) {
+  return !state.current_stage && typeof state.clarify_current_round === 'number';
+}
+
+function nextActionLine(state, workflow) {
+  if (isLegacyClarifyState(state) && isClarifyReadyForPlan(state)) {
+    return `loopx migrate, then $plan ${state.slug || workflow}`;
+  }
+  if (isClarifyReadyForPlan(state) && state.approval?.plan !== 'approved') {
+    return `approve clarify -> plan, then $plan ${state.slug || workflow}`;
+  }
+  return nextSkill(state) || state.recommended_next_action || 'none';
+}
+
+function implementationGateLines(state) {
+  if (isClarifyReadyForPlan(state) && state.approval?.build !== 'approved') {
+    return [
+      'implementation gate: blocked until plan is approved',
+      'do not start build, TDD, or code edits from clarify',
+    ];
+  }
+  return [];
+}
+
+function stageText(state) {
+  if (isLegacyClarifyState(state)) {
+    return `legacy-clarify (${isClarifyReadyForPlan(state) ? 'blocked' : 'incomplete'})`;
+  }
+  return `${state.current_stage || 'unknown'} (${state.stage_status || 'unknown'})`;
 }
 
 function evidenceLines(state) {
@@ -131,9 +225,10 @@ try {
     '</loopx_instructions>',
     '<loopx_state>',
     `loopx workflow: ${state.slug || workflow}`,
-    `stage: ${state.current_stage || 'unknown'} (${state.stage_status || 'unknown'})`,
-    `next: ${nextSkill(state) || state.recommended_next_action || 'none'}`,
+    `stage: ${stageText(state)}`,
+    `next: ${nextActionLine(state, workflow)}`,
     `blockers: ${blockers(state)}`,
+    ...implementationGateLines(state),
     `approval: ${JSON.stringify(state.approval || {})}`,
     stateLine('readiness.plan.ready', boolText(state.readiness?.plan?.ready)),
     stateLine('readiness.build.ready', boolText(state.readiness?.build?.ready)),

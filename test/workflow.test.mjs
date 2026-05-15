@@ -282,6 +282,36 @@ describe('loopx skill-first workflow contract', () => {
       true,
       'workflow-template-baseline',
     );
+
+    const hookWorkflowRoot = join(home, 'hook-workspace', '.loopx', 'workflows', 'installed-hook-flow');
+    await mkdir(hookWorkflowRoot, { recursive: true });
+    await writeFile(join(hookWorkflowRoot, 'state.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'installed-hook-flow',
+      current_stage: 'clarify',
+      stage_status: 'awaiting-approval',
+      clarify_current_round: 2,
+      clarify_target_ambiguity_threshold: 0.2,
+      clarify_ambiguity_score: 0.1,
+      unresolved_ambiguity_count: 0,
+      clarify_non_goals_resolved: true,
+      clarify_decision_boundaries_resolved: true,
+      clarify_pressure_pass_complete: true,
+      approval: {
+        plan: 'approved',
+        build: 'not-requested',
+        review: 'not-requested',
+        rollback: 'not-requested',
+        complete: 'not-requested',
+      },
+    }, null, 2)}\n`);
+    const hookInput = JSON.stringify({ cwd: join(home, 'hook-workspace'), workflow: 'installed-hook-flow' }).replace(/'/g, "'\\''");
+    const hookRun = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${hookInput}' | "${process.execPath}" "${join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')}"`], {
+      cwd: join(home, 'hook-workspace'),
+      env,
+    });
+    assert.match(hookRun.stdout, /next: \$plan installed-hook-flow/);
+    assert.match(hookRun.stdout, /implementation gate: blocked until plan is approved/);
   });
 
   it('repair-install upgrades pristine loopx skills and preserves user-modified skills', async () => {

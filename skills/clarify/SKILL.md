@@ -23,7 +23,7 @@ Its job is not just to ask questions. Its job is to turn a vague or overloaded r
 - The request is broad, ambiguous, or mixes problem, solution, and implementation detail.
 - The user needs help defining scope, non-goals, acceptance criteria, or tradeoffs before planning.
 - A design direction exists only implicitly and would otherwise be invented during implementation.
-- The task will later be handed to `plan`, `build`, or `autopilot`, and you want a high-signal spec first.
+- The task will later be handed to `plan`, and you want a high-signal spec first.
 </Use_When>
 
 <Do_Not_Use_When>
@@ -33,7 +33,7 @@ Its job is not just to ask questions. Its job is to turn a vague or overloaded r
 </Do_Not_Use_When>
 
 <Why_This_Exists>
-Most implementation drift happens before coding begins. Teams often think they need “more planning,” when the real problem is weaker intent clarity, hidden assumptions, fuzzy boundaries, or a design shape that was never made explicit. `clarify` exists to solve those upstream failures before `plan` or `build` magnifies them.
+Most implementation drift happens before coding begins. Teams often think they need “more planning,” when the real problem is weaker intent clarity, hidden assumptions, fuzzy boundaries, or a design shape that was never made explicit. `clarify` exists to solve those upstream failures before `plan` turns the clarified intent into an execution contract.
 </Why_This_Exists>
 
 <Core_Principles>
@@ -299,9 +299,9 @@ The clarify spec should include:
 
 After the clarify spec is ready:
 
-- hand off to `plan` by default
-- hand off to `build` only if the user explicitly wants direct execution and the task is already concrete enough
-- hand off to `autopilot` only when the scope is sufficiently tight for a bounded end-to-end run
+- hand off to `plan`; do not start implementation, TDD, `build`, or `autopilot` from `clarify`
+- if the user asks to execute immediately, explain that loopx requires the `plan` gate first and provide the plan invocation
+- if a task is too small to justify planning, do not use `clarify`; handle that request outside the clarify workflow from the start
 
 Preferred explicit handoff contract:
 
@@ -309,7 +309,7 @@ Preferred explicit handoff contract:
 - Artifact-pinned invocation when needed: `$plan --direct .loopx/specs/clarify-<slug>-<timestamp>.md`
 - Consumer behavior: treat the clarify spec as the source of truth for intent, non-goals, decision boundaries, constraints, and design direction; do not reopen clarification by default
 
-`clarify` itself does not implement the feature.
+`clarify` itself does not implement the feature. The handoff recommendation must name `plan` as the next workflow step.
 
 </Process>
 
@@ -328,6 +328,7 @@ Preferred explicit handoff contract:
 
 <Must_Not_Decide_Automatically>
 - approval to move from clarify into plan
+- skipping `plan` after producing a clarify spec
 - implementation details that were never clarified or grounded
 - widening the task because a broader redesign sounds cleaner
 </Must_Not_Decide_Automatically>

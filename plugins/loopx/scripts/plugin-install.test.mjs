@@ -83,6 +83,19 @@ describe('loopx plugin shell', () => {
     assert.equal(ralplanSkill.includes('$plan --consensus'), false);
   });
 
+  it('locks clarify handoff to plan instead of direct implementation', async () => {
+    const clarifySkill = await readFile(join(ROOT_SKILLS_DIR, 'clarify', 'SKILL.md'), 'utf8');
+    const pluginClarifySkill = await readFile(join(PLUGIN_SKILLS_DIR, 'clarify', 'SKILL.md'), 'utf8');
+
+    assert.equal(pluginClarifySkill, clarifySkill);
+    assert.match(clarifySkill, /Recommended invocation: `\$plan <slug>`/);
+    assert.doesNotMatch(clarifySkill, /hand off to `build` only/i);
+    assert.doesNotMatch(clarifySkill, /direct execution/i);
+    assert.doesNotMatch(clarifySkill, /direct implementation/i);
+    assert.doesNotMatch(clarifySkill, /directly to implementation/i);
+    assert.doesNotMatch(clarifySkill, /Proceed directly to implementation/i);
+  });
+
   it('reuses the shared install core while materializing skills from the plugin shell', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-plugin-home-'));
     const env = loopxEnv(home);
