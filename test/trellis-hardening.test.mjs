@@ -516,6 +516,48 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(disabled.stdout.trim(), '');
   });
 
+  it('workflow hook warns clarify-ready workflows to plan before implementation', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-hook-clarify-plan-'));
+    const clarified = await clarifyStage(wd, 'clarify-plan-flow');
+    await writeResolvedSpec(clarified.root, 'clarify-plan-flow');
+    await approveStage(wd, 'clarify-plan-flow', { from: 'clarify', to: 'plan' });
+
+    const input = JSON.stringify({ cwd: wd, workflow: 'clarify-plan-flow' }).replace(/'/g, "'\\''");
+    const { stdout } = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
+
+    assert.match(stdout, /stage: clarify/);
+    assert.match(stdout, /next: \$plan clarify-plan-flow/);
+    assert.match(stdout, /implementation gate: blocked until plan is approved/);
+    assert.match(stdout, /do not start build, TDD, or code edits from clarify/);
+  });
+
+  it('workflow hook blocks legacy clarify workflows from implementation until migration and plan', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-hook-legacy-clarify-plan-'));
+    const workflowRoot = join(wd, '.loopx', 'workflows', 'legacy-clarify-flow');
+    await mkdir(workflowRoot, { recursive: true });
+    await writeFile(join(workflowRoot, 'state.json'), `${JSON.stringify({
+      slug: 'legacy-clarify-flow',
+      profile: 'standard',
+      clarify_current_round: 3,
+      clarify_max_rounds: 15,
+      clarify_target_ambiguity_threshold: 0.2,
+      clarify_ambiguity_score: 0.12,
+      unresolved_ambiguity_count: 0,
+      clarify_non_goals_resolved: true,
+      clarify_decision_boundaries_resolved: true,
+      clarify_pressure_pass_complete: true,
+      open_items: [],
+    }, null, 2)}\n`);
+
+    const input = JSON.stringify({ cwd: wd, workflow: 'legacy-clarify-flow' }).replace(/'/g, "'\\''");
+    const { stdout } = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
+
+    assert.match(stdout, /stage: legacy-clarify \(blocked\)/);
+    assert.match(stdout, /next: loopx migrate, then \$plan legacy-clarify-flow/);
+    assert.match(stdout, /implementation gate: blocked until plan is approved/);
+    assert.match(stdout, /do not start build, TDD, or code edits from clarify/);
+  });
+
   it('doctor exposes template governance status', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-doctor-template-'));
     const home = await mkdtemp(join(tmpdir(), 'loopx-doctor-template-home-'));
