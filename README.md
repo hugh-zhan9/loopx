@@ -18,6 +18,7 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 
 - Installs and exposes eleven bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, `archive`, and `autopilot`; quality support skills `debug`, `tdd`, and `verify`; and Go support skills `go-style` and `kratos`.
 - Supports npm global install and Codex plugin install through the same install/discovery core.
+- Installs a managed Codex workflow hook that surfaces loopx workflow state and safe next-action hints inside Codex.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
 - Runs `plan` with a Planner -> Architect -> Critic consensus loop by default.
 - Writes OpenSpec-inspired change artifacts during `plan`: proposal, spec delta, design, vertical slices, tasks, and an artifact dependency graph.
@@ -45,6 +46,12 @@ The script materializes loopx-owned skills under:
 
 ```text
 ~/.agents/skills/
+```
+
+It also installs the loopx-managed Codex workflow hook at:
+
+```text
+~/.codex/hooks/codex-workflow-hook.mjs
 ```
 
 and updates:
@@ -328,6 +335,18 @@ Check skill discovery state only:
 node scripts/install-skills.mjs --check
 ```
 
+## Codex Workflow Hook
+
+`install-skills.mjs` and the Codex plugin installer automatically install `scripts/codex-workflow-hook.mjs` to:
+
+```text
+~/.codex/hooks/codex-workflow-hook.mjs
+```
+
+The hook reads the nearest `.loopx/workflows/<slug>/state.json` and emits advisory context for the active workflow: current stage, blockers, readiness, authorization, evidence, and the next safe loopx action. It is advisory only; runtime gates remain authoritative.
+
+Set `LOOPX_HOOKS=0` to disable the workflow hook output.
+
 ## Codex Stop Hook
 
 loopx includes a Codex stop-hook helper that prevents an active build from stopping before review handoff readiness:
@@ -357,6 +376,7 @@ Install and discovery logic supports these environment variables:
 - `LOOPX_DISTRIBUTION_CHANNEL`: set the install channel, default `npm`.
 - `LOOPX_INSTALLATION_IDENTITY`: set the install identity, default `loopx`.
 - `LOOPX_SOURCE_URL`: set the install source.
+- `LOOPX_HOOKS`: set to `0` to disable workflow hook output.
 
 ## Development
 
@@ -386,6 +406,7 @@ node src/cli.mjs status --json
 - `package.json`
 - `scripts/install-skills.mjs`
 - `scripts/codex-stop-hook.mjs`
+- `scripts/codex-workflow-hook.mjs`
 - `src/`
 - `skills/`, including public loopx skills plus compatibility/internal skill sources shipped with the package
 - `templates/`

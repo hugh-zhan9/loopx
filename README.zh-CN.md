@@ -20,6 +20,7 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 
 - 安装并公开 11 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`archive`、`autopilot`，质量辅助 skills `debug`、`tdd`、`verify`，以及 Go 支持 skills `go-style`、`kratos`。
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
+- 自动安装 loopx 管理的 Codex workflow hook，在 Codex 中提示当前 workflow 状态和安全下一步。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
 - `plan` 会写入借鉴 OpenSpec 的 change artifacts：proposal、spec delta、design、tasks 和 artifact dependency graph。
@@ -46,6 +47,12 @@ node scripts/install-skills.mjs
 
 ```text
 ~/.agents/skills/
+```
+
+同时也会把 loopx 管理的 Codex workflow hook 安装到：
+
+```text
+~/.codex/hooks/codex-workflow-hook.mjs
 ```
 
 并更新：
@@ -325,6 +332,18 @@ loopx repair-install
 node scripts/install-skills.mjs --check
 ```
 
+## Codex Workflow Hook
+
+`install-skills.mjs` 和 Codex plugin 安装脚本会自动把 `scripts/codex-workflow-hook.mjs` 安装到：
+
+```text
+~/.codex/hooks/codex-workflow-hook.mjs
+```
+
+该 hook 会读取最近的 `.loopx/workflows/<slug>/state.json`，为当前 workflow 输出建议性上下文：当前阶段、blockers、readiness、authorization、evidence 和安全下一步。它只提供提示；真正的运行时门禁仍以 loopx runtime 为准。
+
+设置 `LOOPX_HOOKS=0` 可以关闭 workflow hook 输出。
+
 ## Codex Stop Hook
 
 loopx 内置一个 Codex stop-hook 辅助脚本，用于防止活跃 build 在达到 review handoff 之前提前停止：
@@ -354,6 +373,7 @@ node scripts/codex-stop-hook.mjs
 - `LOOPX_DISTRIBUTION_CHANNEL`：设置安装渠道，默认 `npm`。
 - `LOOPX_INSTALLATION_IDENTITY`：设置安装身份，默认 `loopx`。
 - `LOOPX_SOURCE_URL`：设置安装来源。
+- `LOOPX_HOOKS`：设置为 `0` 时关闭 workflow hook 输出。
 
 ## 开发
 
@@ -383,6 +403,7 @@ node src/cli.mjs status --json
 - `package.json`
 - `scripts/install-skills.mjs`
 - `scripts/codex-stop-hook.mjs`
+- `scripts/codex-workflow-hook.mjs`
 - `src/`
 - `skills/`，包含公开 loopx skills 以及随包发布的兼容/内部 skill 源文件
 - `templates/`
