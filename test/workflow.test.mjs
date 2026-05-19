@@ -591,6 +591,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(workspaceRoot, resolve(wd, '.loopx'));
     assert.equal(existsSync(join(workflowRoot, 'spec.md')), true);
     assert.equal(existsSync(join(workspaceRoot, 'context')), true);
+    assert.equal(existsSync(join(workspaceRoot, 'intake')), true);
 
     const state = await readState(wd, 'demo-init');
     assert.equal(state.current_stage, 'clarify');
@@ -603,7 +604,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.clarify_non_goals_resolved, false);
     assert.equal(state.clarify_decision_boundaries_resolved, false);
     assert.equal(state.clarify_pressure_pass_complete, false);
-    assert.match(state.spec_artifact_path, /\.loopx\/specs\/clarify-demo-init-\d{8}T\d{6}Z\.md$/);
+    assert.match(state.spec_artifact_path, /\.loopx\/intake\/clarify-demo-init-\d{8}T\d{6}Z\.md$/);
     assert.equal(existsSync(state.spec_artifact_path), true);
 
     await assert.rejects(
@@ -628,7 +629,7 @@ describe('loopx skill-first workflow contract', () => {
       adapter: createScriptedPlanAdapter(),
     });
     assert.equal(existsSync(join(planned.root, 'development-plan.md')), true);
-    assert.match(planned.state.spec_artifact_path, /\.loopx\/specs\/clarify-flow-\d{8}T\d{6}Z\.md$/);
+    assert.match(planned.state.spec_artifact_path, /\.loopx\/intake\/clarify-flow-\d{8}T\d{6}Z\.md$/);
     assert.equal(existsSync(planned.state.spec_artifact_path), true);
     assert.equal(planned.state.plan_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'prd-flow.md'));
     assert.equal(planned.state.test_spec_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'test-spec-flow.md'));
@@ -2956,6 +2957,40 @@ describe('loopx skill-first workflow contract', () => {
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-status-next'], { cwd: wd });
     assert.match(stdout, /next skill: \$plan clarify-status-next/);
+  });
+
+  it('CLI render writes derived HTML views without replacing canonical artifacts', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-html-render-'));
+    const clarified = await clarifyStage(wd, 'html-render');
+    await writeResolvedSpec(clarified.root, 'html-render');
+    await approveStage(wd, 'html-render', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'html-render', { adapter: createScriptedPlanAdapter() });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'render'], { cwd: wd });
+    const payload = JSON.parse(stdout);
+    const workflowViewPath = join(planned.root, 'view', 'index.html');
+    const workspaceViewPath = join(resolveWorkspaceRoot(wd), 'views', 'index.html');
+
+    assert.equal(payload.ok, true);
+    assert.equal(payload.workflowViews.length, 1);
+    assert.equal(payload.workflowViewPath.endsWith('/.loopx/workflows/html-render/view/index.html'), true);
+    assert.equal(payload.workspaceViewPath.endsWith('/.loopx/views/index.html'), true);
+    assert.equal(existsSync(workflowViewPath), true);
+    assert.equal(existsSync(workspaceViewPath), true);
+    assert.equal(existsSync(join(planned.root, 'plan.md')), true);
+
+    const workflowHtml = await readFile(workflowViewPath, 'utf8');
+    assert.match(workflowHtml, /<!doctype html>/i);
+    assert.match(workflowHtml, /工作流/);
+    assert.match(workflowHtml, /html-render/);
+    assert.match(workflowHtml, /下一步/);
+    assert.match(workflowHtml, /href="\.\.\/plan\.md"/);
+    assert.match(workflowHtml, /readiness/);
+
+    const workspaceHtml = await readFile(workspaceViewPath, 'utf8');
+    assert.match(workspaceHtml, /loopx 工作台/);
+    assert.match(workspaceHtml, /html-render/);
+    assert.match(workspaceHtml, /href="\.\.\/workflows\/html-render\/view\/index\.html"/);
   });
 
   it('autopilot composes clarify, plan, build, and review with internal control events', async () => {

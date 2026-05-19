@@ -8,7 +8,7 @@ export const CONTEXT_MANIFEST_SCHEMA_VERSION = 1;
 const MAX_MANIFEST_ROWS = 80;
 
 function normalizePath(cwd, path) {
-  const resolved = resolve(path);
+  const resolved = resolve(cwd, path);
   const rel = relative(cwd, resolved);
   return rel && !rel.startsWith('..') ? rel : resolved;
 }

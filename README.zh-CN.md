@@ -1,4 +1,12 @@
-# loopx
+<p align="center">
+  <img src="./assets/logo.svg" alt="loopx fox logo" width="128" height="128">
+</p>
+
+<h1 align="center">loopx</h1>
+
+<p align="center">
+  面向 Codex 的 skill-first 工作流运行时。
+</p>
 
 [English](./README.md)
 
@@ -22,11 +30,13 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
 - 自动安装 loopx 管理的 Codex workflow hook，在 Codex 中提示当前 workflow 状态和安全下一步。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
+- clarify 需求快照写入 `.loopx/intake/`，让 `.loopx/specs/` 只承载长期领域规格。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
 - `plan` 会写入借鉴 OpenSpec 的 change artifacts：proposal、spec delta、design、tasks 和 artifact dependency graph。
+- 提供项目级 agent context：`.loopx/agents/` 和 `.loopx/context/domain.md`，供 build/review 的 context manifest 消费。
 - `build` 默认包含执行记录、验证证据、架构验收、deslop 清理和回归再验证。
-- `review` 作为独立验收面，输出中文评审结论和 go/no-go 判断。
-- 支持 `archive`，把已批准的 change delta 同步进长期 `.loopx/specs/` source of truth。
+- `review` 作为独立验收面，包含代码审查和内部 architecture-smell lane，并输出中文评审结论和 go/no-go 判断。
+- 支持 `archive`，把已批准的 change delta 同步进长期 `.loopx/specs/` source of truth，并生成 ADR candidate。
 - 支持从旧 `.codex-helper/` 运行时迁移到 `.loopx/`。
 
 ## 安装
@@ -131,6 +141,12 @@ loopx status my-task
 loopx status my-task --json
 ```
 
+生成派生 HTML 阅读视图：
+
+```bash
+loopx render my-task
+```
+
 也可以让 loopx 根据一个现成 spec 直接创建规划工作流：
 
 ```bash
@@ -149,6 +165,7 @@ loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
+loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx setup-context
 loopx doctor
@@ -158,7 +175,7 @@ loopx repair-install
 
 CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$archive`、`$autopilot`、`$debug`、`$tdd`、`$verify`、`$go-style`、`$kratos`。
 
-`loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。
+`loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。`loopx render` 会基于现有运行时产物生成给人阅读的 HTML 视图；不传 slug 时会渲染所有非 legacy workflow 和工作区首页。Markdown 和 JSON 仍然是机器可读、可编辑的事实源。
 
 ## Skill 说明
 
@@ -222,7 +239,7 @@ $build --from-review .loopx/workflows/<slug>/review-report.md
 
 ### review
 
-`review` 消费 build 输出的 `execution-record.md`，执行独立验收和代码评审，并生成：
+`review` 消费 build 输出的 `execution-record.md`，执行独立验收、代码评审和轻量 architecture-smell lane，并生成：
 
 ```text
 .loopx/workflows/<slug>/review-report.md
@@ -232,6 +249,8 @@ $build --from-review .loopx/workflows/<slug>/review-report.md
 
 如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修实现问题，则运行 `$build --from-review .loopx/workflows/<slug>/review-report.md`。只有当 review 明确指出计划或需求本身错误时，才回到 `$plan <slug>` 或 `$clarify <slug>`。
 
+architecture-smell lane 是 review 的一部分，不会增加新阶段。它会把发现记录到 `review-support/architecture-smell.json`，只有当模块边界、可测试性、领域词汇或计划架构假设存在实质性错误时才阻断。
+
 ### archive
 
 `archive` 消费已完成工作流，并把 `.loopx/changes/active/<change-id>/spec-delta.md` 合并进 `.loopx/specs/` 下的长期领域规格。归档后的 change 目录会移动到：
@@ -239,6 +258,8 @@ $build --from-review .loopx/workflows/<slug>/review-report.md
 ```text
 .loopx/changes/archive/<change-id>/
 ```
+
+Archive 还会在 `.loopx/decisions/adr-candidates/<change-id>.md` 写入建议性 ADR candidate，不会自动提升到 `docs/adr/`。
 
 ### autopilot
 
@@ -278,6 +299,10 @@ loopx 在当前项目下写入 `.loopx/`：
 .loopx/
   README.md
   config.json
+  intake/
+    clarify-<slug>-<timestamp>.md
+  views/
+    index.html
   specs/
     <domain>/
       spec.md
@@ -288,11 +313,19 @@ loopx 在当前项目下写入 `.loopx/`：
         spec-delta.md
         design.md
         tasks.md
+        slices.json
         artifact-graph.json
     archive/
       <change-id>/
+  decisions/
+    adr-candidates/
   plans/
+  agents/
+    issue-tracker.md
+    domain.md
+    triage-labels.md
   context/
+    domain.md
   workflows/
     <slug>/
       state.json
@@ -303,12 +336,48 @@ loopx 在当前项目下写入 `.loopx/`：
       test-plan.md
       execution-record.md
       review-report.md
+      view/
+        index.html
+        intake.html
+        plan.html
+        build.html
+        review.html
       plan-reviews/
       build-support/
   autopilot/
     <slug>/
       run.json
 ```
+
+`intake` 保存一次需求的 clarify 快照；`workflows` 保存当前任务的运行时工作副本；`changes` 保存本次需求对长期行为的 change delta；`specs` 只保存 archive 后的长期领域行为契约。
+
+`views/` 和 `workflows/<slug>/view/` 是 `loopx render` 生成的派生 HTML 阅读视图，只服务于人的浏览和评审，可以随时重新生成；agent 和工具仍应读取、修改 Markdown 与 JSON 产物。
+
+### 文档关注边界
+
+用户日常需要关注的文档：
+
+- `README.md` / `README.zh-CN.md`：产品用法、命令和目录约定。
+- `.loopx/workflows/<slug>/spec.md`：当前需求工作副本。
+- `.loopx/workflows/<slug>/plan.md`、`architecture.md`、`development-plan.md`、`test-plan.md`：当前任务的计划、架构和验证约定。
+- `.loopx/workflows/<slug>/execution-record.md`、`review-report.md`：执行证据和评审结论。
+- `.loopx/views/index.html` 与 `.loopx/workflows/<slug>/view/index.html`：由 `loopx render` 生成的阅读入口。
+
+用户可以阅读和按流程修改的事实源文档：
+
+- `.loopx/workflows/<slug>/*.md`：当前 workflow 的可编辑工作副本；修改后仍需通过对应阶段门禁。
+- `.loopx/context/domain.md` 和 `.loopx/agents/*.md`：项目级背景、术语和 agent 协作约定。
+- `.loopx/changes/active/<change-id>/*.md`：plan 生成的 change proposal、design、tasks 和 spec delta；修改后应重新过 plan/build/review。
+- `.loopx/specs/<domain>/spec.md`：archive 后的长期行为规格；通常由 `archive` 同步，人工改动需要保持和后续 change delta 一致。
+
+工具运行依赖或派生的文档/数据：
+
+- `.loopx/workflows/<slug>/state.json`、`build-context.jsonl`、`review-context.jsonl`：运行时状态和 context manifest，工具依赖，不建议手改。
+- `.loopx/workflows/<slug>/plan-reviews/`、`build-support/`、`review-support/`：阶段证据和内部审查结果，供诊断和 review 使用。
+- `.loopx/intake/clarify-*.md`：clarify 快照，用于审计和追溯；不要当作长期 specs 修改。
+- `.loopx/changes/active/<change-id>/slices.json`、`artifact-graph.json`：计划结构化数据，build/review/archive 会消费。
+- `.loopx/autopilot/<slug>/run.json`、`.loopx/build-active.json`：编排和 stop-hook 运行态。
+- `.loopx/views/` 和 `.loopx/workflows/<slug>/view/`：HTML 派生视图，可删除后用 `loopx render` 重新生成，不应作为事实源编辑。
 
 旧的 `.codex-helper/` 可通过 `loopx migrate` 迁移。`.omx/` 仍保留为外部编排/规划元数据，不属于 loopx 运行时命名空间。
 
@@ -404,6 +473,7 @@ node src/cli.mjs status --json
 - `scripts/install-skills.mjs`
 - `scripts/codex-stop-hook.mjs`
 - `scripts/codex-workflow-hook.mjs`
+- `assets/logo.svg`
 - `src/`
 - `skills/`，包含公开 loopx skills 以及随包发布的兼容/内部 skill 源文件
 - `templates/`
@@ -411,4 +481,4 @@ node src/cli.mjs status --json
 
 ## 版本
 
-当前 npm 包版本：`0.1.2`。
+当前 npm 包版本：`0.1.3`。

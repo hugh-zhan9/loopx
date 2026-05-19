@@ -271,6 +271,52 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(staleRead.error, 'missing_required_context:plan');
   });
 
+  it('resolves relative context manifest paths against the provided workspace cwd', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-context-relative-cwd-'));
+    const otherCwd = await mkdtemp(join(tmpdir(), 'loopx-context-other-cwd-'));
+    const root = join(wd, '.loopx', 'workflows', 'relative-cwd');
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, 'spec.md'), 'spec\n');
+    await writeFile(join(root, 'plan.md'), 'plan\n');
+    await writeFile(join(root, 'architecture.md'), 'architecture\n');
+    await writeFile(join(root, 'development-plan.md'), 'development\n');
+    await writeFile(join(root, 'test-plan.md'), 'test plan\n');
+    await mkdir(join(wd, '.loopx', 'plans'), { recursive: true });
+    await writeFile(join(wd, '.loopx', 'plans', 'prd-relative-cwd.md'), 'prd\n');
+    await writeFile(join(wd, '.loopx', 'plans', 'test-spec-relative-cwd.md'), 'test spec\n');
+    await mkdir(join(wd, '.loopx', 'changes', 'active', 'chg-relative-cwd'), { recursive: true });
+    await writeFile(join(wd, '.loopx', 'changes', 'active', 'chg-relative-cwd', 'slices.json'), '{"slices":[]}\n');
+    await writeFile(join(root, 'review-report.md'), 'review rework\n');
+
+    const previousCwd = process.cwd();
+    process.chdir(otherCwd);
+    try {
+      const manifest = await generateBuildContextManifest({
+        cwd: wd,
+        root,
+        slug: 'relative-cwd',
+        state: {
+          last_confirmed_transition: 'review->build',
+          plan_artifact_path: '.loopx/plans/prd-relative-cwd.md',
+          test_spec_artifact_path: '.loopx/plans/test-spec-relative-cwd.md',
+          change_id: 'chg-relative-cwd',
+          change_artifact_paths: {
+            slices: '.loopx/changes/active/chg-relative-cwd/slices.json',
+          },
+          review_rework_artifact_path: '.loopx/workflows/relative-cwd/review-report.md',
+        },
+      });
+
+      const reworkRow = manifest.rows.find((row) => row.kind === 'review-rework');
+      assert.equal(reworkRow.path, '.loopx/workflows/relative-cwd/review-report.md');
+      assert.equal(reworkRow.exists, true);
+      const read = await readContextManifest(join(root, 'build-context.jsonl'), { cwd: wd });
+      assert.equal(read.status, 'hit');
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
   it('falls back instead of regenerating missing context manifests during consumption', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-context-fallback-'));
     const clarified = await clarifyStage(wd, 'context-fallback');
@@ -931,6 +977,56 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(existsSync(join(root, 'review-support', 'code-review-diff.patch')), true);
     const diffEvidence = await readFile(join(root, 'review-support', 'code-review-diff.patch'), 'utf8');
     assert.match(diffEvidence, /tracked\.txt/);
+  });
+
+  it('architecture review adapter uses an architecture-specific verdict schema', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-architecture-schema-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await writeFile(join(wd, 'tracked.txt'), 'old\n');
+    await execFileAsync('git', ['add', 'tracked.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], {
+      cwd: wd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'LoopX Test',
+        GIT_AUTHOR_EMAIL: 'loopx@example.test',
+        GIT_COMMITTER_NAME: 'LoopX Test',
+        GIT_COMMITTER_EMAIL: 'loopx@example.test',
+      },
+    });
+    await writeFile(join(wd, 'tracked.txt'), 'new\n');
+    const root = join(wd, '.loopx', 'workflows', 'architecture-schema');
+    let capturedSchema = null;
+    const adapter = createRealReviewAdapter({
+      codexReviewJson: async (options) => {
+        capturedSchema = JSON.parse(await readFile(options.outputSchema, 'utf8'));
+        return {
+          status: 'complete',
+          verdict: 'warn',
+          summary: '架构 smell 扫描发现建议。',
+          rollbackTarget: null,
+          findings: [],
+        };
+      },
+    });
+
+    const review = await adapter.architectureReview({
+      cwd: wd,
+      root,
+      slug: 'architecture-schema',
+      executionRecordPath: 'execution-record.md',
+      planArtifactPath: 'prd.md',
+      testSpecArtifactPath: 'test.md',
+      contextManifestStatus: 'hit',
+      contextManifestPath: 'review-context.jsonl',
+      contextManifestRows: [],
+      buildOwnedChangedFiles: ['tracked.txt'],
+      buildOwnedChangedFilesStatus: 'present',
+    });
+
+    assert.equal(review.verdict, 'warn');
+    assert.deepEqual(capturedSchema.properties.verdict.enum, ['pass', 'warn', 'block']);
+    assert.deepEqual(capturedSchema.properties.rollbackTarget.anyOf[0].enum, ['build', 'plan', 'clarify']);
   });
 
   it('real review adapter uses build-owned changed files instead of all untracked files', async () => {
