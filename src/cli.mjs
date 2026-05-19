@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
+import { renderHtmlViews } from './html-views.mjs';
 import { installBundledSkills } from './install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
@@ -18,6 +19,7 @@ function usage() {
     '  loopx review <slug> [--reviewer <name>]',
     '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
+    '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
     '  loopx doctor',
@@ -200,6 +202,14 @@ async function main() {
           reviewer: options.get('--reviewer') || 'autopilot-reviewer',
         });
         console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state, runPath: result.runPath }, null, 2));
+        return;
+      }
+      case 'render': {
+        const result = await renderHtmlViews(process.cwd(), {
+          slug: positionals[0],
+          all: Boolean(options.get('--all')),
+        });
+        console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
         return;
       }
       case 'status': {

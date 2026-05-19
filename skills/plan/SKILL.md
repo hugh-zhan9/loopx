@@ -40,7 +40,7 @@ By default, `plan` includes the full consensus review loop formerly documented u
 Accepted inputs:
 
 - an approved loopx clarify workflow slug
-- `.loopx/specs/clarify-*.md`
+- `.loopx/intake/clarify-*.md`
 - `.omx/specs/deep-interview-*.md`
 - a direct task description when enough context is already present
 - `--direct <spec-path>` to force a specific requirements artifact

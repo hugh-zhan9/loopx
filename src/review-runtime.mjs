@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { readdir, stat, mkdir, writeFile } from 'node:fs/promises';
+import { readdir, stat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -218,6 +219,46 @@ function normalizeCodeReview(raw, changedFiles) {
     changedFiles,
     findings,
   };
+}
+
+async function withArchitectureReviewSchema(fn) {
+  const schemaDir = await mkdtemp(join(tmpdir(), 'loopx-architecture-review-schema-'));
+  const schemaPath = join(schemaDir, 'schema.json');
+  try {
+    await writeFile(schemaPath, JSON.stringify({
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'verdict', 'summary', 'rollbackTarget', 'findings'],
+      properties: {
+        status: { enum: ['complete', 'skipped'] },
+        verdict: { enum: ['pass', 'warn', 'block'] },
+        summary: { type: 'string' },
+        rollbackTarget: {
+          anyOf: [
+            { enum: ['build', 'plan', 'clarify'] },
+            { type: 'null' },
+          ],
+        },
+        findings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['severity', 'file', 'line', 'message'],
+            properties: {
+              severity: { enum: ['high', 'medium', 'low'] },
+              file: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+              line: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+              message: { type: 'string' },
+            },
+          },
+        },
+      },
+    }));
+    return await fn(schemaPath);
+  } finally {
+    await rm(schemaDir, { recursive: true, force: true });
+  }
 }
 
 export function reviewContextPromptLines(context) {
@@ -481,14 +522,15 @@ export function createRealReviewAdapter({ model = DEFAULT_REVIEW_MODEL, codexRev
         gitDiff,
         gitDiffEvidencePath,
       }, changedFiles);
-      const raw = await codexReviewJson({
+      const raw = await withArchitectureReviewSchema((outputSchema) => codexReviewJson({
         cwd: context.cwd,
         prompt,
         outputPath,
         model,
         reviewMode: true,
         uncommitted: true,
-      });
+        outputSchema,
+      }));
       return normalizeArchitectureReview(raw);
     },
   };

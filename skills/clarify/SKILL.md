@@ -268,7 +268,7 @@ Before marking a clarify spec handoff-ready, perform a self-review pass:
 
 Write the output to the loopx runtime namespace:
 
-- `.loopx/specs/clarify-<slug>-<timestamp>.md`
+- `.loopx/intake/clarify-<slug>-<timestamp>.md`
 
 The clarify spec should include:
 
@@ -306,7 +306,7 @@ After the clarify spec is ready:
 Preferred explicit handoff contract:
 
 - Recommended invocation: `$plan <slug>`
-- Artifact-pinned invocation when needed: `$plan --direct .loopx/specs/clarify-<slug>-<timestamp>.md`
+- Artifact-pinned invocation when needed: `$plan --direct .loopx/intake/clarify-<slug>-<timestamp>.md`
 - Consumer behavior: treat the clarify spec as the source of truth for intent, non-goals, decision boundaries, constraints, and design direction; do not reopen clarification by default
 
 `clarify` itself does not implement the feature. The handoff recommendation must name `plan` as the next workflow step.

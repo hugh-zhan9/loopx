@@ -251,6 +251,10 @@ function resolveSpecsRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'specs');
 }
 
+function resolveIntakeRoot(cwd) {
+  return join(resolveWorkspaceRoot(cwd), 'intake');
+}
+
 function resolveChangesRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'changes');
 }
@@ -299,7 +303,7 @@ function resolveBuildSupportPaths(root, iteration) {
 }
 
 function canonicalClarifySpecPath(cwd, slug, stamp) {
-  return join(resolveSpecsRoot(cwd), `clarify-${normalizeSlug(slug)}-${stamp}.md`);
+  return join(resolveIntakeRoot(cwd), `clarify-${normalizeSlug(slug)}-${stamp}.md`);
 }
 
 export async function readWorkspaceConfig(cwd) {
@@ -336,11 +340,39 @@ function buildWorkspaceReadme() {
     '- `loopx plan <slug>`',
     '- `loopx build <slug>`',
     '- `loopx review <slug> [--reviewer <name>]`',
+    '- `loopx archive <slug>`',
     '- `loopx autopilot <slug> [--reviewer <name>]`',
+    '- `loopx render [slug|--all]`',
     '- `loopx status [slug] [--json]`',
+    '- `loopx setup-context`',
     '- `loopx doctor`',
     '- `loopx migrate`',
     '- `loopx repair-install`',
+    '',
+    '## Document Boundaries',
+    '',
+    'User-facing documents to watch:',
+    '',
+    '- `workflows/<slug>/spec.md`',
+    '- `workflows/<slug>/plan.md`, `architecture.md`, `development-plan.md`, and `test-plan.md`',
+    '- `workflows/<slug>/execution-record.md` and `review-report.md`',
+    '- `views/index.html` and `workflows/<slug>/view/index.html` after `loopx render`',
+    '',
+    'Documents users may read and edit as workflow fact sources:',
+    '',
+    '- `workflows/<slug>/*.md` for the active workflow working copy',
+    '- `context/domain.md` and `agents/*.md` for project context and collaboration guidance',
+    '- `changes/active/<change-id>/*.md` for proposal, design, tasks, and spec delta',
+    '- `specs/<domain>/spec.md` for archived long-lived behavior specs',
+    '',
+    'Tool-owned or derived files:',
+    '',
+    '- `workflows/<slug>/state.json`, `build-context.jsonl`, and `review-context.jsonl`',
+    '- `workflows/<slug>/plan-reviews/`, `build-support/`, and `review-support/`',
+    '- `intake/clarify-*.md` clarify snapshots',
+    '- `changes/active/<change-id>/slices.json` and `artifact-graph.json`',
+    '- `autopilot/<slug>/run.json` and `build-active.json`',
+    '- `views/` and `workflows/<slug>/view/` generated HTML views',
   ].join('\n');
 }
 
@@ -2178,6 +2210,7 @@ export async function initWorkspace(cwd, { slug } = {}) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
   await ensureLoopxRoot(cwd);
   await ensureDir(join(workspaceRoot, 'context'));
+  await ensureDir(join(workspaceRoot, 'intake'));
   await ensureDir(join(workspaceRoot, 'workflows'));
   await ensureDir(join(workspaceRoot, 'specs'));
   await ensureDir(join(workspaceRoot, 'changes'));
