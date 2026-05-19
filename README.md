@@ -35,7 +35,6 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 - Runs `build` with execution records, verification evidence, architect validation, deslop cleanup, and regression re-verification.
 - Keeps `review` as an independent acceptance surface with code review plus an internal architecture-smell lane.
 - Supports `archive` to sync approved change deltas into long-lived `.loopx/specs/` source-of-truth files and emit ADR candidates.
-- Supports migration from the legacy `.codex-helper/` runtime namespace to `.loopx/`.
 
 ## Installation
 
@@ -368,8 +367,6 @@ Documents and data the tools depend on, or generate as derived evidence:
 - `.loopx/changes/active/<change-id>/slices.json` and `artifact-graph.json`: structured planning data consumed by build/review/archive.
 - `.loopx/autopilot/<slug>/run.json` and `.loopx/build-active.json`: orchestration and stop-hook runtime state.
 - `.loopx/views/` and `.loopx/workflows/<slug>/view/`: derived HTML views; they can be deleted and regenerated with `loopx render`, and should not be edited as fact sources.
-
-Legacy `.codex-helper/` state can be migrated with `loopx migrate`. The `.omx/` tree remains external orchestration/planning metadata and is not part of the loopx runtime namespace.
 
 ## Diagnostics and Repair
 

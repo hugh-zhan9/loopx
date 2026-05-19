@@ -37,7 +37,6 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 - `build` 默认包含执行记录、验证证据、架构验收、deslop 清理和回归再验证。
 - `review` 作为独立验收面，包含代码审查和内部 architecture-smell lane，并输出中文评审结论和 go/no-go 判断。
 - 支持 `archive`，把已批准的 change delta 同步进长期 `.loopx/specs/` source of truth，并生成 ADR candidate。
-- 支持从旧 `.codex-helper/` 运行时迁移到 `.loopx/`。
 
 ## 安装
 
@@ -378,8 +377,6 @@ loopx 在当前项目下写入 `.loopx/`：
 - `.loopx/changes/active/<change-id>/slices.json`、`artifact-graph.json`：计划结构化数据，build/review/archive 会消费。
 - `.loopx/autopilot/<slug>/run.json`、`.loopx/build-active.json`：编排和 stop-hook 运行态。
 - `.loopx/views/` 和 `.loopx/workflows/<slug>/view/`：HTML 派生视图，可删除后用 `loopx render` 重新生成，不应作为事实源编辑。
-
-旧的 `.codex-helper/` 可通过 `loopx migrate` 迁移。`.omx/` 仍保留为外部编排/规划元数据，不属于 loopx 运行时命名空间。
 
 ## 安装诊断与修复
 
