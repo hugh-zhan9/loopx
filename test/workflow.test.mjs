@@ -1253,9 +1253,11 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.change_artifacts_status, 'complete');
     assert.equal(planned.state.spec_delta_status, 'complete');
     assert.equal(planned.state.change_artifact_paths.specDelta, deltaPath);
-    assert.match(deltaText, /## Target Spec Domains/);
-    assert.match(deltaText, /- general/);
-    assert.match(deltaText, /## Added Requirements/);
+    assert.match(deltaText, /target_domains:\n  - general/);
+    assert.match(deltaText, /## ADDED Requirements/);
+    assert.match(deltaText, /### Requirement:/);
+    assert.match(deltaText, /SHALL/);
+    assert.match(deltaText, /#### Scenario:/);
     assert.equal(graph.change, planned.state.change_id);
     assert.equal(graph.workflow, 'change-delta');
     assert.equal(graph.artifacts.specDelta.status, 'done');
@@ -1365,6 +1367,44 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.plan_blockers.includes('spec_delta_empty'), true);
   });
 
+  it('blocks build approval when an extra per-domain spec delta is malformed', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-domain-delta-block-'));
+    const clarified = await clarifyStage(wd, 'domain-delta-block');
+    await writeResolvedSpec(clarified.root, 'domain-delta-block');
+    await approveStage(wd, 'domain-delta-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'domain-delta-block', { adapter: createScriptedPlanAdapter() });
+    const extraDomainRoot = join(
+      resolveWorkspaceRoot(wd),
+      'changes',
+      'active',
+      planned.state.change_id,
+      'specs',
+      'beta-api',
+    );
+    await mkdir(extraDomainRoot, { recursive: true });
+    await writeFile(
+      join(extraDomainRoot, 'spec.md'),
+      [
+        '## ADDED Requirements',
+        '',
+        '### Requirement: Beta API behavior',
+        'Beta API SHALL expose the reviewed behavior.',
+      ].join('\n'),
+    );
+
+    await assert.rejects(
+      () => approveStage(wd, 'domain-delta-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*spec_delta_beta-api_added_beta api behavior_missing_scenario/,
+    );
+
+    const state = await readState(wd, 'domain-delta-block');
+    assert.equal(state.spec_delta_status, 'partial');
+    assert.equal(
+      state.plan_blockers.includes('spec_delta_beta-api_added_beta api behavior_missing_scenario'),
+      true,
+    );
+  });
+
   it('archives approved change deltas into long-lived specs', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-archive-'));
     const clarified = await clarifyStage(wd, 'archive-delta');
@@ -1392,7 +1432,9 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(archivedDeltaPath), true);
     assert.match(specText, /# loopx Spec Domain: general/);
     assert.match(specText, /## Requirements/);
+    assert.match(specText, /### Requirement:/);
     assert.match(specText, /archive-delta/);
+    assert.doesNotMatch(specText, /### Change:/);
     assert.equal(existsSync(archived.state.adr_candidate_path), true);
     const adrText = await readFile(archived.state.adr_candidate_path, 'utf8');
     assert.match(adrText, /# ADR Candidate: chg-archive-delta/);
@@ -1614,9 +1656,14 @@ describe('loopx skill-first workflow contract', () => {
         '',
         '## frontend-ui',
         '',
-        '### Added Requirements',
+        '## ADDED Requirements',
         '',
-        '- The migrated workflow must be archivable.',
+        '### Requirement: Migrated workflow archive',
+        'The migrated workflow SHALL be archivable.',
+        '',
+        '#### Scenario: Archive migrated workflow',
+        '- WHEN the migrated workflow reaches done',
+        '- THEN archive updates the long-lived spec',
       ].join('\n'),
     );
     await writeFile(
@@ -1650,7 +1697,7 @@ describe('loopx skill-first workflow contract', () => {
 
     assert.equal(archived.state.archive_status, 'archived');
     assert.equal(archived.state.archived_change_path, join(resolveWorkspaceRoot(wd), 'changes', 'archive', changeId));
-    assert.match(specText, /The migrated workflow must be archivable/);
+    assert.match(specText, /The migrated workflow SHALL be archivable/);
   });
 
   it('migrates old schema GO review verdicts as approved reviews', async () => {
@@ -1703,7 +1750,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(done.state.completion_confirmed, true);
   });
 
-  it('archives old domain-section spec deltas into matching long-lived specs only', async () => {
+  it('archives per-domain requirement deltas into matching long-lived specs only', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-domain-section-archive-'));
     await initWorkspace(wd);
 
@@ -1732,22 +1779,32 @@ describe('loopx skill-first workflow contract', () => {
         `slug: ${slug}`,
         'target_domains:',
         '  - alpha-ui',
-        '  - beta-api',
         '---',
         '',
         '# Spec Delta',
         '',
-        '## alpha-ui',
+        '## ADDED Requirements',
         '',
-        '### Added Requirements',
+        '### Requirement: Alpha UI behavior',
+        'Alpha UI SHALL render the accepted behavior.',
         '',
-        '- Alpha UI requirement.',
+        '#### Scenario: Alpha UI accepted',
+        '- WHEN the alpha UI is used',
+        '- THEN the accepted behavior is visible',
+      ].join('\n'),
+    );
+    await mkdir(join(changeRoot, 'specs', 'beta-api'), { recursive: true });
+    await writeFile(
+      join(changeRoot, 'specs', 'beta-api', 'spec.md'),
+      [
+        '## ADDED Requirements',
         '',
-        '## beta-api',
+        '### Requirement: Beta API behavior',
+        'Beta API SHALL expose the accepted behavior.',
         '',
-        '### Added Requirements',
-        '',
-        '- Beta API requirement.',
+        '#### Scenario: Beta API accepted',
+        '- WHEN the beta API is called',
+        '- THEN the accepted behavior is returned',
       ].join('\n'),
     );
     await writeFile(join(changeRoot, 'artifact-graph.json'), JSON.stringify({ change_id: changeId, slug }, null, 2));
@@ -1759,10 +1816,10 @@ describe('loopx skill-first workflow contract', () => {
     const alphaSpec = await readFile(join(resolveWorkspaceRoot(wd), 'specs', 'alpha-ui', 'spec.md'), 'utf8');
     const betaSpec = await readFile(join(resolveWorkspaceRoot(wd), 'specs', 'beta-api', 'spec.md'), 'utf8');
 
-    assert.match(alphaSpec, /Alpha UI requirement/);
-    assert.doesNotMatch(alphaSpec, /Beta API requirement/);
-    assert.match(betaSpec, /Beta API requirement/);
-    assert.doesNotMatch(betaSpec, /Alpha UI requirement/);
+    assert.match(alphaSpec, /### Requirement: Alpha UI behavior/);
+    assert.doesNotMatch(alphaSpec, /Beta API behavior/);
+    assert.match(betaSpec, /### Requirement: Beta API behavior/);
+    assert.doesNotMatch(betaSpec, /Alpha UI behavior/);
   });
 
   it('re-syncs already archived changes by replacing the existing long-lived spec block', async () => {
@@ -1785,23 +1842,21 @@ describe('loopx skill-first workflow contract', () => {
     await writeFile(
       join(first.state.archived_change_path, 'spec-delta.md'),
       [
+        '---',
+        'target_domains:',
+        '  - general',
+        '---',
+        '',
         '# loopx Spec Delta: chg-archive-resync',
         '',
-        '## Target Spec Domains',
+        '## MODIFIED Requirements',
         '',
-        '- general',
+        '### Requirement: 规划输出完整且可审阅',
+        'Replacement requirement after archive parser repair SHALL replace the prior requirement block.',
         '',
-        '## Added Requirements',
-        '',
-        '- Replacement requirement after archive parser repair.',
-        '',
-        '## Modified Requirements',
-        '',
-        '- none',
-        '',
-        '## Removed Requirements',
-        '',
-        '- none',
+        '#### Scenario: Replacement archive',
+        '- WHEN archive is rerun',
+        '- THEN the existing requirement is replaced',
       ].join('\n'),
     );
 
@@ -1809,7 +1864,8 @@ describe('loopx skill-first workflow contract', () => {
     const specText = await readFile(specPath, 'utf8');
 
     assert.match(specText, /Replacement requirement after archive parser repair/);
-    assert.equal((specText.match(/### Change: chg-archive-resync/g) || []).length, 1);
+    assert.equal((specText.match(/### Requirement: 规划输出完整且可审阅/g) || []).length, 1);
+    assert.doesNotMatch(specText, /### Change:/);
   });
 
   it('keeps plan blocked when workflow planning artifacts are not Chinese', async () => {

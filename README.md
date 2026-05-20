@@ -204,6 +204,8 @@ Main artifacts:
 - `.loopx/workflows/<slug>/development-plan.md`
 - `.loopx/workflows/<slug>/test-plan.md`
 
+`spec-delta.md` uses requirement deltas: `## ADDED Requirements`, `## MODIFIED Requirements`, `## REMOVED Requirements`, and `## RENAMED Requirements`. ADDED and MODIFIED entries are full `### Requirement:` blocks with SHALL/MUST language and `#### Scenario:` examples, so archive can merge them into the current long-lived spec state.
+
 ### build
 
 `build` executes an approved plan and records changes, evidence, and limitations in the canonical artifact:
@@ -249,6 +251,8 @@ The architecture-smell lane is part of review; it does not add a new stage. It r
 ```
 
 Archive also writes an advisory ADR candidate under `.loopx/decisions/adr-candidates/<change-id>.md`. It is not promoted to `docs/adr/` automatically.
+
+Archive applies requirement deltas semantically instead of appending per-change history blocks. ADDED creates requirements, MODIFIED replaces a full existing requirement block, REMOVED deletes a requirement, and RENAMED changes the requirement title while preserving its body.
 
 ### autopilot
 

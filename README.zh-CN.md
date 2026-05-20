@@ -205,6 +205,8 @@ CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 
 - `.loopx/workflows/<slug>/development-plan.md`
 - `.loopx/workflows/<slug>/test-plan.md`
 
+`spec-delta.md` 使用 requirement delta：`## ADDED Requirements`、`## MODIFIED Requirements`、`## REMOVED Requirements` 和 `## RENAMED Requirements`。ADDED / MODIFIED 必须是完整的 `### Requirement:` 块，包含 SHALL/MUST 约束和 `#### Scenario:` 场景，archive 才能把它们合并进长期 spec 当前状态。
+
 ### build
 
 `build` 执行已批准的计划，并把执行过程、验证证据和限制记录到 canonical artifact：
@@ -259,6 +261,8 @@ architecture-smell lane 是 review 的一部分，不会增加新阶段。它会
 ```
 
 Archive 还会在 `.loopx/decisions/adr-candidates/<change-id>.md` 写入建议性 ADR candidate，不会自动提升到 `docs/adr/`。
+
+Archive 现在按语义应用 requirement delta，而不是追加每次 change 的历史块。ADDED 新增 requirement，MODIFIED 替换完整 requirement 块，REMOVED 删除 requirement，RENAMED 只修改 requirement 标题并保留正文。
 
 ### autopilot
 
