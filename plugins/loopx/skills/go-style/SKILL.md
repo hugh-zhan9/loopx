@@ -1,6 +1,9 @@
 ---
 name: go-style
-description: Go language style support for loopx. Use before creating or editing Go (.go) files, especially inside build execution lanes.
+description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
+when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
+metadata:
+  version: "0.1.4"
 ---
 
 # Go Style

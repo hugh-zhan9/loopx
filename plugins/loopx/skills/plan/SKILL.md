@@ -1,6 +1,9 @@
 ---
 name: plan
-description: Consensus-first loopx planning skill with Planner, Architect, and Critic review.
+description: "Creates a consensus-first loopx plan package with Planner, Architect, and Critic review from an approved spec. Not for unresolved requirements or direct implementation."
+when_to_use: "plan, planning, consensus planning, PRD, architecture plan, test plan, approved clarify spec, 规划, 方案, 架构评审"
+metadata:
+  version: "0.1.4"
 argument-hint: "[--interactive] [--deliberate] [--direct <spec-path>] <clarified task or spec path>"
 ---
 
