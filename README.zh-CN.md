@@ -27,6 +27,7 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 ## 特性
 
 - 安装并公开 11 个 loopx Codex skills：工作流 skills `clarify`、`plan`、`build`、`review`、`archive`、`autopilot`，质量辅助 skills `debug`、`tdd`、`verify`，以及 Go 支持 skills `go-style`、`kratos`。
+- 通过 `skills/RESOLVER.md` 明确 bundled skill 路由，并用确定性治理脚本检查 frontmatter、plugin 镜像、resolver 覆盖、本地引用、发布包包含项和版本一致性。
 - 支持 npm 全局安装和 Codex plugin 安装，两种安装方式共享同一套 install/discovery 逻辑。
 - 自动安装 loopx 管理的 Codex workflow hook，在 Codex 中提示当前 workflow 状态和安全下一步。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
@@ -176,6 +177,24 @@ CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 
 
 `loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。`loopx render` 会基于现有运行时产物生成给人阅读的 HTML 视图；不传 slug 时会渲染所有非 legacy workflow 和工作区首页。Markdown 和 JSON 仍然是机器可读、可编辑的事实源。
 
+## Skill 路由与治理
+
+bundled skill resolver 位于：
+
+```text
+skills/RESOLVER.md
+```
+
+它是 11 个 bundled skills 的可读路由表。修改任一 `skills/<name>/SKILL.md` 或镜像的 `plugins/loopx/skills/<name>/SKILL.md` 时，都要保持 resolver 同步。
+
+skill 治理由下面的确定性脚本执行：
+
+```bash
+node scripts/verify-skills.mjs
+```
+
+该脚本会检查 bundled skill frontmatter 是否可触发且有排除边界、`metadata.version` 是否匹配 `package.json`、plugin skill 镜像是否与 canonical skills 一致、`skills/RESOLVER.md` 是否覆盖所有 bundled skills 且没有陈旧 bundled-skill 引用、本地 skill 引用是否存在、plugin manifest 版本是否匹配 package 版本，以及 verifier 本身是否进入 npm 发布包。
+
 ## Skill 说明
 
 ### clarify
@@ -199,6 +218,7 @@ CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 
 - `.loopx/changes/active/<change-id>/spec-delta.md`
 - `.loopx/changes/active/<change-id>/design.md`
 - `.loopx/changes/active/<change-id>/tasks.md`
+- `.loopx/changes/active/<change-id>/slices.json`
 - `.loopx/changes/active/<change-id>/artifact-graph.json`
 - `.loopx/workflows/<slug>/plan.md`
 - `.loopx/workflows/<slug>/architecture.md`
@@ -347,6 +367,7 @@ loopx 在当前项目下写入 `.loopx/`：
         review.html
       plan-reviews/
       build-support/
+      review-support/
   autopilot/
     <slug>/
       run.json
@@ -402,6 +423,12 @@ loopx repair-install
 node scripts/install-skills.mjs --check
 ```
 
+检查 bundled skill 治理状态：
+
+```bash
+node scripts/verify-skills.mjs
+```
+
 ## Codex Workflow Hook
 
 `install-skills.mjs` 和 Codex plugin 安装脚本会自动把 `scripts/codex-workflow-hook.mjs` 安装到：
@@ -453,9 +480,17 @@ node scripts/codex-stop-hook.mjs
 npm test
 ```
 
+`npm test` 会先运行 bundled skill 治理检查，再运行 Node 测试套件：
+
+```bash
+node scripts/verify-skills.mjs
+node --test test/*.test.mjs
+```
+
 也可以直接执行项目内的验证命令：
 
 ```bash
+node scripts/verify-skills.mjs
 node --test test/*.test.mjs
 node scripts/install-skills.mjs --check
 node --test plugins/loopx/scripts/plugin-install.test.mjs
@@ -472,6 +507,7 @@ node src/cli.mjs status --json
 - `README.zh-CN.md`
 - `package.json`
 - `scripts/install-skills.mjs`
+- `scripts/verify-skills.mjs`
 - `scripts/codex-stop-hook.mjs`
 - `scripts/codex-workflow-hook.mjs`
 - `assets/logo.svg`
