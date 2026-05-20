@@ -174,7 +174,7 @@ The final plan must include:
 
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
-- target long-lived spec domains and the requirements delta for archive
+- target long-lived spec domains and an OpenSpec-style requirements delta for archive
 - vertical slices sized as independently verifiable tracer bullets, not horizontal layer-only task groups
 - execution inputs mapped to concrete sources before build starts
 - available execution lanes and recommended lane
@@ -220,7 +220,8 @@ The plan gate is blocked until:
 
 - plan package artifacts exist
 - change proposal, spec delta, design, tasks, vertical slices, and artifact graph exist
-- spec delta declares target domains and added or modified requirements
+- spec delta declares target domains and `## ADDED|MODIFIED|REMOVED|RENAMED Requirements` blocks
+- every ADDED or MODIFIED requirement uses `### Requirement:`, contains SHALL or MUST text, and includes at least one `#### Scenario:`
 - vertical slices contain at least one `AFK` or `HITL` end-to-end slice with acceptance criteria and verification signal
 - Architect review is complete
 - Critic verdict is `approve`

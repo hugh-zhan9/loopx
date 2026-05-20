@@ -609,28 +609,217 @@ function targetDomainsForChange(slug, sourceText) {
   return ['general'];
 }
 
-function sectionTextForHeading(text, heading, level = 2) {
-  const hashes = '#'.repeat(level);
-  const pattern = new RegExp(`${hashes} ${heading}\\n\\n([\\s\\S]*?)(?=\\n${hashes} |$)`, 'i');
-  return text.match(pattern)?.[1] || '';
+function declaredTargetDomainsForDelta(sourceText) {
+  const explicit = bulletsFromSectionText(sourceText, 'Target Spec Domains');
+  if (explicit.length > 0) {
+    return dedupeStrings(explicit.map((item) => item.replace(/`/g, '')));
+  }
+  const frontmatterDomains = frontmatterList(sourceText, 'target_domains');
+  if (frontmatterDomains.length > 0) {
+    return dedupeStrings(frontmatterDomains.map((item) => item.replace(/`/g, '')));
+  }
+  return [];
 }
 
-function parseLegacyDomainDeltas(text) {
-  const domains = targetDomainsForChange('general', text);
-  const entries = new Map();
-  for (const domain of domains) {
-    const domainText = sectionTextForHeading(text, domain, 2);
-    if (!domainText.trim()) {
-      continue;
-    }
-    entries.set(domain, {
-      added: bulletsFromSectionText(domainText, 'Added Requirements').filter((item) => item !== 'none'),
-      modified: bulletsFromSectionText(domainText, 'Modified Requirements').filter((item) => item !== 'none'),
-      removed: bulletsFromSectionText(domainText, 'Removed Requirements').filter((item) => item !== 'none'),
-      scenarios: bulletsFromSectionText(domainText, 'Scenarios'),
-    });
+function stripFrontmatter(text) {
+  if (!text.startsWith('---\n')) {
+    return text;
   }
-  return entries;
+  const end = text.indexOf('\n---\n', 4);
+  return end === -1 ? text : text.slice(end + 5);
+}
+
+function normalizeRequirementName(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function requirementDisplayName(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
+}
+
+function sentenceToRequirementName(text, fallback) {
+  const cleaned = String(text || '')
+    .replace(/[`*_#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.。:：]+$/, '');
+  if (!cleaned) {
+    return fallback;
+  }
+  const withoutModal = cleaned
+    .replace(/\bSHALL\b.*$/i, '')
+    .replace(/\bMUST\b.*$/i, '')
+    .trim();
+  const value = withoutModal || cleaned;
+  return value.length > 80 ? value.slice(0, 77).trim() : value;
+}
+
+function normativeRequirementText(text, slug, index) {
+  const cleaned = String(text || '').replace(/\s+/g, ' ').trim().replace(/[.。]+$/, '');
+  if (/\b(SHALL|MUST)\b/i.test(cleaned)) {
+    return `${cleaned}.`;
+  }
+  return `Workflow ${slug} SHALL satisfy: ${cleaned || `approved requirement ${index + 1}`}.`;
+}
+
+function scenarioNameForRequirement(name) {
+  const cleaned = requirementDisplayName(name).replace(/[.。]+$/, '');
+  return cleaned.length > 70 ? cleaned.slice(0, 67).trim() : cleaned;
+}
+
+function requirementBlockFromText({ slug, text, index }) {
+  const name = sentenceToRequirementName(text, `Approved requirement ${index + 1}`);
+  return [
+    `### Requirement: ${name}`,
+    normativeRequirementText(text, slug, index),
+    '',
+    `#### Scenario: ${scenarioNameForRequirement(name)}`,
+    `- GIVEN workflow ${slug} has an approved plan`,
+    `- WHEN the accepted implementation is archived`,
+    `- THEN the system satisfies: ${String(text || '').replace(/\s+/g, ' ').trim() || name}`,
+  ].join('\n');
+}
+
+function splitDeltaSections(text) {
+  const body = stripFrontmatter(text);
+  const pattern = /^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements\s*$/gim;
+  const matches = [...body.matchAll(pattern)];
+  const sections = new Map();
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const kind = match[1].toUpperCase();
+    const start = match.index + match[0].length;
+    const end = index + 1 < matches.length ? matches[index + 1].index : body.length;
+    sections.set(kind, body.slice(start, end).trim());
+  }
+  return sections;
+}
+
+function parseRequirementBlocks(sectionText) {
+  const pattern = /^###\s+Requirement:\s*(.+?)\s*$/gm;
+  const matches = [...String(sectionText || '').matchAll(pattern)];
+  return matches.map((match, index) => {
+    const start = match.index;
+    const end = index + 1 < matches.length ? matches[index + 1].index : sectionText.length;
+    return {
+      name: requirementDisplayName(match[1]),
+      raw: sectionText.slice(start, end).trim(),
+    };
+  }).filter((block) => block.name && block.raw);
+}
+
+function parseRenamedRequirement(block) {
+  const inline = block.name.match(/^(.*?)\s*(?:->|=>)\s*(.*?)$/);
+  if (inline) {
+    return {
+      from: requirementDisplayName(inline[1]),
+      to: requirementDisplayName(inline[2]),
+    };
+  }
+  const from = block.raw.match(/^FROM:\s*(.+?)\s*$/im)?.[1];
+  const to = block.raw.match(/^TO:\s*(.+?)\s*$/im)?.[1];
+  return {
+    from: requirementDisplayName(from || block.name),
+    to: requirementDisplayName(to || ''),
+  };
+}
+
+function countRequirementScenarios(raw) {
+  return (String(raw || '').match(/^####\s+Scenario:\s*.+$/gim) || []).length;
+}
+
+function requirementTextBeforeScenarios(raw) {
+  const lines = String(raw || '').split('\n').slice(1);
+  const scenarioIndex = lines.findIndex((line) => /^####\s+Scenario:/i.test(line.trim()));
+  const requirementLines = scenarioIndex === -1 ? lines : lines.slice(0, scenarioIndex);
+  return requirementLines.map((line) => line.trim()).filter(Boolean).join(' ');
+}
+
+function parseRequirementDelta(text) {
+  const sections = splitDeltaSections(text);
+  const added = parseRequirementBlocks(sections.get('ADDED') || '');
+  const modified = parseRequirementBlocks(sections.get('MODIFIED') || '');
+  const removed = parseRequirementBlocks(sections.get('REMOVED') || '').map((block) => block.name);
+  const renamed = parseRequirementBlocks(sections.get('RENAMED') || '').map(parseRenamedRequirement);
+  return { added, modified, removed, renamed };
+}
+
+function deltaOperationCount(delta) {
+  return delta.added.length + delta.modified.length + delta.removed.length + delta.renamed.length;
+}
+
+function validateRequirementDelta(text) {
+  const delta = parseRequirementDelta(text);
+  const blockers = [];
+  if (deltaOperationCount(delta) === 0) {
+    blockers.push('spec_delta_missing_requirement_operations');
+    return { delta, blockers };
+  }
+  const seenBySection = {
+    added: new Set(),
+    modified: new Set(),
+    removed: new Set(),
+    renamedFrom: new Set(),
+    renamedTo: new Set(),
+  };
+  for (const [section, blocks] of [['added', delta.added], ['modified', delta.modified]]) {
+    for (const block of blocks) {
+      const key = normalizeRequirementName(block.name);
+      if (seenBySection[section].has(key)) {
+        blockers.push(`spec_delta_duplicate_${section}_${key}`);
+      }
+      seenBySection[section].add(key);
+      const requirementText = requirementTextBeforeScenarios(block.raw);
+      if (!requirementText) {
+        blockers.push(`spec_delta_${section}_${key}_missing_text`);
+      }
+      if (!/\b(SHALL|MUST)\b/i.test(requirementText)) {
+        blockers.push(`spec_delta_${section}_${key}_missing_shall_must`);
+      }
+      if (countRequirementScenarios(block.raw) === 0) {
+        blockers.push(`spec_delta_${section}_${key}_missing_scenario`);
+      }
+    }
+  }
+  for (const name of delta.removed) {
+    const key = normalizeRequirementName(name);
+    if (seenBySection.removed.has(key)) {
+      blockers.push(`spec_delta_duplicate_removed_${key}`);
+    }
+    seenBySection.removed.add(key);
+  }
+  for (const item of delta.renamed) {
+    const from = normalizeRequirementName(item.from);
+    const to = normalizeRequirementName(item.to);
+    if (!from || !to) {
+      blockers.push('spec_delta_renamed_missing_from_or_to');
+    }
+    if (seenBySection.renamedFrom.has(from)) {
+      blockers.push(`spec_delta_duplicate_renamed_from_${from}`);
+    }
+    if (seenBySection.renamedTo.has(to)) {
+      blockers.push(`spec_delta_duplicate_renamed_to_${to}`);
+    }
+    seenBySection.renamedFrom.add(from);
+    seenBySection.renamedTo.add(to);
+  }
+  for (const name of seenBySection.added) {
+    if (seenBySection.modified.has(name)) {
+      blockers.push(`spec_delta_conflict_added_modified_${name}`);
+    }
+    if (seenBySection.removed.has(name)) {
+      blockers.push(`spec_delta_conflict_added_removed_${name}`);
+    }
+  }
+  for (const name of seenBySection.modified) {
+    if (seenBySection.removed.has(name)) {
+      blockers.push(`spec_delta_conflict_modified_removed_${name}`);
+    }
+    if (seenBySection.renamedFrom.has(name)) {
+      blockers.push(`spec_delta_conflict_modified_renamed_from_${name}`);
+    }
+  }
+  return { delta, blockers: dedupeStrings(blockers) };
 }
 
 function requirementsForDelta(slug, plannerDraft) {
@@ -757,29 +946,18 @@ async function writeChangeArtifacts(cwd, root, slug, sourceText, plannerDraft, c
   ].join('\n'));
 
   await writeText(paths.specDelta, [
+    '---',
+    `change_id: ${normalizedChangeId}`,
+    `slug: ${slug}`,
+    'target_domains:',
+    ...domains.map((domain) => `  - ${domain}`),
+    '---',
+    '',
     `# loopx Spec Delta: ${normalizedChangeId}`,
     '',
-    '## Target Spec Domains',
+    '## ADDED Requirements',
     '',
-    ...domains.map((domain) => `- ${domain}`),
-    '',
-    '## Added Requirements',
-    '',
-    ...requirements.map((item) => `- ${item}`),
-    '',
-    '## Modified Requirements',
-    '',
-    '- none',
-    '',
-    '## Removed Requirements',
-    '',
-    '- none',
-    '',
-    '## Scenarios',
-    '',
-    `- GIVEN workflow ${slug} has an approved plan`,
-    '- WHEN build and review complete successfully',
-    '- THEN the accepted behavior is merged into long-lived loopx specs during archive',
+    ...requirements.flatMap((item, index) => [requirementBlockFromText({ slug, text: item, index }), '']),
   ].join('\n'));
 
   await writeText(paths.design, [
@@ -838,25 +1016,42 @@ async function readChangeArtifactStatus(paths) {
   let specDeltaStatus = 'missing';
   if (paths.specDelta && existsSync(paths.specDelta)) {
     const text = await readFile(paths.specDelta, 'utf8');
-    const parsedDelta = parseSpecDelta(text);
-    const domainDeltas = Array.from(parsedDelta.domainDeltas?.values() || []);
-    const hasDomains = parsedDelta.domains.length > 0;
-    const hasRequirements = parsedDelta.added.length > 0
-      || parsedDelta.modified.length > 0
-      || domainDeltas.some((delta) => delta.added.length > 0 || delta.modified.length > 0);
+    const parsedDelta = validateRequirementDelta(text);
+    const declaredDomains = declaredTargetDomainsForDelta(text);
+    const hasDomains = declaredDomains.length > 0;
     if (!text.trim()) {
       specDeltaStatus = 'partial';
       blockers.push('spec_delta_empty');
-    } else if (!hasDomains || !hasRequirements) {
+    } else if (!hasDomains || parsedDelta.blockers.length > 0) {
       specDeltaStatus = 'partial';
       if (!hasDomains) {
         blockers.push('spec_delta_missing_domains');
       }
-      if (!hasRequirements) {
-        blockers.push('spec_delta_missing_requirements');
-      }
+      blockers.push(...parsedDelta.blockers);
     } else {
       specDeltaStatus = 'complete';
+    }
+    const specsRoot = paths.root ? join(paths.root, 'specs') : null;
+    if (specsRoot && existsSync(specsRoot)) {
+      const entries = await readdir(specsRoot, { withFileTypes: true });
+      const declaredDomainSet = new Set(declaredDomains);
+      for (const entry of entries) {
+        if (!entry.isDirectory() || declaredDomainSet.has(entry.name)) {
+          continue;
+        }
+        const candidate = join(specsRoot, entry.name, 'spec.md');
+        if (!existsSync(candidate)) {
+          continue;
+        }
+        const domainDelta = await readFile(candidate, 'utf8');
+        const validation = validateRequirementDelta(domainDelta);
+        if (validation.blockers.length > 0) {
+          specDeltaStatus = 'partial';
+          blockers.push(
+            ...validation.blockers.map((blocker) => `spec_delta_${entry.name}_${blocker.replace(/^spec_delta_/, '')}`),
+          );
+        }
+      }
     }
   }
   if (paths.slices && existsSync(paths.slices)) {
@@ -924,14 +1119,10 @@ async function ensureArchiveSlicesArtifact(cwd, root, slug, state) {
 }
 
 function parseSpecDelta(text) {
-  const domainDeltas = parseLegacyDomainDeltas(text);
+  const parsed = parseRequirementDelta(text);
   return {
-    domains: targetDomainsForChange('general', text),
-    added: bulletsFromSectionText(text, 'Added Requirements').filter((item) => item !== 'none'),
-    modified: bulletsFromSectionText(text, 'Modified Requirements').filter((item) => item !== 'none'),
-    removed: bulletsFromSectionText(text, 'Removed Requirements').filter((item) => item !== 'none'),
-    scenarios: bulletsFromSectionText(text, 'Scenarios'),
-    domainDeltas,
+    domains: declaredTargetDomainsForDelta(text),
+    ...parsed,
   };
 }
 
@@ -975,28 +1166,146 @@ async function writeAdrCandidate(cwd, changeId, state, archivedSpecPaths) {
   return path;
 }
 
-function replaceChangeBlock(existing, slug, nextBlock) {
-  if (!existing) {
-    return nextBlock;
+function splitSpecRequirements(existing) {
+  const text = String(existing || '');
+  const match = text.match(/^##\s+Requirements\s*$/im);
+  if (!match) {
+    return {
+      before: text.trimEnd(),
+      header: '## Requirements',
+      body: '',
+      after: '',
+    };
   }
-  const marker = `### Change: ${slug}`;
-  const start = existing.indexOf(marker);
-  if (start === -1) {
-    return [existing.replace(/\s+$/, ''), '', nextBlock].join('\n');
+  const headerStart = match.index;
+  const bodyStart = headerStart + match[0].length;
+  const rest = text.slice(bodyStart);
+  const nextTopHeading = rest.search(/\n##\s+/);
+  const body = nextTopHeading === -1 ? rest : rest.slice(0, nextTopHeading);
+  const after = nextTopHeading === -1 ? '' : rest.slice(nextTopHeading);
+  return {
+    before: text.slice(0, headerStart).trimEnd(),
+    header: match[0],
+    body: body.trim(),
+    after: after.trimEnd(),
+  };
+}
+
+function requirementMapFromSpec(existing) {
+  const parts = splitSpecRequirements(existing);
+  const blocks = parseRequirementBlocks(parts.body);
+  const map = new Map();
+  const order = [];
+  for (const block of blocks) {
+    const key = normalizeRequirementName(block.name);
+    if (!map.has(key)) {
+      order.push(key);
+    }
+    map.set(key, block);
   }
-  const before = existing.slice(0, start).replace(/\s+$/, '');
-  const rest = existing.slice(start);
-  const nextStart = rest.slice(marker.length).search(/\n### Change: /);
-  const after = nextStart === -1 ? '' : rest.slice(marker.length + nextStart).replace(/^\s+/, '\n');
-  return [before, nextBlock, after.trimEnd()].filter(Boolean).join('\n\n');
+  return { parts, map, order };
+}
+
+function applyRequirementDelta(existing, delta, domain) {
+  const { parts, map, order } = requirementMapFromSpec(existing);
+  const ensureExisting = (key, label, name) => {
+    if (!map.has(key)) {
+      throw new Error(`${domain} ${label} failed for "### Requirement: ${name}" - not found`);
+    }
+  };
+
+  for (const item of delta.renamed) {
+    const fromKey = normalizeRequirementName(item.from);
+    const toKey = normalizeRequirementName(item.to);
+    ensureExisting(fromKey, 'RENAMED', item.from);
+    if (map.has(toKey)) {
+      throw new Error(`${domain} RENAMED failed for "### Requirement: ${item.to}" - target already exists`);
+    }
+    const block = map.get(fromKey);
+    const rawLines = block.raw.split('\n');
+    rawLines[0] = `### Requirement: ${item.to}`;
+    map.delete(fromKey);
+    map.set(toKey, { name: item.to, raw: rawLines.join('\n') });
+    const orderIndex = order.indexOf(fromKey);
+    if (orderIndex !== -1) {
+      order[orderIndex] = toKey;
+    }
+  }
+
+  for (const name of delta.removed) {
+    const key = normalizeRequirementName(name);
+    ensureExisting(key, 'REMOVED', name);
+    map.delete(key);
+    const orderIndex = order.indexOf(key);
+    if (orderIndex !== -1) {
+      order.splice(orderIndex, 1);
+    }
+  }
+
+  for (const block of delta.modified) {
+    const key = normalizeRequirementName(block.name);
+    ensureExisting(key, 'MODIFIED', block.name);
+    map.set(key, block);
+  }
+
+  for (const block of delta.added) {
+    const key = normalizeRequirementName(block.name);
+    if (map.has(key)) {
+      if (map.get(key).raw.trim() === block.raw.trim()) {
+        continue;
+      }
+      throw new Error(`${domain} ADDED failed for "### Requirement: ${block.name}" - already exists`);
+    }
+    map.set(key, block);
+    order.push(key);
+  }
+
+  const requirementBody = order.map((key) => map.get(key)?.raw).filter(Boolean).join('\n\n').trimEnd();
+  return [
+    parts.before,
+    parts.header,
+    requirementBody,
+    parts.after,
+  ].filter((part) => String(part || '').trim()).join('\n\n').replace(/\n{3,}/g, '\n\n');
+}
+
+async function specDeltaFilesForArchive(cwd, specDeltaPath) {
+  const changeRoot = dirname(specDeltaPath);
+  const mainText = await readFile(specDeltaPath, 'utf8');
+  const files = new Map();
+  const declaredDomains = declaredTargetDomainsForDelta(mainText);
+  if (declaredDomains.length === 0) {
+    throw new Error('archive_blocked:spec_delta_missing_domains');
+  }
+  for (const domain of declaredDomains) {
+    files.set(domain, specDeltaPath);
+  }
+  const specsRoot = join(changeRoot, 'specs');
+  if (existsSync(specsRoot)) {
+    const entries = await readdir(specsRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const candidate = join(specsRoot, entry.name, 'spec.md');
+      if (existsSync(candidate) && !files.has(entry.name)) {
+        files.set(entry.name, candidate);
+      }
+    }
+  }
+  return files;
 }
 
 async function mergeSpecDeltaIntoLongLivedSpecs(cwd, slug, specDeltaPath) {
-  const deltaText = await readFile(specDeltaPath, 'utf8');
-  const delta = parseSpecDelta(deltaText);
+  const deltaFiles = await specDeltaFilesForArchive(cwd, specDeltaPath);
   const updated = [];
-  for (const domain of delta.domains) {
-    const domainDelta = delta.domainDeltas?.get(domain) || delta;
+  for (const [domain, deltaPath] of deltaFiles.entries()) {
+    const deltaText = await readFile(deltaPath, 'utf8');
+    const validation = validateRequirementDelta(deltaText);
+    if (validation.blockers.length > 0) {
+      throw new Error(`archive_blocked:${domain}:${validation.blockers.join(',')}`);
+    }
+    const domainDelta = parseSpecDelta(deltaText);
     const path = specDomainPath(cwd, domain);
     await ensureDir(dirname(path));
     const existing = await readTextIfExists(path);
@@ -1009,15 +1318,7 @@ async function mergeSpecDeltaIntoLongLivedSpecs(cwd, slug, specDeltaPath) {
       '',
       '## Requirements',
     ].join('\n');
-    const changeBlock = [
-      `### Change: ${slug}`,
-      '',
-      ...(domainDelta.added.length > 0 ? ['#### Added Requirements', '', ...domainDelta.added.map((item) => `- ${item}`), ''] : []),
-      ...(domainDelta.modified.length > 0 ? ['#### Modified Requirements', '', ...domainDelta.modified.map((item) => `- ${item}`), ''] : []),
-      ...(domainDelta.removed.length > 0 ? ['#### Removed Requirements', '', ...domainDelta.removed.map((item) => `- ${item}`), ''] : []),
-      ...(domainDelta.scenarios.length > 0 ? ['#### Scenarios', '', ...domainDelta.scenarios.map((item) => `- ${item}`)] : []),
-    ].join('\n');
-    const next = replaceChangeBlock(base, slug, changeBlock);
+    const next = applyRequirementDelta(base, domainDelta, domain);
     await writeText(path, next);
     updated.push(path);
   }
