@@ -22,6 +22,7 @@
     "README.zh-CN.md",
     "package.json",
     "scripts/install-skills.mjs",
+    "scripts/verify-skills.mjs",
     "scripts/codex-stop-hook.mjs",
     "scripts/codex-workflow-hook.mjs",
     "assets/logo.svg",
@@ -35,6 +36,6 @@
   },
   "scripts": {
     "postinstall": "node scripts/install-skills.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node scripts/verify-skills.mjs && node --test test/*.test.mjs"
   }
 }

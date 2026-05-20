@@ -1,6 +1,9 @@
 ---
 name: kratos
-description: Go-Kratos framework support for loopx. Use for Kratos microservices, proto/buf API work, service/biz/data layering, Kratos middleware, auth, configuration, and troubleshooting.
+description: "Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone."
+when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
+metadata:
+  version: "0.1.4"
 ---
 
 # Kratos

@@ -1,6 +1,9 @@
 ---
 name: review
-description: Repo-local acceptance surface for loopx.
+description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
+when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
+metadata:
+  version: "0.1.4"
 argument-hint: "<execution-record path or workflow slug>"
 ---
 

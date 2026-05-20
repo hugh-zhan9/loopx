@@ -1,6 +1,9 @@
 ---
 name: verify
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+description: "Requires fresh verification evidence before claiming work is complete, fixed, passing, review-ready, or ready to commit. Not for speculative confidence or stale results."
+when_to_use: "verify, completion claim, fixed claim, tests pass, review-ready, commit, fresh evidence, 验证, 完成前检查"
+metadata:
+  version: "0.1.4"
 ---
 
 # Verification Before Completion

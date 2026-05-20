@@ -1,6 +1,9 @@
 ---
 name: debug
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: "Finds root cause for bugs, failing tests, build failures, regressions, and unexpected behavior before fixes. Not for new feature planning or routine code review."
+when_to_use: "debug, bug, test failure, build failure, regression, unexpected behavior, root cause, 报错, 失败, 回归, 排查"
+metadata:
+  version: "0.1.4"
 ---
 
 # Systematic Debugging
