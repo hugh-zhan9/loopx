@@ -472,4 +472,4 @@ node src/cli.mjs status --json
 
 ## Version
 
-Current npm package version: `0.1.3`.
+Current npm package version: `0.1.4`.
