@@ -25,6 +25,7 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 ## Features
 
 - Installs and exposes eleven bundled loopx Codex skills: workflow skills `clarify`, `plan`, `build`, `review`, `archive`, and `autopilot`; quality support skills `debug`, `tdd`, and `verify`; and Go support skills `go-style` and `kratos`.
+- Keeps bundled skill routing explicit in `skills/RESOLVER.md`, with deterministic governance checks for frontmatter, plugin mirrors, resolver coverage, local references, package inclusion, and version alignment.
 - Supports npm global install and Codex plugin install through the same install/discovery core.
 - Installs a managed Codex workflow hook that surfaces loopx workflow state and safe next-action hints inside Codex.
 - Stores runtime state and stage artifacts locally under `.loopx/` for auditability, recovery, and migration.
@@ -173,6 +174,24 @@ loopx repair-install
 The CLI is primarily for runtime, debugging, status inspection, and maintenance. The normal Codex-facing product surface is the bundled skill set, for example `$clarify`, `$plan`, `$build`, `$review`, `$archive`, `$autopilot`, `$debug`, `$tdd`, `$verify`, `$go-style`, and `$kratos`.
 
 `loopx status` remains a CLI/runtime diagnostic command rather than a Codex skill. `loopx render` generates human-readable HTML views from existing runtime artifacts; without a slug it renders every non-legacy workflow plus the workspace index. Markdown and JSON remain the canonical machine-readable and editable sources.
+
+## Skill Routing and Governance
+
+The bundled skill resolver lives at:
+
+```text
+skills/RESOLVER.md
+```
+
+It is the human-readable routing map for the eleven bundled skills. Keep it aligned with each `skills/<name>/SKILL.md` and mirrored `plugins/loopx/skills/<name>/SKILL.md`.
+
+Skill governance is enforced by:
+
+```bash
+node scripts/verify-skills.mjs
+```
+
+The verifier checks that bundled skill frontmatter is triggerable and bounded, `metadata.version` matches `package.json`, plugin skill mirrors match the canonical skills, `skills/RESOLVER.md` covers every bundled skill without stale bundled-skill references, local skill references exist, the plugin manifest version matches the package version, and the verifier itself is included in the npm package.
 
 ## Skills
 
@@ -337,6 +356,7 @@ loopx writes runtime state under `.loopx/` in the current project:
         review.html
       plan-reviews/
       build-support/
+      review-support/
   autopilot/
     <slug>/
       run.json
@@ -392,6 +412,12 @@ Check skill discovery state only:
 node scripts/install-skills.mjs --check
 ```
 
+Verify bundled skill governance:
+
+```bash
+node scripts/verify-skills.mjs
+```
+
 ## Codex Workflow Hook
 
 `install-skills.mjs` and the Codex plugin installer automatically install `scripts/codex-workflow-hook.mjs` to:
@@ -443,9 +469,17 @@ Run tests:
 npm test
 ```
 
+`npm test` runs bundled skill governance first, then the Node test suites:
+
+```bash
+node scripts/verify-skills.mjs
+node --test test/*.test.mjs
+```
+
 Useful verification commands:
 
 ```bash
+node scripts/verify-skills.mjs
 node --test test/*.test.mjs
 node scripts/install-skills.mjs --check
 node --test plugins/loopx/scripts/plugin-install.test.mjs
@@ -462,6 +496,7 @@ node src/cli.mjs status --json
 - `README.zh-CN.md`
 - `package.json`
 - `scripts/install-skills.mjs`
+- `scripts/verify-skills.mjs`
 - `scripts/codex-stop-hook.mjs`
 - `scripts/codex-workflow-hook.mjs`
 - `assets/logo.svg`
