@@ -3,7 +3,7 @@ name: review
 description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
 when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 argument-hint: "<execution-record path or workflow slug>"
 ---
 
@@ -25,6 +25,8 @@ Compatible skill / CLI input:
 
 When invoked with an execution record path, derive `<slug>` from the workflow directory and evaluate the matching active run.
 
+When present, use `.loopx/config.json` as supporting context for project-native verification commands, existing AI rule files, and existing spec sources. Do not treat those external or pre-existing sources as replacements for the loopx execution record and review artifact.
+
 ## Expected Outputs
 
 - a review artifact tied to the run being evaluated
@@ -45,6 +47,7 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 - Use this only after build has produced execution and verification evidence for a specific run.
 - Stop here if review evidence is incomplete. `review` remains an independent gate and does not auto-complete the workflow.
 - Review must include code review of the build-owned implementation diff. Do not limit review to artifact/schema checks.
+- Review should compare verification evidence against project-native commands recorded in `.loopx/config.json` when available, while still accepting stronger task-specific verification from the approved plan.
 - Review must include the architecture-smell lane as part of review evidence. This is not a new workflow stage and must not create extra user steps.
 - Review must compare the execution scope against the approved workflow scope. If `execution-record.md` declares non-empty `remaining_scope`, `completion_claim` other than `full`, or a mismatch between `planned_scope` and `implemented_scope`, review must return no-go and route to build or plan. A partial slice may be accepted as useful work, but it must not be approved as full workflow completion.
 - Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.

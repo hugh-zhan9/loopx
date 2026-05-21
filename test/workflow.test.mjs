@@ -583,15 +583,45 @@ describe('loopx skill-first workflow contract', () => {
 
   it('initializes a loopx workspace and requires approval before planning', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-init-'));
+    await writeFile(join(wd, 'AGENTS.md'), '# Project agent rules\n');
+    await mkdir(join(wd, '.github'), { recursive: true });
+    await writeFile(join(wd, '.github', 'copilot-instructions.md'), '# Copilot rules\n');
+    await mkdir(join(wd, 'docs', 'changes'), { recursive: true });
+    await writeFile(join(wd, 'package.json'), `${JSON.stringify({
+      scripts: {
+        test: 'node --test test/*.test.mjs',
+        lint: 'eslint .',
+        typecheck: 'tsc --noEmit',
+        build: 'vite build',
+        'test:e2e': 'playwright test',
+      },
+    }, null, 2)}\n`);
+    await writeFile(join(wd, 'package-lock.json'), '{}\n');
     const result = await initWorkspace(wd, { slug: 'demo-init' });
     const workspaceRoot = resolveWorkspaceRoot(wd);
     const workflowRoot = resolveWorkflowRoot(wd, 'demo-init');
+    const config = JSON.parse(await readFile(join(workspaceRoot, 'config.json'), 'utf8'));
 
     assert.equal(result.workspaceRoot, workspaceRoot);
     assert.equal(workspaceRoot, resolve(wd, '.loopx'));
     assert.equal(existsSync(join(workflowRoot, 'spec.md')), true);
     assert.equal(existsSync(join(workspaceRoot, 'context')), true);
     assert.equal(existsSync(join(workspaceRoot, 'intake')), true);
+    assert.deepEqual(
+      config.project_conventions.existing_ai_rules.map((item) => item.path),
+      ['AGENTS.md', '.github/copilot-instructions.md'],
+    );
+    assert.deepEqual(
+      config.project_conventions.existing_spec_sources.map((item) => item.path),
+      ['docs/changes'],
+    );
+    assert.equal(config.source_of_truth_policy, 'preserve-existing-project-rules-and-use-loopx-artifacts-only-after-init');
+    assert.equal(config.verification_commands.install, 'npm ci');
+    assert.equal(config.verification_commands.test, 'npm test');
+    assert.equal(config.verification_commands.lint, 'npm run lint');
+    assert.equal(config.verification_commands.typecheck, 'npm run typecheck');
+    assert.equal(config.verification_commands.build, 'npm run build');
+    assert.equal(config.verification_commands.e2e, 'npm run test:e2e');
 
     const state = await readState(wd, 'demo-init');
     assert.equal(state.current_stage, 'clarify');

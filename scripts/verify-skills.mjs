@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,12 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 const pluginManifest = JSON.parse(await readFile(join(repoRoot, 'plugins', 'loopx', '.codex-plugin', 'plugin.json'), 'utf8'));
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
+const markdownPaths = [
+  'README.md',
+  'README.zh-CN.md',
+  'AGENTS.md',
+  'skills/RESOLVER.md',
+];
 const personalPathPattern = /\/(?:Users|home)\/[A-Za-z0-9._-]+\//;
 const localRefPattern = /(?<![/.])\b(?:references|agents|scripts)\/[\w/.-]+\b/g;
 
@@ -51,6 +57,69 @@ function assertSkillDescription(skillName, description) {
   assert.match(description, /not for/i, `${skillName} description must include a Not for exclusion`);
 }
 
+async function assertMarkdownStructure(relativePath) {
+  const path = join(repoRoot, relativePath);
+  assert.equal(existsSync(path), true, `${relativePath} missing`);
+  const text = await readFile(path, 'utf8');
+  assert.equal(text.endsWith('\n'), true, `${relativePath} missing final newline`);
+
+  const fenceStack = [];
+  text.split('\n').forEach((line, index) => {
+    assert.equal(/^(<<<<<<<|=======|>>>>>>>)($| )/.test(line), false, `${relativePath}:${index + 1}: merge conflict marker`);
+    const match = line.match(/^(`{3,}|~{3,})/);
+    if (!match) {
+      return;
+    }
+    const marker = match[1];
+    if (fenceStack.length > 0 && marker[0] === fenceStack.at(-1).char && marker.length >= fenceStack.at(-1).length) {
+      fenceStack.pop();
+      return;
+    }
+    fenceStack.push({ char: marker[0], length: marker.length, line: index + 1 });
+  });
+
+  assert.deepEqual(fenceStack, [], `${relativePath} has unclosed fenced block`);
+}
+
+function assertContains(text, value, label) {
+  assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
+}
+
+async function assertPublicDocsAligned() {
+  const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+  const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+  const commands = [
+    'loopx init',
+    'loopx clarify',
+    'loopx approve',
+    'loopx plan',
+    'loopx build',
+    'loopx review',
+    'loopx archive',
+    'loopx autopilot',
+    'loopx render',
+    'loopx status',
+    'loopx setup-context',
+    'loopx doctor',
+    'loopx migrate',
+    'loopx repair-install',
+    'node scripts/verify-skills.mjs',
+  ];
+  for (const command of commands) {
+    assertContains(readme, command, 'README.md');
+    assertContains(readmeZh, command, 'README.zh-CN.md');
+  }
+
+  const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
+  const releaseNotes = existsSync(releaseNotesRoot)
+    ? (await readdir(releaseNotesRoot)).filter((name) => name.endsWith('.md'))
+    : [];
+  assert.ok(releaseNotes.includes(`${packageJson.version}.md`), `docs/release-notes/${packageJson.version}.md missing`);
+  for (const name of releaseNotes) {
+    await assertMarkdownStructure(`docs/release-notes/${name}`);
+  }
+}
+
 async function assertSkill(skillName, resolverText) {
   const rootPath = join(repoRoot, 'skills', skillName, 'SKILL.md');
   const pluginPath = join(repoRoot, 'plugins', 'loopx', 'skills', skillName, 'SKILL.md');
@@ -78,6 +147,11 @@ async function assertSkill(skillName, resolverText) {
 
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
+
+for (const relativePath of markdownPaths) {
+  await assertMarkdownStructure(relativePath);
+}
+await assertPublicDocsAligned();
 
 const resolverText = await readFile(resolverPath, 'utf8');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
