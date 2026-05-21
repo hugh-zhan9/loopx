@@ -3,7 +3,7 @@ name: build
 description: "Executes an approved loopx plan or review rework contract with evidence, verification, deslop, and regression gates. Not for unclear requirements or independent review."
 when_to_use: "build, implement approved plan, execute PRD, --from-review, review rework, implementation fixes, 执行, 实现, 修改"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 argument-hint: "[--no-deslop] <approved PRD path or workflow slug> | --from-review <review artifact path>"
 ---
 
@@ -33,6 +33,7 @@ By default, `build` is not a one-shot draft writer. It is a persistence loop wit
 - Execution may parallelize internally without exposing a public `team` stage.
 - `build` does not replace `review`.
 - `execution-record.md` remains the sole canonical execution and verification artifact.
+- `.loopx/config.json` is supporting context for existing project AI rules, existing spec sources, and discovered verification commands; use it to preserve local sources of truth, not to skip loopx stages.
 - Feature work and bug fixes should use `tdd`: write a failing test, confirm it fails for the intended reason, then implement the smallest passing change.
 - Bug, test-failure, build-failure, and unexpected-behavior work should use `debug` before proposing fixes.
 - Completion and review-ready claims should use `verify` before they are stated.
@@ -75,6 +76,8 @@ Compatible skill / CLI input:
 When invoked with a PRD path, derive `<slug>` from `prd-<slug>.md` and still use the matching workflow-local plan package and test spec.
 
 When invoked with `--from-review`, derive `<slug>` from the workflow directory, treat the review artifact as the implementation-fix contract, and load the matching PRD, test spec, previous `execution-record.md`, and workflow-local plan package as supporting context. This Codex skill invocation consumes the `review -> build` rework intent; users should not need a separate bash `loopx approve ... --from review --to build` step for the normal Codex-facing flow.
+
+Also load `.loopx/config.json` when present. Its `project_conventions` entries identify existing project rule/spec files that should be preserved, and its `verification_commands` entries are the first project-native commands to consider for fresh evidence.
 </Inputs>
 
 <Execution_Model>

@@ -68,4 +68,48 @@ describe('loopx skill governance', () => {
       assert.equal(pluginSkill, rootSkill, `${skillName} plugin mirror drifted`);
     }
   });
+
+  it('keeps public docs structurally valid and bilingual release docs aligned', async () => {
+    for (const relativePath of ['README.md', 'README.zh-CN.md']) {
+      const text = await readFile(join(repoRoot, relativePath), 'utf8');
+      assert.equal(text.endsWith('\n'), true, `${relativePath} missing final newline`);
+      assert.equal(/^(<<<<<<<|=======|>>>>>>>)($| )/m.test(text), false, `${relativePath} contains merge conflict markers`);
+
+      const fences = [];
+      for (const line of text.split('\n')) {
+        const match = line.match(/^(`{3,}|~{3,})/);
+        if (!match) continue;
+        const marker = match[1];
+        if (fences.length > 0 && marker[0] === fences.at(-1)[0] && marker.length >= fences.at(-1).length) {
+          fences.pop();
+        } else {
+          fences.push(marker);
+        }
+      }
+      assert.deepEqual(fences, [], `${relativePath} has unclosed fenced blocks`);
+    }
+
+    const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+    const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    for (const command of [
+      'loopx init',
+      'loopx clarify',
+      'loopx approve',
+      'loopx plan',
+      'loopx build',
+      'loopx review',
+      'loopx archive',
+      'loopx autopilot',
+      'loopx render',
+      'loopx status',
+      'loopx setup-context',
+      'loopx doctor',
+      'loopx migrate',
+      'loopx repair-install',
+      'node scripts/verify-skills.mjs',
+    ]) {
+      assert.match(readme, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.md`);
+      assert.match(readmeZh, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.zh-CN.md`);
+    }
+  });
 });

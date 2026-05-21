@@ -3,7 +3,7 @@ name: clarify
 description: "Clarifies ambiguous loopx work into requirements, non-goals, decision boundaries, and design-ready specs before planning. Not for already-approved plans or concrete implementation tasks."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # loopx Clarify

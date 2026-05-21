@@ -16,6 +16,7 @@ import {
 import { doctorRuntime, ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
 import { DEFAULT_BUILD_MAX_ITERATIONS, createDefaultBuildAdapter } from './build-runtime.mjs';
 import { DEFAULT_MAX_ITERATIONS, createDefaultPlanAdapter } from './plan-runtime.mjs';
+import { inspectProjectConventions } from './project-discovery.mjs';
 import { createDefaultReviewAdapter } from './review-runtime.mjs';
 import { appendWorkspaceJournal } from './workspace-memory.mjs';
 import { inspectWorkspaceContext, setupWorkspaceContext } from './workspace-context.mjs';
@@ -2509,6 +2510,7 @@ async function refreshExecutionStatus(root, state) {
 
 export async function initWorkspace(cwd, { slug } = {}) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
+  const projectConventions = await inspectProjectConventions(cwd);
   await ensureLoopxRoot(cwd);
   await ensureDir(join(workspaceRoot, 'context'));
   await ensureDir(join(workspaceRoot, 'intake'));
@@ -2527,6 +2529,12 @@ export async function initWorkspace(cwd, { slug } = {}) {
     product_contract: 'skill-first-v1',
     default_flow: ['clarify', 'plan', 'build', 'review', 'done', 'archive'],
     preferred_surface: ['clarify', 'plan', 'build', 'review', 'archive', 'autopilot'],
+    source_of_truth_policy: projectConventions.source_of_truth_policy,
+    project_conventions: {
+      existing_ai_rules: projectConventions.existing_ai_rules,
+      existing_spec_sources: projectConventions.existing_spec_sources,
+    },
+    verification_commands: projectConventions.verification_commands,
   };
 
   if (!existsSync(workspaceConfigPath(workspaceRoot))) {

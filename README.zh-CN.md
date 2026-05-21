@@ -32,6 +32,7 @@ clarify -> plan -> build -> review -> approve review->done -> archive
 - 自动安装 loopx 管理的 Codex workflow hook，在 Codex 中提示当前 workflow 状态和安全下一步。
 - 所有运行时状态和阶段产物都写入项目本地 `.loopx/`，便于审计、恢复和迁移。
 - clarify 需求快照写入 `.loopx/intake/`，让 `.loopx/specs/` 只承载长期领域规格。
+- init 时会把已有项目 AI 规则、既有 spec 来源和自动发现的验证命令记录到 `.loopx/config.json`，让 loopx 保留项目原有事实源，同时继续执行完整闭环。
 - `plan` 默认采用 Planner -> Architect -> Critic 的共识规划循环。
 - `plan` 会写入借鉴 OpenSpec 的 change artifacts：proposal、spec delta、design、tasks 和 artifact dependency graph。
 - 提供项目级 agent context：`.loopx/agents/` 和 `.loopx/context/domain.md`，供 build/review 的 context manifest 消费。
@@ -373,6 +374,8 @@ loopx 在当前项目下写入 `.loopx/`：
       run.json
 ```
 
+`config.json` 记录 loopx 产品契约和 init 时的项目发现结果：已有 AI 规则文件，例如 `AGENTS.md`、`CLAUDE.md`、Cursor / Copilot 规则；已有 spec 来源，例如 `docs/changes`、ADR/RFC 目录；以及自动发现的 install/test/lint/typecheck/build/E2E 命令。这不会引入轻量版 loopx；它只是让 `plan`、`build`、`review` 能看到项目事实，同时保持完整闭环。
+
 `intake` 保存一次需求的 clarify 快照；`workflows` 保存当前任务的运行时工作副本；`changes` 保存本次需求对长期行为的 change delta；`specs` 只保存 archive 后的长期领域行为契约。
 
 `views/` 和 `workflows/<slug>/view/` 是 `loopx render` 生成的派生 HTML 阅读视图，只服务于人的浏览和评审，可以随时重新生成；agent 和工具仍应读取、修改 Markdown 与 JSON 产物。
@@ -390,6 +393,7 @@ loopx 在当前项目下写入 `.loopx/`：
 用户可以阅读和按流程修改的事实源文档：
 
 - `.loopx/workflows/<slug>/*.md`：当前 workflow 的可编辑工作副本；修改后仍需通过对应阶段门禁。
+- `.loopx/config.json`：workspace 配置、项目规则/spec 来源发现结果和默认验证命令；当仓库的 canonical 命令或规则文件变化时可以更新。
 - `.loopx/context/domain.md` 和 `.loopx/agents/*.md`：项目级背景、术语和 agent 协作约定。
 - `.loopx/changes/active/<change-id>/*.md`：plan 生成的 change proposal、design、tasks 和 spec delta；修改后应重新过 plan/build/review。
 - `.loopx/specs/<domain>/spec.md`：archive 后的长期行为规格；通常由 `archive` 同步，人工改动需要保持和后续 change delta 一致。

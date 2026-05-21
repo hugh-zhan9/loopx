@@ -138,6 +138,7 @@ export async function generateBuildContextManifest({ cwd, root, state, slug }) {
     row(cwd, { stage: 'build', kind: 'review-rework', path: reviewReworkPath, reason: 'review_requested_implementation_fixes', priority: 33, required: requiresReviewRework }),
     row(cwd, { stage: 'build', kind: 'domain-context', path: contextPaths.domainGlossary, reason: 'domain_vocabulary', priority: 34, required: contextSetup.status !== 'missing' }),
     row(cwd, { stage: 'build', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 35, required: false }),
+    row(cwd, { stage: 'build', kind: 'workspace-config', path: join(cwd, '.loopx', 'config.json'), reason: 'project_rules_spec_sources_and_verification_commands', priority: 36, required: false }),
   ];
   const manifestPath = buildContextManifestPath(root);
   await writeContextManifest(manifestPath, rows);
@@ -157,6 +158,7 @@ export async function generateReviewContextManifest({ cwd, root, state, slug }) 
     row(cwd, { stage: 'review', kind: 'residual-risks', path: join(root, 'execution-record.md'), reason: 'residual_risk_reference', priority: 26, required: false }),
     row(cwd, { stage: 'review', kind: 'build-support', path: join(root, 'build-support'), reason: 'build_gate_evidence', priority: 30, required: false }),
     row(cwd, { stage: 'review', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 31, required: false }),
+    row(cwd, { stage: 'review', kind: 'workspace-config', path: join(cwd, '.loopx', 'config.json'), reason: 'project_rules_spec_sources_and_verification_commands', priority: 32, required: false }),
     row(cwd, { stage: 'review', kind: 'state', path: join(root, 'state.json'), reason: 'workflow_state', priority: 40 }),
   ];
   const manifestPath = reviewContextManifestPath(root);
