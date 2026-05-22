@@ -357,7 +357,7 @@ function buildWorkspaceReadme() {
     '- `workflows/<slug>/spec.md`',
     '- `workflows/<slug>/plan.md`, `architecture.md`, `development-plan.md`, and `test-plan.md`',
     '- `workflows/<slug>/execution-record.md` and `review-report.md`',
-    '- `views/index.html` and `workflows/<slug>/view/index.html` after `loopx render`',
+    '- `views/index.html` and `workflows/<slug>/view/index.html` after `loopx plan` or `loopx render`',
     '',
     'Documents users may read and edit as workflow fact sources:',
     '',
@@ -2508,6 +2508,28 @@ async function refreshExecutionStatus(root, state) {
   };
 }
 
+async function renderPlanReadingViews(cwd, root, state, slug) {
+  try {
+    const { renderHtmlViews } = await import('./html-views.mjs');
+    const rendered = await renderHtmlViews(cwd, { slug });
+    return {
+      ...state,
+      html_view_status: 'written',
+      html_view_path: rendered.workflowViewPath,
+      workspace_view_path: rendered.workspaceViewPath,
+      html_view_error: null,
+    };
+  } catch (error) {
+    return {
+      ...state,
+      html_view_status: 'failed',
+      html_view_path: join(root, 'view', 'index.html'),
+      workspace_view_path: join(resolveWorkspaceRoot(cwd), 'views', 'index.html'),
+      html_view_error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function initWorkspace(cwd, { slug } = {}) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
   const projectConventions = await inspectProjectConventions(cwd);
@@ -2785,8 +2807,64 @@ export async function approveStage(cwd, slug, { from, to }) {
   return { root, state: next };
 }
 
+function isDoneRoute(value) {
+  return value === TRANSITIONS.REVIEW_TO_DONE || value === STAGES.DONE;
+}
+
+function canArchiveConsumePendingDoneApproval(state) {
+  if (state.current_stage !== STAGES.REVIEW) {
+    return false;
+  }
+  const reviewVerdict = String(state.review_verdict || '').trim().toLowerCase();
+  const reviewApproved = reviewVerdict === 'approve' || reviewVerdict === 'go';
+  const routesToDone = [
+    state.pending_user_decision,
+    state.requested_transition,
+    state.review_route,
+    state.requested_transition_after_review,
+  ].some(isDoneRoute);
+  const completionRequested = [
+    APPROVAL_STATES.REQUESTED,
+    APPROVAL_STATES.APPROVED,
+  ].includes(state.approval?.complete) || state.execution_approved === true || state.execution_approved_for_review === true;
+  return reviewApproved && routesToDone && completionRequested;
+}
+
+async function consumePendingDoneApprovalForArchive(cwd, root, state, slug) {
+  if (!canArchiveConsumePendingDoneApproval(state)) {
+    return { root, state, consumed: false };
+  }
+  const normalized = withRecommendedAction({
+    ...state,
+    review_verdict: 'approve',
+    pending_user_decision: TRANSITIONS.REVIEW_TO_DONE,
+    requested_transition: TRANSITIONS.NONE,
+    approval: {
+      ...state.approval,
+      review: APPROVAL_STATES.APPROVED,
+      complete: state.approval?.complete || APPROVAL_STATES.REQUESTED,
+    },
+  });
+  await writeState(root, normalized);
+  const done = await approveStage(cwd, slug, { from: STAGES.REVIEW, to: STAGES.DONE });
+  return {
+    root: done.root,
+    state: {
+      ...done.state,
+      archive_consumed_pending_done_approval: true,
+    },
+    consumed: true,
+  };
+}
+
 export async function archiveStage(cwd, slug) {
-  const { root, state, slug: normalized } = await loadWorkflowState(cwd, slug, { allowLegacy: false });
+  const loaded = await loadWorkflowState(cwd, slug, { allowLegacy: false });
+  const normalized = loaded.slug;
+  let root = loaded.root;
+  let state = loaded.state;
+  const doneApproval = await consumePendingDoneApprovalForArchive(cwd, root, state, normalized);
+  root = doneApproval.root;
+  state = doneApproval.state;
   if (state.current_stage !== STAGES.DONE || !state.completion_confirmed) {
     throw new Error('archive_requires_done_workflow');
   }
@@ -3004,7 +3082,9 @@ export async function planStage(cwd, slug, options = {}) {
     build_context_manifest_path: buildManifest?.path || buildContextManifestPath(root),
   });
   await writeState(root, next);
-  return { root, state: next, architectReview, criticReview };
+  const renderedNext = await renderPlanReadingViews(cwd, root, next, normalized);
+  await writeState(root, renderedNext);
+  return { root, state: renderedNext, architectReview, criticReview };
 }
 
 export async function buildStage(cwd, slug, options = {}) {

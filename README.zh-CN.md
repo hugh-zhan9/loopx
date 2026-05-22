@@ -142,7 +142,15 @@ loopx status my-task
 loopx status my-task --json
 ```
 
-生成派生 HTML 阅读视图：
+plan 完成后会自动写入派生 HTML 阅读视图，方便直接审阅计划：
+
+```text
+.loopx/workflows/my-task/view/index.html
+.loopx/workflows/my-task/view/plan.html
+.loopx/views/index.html
+```
+
+需要时也可以重新生成派生 HTML 阅读视图：
 
 ```bash
 loopx render my-task
@@ -176,7 +184,7 @@ loopx repair-install
 
 CLI 主要用于运行时、调试、状态观察和维护。日常面向 Codex 的主入口是同名 skills，例如 `$clarify`、`$plan`、`$build`、`$review`、`$archive`、`$autopilot`、`$debug`、`$tdd`、`$verify`、`$go-style`、`$kratos`。
 
-`loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。`loopx render` 会基于现有运行时产物生成给人阅读的 HTML 视图；不传 slug 时会渲染所有非 legacy workflow 和工作区首页。Markdown 和 JSON 仍然是机器可读、可编辑的事实源。
+`loopx status` 仍然是 CLI/runtime 诊断命令，不作为单独 Codex skill 暴露。`loopx plan` 会自动为当前计划 workflow 和工作区首页写入给人阅读的 HTML 视图。`loopx render` 会基于现有运行时产物重新生成这些视图；不传 slug 时会渲染所有非 legacy workflow 和工作区首页。Markdown 和 JSON 仍然是机器可读、可编辑的事实源。
 
 ## Skill 路由与治理
 
@@ -225,6 +233,8 @@ node scripts/verify-skills.mjs
 - `.loopx/workflows/<slug>/architecture.md`
 - `.loopx/workflows/<slug>/development-plan.md`
 - `.loopx/workflows/<slug>/test-plan.md`
+
+plan 成功后，loopx 还会写入派生阅读视图：`.loopx/workflows/<slug>/view/index.html`、`.loopx/workflows/<slug>/view/plan.html` 和 `.loopx/views/index.html`。这些视图用于人工审阅；Markdown 和 JSON 仍然是可编辑事实源。
 
 `spec-delta.md` 使用 requirement delta：`## ADDED Requirements`、`## MODIFIED Requirements`、`## REMOVED Requirements` 和 `## RENAMED Requirements`。ADDED / MODIFIED 必须是完整的 `### Requirement:` 块，包含 SHALL/MUST 约束和 `#### Scenario:` 场景，archive 才能把它们合并进长期 spec 当前状态。
 
@@ -378,7 +388,7 @@ loopx 在当前项目下写入 `.loopx/`：
 
 `intake` 保存一次需求的 clarify 快照；`workflows` 保存当前任务的运行时工作副本；`changes` 保存本次需求对长期行为的 change delta；`specs` 只保存 archive 后的长期领域行为契约。
 
-`views/` 和 `workflows/<slug>/view/` 是 `loopx render` 生成的派生 HTML 阅读视图，只服务于人的浏览和评审，可以随时重新生成；agent 和工具仍应读取、修改 Markdown 与 JSON 产物。
+`views/` 和 `workflows/<slug>/view/` 是 plan 后写入、也可由 `loopx render` 重新生成的派生 HTML 阅读视图，只服务于人的浏览和评审；agent 和工具仍应读取、修改 Markdown 与 JSON 产物。
 
 ### 文档关注边界
 
@@ -388,7 +398,7 @@ loopx 在当前项目下写入 `.loopx/`：
 - `.loopx/workflows/<slug>/spec.md`：当前需求工作副本。
 - `.loopx/workflows/<slug>/plan.md`、`architecture.md`、`development-plan.md`、`test-plan.md`：当前任务的计划、架构和验证约定。
 - `.loopx/workflows/<slug>/execution-record.md`、`review-report.md`：执行证据和评审结论。
-- `.loopx/views/index.html` 与 `.loopx/workflows/<slug>/view/index.html`：由 `loopx render` 生成的阅读入口。
+- `.loopx/views/index.html` 与 `.loopx/workflows/<slug>/view/index.html`：plan 后写入、也可由 `loopx render` 重新生成的阅读入口。
 
 用户可以阅读和按流程修改的事实源文档：
 
@@ -405,7 +415,7 @@ loopx 在当前项目下写入 `.loopx/`：
 - `.loopx/intake/clarify-*.md`：clarify 快照，用于审计和追溯；不要当作长期 specs 修改。
 - `.loopx/changes/active/<change-id>/slices.json`、`artifact-graph.json`：计划结构化数据，build/review/archive 会消费。
 - `.loopx/autopilot/<slug>/run.json`、`.loopx/build-active.json`：编排和 stop-hook 运行态。
-- `.loopx/views/` 和 `.loopx/workflows/<slug>/view/`：HTML 派生视图，可删除后用 `loopx render` 重新生成，不应作为事实源编辑。
+- `.loopx/views/` 和 `.loopx/workflows/<slug>/view/`：HTML 派生视图，plan 后自动写入，可删除后用 `loopx render` 重新生成，不应作为事实源编辑。
 
 ## 安装诊断与修复
 
@@ -522,4 +532,4 @@ node src/cli.mjs status --json
 
 ## 版本
 
-当前 npm 包版本：`0.1.4`。
+当前 npm 包版本：`0.1.6`。

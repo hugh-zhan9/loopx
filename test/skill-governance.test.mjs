@@ -112,4 +112,29 @@ describe('loopx skill governance', () => {
       assert.match(readmeZh, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.zh-CN.md`);
     }
   });
+
+  it('keeps workflow skill handoff commands unambiguous', async () => {
+    const clarify = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    assert.match(clarify, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
+    assert.match(clarify, /Conditional artifact-pinned handoff: `\$plan --direct <spec-path>`/);
+    assert.match(clarify, /Recommend `\$plan --direct <spec-path>` when the user explicitly wants to plan from a specific requirements artifact/);
+    assert.match(clarify, /Do not use `\$plan --direct` to work around unclear workflow state/);
+    assert.match(clarify, /For the normal loopx clarify happy path, prefer `\$plan <slug>`/);
+
+    const plan = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    assert.match(plan, /Default build handoff after an approved plan package:/);
+    assert.match(plan, /\$build \.loopx\/plans\/prd-<slug>\.md/);
+    assert.match(plan, /Do not emit `\$build <slug>` as the primary handoff/);
+    assert.match(plan, /HTML:\n\.loopx\/workflows\/<slug>\/view\/index\.html/);
+    assert.match(plan, /derived HTML reading views/);
+
+    const build = await readFile(join(repoRoot, 'skills', 'build', 'SKILL.md'), 'utf8');
+    assert.match(build, /Default review handoff after build readiness:/);
+    assert.match(build, /\$review \.loopx\/workflows\/<slug>\/execution-record\.md/);
+    assert.match(build, /Do not emit `\$review <slug>` as the primary skill handoff/);
+
+    const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    assert.match(review, /Default implementation-fix handoff:/);
+    assert.match(review, /\$build --from-review \.loopx\/workflows\/<slug>\/review-report\.md/);
+  });
 });

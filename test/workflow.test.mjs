@@ -670,6 +670,12 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_architect_review_status, 'complete');
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(planned.state.plan_docs_status, 'complete');
+    assert.equal(planned.state.html_view_status, 'written');
+    assert.equal(planned.state.html_view_path, join(planned.root, 'view', 'index.html'));
+    assert.equal(planned.state.workspace_view_path, join(resolveWorkspaceRoot(wd), 'views', 'index.html'));
+    assert.equal(existsSync(planned.state.html_view_path), true);
+    assert.equal(existsSync(planned.state.workspace_view_path), true);
+    assert.match(await readFile(join(planned.root, 'view', 'plan.html'), 'utf8'), /计划与架构/);
     assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
     assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
     assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
@@ -1469,6 +1475,73 @@ describe('loopx skill-first workflow contract', () => {
     const adrText = await readFile(archived.state.adr_candidate_path, 'utf8');
     assert.match(adrText, /# ADR Candidate: chg-archive-delta/);
     assert.match(adrText, /## Decision/);
+  });
+
+  it('archive consumes pending review done approval before syncing specs', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-archive-consume-done-'));
+    const clarified = await clarifyStage(wd, 'archive-consume-done');
+    await writeResolvedSpec(clarified.root, 'archive-consume-done');
+    await approveStage(wd, 'archive-consume-done', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-consume-done', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-consume-done', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-consume-done', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'archive-consume-done', { from: 'build', to: 'review' });
+    const reviewed = await reviewStage(wd, 'archive-consume-done', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    assert.equal(reviewed.state.current_stage, 'review');
+    assert.equal(reviewed.state.pending_user_decision, 'review->done');
+    assert.equal(reviewed.state.approval.complete, 'requested');
+
+    const archived = await archiveStage(wd, 'archive-consume-done');
+
+    assert.equal(archived.state.current_stage, 'done');
+    assert.equal(archived.state.completion_confirmed, true);
+    assert.equal(archived.state.last_confirmed_transition, 'review->done');
+    assert.equal(archived.state.approval.complete, 'approved');
+    assert.equal(archived.state.archive_status, 'archived');
+    assert.equal(archived.state.spec_sync_status, 'synced');
+    assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'changes', 'archive', 'chg-archive-consume-done', 'spec-delta.md')), true);
+  });
+
+  it('archive normalizes go review done routes before consuming completion approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-archive-go-done-'));
+    const clarified = await clarifyStage(wd, 'archive-go-done');
+    await writeResolvedSpec(clarified.root, 'archive-go-done');
+    await approveStage(wd, 'archive-go-done', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-go-done', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'archive-go-done', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'archive-go-done', { adapter: createScriptedBuildAdapter() });
+    await approveStage(wd, 'archive-go-done', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'archive-go-done', {
+      reviewer: 'qa-1',
+      adapter: createScriptedReviewAdapter(),
+    });
+    const reviewed = await readState(wd, 'archive-go-done');
+    await writeFile(
+      join(clarified.root, 'state.json'),
+      `${JSON.stringify({
+        ...reviewed,
+        review_verdict: 'go',
+        review_route: 'done',
+        execution_approved: true,
+        pending_user_decision: 'none',
+        requested_transition: 'done',
+        approval: {
+          ...reviewed.approval,
+          complete: 'requested',
+        },
+      }, null, 2)}\n`,
+    );
+
+    const archived = await archiveStage(wd, 'archive-go-done');
+
+    assert.equal(archived.state.current_stage, 'done');
+    assert.equal(archived.state.review_verdict, 'approve');
+    assert.equal(archived.state.completion_confirmed, true);
+    assert.equal(archived.state.archive_status, 'archived');
+    assert.equal(archived.state.archive_consumed_pending_done_approval, true);
   });
 
   it('archive refuses done workflows whose execution record still declares remaining full-scope work', async () => {

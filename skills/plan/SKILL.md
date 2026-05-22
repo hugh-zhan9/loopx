@@ -3,7 +3,7 @@ name: plan
 description: "Creates a consensus-first loopx plan package with Planner, Architect, and Critic review from an approved spec. Not for unresolved requirements or direct implementation."
 when_to_use: "plan, planning, consensus planning, PRD, architecture plan, test plan, approved clarify spec, 规划, 方案, 架构评审"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 argument-hint: "[--interactive] [--deliberate] [--direct <spec-path>] <clarified task or spec path>"
 ---
 
@@ -173,6 +173,14 @@ On approval, write canonical planning artifacts:
 - `.loopx/changes/active/<change-id>/slices.json`
 - `.loopx/changes/active/<change-id>/artifact-graph.json`
 
+Also generate derived HTML reading views:
+
+- `.loopx/workflows/<slug>/view/index.html`
+- `.loopx/workflows/<slug>/view/plan.html`
+- `.loopx/views/index.html`
+
+The HTML files are derived reading views for human plan review. They are not canonical fact sources; Markdown and JSON remain authoritative.
+
 The final plan must include:
 
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
@@ -198,6 +206,24 @@ In `--interactive` mode, ask for the next lane:
 
 Without `--interactive`, report the approved plan and recommended next command, but do not launch execution.
 </Consensus_Workflow>
+
+<Final_Response_Contract>
+Default build handoff after an approved plan package:
+
+```text
+Next:
+$build .loopx/plans/prd-<slug>.md
+```
+
+Use the artifact-first PRD path because it pins build to the approved plan package. Do not emit `$build <slug>` as the primary handoff when `.loopx/plans/prd-<slug>.md` is known. If execution is not approved or plan gates remain blocked, state the blocker instead of emitting a build handoff.
+
+Also report the generated HTML reading entrypoint so the user can review the plan without running another command:
+
+```text
+HTML:
+.loopx/workflows/<slug>/view/index.html
+```
+</Final_Response_Contract>
 
 <Runtime_State_Machine>
 `plan` must keep the planning gate machine-checkable. Runtime state should track:
@@ -249,6 +275,7 @@ Primary outputs:
 - approved plan package under `.loopx/workflows/<slug>/`
 - canonical PRD and test spec under `.loopx/plans/`
 - change artifacts under `.loopx/changes/active/<change-id>/`
+- derived HTML reading views under `.loopx/workflows/<slug>/view/` and `.loopx/views/`
 - consensus review summary with Planner / Architect / Critic evidence
 - next-step recommendation
 

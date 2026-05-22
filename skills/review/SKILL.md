@@ -3,7 +3,7 @@ name: review
 description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
 when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 argument-hint: "<execution-record path or workflow slug>"
 ---
 
@@ -64,6 +64,8 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 Every no-go review result must end with a concrete next command block.
 
 For implementation fixes:
+
+Default implementation-fix handoff:
 
 ```text
 Next:

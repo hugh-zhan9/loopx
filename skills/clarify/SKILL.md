@@ -3,7 +3,7 @@ name: clarify
 description: "Clarifies ambiguous loopx work into requirements, non-goals, decision boundaries, and design-ready specs before planning. Not for already-approved plans or concrete implementation tasks."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 ---
 
 # loopx Clarify
@@ -308,8 +308,11 @@ After the clarify spec is ready:
 
 Preferred explicit handoff contract:
 
-- Recommended invocation: `$plan <slug>`
-- Artifact-pinned invocation when needed: `$plan --direct .loopx/intake/clarify-<slug>-<timestamp>.md`
+- Default handoff after normal loopx clarify: `$plan <slug>`
+- Conditional artifact-pinned handoff: `$plan --direct <spec-path>`
+- Recommend `$plan --direct <spec-path>` when the user explicitly wants to plan from a specific requirements artifact, when the source is external/manual/legacy, or when multiple plausible spec files exist and the user has chosen one as the planning source of truth.
+- Do not use `$plan --direct` to work around unclear workflow state, missing approvals, or an uncertain slug; inspect or repair the loopx runtime state instead.
+- For the normal loopx clarify happy path, prefer `$plan <slug>` because the active workflow slug already anchors the clarify artifact and runtime state.
 - Consumer behavior: treat the clarify spec as the source of truth for intent, non-goals, decision boundaries, constraints, and design direction; do not reopen clarification by default
 
 `clarify` itself does not implement the feature. The handoff recommendation must name `plan` as the next workflow step.
