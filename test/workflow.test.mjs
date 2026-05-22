@@ -670,6 +670,10 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_architect_review_status, 'complete');
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(planned.state.plan_docs_status, 'complete');
+    assert.equal(planned.state.source_requirements_status, 'complete');
+    assert.equal(planned.state.requirement_traceability_path, join(planned.root, 'requirement-traceability.md'));
+    assert.equal(existsSync(planned.state.requirement_traceability_path), true);
+    assert.match(await readFile(planned.state.requirement_traceability_path, 'utf8'), /Source Requirements/);
     assert.equal(planned.state.html_view_status, 'written');
     assert.equal(planned.state.html_view_path, join(planned.root, 'view', 'index.html'));
     assert.equal(planned.state.workspace_view_path, join(resolveWorkspaceRoot(wd), 'views', 'index.html'));
@@ -1352,6 +1356,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(slices.slices.every((slice) => slice.type === 'AFK' || slice.type === 'HITL'), true);
     assert.equal(slices.slices.every((slice) => slice.acceptance_criteria.length > 0 && slice.verification_signal), true);
     assert.match(tasksText, /## Vertical Slices/);
+    assert.equal(buildContextRows.some((row) => row.kind === 'source-requirements'), true);
+    assert.equal(buildContextRows.some((row) => row.kind === 'requirement-traceability'), true);
     assert.equal(buildContextRows.some((row) => row.kind === 'domain-context'), true);
     assert.equal(buildContextRows.some((row) => row.kind === 'vertical-slices'), true);
 
@@ -1365,6 +1371,8 @@ describe('loopx skill-first workflow contract', () => {
     const review = await reviewStage(wd, 'slice-context', { reviewer: 'qa-1', adapter: createScriptedReviewAdapter() });
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
 
+    assert.equal(reviewContextRows.some((row) => row.kind === 'source-requirements'), true);
+    assert.equal(reviewContextRows.some((row) => row.kind === 'requirement-traceability'), true);
     assert.equal(reviewContextRows.some((row) => row.kind === 'domain-context'), true);
     assert.equal(reviewContextRows.some((row) => row.kind === 'vertical-slices'), true);
     assert.match(reportText, /## Architecture Smell Scan/);
@@ -1439,6 +1447,43 @@ describe('loopx skill-first workflow contract', () => {
       state.plan_blockers.includes('spec_delta_beta-api_added_beta api behavior_missing_scenario'),
       true,
     );
+  });
+
+  it('blocks plan handoff when source requirement coverage is incomplete', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-source-coverage-block-'));
+    await initWorkspace(wd);
+    const specPath = join(wd, 'source-product-prd.md');
+    await writeFile(
+      specPath,
+      [
+        '# Product PRD',
+        '',
+        '## Intent',
+        '',
+        'Build a workflow from an external product requirements document.',
+        '',
+        '## Required Coverage',
+        '',
+        '- Alpha Ledger Settlement Gate',
+        '- Beta Customer Impact Reconciliation',
+        '',
+        '## Execution Inputs',
+        '',
+        '- source PRD: this file',
+      ].join('\n'),
+    );
+
+    const planned = await planStage(wd, undefined, {
+      directSpecPath: specPath,
+      adapter: createScriptedPlanAdapter(),
+    });
+
+    assert.equal(planned.state.stage_status, 'blocked');
+    assert.equal(planned.state.source_requirements_status, 'partial');
+    assert.equal(planned.state.plan_blockers.includes('source_requirement_uncovered_alpha-ledger-settlement-gate'), true);
+    assert.equal(planned.state.plan_blockers.includes('source_requirement_uncovered_beta-customer-impact-reconciliation'), true);
+    assert.equal(existsSync(join(planned.root, 'requirement-traceability.md')), true);
+    assert.match(await readFile(join(planned.root, 'requirement-traceability.md'), 'utf8'), /Alpha Ledger Settlement Gate/);
   });
 
   it('archives approved change deltas into long-lived specs', async () => {

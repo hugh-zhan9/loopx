@@ -127,6 +127,8 @@ describe('loopx skill governance', () => {
     assert.match(plan, /Do not emit `\$build <slug>` as the primary handoff/);
     assert.match(plan, /HTML:\n\.loopx\/workflows\/<slug>\/view\/index\.html/);
     assert.match(plan, /derived HTML reading views/);
+    assert.match(plan, /requirement-traceability\.md/);
+    assert.match(plan, /source requirements are covered/);
 
     const build = await readFile(join(repoRoot, 'skills', 'build', 'SKILL.md'), 'utf8');
     assert.match(build, /Default review handoff after build readiness:/);

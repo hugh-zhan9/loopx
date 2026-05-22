@@ -3,7 +3,7 @@ name: archive
 description: "Archives an approved loopx change delta into long-lived specs and writes an ADR candidate after done approval. Not for active builds or unapproved reviews."
 when_to_use: "archive, done workflow, spec delta, long-lived specs, ADR candidate, review approved, 归档, 同步规格"
 metadata:
-  version: "0.1.6"
+  version: "0.1.7"
 argument-hint: "<workflow slug>"
 ---
 
