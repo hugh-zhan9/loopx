@@ -123,17 +123,13 @@ loopx approve my-task --from build --to review
 loopx review my-task
 ```
 
-评审通过后完成工作流：
-
-```bash
-loopx approve my-task --from review --to done
-```
-
 把已接受行为归档到长期 specs：
 
 ```text
 $archive my-task
 ```
+
+当 review 已批准并路由到 `done` 时，`$archive` 会先消费 pending 的 `review -> done` 完成态，再同步 specs。纯 CLI 操作者仍然可以显式执行 `loopx approve my-task --from review --to done`，再执行 `loopx archive my-task`。
 
 查看状态：
 
@@ -279,13 +275,13 @@ $build --from-review .loopx/workflows/<slug>/review-report.md
 
 最终用户可见评审结果要求使用中文。
 
-如果评审通过，仍然需要显式批准 `review -> done`。如果评审要求修实现问题，则运行 `$build --from-review .loopx/workflows/<slug>/review-report.md`。只有当 review 明确指出计划或需求本身错误时，才回到 `$plan <slug>` 或 `$clarify <slug>`。
+如果评审通过并路由到 `done`，Codex 侧的正常下一步是 `$archive <slug>`；archive 会消费 pending 的完成态，然后同步 specs。纯 CLI 操作者仍然可以先显式执行 `loopx approve <slug> --from review --to done`，再执行 `loopx archive <slug>`。如果评审要求修实现问题，则运行 `$build --from-review .loopx/workflows/<slug>/review-report.md`。只有当 review 明确指出计划或需求本身错误时，才回到 `$plan <slug>` 或 `$clarify <slug>`。
 
 architecture-smell lane 是 review 的一部分，不会增加新阶段。它会把发现记录到 `review-support/architecture-smell.json`，只有当模块边界、可测试性、领域词汇或计划架构假设存在实质性错误时才阻断。
 
 ### archive
 
-`archive` 消费已完成工作流，并把 `.loopx/changes/active/<change-id>/spec-delta.md` 合并进 `.loopx/specs/` 下的长期领域规格。归档后的 change 目录会移动到：
+`archive` 消费已完成工作流，或 review 已批准且唯一 pending route 是 `done` 的工作流，并把 `.loopx/changes/active/<change-id>/spec-delta.md` 合并进 `.loopx/specs/` 下的长期领域规格。归档后的 change 目录会移动到：
 
 ```text
 .loopx/changes/archive/<change-id>/
