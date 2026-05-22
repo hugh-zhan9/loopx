@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { installBundledSkills } from './install-discovery.mjs';
@@ -7,9 +9,12 @@ import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
 
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
 function usage() {
   return [
     'Usage:',
+    '  loopx --version',
     '  loopx init [--slug <slug>]',
     '  loopx clarify <slug> [--standard|--deep]',
     '  loopx approve <slug> --from <stage> --to <stage>',
@@ -139,6 +144,10 @@ function printHumanStatus(status) {
 
 async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
+  if (command === 'version' || command === '--version' || command === '-v') {
+    console.log(packageJson.version);
+    return;
+  }
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     console.log(usage());
     return;
