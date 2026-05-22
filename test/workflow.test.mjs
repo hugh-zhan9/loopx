@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { chmod, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -670,6 +670,10 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_architect_review_status, 'complete');
     assert.equal(planned.state.plan_critic_verdict, 'approve');
     assert.equal(planned.state.plan_docs_status, 'complete');
+    assert.equal(['local', 'critic-only', 'parallel-review'].includes(planned.state.plan_delegation_mode), true);
+    assert.equal(planned.state.plan_delegation_decision_path, join(planned.root, 'plan-delegation-decision.md'));
+    assert.equal(existsSync(planned.state.plan_delegation_decision_path), true);
+    assert.match(await readFile(planned.state.plan_delegation_decision_path, 'utf8'), /Plan Delegation Decision/);
     assert.equal(planned.state.source_requirements_status, 'complete');
     assert.equal(planned.state.requirement_traceability_path, join(planned.root, 'requirement-traceability.md'));
     assert.equal(existsSync(planned.state.requirement_traceability_path), true);
@@ -683,6 +687,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(planHtml, /计划与架构/);
     assert.match(planHtml, /需求覆盖矩阵/);
     assert.match(planHtml, /requirement-traceability\.md/);
+    assert.match(planHtml, /委派决策/);
+    assert.match(planHtml, /plan-delegation-decision\.md/);
     assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
     assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
     assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
@@ -1416,6 +1422,23 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(state.plan_blockers.includes('spec_delta_empty'), true);
   });
 
+  it('blocks build approval when plan delegation decision is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-delegation-decision-block-'));
+    const clarified = await clarifyStage(wd, 'delegation-decision-block');
+    await writeResolvedSpec(clarified.root, 'delegation-decision-block');
+    await approveStage(wd, 'delegation-decision-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'delegation-decision-block', { adapter: createScriptedPlanAdapter() });
+    await rm(planned.state.plan_delegation_decision_path);
+
+    await assert.rejects(
+      () => approveStage(wd, 'delegation-decision-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*missing_plan_delegation_decision/,
+    );
+
+    const state = await readState(wd, 'delegation-decision-block');
+    assert.equal(state.plan_blockers.includes('missing_plan_delegation_decision'), true);
+  });
+
   it('blocks build approval when an extra per-domain spec delta is malformed', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-domain-delta-block-'));
     const clarified = await clarifyStage(wd, 'domain-delta-block');
@@ -1489,6 +1512,47 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_blockers.includes('source_requirement_uncovered_beta-customer-impact-reconciliation'), true);
     assert.equal(existsSync(join(planned.root, 'requirement-traceability.md')), true);
     assert.match(await readFile(join(planned.root, 'requirement-traceability.md'), 'utf8'), /Alpha Ledger Settlement Gate/);
+  });
+
+  it('records plan delegation decision and escalates high-risk planning to parallel review', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-delegation-'));
+    await initWorkspace(wd);
+    const specPath = join(wd, 'corporate-action-risk-prd.md');
+    await writeFile(
+      specPath,
+      [
+        '# 公司行动资金资产 PRD',
+        '',
+        '## Intent',
+        '',
+        '规划一个涉及资金、资产、交易订单、清算结算和权限审计的 corporate action workflow。',
+        '',
+        '## Scope',
+        '',
+        '- API、service、biz、data、database migration、worker 都在范围内。',
+        '- 状态机必须处理幂等、重试、补偿、回滚、差异明细和并发。',
+        '- 验证需要 integration、regression、e2e acceptance fixture。',
+        '',
+        '## Execution Inputs',
+        '',
+        '- source PRD: this file',
+        '- verification: go test ./...',
+      ].join('\n'),
+    );
+
+    const planned = await planStage(wd, undefined, {
+      directSpecPath: specPath,
+      adapter: createScriptedPlanAdapter(),
+    });
+
+    assert.equal(planned.state.plan_delegation_mode, 'parallel-review');
+    assert.equal(planned.state.plan_delegation_score >= 7, true);
+    assert.equal(planned.state.plan_delegation_triggers.includes('high_risk_domain'), true);
+    assert.equal(planned.state.plan_delegation_triggers.includes('cross_module_scope'), true);
+    assert.equal(existsSync(planned.state.plan_delegation_decision_path), true);
+    const decisionText = await readFile(planned.state.plan_delegation_decision_path, 'utf8');
+    assert.match(decisionText, /parallel-review/);
+    assert.match(decisionText, /high_risk_domain/);
   });
 
   it('archives approved change deltas into long-lived specs', async () => {
@@ -2113,6 +2177,23 @@ describe('loopx skill-first workflow contract', () => {
       () => approveStage(wd, 'inputs-block', { from: 'plan', to: 'build' }),
       /plan_review_gate_blocked:.*execution_inputs_unresolved/,
     );
+  });
+
+  it('keeps plan blocked when Planner Architect Critic evidence is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-review-evidence-block-'));
+    const clarified = await clarifyStage(wd, 'review-evidence-block');
+    await writeResolvedSpec(clarified.root, 'review-evidence-block');
+    await approveStage(wd, 'review-evidence-block', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'review-evidence-block', { adapter: createScriptedPlanAdapter() });
+    await rm(join(planned.root, 'plan-reviews'), { recursive: true, force: true });
+
+    await assert.rejects(
+      () => approveStage(wd, 'review-evidence-block', { from: 'plan', to: 'build' }),
+      /plan_review_gate_blocked:.*missing_plan_review_artifact_planner.*missing_plan_review_artifact_architect.*missing_plan_review_artifact_critic/,
+    );
+
+    const state = await readState(wd, 'review-evidence-block');
+    assert.equal(state.plan_blockers.includes('missing_plan_review_artifact_planner'), true);
   });
 
   it('revises plan when critic requests iterate before approval', async () => {
@@ -3200,10 +3281,24 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(workflowHtml, /href="\.\.\/plan\.md"/);
     assert.match(workflowHtml, /readiness/);
     assert.match(workflowHtml, /需求覆盖/);
+    assert.match(workflowHtml, /人工确认点/);
+    assert.match(workflowHtml, /关键产物审阅清单/);
+    assert.match(workflowHtml, /中文/);
     const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
     assert.match(planHtml, /需求覆盖矩阵/);
+    assert.match(planHtml, /委派决策/);
+    assert.match(planHtml, /这是人工审阅入口/);
+    assert.match(planHtml, /review-nav/);
+    assert.match(planHtml, /hero-grid/);
     assert.match(planHtml, /<table>/);
     assert.match(planHtml, /原始需求项/);
+    const changeHtml = await readFile(join(planned.root, 'view', 'change.html'), 'utf8');
+    assert.match(changeHtml, /变更设计方案/);
+    assert.match(changeHtml, /设计方案/);
+    assert.match(changeHtml, /规格增量/);
+    assert.match(changeHtml, /规格增量详解/);
+    assert.match(changeHtml, /垂直切片详解/);
+    assert.match(changeHtml, /任务拆解详解/);
 
     const workspaceHtml = await readFile(workspaceViewPath, 'utf8');
     assert.match(workspaceHtml, /loopx 工作台/);
@@ -3299,6 +3394,30 @@ describe('loopx skill-first workflow contract', () => {
     const detail = await statusSummary(wd, 'legacy-flow');
     assert.equal(detail.legacy, true);
     assert.equal(detail.contract, 'legacy-codex-helper');
+  });
+
+  it('migration does not approve legacy English plan artifacts as current plan output', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-plan-language-'));
+    await initWorkspace(wd);
+    const slug = 'legacy-english-plan';
+    const workflowRoot = join(resolveWorkspaceRoot(wd), 'workflows', slug);
+    await mkdir(workflowRoot, { recursive: true });
+    await writeFile(join(workflowRoot, 'state.json'), JSON.stringify({ slug, stage: 'plan' }, null, 2));
+    await writeFile(join(workflowRoot, 'plan.md'), '# Plan\n\nEnglish plan only.\n');
+    await writeFile(join(workflowRoot, 'architecture.md'), '# Architecture\n\nEnglish architecture only.\n');
+    await writeFile(join(workflowRoot, 'development-plan.md'), '# Development Plan\n\nEnglish development plan only.\n');
+    await writeFile(join(workflowRoot, 'test-plan.md'), '# Test Plan\n\nEnglish test plan only.\n');
+
+    await migrateLegacyRuntime(wd);
+    const migrated = await statusSummary(wd, slug);
+
+    assert.equal(migrated.legacy, false);
+    assert.equal(migrated.state.current_stage, 'plan');
+    assert.equal(migrated.state.stage_status, 'blocked');
+    assert.equal(migrated.state.plan_docs_status, 'partial');
+    assert.equal(migrated.state.plan_blockers.includes('plan_artifact_not_chinese_plan'), true);
+    assert.equal(migrated.state.plan_blockers.includes('missing_plan_delegation_decision'), true);
+    assert.equal(migrated.state.approval.build, 'not-requested');
   });
 
   it('CLI exposes loopx runtime/debug commands and no public team command', async () => {

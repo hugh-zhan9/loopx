@@ -3,7 +3,7 @@ name: plan
 description: "Creates a consensus-first loopx plan package with Planner, Architect, and Critic review from an approved spec. Not for unresolved requirements or direct implementation."
 when_to_use: "plan, planning, consensus planning, PRD, architecture plan, test plan, approved clarify spec, 规划, 方案, 架构评审"
 metadata:
-  version: "0.1.9"
+  version: "0.1.10"
 argument-hint: "[--interactive] [--deliberate] [--direct <spec-path>] <clarified task or spec path>"
 ---
 
@@ -34,6 +34,7 @@ By default, `plan` includes the full consensus review loop formerly documented u
 - Keep planning artifact-bound: produce PRD, architecture, development plan, and test plan outputs.
 - Preserve accepted intent as durable change artifacts: proposal, spec delta, design, tasks, and artifact dependency graph.
 - Separate planning approval from execution approval.
+- Treat human review as a first-class product surface: planning Markdown and HTML views must be readable enough for a reviewer to approve or reject without opening runtime state JSON.
 - Do not start implementation from `plan`.
 - Prefer a smaller executable plan over a broad plan that cannot be verified.
 - Preserve non-goals, decision boundaries, and residual-risk warnings from clarify.
@@ -165,6 +166,7 @@ On approval, write canonical planning artifacts:
 - `.loopx/workflows/<slug>/development-plan.md`
 - `.loopx/workflows/<slug>/test-plan.md`
 - `.loopx/workflows/<slug>/requirement-traceability.md`
+- `.loopx/workflows/<slug>/plan-delegation-decision.md`
 - `.loopx/plans/prd-<slug>.md`
 - `.loopx/plans/test-spec-<slug>.md`
 - `.loopx/changes/active/<change-id>/proposal.md`
@@ -184,7 +186,10 @@ The HTML files are derived reading views for human plan review. They are not can
 
 The final plan must include:
 
+- Chinese reviewer-facing Markdown for `plan.md`, `architecture.md`, `development-plan.md`, `test-plan.md`, canonical PRD/test spec, traceability, and delegation decision; English prose is allowed only for code paths, API names, commands, enum values, and source terms
+- an HTML reading view that exposes stage status, human approval points, blockers, source coverage, and artifact summaries before the full Markdown bodies
 - a source-requirement coverage matrix that maps the original requirements/PRD to plan, architecture, slices, spec delta, and tests
+- a delegation decision with mode `local|critic-only|parallel-review`, score, triggers, and reason for whether subagent-style review is warranted
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
 - target long-lived spec domains and an OpenSpec-style requirements delta for archive
@@ -247,11 +252,15 @@ HTML:
 - `plan_execution_inputs_resolved`: `true|false`
 - `source_requirements_status`: `complete|partial`
 - `requirement_traceability_path`: `.loopx/workflows/<slug>/requirement-traceability.md`
+- `plan_delegation_mode`: `local|critic-only|parallel-review`
+- `plan_delegation_decision_path`: `.loopx/workflows/<slug>/plan-delegation-decision.md`
 - `requested_transition`: remains explicit before build/autopilot
 
 The plan gate is blocked until:
 
 - plan package artifacts exist
+- Planner, Architect, and Critic evidence artifacts exist
+- reviewer-facing planning docs and derived canonical PRD/test spec are Chinese-readable
 - change proposal, spec delta, design, tasks, vertical slices, and artifact graph exist
 - spec delta declares target domains and `## ADDED|MODIFIED|REMOVED|RENAMED Requirements` blocks
 - every ADDED or MODIFIED requirement uses `### Requirement:`, contains SHALL or MUST text, and includes at least one `#### Scenario:`
@@ -262,6 +271,7 @@ The plan gate is blocked until:
 - verification steps are concrete
 - execution inputs are fully mapped to concrete sources
 - source requirements are covered by `requirement-traceability.md`; uncovered original PRD requirements block build handoff
+- delegation decision is recorded in `plan-delegation-decision.md`; absence of an explicit local/critic/parallel-review rationale blocks build handoff
 - user approval exists for any execution transition
 </Runtime_State_Machine>
 
@@ -279,6 +289,7 @@ Primary outputs:
 
 - approved plan package under `.loopx/workflows/<slug>/`
 - original source requirements and traceability matrix under `.loopx/workflows/<slug>/requirement-traceability.md`
+- delegation decision under `.loopx/workflows/<slug>/plan-delegation-decision.md`
 - canonical PRD and test spec under `.loopx/plans/`
 - change artifacts under `.loopx/changes/active/<change-id>/`
 - derived HTML reading views under `.loopx/workflows/<slug>/view/` and `.loopx/views/`

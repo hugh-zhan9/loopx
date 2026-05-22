@@ -416,6 +416,11 @@ function createInitialState(slug, profile) {
     plan_execution_inputs_resolved: false,
     plan_docs_status: 'missing',
     plan_docs_artifact_paths: null,
+    plan_delegation_decision_path: null,
+    plan_delegation_mode: 'local',
+    plan_delegation_score: 0,
+    plan_delegation_triggers: [],
+    plan_delegation_reason: null,
     plan_review_artifact_paths: [],
     plan_review_history: [],
     plan_blockers: [],
@@ -747,6 +752,93 @@ async function writeRequirementTraceabilityArtifact({ root, sourceSpecPath, sour
     blockers,
     itemCount: rows.length,
   };
+}
+
+function delegationDecisionForPlan(sourceText, plannerDraft) {
+  const source = String(sourceText || '');
+  const draft = [
+    plannerDraft.planText,
+    plannerDraft.architectureText,
+    plannerDraft.developmentPlanText,
+    plannerDraft.testPlanText,
+  ].join('\n');
+  const combined = `${source}\n${draft}`;
+  const requirementCount = sourceRequirementItems(source).length;
+  const lineCount = source.split('\n').filter((line) => line.trim()).length;
+  const triggers = [];
+  let score = 0;
+
+  const addTrigger = (trigger, weight) => {
+    if (!triggers.includes(trigger)) {
+      triggers.push(trigger);
+      score += weight;
+    }
+  };
+
+  if (requirementCount >= 12 || lineCount >= 180) {
+    addTrigger('large_requirement_surface', 3);
+  } else if (requirementCount >= 6 || lineCount >= 90) {
+    addTrigger('medium_requirement_surface', 2);
+  }
+  if (/资金|资产|清算|结算|交易|订单|风控|权限|安全|合规|审计|corporate action|settlement|trading|order|asset|security|auth|permission|compliance|audit|financial/i.test(combined)) {
+    addTrigger('high_risk_domain', 3);
+  }
+  if (/api|接口|service|biz|data|database|schema|migration|数据库|迁移|worker|cron|frontend|后台|部署|deploy/i.test(combined)) {
+    addTrigger('cross_module_scope', 2);
+  }
+  if (/状态机|幂等|补偿|差异|回滚|并发|重试|eventual|idempot|retry|rollback|concurrency|state machine/i.test(combined)) {
+    addTrigger('state_or_integrity_complexity', 2);
+  }
+  if (/e2e|集成测试|integration|regression|回归|验收|acceptance|fixture|mock|真实数据|external/i.test(combined)) {
+    addTrigger('verification_complexity', 1);
+  }
+  if (/多个方案|备选|取舍|tradeoff|alternative|ADR|architecture/i.test(combined)) {
+    addTrigger('architectural_tradeoff', 1);
+  }
+
+  const mode = score >= 7 ? 'parallel-review' : (score >= 4 ? 'critic-only' : 'local');
+  const reason = mode === 'parallel-review'
+    ? '高风险或跨模块规划，建议独立 Planner/Architect/Critic 视角并行审查。'
+    : mode === 'critic-only'
+      ? '存在中等复杂度或验证风险，建议至少引入独立 critic 复核 PRD 覆盖和风险。'
+      : '范围较小或风险较低，本地顺序 Planner/Architect/Critic 审阅足够。';
+
+  return {
+    mode,
+    score,
+    triggers,
+    reason,
+    current_runtime_execution: 'local-sequential',
+    execution_note: '当前 runtime 记录委派决策依据；是否实际启动 native subagents 仍受执行环境和用户授权约束。',
+  };
+}
+
+async function writePlanDelegationDecisionArtifact({ root, sourceText, plannerDraft }) {
+  const decision = delegationDecisionForPlan(sourceText, plannerDraft);
+  const path = artifactPath(root, 'plan-delegation-decision.md');
+  await writeText(path, [
+    '# Plan Delegation Decision',
+    '',
+    `- mode: ${decision.mode}`,
+    `- score: ${decision.score}`,
+    `- current_runtime_execution: ${decision.current_runtime_execution}`,
+    `- reason: ${decision.reason}`,
+    '',
+    '## Triggers',
+    '',
+    ...(decision.triggers.length > 0 ? decision.triggers.map((item) => `- ${item}`) : ['- none']),
+    '',
+    '## Guidance',
+    '',
+    '- local: 低风险、小范围、单模块任务，本地顺序 Planner/Architect/Critic 即可。',
+    '- critic-only: 中等风险或覆盖面较宽，至少需要独立 critic 复核 PRD 覆盖、验证和遗漏风险。',
+    '- parallel-review: 高风险、多模块、状态/资产/安全相关任务，建议独立 Planner/Architect/Critic 视角并行审查。',
+    '',
+    '## Runtime Note',
+    '',
+    `- ${decision.execution_note}`,
+  ].join('\n'));
+  return { path, ...decision };
 }
 
 function frontmatterList(text, key) {
@@ -1522,6 +1614,31 @@ function containsChineseText(text) {
   return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
 }
 
+async function planLanguageBlockers(pathsByKey) {
+  const blockers = [];
+  for (const [key, path] of Object.entries(pathsByKey)) {
+    if (!existsSync(path)) {
+      blockers.push(`missing_plan_artifact_${key}`);
+      continue;
+    }
+    const text = await readFile(path, 'utf8');
+    if (!containsChineseText(text)) {
+      blockers.push(`plan_artifact_not_chinese_${key}`);
+    }
+  }
+  return blockers;
+}
+
+function planReviewArtifactBlockers(state) {
+  if (!Array.isArray(state.plan_review_artifact_paths) || state.plan_review_artifact_paths.length === 0) {
+    return ['missing_plan_review_artifacts'];
+  }
+  const latest = state.plan_review_artifact_paths[state.plan_review_artifact_paths.length - 1] || {};
+  return ['planner', 'architect', 'critic']
+    .filter((key) => !latest[key] || !existsSync(latest[key]))
+    .map((key) => `missing_plan_review_artifact_${key}`);
+}
+
 async function ensurePlanWorkflowFromDirectSpec(cwd, directSpecPath, explicitSlug, options = {}) {
   const resolvedSpecPath = resolve(cwd, directSpecPath);
   const specText = await readFile(resolvedSpecPath, 'utf8');
@@ -1681,6 +1798,10 @@ async function readPlanCompletion(cwd, root, slug, state) {
   if (!state.requirement_traceability_path || !existsSync(state.requirement_traceability_path)) {
     blockers.push('missing_requirement_traceability');
   }
+  if (!state.plan_delegation_decision_path || !existsSync(state.plan_delegation_decision_path)) {
+    blockers.push('missing_plan_delegation_decision');
+  }
+  blockers.push(...planReviewArtifactBlockers(state));
   if (state.source_requirements_status && state.source_requirements_status !== 'complete') {
     if (state.requirement_traceability_path && existsSync(state.requirement_traceability_path)) {
       const traceabilityText = await readFile(state.requirement_traceability_path, 'utf8');
@@ -1695,22 +1816,16 @@ async function readPlanCompletion(cwd, root, slug, state) {
       blockers.push(`source_requirements_${state.source_requirements_status}`);
     }
   }
-  const workflowDocs = {
+  blockers.push(...await planLanguageBlockers({
     plan: artifactPath(root, 'plan.md'),
     architecture: artifactPath(root, 'architecture.md'),
     developmentPlan: artifactPath(root, 'development-plan.md'),
     testPlan: artifactPath(root, 'test-plan.md'),
-  };
-  for (const [key, path] of Object.entries(workflowDocs)) {
-    if (!existsSync(path)) {
-      blockers.push(`missing_plan_artifact_${key}`);
-      continue;
-    }
-    const text = await readFile(path, 'utf8');
-    if (!containsChineseText(text)) {
-      blockers.push(`plan_artifact_not_chinese_${key}`);
-    }
-  }
+    prd: state.plan_artifact_path || join(resolvePlansRoot(cwd), `prd-${slug}.md`),
+    testSpec: state.test_spec_artifact_path || join(resolvePlansRoot(cwd), `test-spec-${slug}.md`),
+    traceability: state.requirement_traceability_path || artifactPath(root, 'requirement-traceability.md'),
+    delegationDecision: state.plan_delegation_decision_path || artifactPath(root, 'plan-delegation-decision.md'),
+  }));
   const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
   blockers.push(...changeStatus.blockers);
 
@@ -2835,7 +2950,9 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
     },
   });
   await writeState(root, state);
-  return { root, state };
+  const rendered = await renderPlanReadingViews(cwd, root, state, normalized);
+  await writeState(root, rendered);
+  return { root, state: rendered };
 }
 
 export async function approveStage(cwd, slug, { from, to }) {
@@ -3201,6 +3318,11 @@ export async function planStage(cwd, slug, options = {}) {
       plannerDraft,
       changeArtifactPaths,
     });
+    const delegationDecision = await writePlanDelegationDecisionArtifact({
+      root,
+      sourceText,
+      plannerDraft,
+    });
 
     architectReview = await adapter.architect({
       cwd,
@@ -3249,6 +3371,11 @@ export async function planStage(cwd, slug, options = {}) {
       requirement_traceability_path: traceability.path,
       source_requirements_status: traceability.status,
       source_requirements_item_count: traceability.itemCount,
+      plan_delegation_decision_path: delegationDecision.path,
+      plan_delegation_mode: delegationDecision.mode,
+      plan_delegation_score: delegationDecision.score,
+      plan_delegation_triggers: delegationDecision.triggers,
+      plan_delegation_reason: delegationDecision.reason,
       change_id: normalizeSlug(changeId),
       change_artifacts_status: changeArtifactStatus.status,
       change_artifact_paths: changeArtifactPaths,
