@@ -229,8 +229,11 @@ node scripts/verify-skills.mjs
 - `.loopx/workflows/<slug>/architecture.md`
 - `.loopx/workflows/<slug>/development-plan.md`
 - `.loopx/workflows/<slug>/test-plan.md`
+- `.loopx/workflows/<slug>/requirement-traceability.md`
 
 plan 成功后，loopx 还会写入派生阅读视图：`.loopx/workflows/<slug>/view/index.html`、`.loopx/workflows/<slug>/view/plan.html` 和 `.loopx/views/index.html`。这些视图用于人工审阅；Markdown 和 JSON 仍然是可编辑事实源。
+
+`requirement-traceability.md` 会把原始需求或 PRD 映射到生成的 plan package、change delta、vertical slices 和测试。若显式需求覆盖项或需求表格项没有被计划包覆盖，`plan` 会在 build approval 前保持 blocked。
 
 `spec-delta.md` 使用 requirement delta：`## ADDED Requirements`、`## MODIFIED Requirements`、`## REMOVED Requirements` 和 `## RENAMED Requirements`。ADDED / MODIFIED 必须是完整的 `### Requirement:` 块，包含 SHALL/MUST 约束和 `#### Scenario:` 场景，archive 才能把它们合并进长期 spec 当前状态。
 
@@ -393,6 +396,7 @@ loopx 在当前项目下写入 `.loopx/`：
 - `README.md` / `README.zh-CN.md`：产品用法、命令和目录约定。
 - `.loopx/workflows/<slug>/spec.md`：当前需求工作副本。
 - `.loopx/workflows/<slug>/plan.md`、`architecture.md`、`development-plan.md`、`test-plan.md`：当前任务的计划、架构和验证约定。
+- `.loopx/workflows/<slug>/requirement-traceability.md`：plan、build、review 都会消费的原始需求覆盖门禁。
 - `.loopx/workflows/<slug>/execution-record.md`、`review-report.md`：执行证据和评审结论。
 - `.loopx/views/index.html` 与 `.loopx/workflows/<slug>/view/index.html`：plan 后写入、也可由 `loopx render` 重新生成的阅读入口。
 
@@ -528,4 +532,4 @@ node src/cli.mjs status --json
 
 ## 版本
 
-当前 npm 包版本：`0.1.6`。
+当前 npm 包版本：`0.1.7`。

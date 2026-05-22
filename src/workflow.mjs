@@ -558,6 +558,16 @@ function dedupeStrings(items) {
   return [...new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean))];
 }
 
+function slugKey(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[`'"*_#()[\]{}]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'requirement';
+}
+
 function bulletsFromSectionText(text, heading) {
   const pattern = new RegExp(`#{2,3} ${heading}\\n\\n([\\s\\S]*?)(?=\\n#{2,3} |$)`, 'i');
   const match = text.match(pattern);
@@ -570,6 +580,173 @@ function bulletsFromSectionText(text, heading) {
     .filter((line) => line.startsWith('- '))
     .map((line) => line.slice(2).trim())
     .filter(Boolean);
+}
+
+function sectionBodyForHeadings(text, headingPatterns) {
+  const body = stripFrontmatter(text);
+  const headingPattern = /^#{2,4}\s+(.+?)\s*$/gm;
+  const headings = [...body.matchAll(headingPattern)];
+  for (let index = 0; index < headings.length; index += 1) {
+    const title = headings[index][1].trim();
+    if (!headingPatterns.some((pattern) => pattern.test(title))) {
+      continue;
+    }
+    const start = headings[index].index + headings[index][0].length;
+    const end = index + 1 < headings.length ? headings[index + 1].index : body.length;
+    return body.slice(start, end).trim();
+  }
+  return '';
+}
+
+function explicitCoverageItems(sourceText) {
+  const body = sectionBodyForHeadings(sourceText, [
+    /required\s+coverage/i,
+    /requirement\s+coverage/i,
+    /coverage\s+matrix/i,
+    /需求.*覆盖/,
+    /需求.*完整/,
+    /需求.*卡点/,
+  ]);
+  if (!body) {
+    return [];
+  }
+  return body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line) || /^\d+[.)]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\d+[.)]\s+/, '').trim())
+    .filter(Boolean);
+}
+
+function markdownTableCoverageItems(sourceText) {
+  const items = [];
+  const lines = String(sourceText || '').split('\n');
+  let currentHeading = '';
+  for (const line of lines) {
+    const heading = line.match(/^#{2,4}\s+(.+?)\s*$/);
+    if (heading) {
+      currentHeading = heading[1].trim();
+      continue;
+    }
+    if (!line.trim().startsWith('|')) {
+      continue;
+    }
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim()).filter(Boolean);
+    if (cells.length < 2 || cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
+      continue;
+    }
+    const first = cells[0].replace(/`/g, '').trim();
+    if (!first || /^(字段|事件类型|模块|维度|对象|处理环节|field|type|module)$/i.test(first)) {
+      continue;
+    }
+    if (
+      /事件|字段|处理模式|标准化|范围|任务|确认|下发|source|event|field|coverage|requirement/i.test(currentHeading)
+      || cells.some((cell) => /SHALL|MUST|Reuters|OCC|manual_|raw_snapshot|event_|处理|确认|下发|不自动/i.test(cell))
+    ) {
+      items.push(first);
+    }
+  }
+  return items;
+}
+
+function requirementHeadingCoverageItems(sourceText) {
+  return [...String(sourceText || '').matchAll(/^###\s+Requirement:\s*(.+?)\s*$/gim)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+}
+
+function sourceRequirementItems(sourceText) {
+  return dedupeStrings([
+    ...explicitCoverageItems(sourceText),
+    ...markdownTableCoverageItems(sourceText),
+    ...requirementHeadingCoverageItems(sourceText),
+  ]).slice(0, 80);
+}
+
+function normalizedCoverageText(...parts) {
+  return parts.join('\n')
+    .toLowerCase()
+    .replace(/[`'"*_#()[\]{}]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function sourceRequirementCovered(item, haystack) {
+  const raw = String(item || '').trim();
+  if (!raw) {
+    return true;
+  }
+  const compactNeedle = raw.toLowerCase().replace(/\s+/g, '');
+  const compactHaystack = haystack.replace(/\s+/g, '');
+  if (compactNeedle.length >= 2 && compactHaystack.includes(compactNeedle)) {
+    return true;
+  }
+  const tokens = raw
+    .toLowerCase()
+    .replace(/[`'"*_#()[\]{}]/g, ' ')
+    .split(/[^a-z0-9\u4e00-\u9fff]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .filter((token) => !['the', 'and', 'for', 'with', 'from', 'this', 'that'].includes(token));
+  if (tokens.length === 0) {
+    return false;
+  }
+  return tokens.every((token) => haystack.includes(token));
+}
+
+async function writeRequirementTraceabilityArtifact({ root, sourceSpecPath, sourceText, plannerDraft, changeArtifactPaths }) {
+  const traceabilityPath = artifactPath(root, 'requirement-traceability.md');
+  const sourceItems = sourceRequirementItems(sourceText);
+  const specDeltaText = changeArtifactPaths?.specDelta && existsSync(changeArtifactPaths.specDelta)
+    ? await readFile(changeArtifactPaths.specDelta, 'utf8')
+    : '';
+  const slicesText = changeArtifactPaths?.slices && existsSync(changeArtifactPaths.slices)
+    ? await readFile(changeArtifactPaths.slices, 'utf8')
+    : '';
+  const haystack = normalizedCoverageText(
+    plannerDraft.planText,
+    plannerDraft.architectureText,
+    plannerDraft.developmentPlanText,
+    plannerDraft.testPlanText,
+    specDeltaText,
+    slicesText,
+  );
+  const rows = sourceItems.map((item) => ({
+    item,
+    status: sourceRequirementCovered(item, haystack) ? 'covered' : 'uncovered',
+  }));
+  const blockers = rows
+    .filter((row) => row.status !== 'covered')
+    .map((row) => `source_requirement_uncovered_${slugKey(row.item)}`);
+  const status = blockers.length > 0 ? 'partial' : 'complete';
+
+  await writeText(traceabilityPath, [
+    '# Source Requirements Traceability',
+    '',
+    `- source: ${sourceSpecPath}`,
+    `- status: ${status}`,
+    `- extracted_items: ${rows.length}`,
+    '',
+    '## Coverage Matrix',
+    '',
+    '| Source requirement | Status |',
+    '| --- | --- |',
+    ...(rows.length > 0
+      ? rows.map((row) => `| ${row.item.replace(/\|/g, '\\|')} | ${row.status} |`)
+      : ['| No explicit source coverage items detected | covered |']),
+    '',
+    '## Gate',
+    '',
+    ...(blockers.length > 0
+      ? blockers.map((blocker) => `- ${blocker}`)
+      : ['- complete']),
+  ].join('\n'));
+
+  return {
+    path: traceabilityPath,
+    status,
+    blockers,
+    itemCount: rows.length,
+  };
 }
 
 function frontmatterList(text, key) {
@@ -1498,6 +1675,26 @@ async function readPlanCompletion(cwd, root, slug, state) {
   if (!state.test_spec_artifact_path || !existsSync(state.test_spec_artifact_path)) {
     blockers.push('missing_test_spec');
   }
+  if (!state.plan_source_spec_path || !existsSync(state.plan_source_spec_path)) {
+    blockers.push('missing_source_requirements');
+  }
+  if (!state.requirement_traceability_path || !existsSync(state.requirement_traceability_path)) {
+    blockers.push('missing_requirement_traceability');
+  }
+  if (state.source_requirements_status && state.source_requirements_status !== 'complete') {
+    if (state.requirement_traceability_path && existsSync(state.requirement_traceability_path)) {
+      const traceabilityText = await readFile(state.requirement_traceability_path, 'utf8');
+      blockers.push(
+        ...traceabilityText
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.startsWith('- source_requirement_'))
+          .map((line) => line.slice(2).trim()),
+      );
+    } else {
+      blockers.push(`source_requirements_${state.source_requirements_status}`);
+    }
+  }
   const workflowDocs = {
     plan: artifactPath(root, 'plan.md'),
     architecture: artifactPath(root, 'architecture.md'),
@@ -1520,6 +1717,7 @@ async function readPlanCompletion(cwd, root, slug, state) {
   return {
     blockers,
     docsStatus: blockers.some((blocker) => blocker.startsWith('missing_plan_artifact_') || blocker.startsWith('plan_artifact_not_chinese_')) ? 'partial' : 'complete',
+    sourceRequirementsStatus: blockers.some((blocker) => blocker === 'missing_source_requirements' || blocker === 'missing_requirement_traceability' || blocker.startsWith('source_requirement_') || blocker.startsWith('source_requirements_')) ? 'partial' : 'complete',
     changeArtifactsStatus: changeStatus.status,
     specDeltaStatus: changeStatus.specDeltaStatus,
     sliceArtifactsStatus: changeStatus.sliceArtifactsStatus,
@@ -2994,6 +3192,13 @@ export async function planStage(cwd, slug, options = {}) {
     const changeId = state.change_id || changeIdForWorkflowSlug(normalized);
     const changeArtifactPaths = await writeChangeArtifacts(cwd, root, normalized, sourceText, plannerDraft, changeId);
     const changeArtifactStatus = await readChangeArtifactStatus(changeArtifactPaths);
+    const traceability = await writeRequirementTraceabilityArtifact({
+      root,
+      sourceSpecPath,
+      sourceText,
+      plannerDraft,
+      changeArtifactPaths,
+    });
 
     architectReview = await adapter.architect({
       cwd,
@@ -3039,6 +3244,9 @@ export async function planStage(cwd, slug, options = {}) {
       plan_review_history: reviewHistory,
       plan_artifact_path: artifactPaths.planPath,
       test_spec_artifact_path: artifactPaths.testSpecPath,
+      requirement_traceability_path: traceability.path,
+      source_requirements_status: traceability.status,
+      source_requirements_item_count: traceability.itemCount,
       change_id: normalizeSlug(changeId),
       change_artifacts_status: changeArtifactStatus.status,
       change_artifact_paths: changeArtifactPaths,
@@ -3074,6 +3282,7 @@ export async function planStage(cwd, slug, options = {}) {
     requested_transition: TRANSITIONS.NONE,
     plan_docs_status: completion.docsStatus,
     plan_docs_artifact_paths: null,
+    source_requirements_status: completion.sourceRequirementsStatus,
     change_artifacts_status: completion.changeArtifactsStatus,
     spec_delta_status: completion.specDeltaStatus,
     slice_artifacts_status: completion.sliceArtifactsStatus,

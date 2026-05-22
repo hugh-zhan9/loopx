@@ -3,7 +3,7 @@ name: review
 description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
 when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
 metadata:
-  version: "0.1.6"
+  version: "0.1.7"
 argument-hint: "<execution-record path or workflow slug>"
 ---
 
@@ -50,6 +50,7 @@ Use stable machine values only where they are commands, file paths, JSON/state f
 - Review should compare verification evidence against project-native commands recorded in `.loopx/config.json` when available, while still accepting stronger task-specific verification from the approved plan.
 - Review must include the architecture-smell lane as part of review evidence. This is not a new workflow stage and must not create extra user steps.
 - Review must compare the execution scope against the approved workflow scope. If `execution-record.md` declares non-empty `remaining_scope`, `completion_claim` other than `full`, or a mismatch between `planned_scope` and `implemented_scope`, review must return no-go and route to build or plan. A partial slice may be accepted as useful work, but it must not be approved as full workflow completion.
+- Review must compare implementation evidence against the original source requirements and `.loopx/workflows/<slug>/requirement-traceability.md`, not only against the generated plan. If the traceability matrix is missing, partial, or contradicted by code/tests, route to `review -> plan` or `review -> clarify` depending on whether the plan or requirements are wrong.
 - Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.
 - If code review finds blocking high or medium severity issues, return a no-go verdict and rollback guidance instead of approving completion.
 - If architecture-smell findings are only advisory, record them as warnings without blocking. Block only when module seams, testability, domain boundaries, duplicated rules, or plan architecture assumptions are materially wrong.

@@ -364,6 +364,7 @@ export function createRealPlanAdapter({ model } = {}) {
         `Deliberate mode: ${Boolean(context.deliberateMode)}`,
         '',
         'Use Chinese for planText / architectureText / developmentPlanText / testPlanText.',
+        'Treat the source requirements/PRD as the source of truth. Explicitly cover every named event, field, processing mode, table row, and acceptance item that appears in the source, or clearly mark it out of scope with rationale.',
         'If previous review feedback is present, revise the plan to explicitly resolve it. Do not repeat the same plan unchanged.',
         'Do not ask questions. Do not wrap JSON in markdown.',
         '',

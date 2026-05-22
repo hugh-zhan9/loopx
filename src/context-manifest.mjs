@@ -128,6 +128,8 @@ export async function generateBuildContextManifest({ cwd, root, state, slug }) {
     || (state.current_stage === 'review' && state.rollback_target === 'build');
   const rows = [
     row(cwd, { stage: 'build', kind: 'spec', path: join(root, 'spec.md'), reason: 'clarified_requirements', priority: 10 }),
+    row(cwd, { stage: 'build', kind: 'source-requirements', path: state.plan_source_spec_path || join(root, 'spec.md'), reason: 'original_requirements_source_of_truth', priority: 11 }),
+    row(cwd, { stage: 'build', kind: 'requirement-traceability', path: state.requirement_traceability_path || join(root, 'requirement-traceability.md'), reason: 'source_requirement_coverage_gate', priority: 12 }),
     row(cwd, { stage: 'build', kind: 'plan', path: join(root, 'plan.md'), reason: 'implementation_strategy', priority: 20 }),
     row(cwd, { stage: 'build', kind: 'architecture', path: join(root, 'architecture.md'), reason: 'architecture_constraints', priority: 21 }),
     row(cwd, { stage: 'build', kind: 'development-plan', path: join(root, 'development-plan.md'), reason: 'execution_steps', priority: 22 }),
@@ -150,6 +152,8 @@ export async function generateReviewContextManifest({ cwd, root, state, slug }) 
   const contextSetup = await inspectWorkspaceContext(cwd);
   const rows = [
     row(cwd, { stage: 'review', kind: 'execution-record', path: join(root, 'execution-record.md'), reason: 'execution_evidence', priority: 10 }),
+    row(cwd, { stage: 'review', kind: 'source-requirements', path: state.plan_source_spec_path || join(root, 'spec.md'), reason: 'original_requirements_source_of_truth', priority: 11 }),
+    row(cwd, { stage: 'review', kind: 'requirement-traceability', path: state.requirement_traceability_path || join(root, 'requirement-traceability.md'), reason: 'source_requirement_coverage_gate', priority: 12 }),
     row(cwd, { stage: 'review', kind: 'test-spec', path: state.test_spec_artifact_path || join(cwd, '.loopx', 'plans', `test-spec-${slug}.md`), reason: 'acceptance_tests', priority: 20 }),
     row(cwd, { stage: 'review', kind: 'prd', path: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `prd-${slug}.md`), reason: 'requirements', priority: 21 }),
     row(cwd, { stage: 'review', kind: 'vertical-slices', path: state.change_artifact_paths?.slices || join(cwd, '.loopx', 'changes', 'active', state.change_id || `chg-${slug}`, 'slices.json'), reason: 'slice_verification_contract', priority: 22 }),

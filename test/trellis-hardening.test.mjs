@@ -236,6 +236,7 @@ describe('trellis-inspired loopx hardening', () => {
     const root = join(wd, '.loopx', 'workflows', 'required-missing');
     await mkdir(root, { recursive: true });
     await writeFile(join(root, 'spec.md'), 'spec\n');
+    await writeFile(join(root, 'requirement-traceability.md'), 'traceability\n');
     await writeFile(join(root, 'architecture.md'), 'architecture\n');
     await writeFile(join(root, 'development-plan.md'), 'development\n');
     await writeFile(join(root, 'test-plan.md'), 'test plan\n');
@@ -277,6 +278,7 @@ describe('trellis-inspired loopx hardening', () => {
     const root = join(wd, '.loopx', 'workflows', 'relative-cwd');
     await mkdir(root, { recursive: true });
     await writeFile(join(root, 'spec.md'), 'spec\n');
+    await writeFile(join(root, 'requirement-traceability.md'), 'traceability\n');
     await writeFile(join(root, 'plan.md'), 'plan\n');
     await writeFile(join(root, 'architecture.md'), 'architecture\n');
     await writeFile(join(root, 'development-plan.md'), 'development\n');

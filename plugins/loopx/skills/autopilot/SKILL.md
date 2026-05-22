@@ -3,7 +3,7 @@ name: autopilot
 description: "Runs one bounded autonomous loopx orchestration over clarify, plan, build, and review while preserving canonical artifacts. Not for manual gate-by-gate control."
 when_to_use: "autopilot, autonomous loopx run, end-to-end workflow, run all stages, bounded orchestration, 自动执行, 全流程"
 metadata:
-  version: "0.1.6"
+  version: "0.1.7"
 argument-hint: "<workflow slug>"
 ---
 
