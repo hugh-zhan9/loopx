@@ -720,21 +720,21 @@ async function writeRequirementTraceabilityArtifact({ root, sourceSpecPath, sour
   const status = blockers.length > 0 ? 'partial' : 'complete';
 
   await writeText(traceabilityPath, [
-    '# Source Requirements Traceability',
+    '# 原始需求覆盖矩阵',
     '',
-    `- source: ${sourceSpecPath}`,
-    `- status: ${status}`,
-    `- extracted_items: ${rows.length}`,
+    `- 来源：${sourceSpecPath}`,
+    `- 状态：${status}`,
+    `- 提取项数量：${rows.length}`,
     '',
-    '## Coverage Matrix',
+    '## 覆盖矩阵',
     '',
-    '| Source requirement | Status |',
+    '| 原始需求项 | 覆盖状态 |',
     '| --- | --- |',
     ...(rows.length > 0
       ? rows.map((row) => `| ${row.item.replace(/\|/g, '\\|')} | ${row.status} |`)
-      : ['| No explicit source coverage items detected | covered |']),
+      : ['| 未检测到显式需求覆盖项 | covered |']),
     '',
-    '## Gate',
+    '## 门禁',
     '',
     ...(blockers.length > 0
       ? blockers.map((blocker) => `- ${blocker}`)

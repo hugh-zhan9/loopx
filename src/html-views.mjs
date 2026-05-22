@@ -11,13 +11,14 @@ const WORKFLOW_ARTIFACTS = [
   { name: 'architecture.md', label: '架构', page: 'plan.html' },
   { name: 'development-plan.md', label: '开发计划', page: 'plan.html' },
   { name: 'test-plan.md', label: '测试计划', page: 'plan.html' },
+  { name: 'requirement-traceability.md', label: '需求覆盖矩阵', page: 'plan.html' },
   { name: 'execution-record.md', label: '执行记录', page: 'build.html' },
   { name: 'review-report.md', label: '评审报告', page: 'review.html' },
 ];
 
 const PAGE_GROUPS = [
   { file: 'intake.html', title: '需求澄清', artifacts: ['spec.md'] },
-  { file: 'plan.html', title: '计划与架构', artifacts: ['plan.md', 'architecture.md', 'development-plan.md', 'test-plan.md'] },
+  { file: 'plan.html', title: '计划与架构', artifacts: ['plan.md', 'architecture.md', 'development-plan.md', 'test-plan.md', 'requirement-traceability.md'] },
   { file: 'build.html', title: '执行与验证', artifacts: ['execution-record.md'] },
   { file: 'review.html', title: '评审结论', artifacts: ['review-report.md'] },
 ];
@@ -84,15 +85,43 @@ function markdownToHtml(markdown) {
   const html = [];
   let inCode = false;
   let listOpen = false;
+  let orderedListOpen = false;
 
   const closeList = () => {
     if (listOpen) {
       html.push('</ul>');
       listOpen = false;
     }
+    if (orderedListOpen) {
+      html.push('</ol>');
+      orderedListOpen = false;
+    }
+  };
+  const tableCells = (line) => line.split('|').slice(1, -1).map((cell) => cell.trim());
+  const isTableDelimiter = (line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+  const inlineMarkdown = (value) => escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const renderTable = (start) => {
+    const header = tableCells(lines[start]);
+    const rows = [];
+    let index = start + 2;
+    while (index < lines.length && lines[index].trim().startsWith('|')) {
+      rows.push(tableCells(lines[index]));
+      index += 1;
+    }
+    html.push('<table>');
+    html.push(`<thead><tr>${header.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join('')}</tr></thead>`);
+    html.push('<tbody>');
+    for (const row of rows) {
+      html.push(`<tr>${header.map((_, cellIndex) => `<td>${inlineMarkdown(row[cellIndex] || '')}</td>`).join('')}</tr>`);
+    }
+    html.push('</tbody></table>');
+    return index - 1;
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     if (line.startsWith('```')) {
       if (inCode) {
         html.push('</code></pre>');
@@ -114,12 +143,33 @@ function markdownToHtml(markdown) {
       html.push(`<h${level}>${escapeHtml(line.replace(/^#{1,4}\s+/, ''))}</h${level}>`);
       continue;
     }
+    if (line.trim().startsWith('|') && lines[index + 1] && isTableDelimiter(lines[index + 1])) {
+      closeList();
+      index = renderTable(index);
+      continue;
+    }
     if (line.startsWith('- ')) {
+      if (orderedListOpen) {
+        html.push('</ol>');
+        orderedListOpen = false;
+      }
       if (!listOpen) {
         html.push('<ul>');
         listOpen = true;
       }
-      html.push(`<li>${escapeHtml(line.slice(2))}</li>`);
+      html.push(`<li>${inlineMarkdown(line.slice(2))}</li>`);
+      continue;
+    }
+    if (/^\d+[.)]\s+/.test(line)) {
+      if (listOpen) {
+        html.push('</ul>');
+        listOpen = false;
+      }
+      if (!orderedListOpen) {
+        html.push('<ol>');
+        orderedListOpen = true;
+      }
+      html.push(`<li>${inlineMarkdown(line.replace(/^\d+[.)]\s+/, ''))}</li>`);
       continue;
     }
     if (!line.trim()) {
@@ -127,7 +177,7 @@ function markdownToHtml(markdown) {
       continue;
     }
     closeList();
-    html.push(`<p>${escapeHtml(line)}</p>`);
+    html.push(`<p>${inlineMarkdown(line)}</p>`);
   }
   closeList();
   if (inCode) {
@@ -150,6 +200,7 @@ function statusPanels(status) {
     '<section class="grid">',
     `<div class="panel"><strong>阶段</strong><br>${escapeHtml(state.current_stage || '(none)')}</div>`,
     `<div class="panel"><strong>状态</strong><br>${escapeHtml(state.stage_status || '(unknown)')}</div>`,
+    `<div class="panel"><strong>需求覆盖</strong><br>${escapeHtml(state.source_requirements_status || 'unknown')}</div>`,
     `<div class="panel"><strong>下一步</strong><br><code>${escapeHtml(nextSkill || status.next_action || 'none')}</code></div>`,
     `<div class="panel"><strong>归档</strong><br>${escapeHtml(state.archive_status || 'pending')}</div>`,
     '</section>',

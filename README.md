@@ -522,4 +522,4 @@ node src/cli.mjs status --json
 
 ## Version
 
-Current npm package version: `0.1.7`.
+Current npm package version: `0.1.8`.

@@ -3,7 +3,7 @@ name: verify
 description: "Requires fresh verification evidence before claiming work is complete, fixed, passing, review-ready, or ready to commit. Not for speculative confidence or stale results."
 when_to_use: "verify, completion claim, fixed claim, tests pass, review-ready, commit, fresh evidence, 验证, 完成前检查"
 metadata:
-  version: "0.1.7"
+  version: "0.1.8"
 ---
 
 # Verification Before Completion
