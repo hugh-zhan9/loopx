@@ -3,7 +3,7 @@ name: build
 description: "Executes an approved loopx plan or review rework contract with evidence, verification, deslop, and regression gates. Not for unclear requirements or independent review."
 when_to_use: "build, implement approved plan, execute PRD, --from-review, review rework, implementation fixes, 执行, 实现, 修改"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 argument-hint: "[--no-deslop] <approved PRD path or workflow slug> | --from-review <review artifact path>"
 ---
 
@@ -199,6 +199,8 @@ These support artifacts are runtime aids only. They must not become new canonica
 
 <Final_Response_Contract>
 When `build` reaches review handoff readiness, the final response must include an explicit next skill command using the execution record path:
+
+Default review handoff after build readiness:
 
 ```text
 Next:
