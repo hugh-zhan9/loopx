@@ -3290,6 +3290,7 @@ describe('loopx skill-first workflow contract', () => {
   it('CLI exposes loopx runtime/debug commands and no public team command', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-cli-home-'));
     const env = loopxEnv(home);
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 
     const { stdout: help } = await execFileAsync(process.execPath, [cliPath, '--help'], { cwd: repoRoot, env });
     assert.match(help, /loopx repair-install/);
@@ -3297,6 +3298,12 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
     assert.doesNotMatch(help, /loopx team/);
+
+    const { stdout: version } = await execFileAsync(process.execPath, [cliPath, '--version'], { cwd: repoRoot, env });
+    assert.equal(version.trim(), packageJson.version);
+
+    const { stdout: shortVersion } = await execFileAsync(process.execPath, [cliPath, '-v'], { cwd: repoRoot, env });
+    assert.equal(shortVersion.trim(), packageJson.version);
 
     const { stdout: doctor } = await execFileAsync(process.execPath, [cliPath, 'doctor'], { cwd: repoRoot, env });
     const parsedDoctor = JSON.parse(doctor);

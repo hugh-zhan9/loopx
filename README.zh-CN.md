@@ -509,6 +509,7 @@ node --test test/*.test.mjs
 node scripts/install-skills.mjs --check
 node --test plugins/loopx/scripts/plugin-install.test.mjs
 node src/cli.mjs --help
+node src/cli.mjs --version
 node src/cli.mjs doctor
 node src/cli.mjs status --json
 ```
