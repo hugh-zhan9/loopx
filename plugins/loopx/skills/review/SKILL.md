@@ -3,7 +3,7 @@ name: review
 description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
 when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
 metadata:
-  version: "0.1.8"
+  version: "0.1.9"
 argument-hint: "<execution-record path or workflow slug>"
 ---
 
@@ -101,13 +101,16 @@ For approval:
 
 ```text
 Next:
-loopx approve <slug> --from review --to done
+$archive <slug>
 ```
 
-After the workflow reaches `done`, run:
+`$archive` consumes the pending `review -> done` completion transition before syncing specs. Do not ask the user to run a separate `loopx approve <slug> --from review --to done` command in the normal Codex-facing flow.
 
-```text
-$archive <slug>
+For CLI/runtime debugging only, the equivalent explicit sequence is:
+
+```bash
+loopx approve <slug> --from review --to done
+loopx archive <slug>
 ```
 
 This syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived `.loopx/specs/` files and moves the change folder under `.loopx/changes/archive/<change-id>/`.

@@ -714,7 +714,9 @@ describe('loopx skill-first workflow contract', () => {
     });
     assert.equal(review.verdict, 'APPROVE');
     assert.match(review.reviewMessageZh, /Review 结果：flow 通过。/);
-    assert.match(review.reviewMessageZh, /下一步：批准 review -> done 后完成工作流。/);
+    assert.match(review.reviewMessageZh, /下一步：直接归档/);
+    assert.match(review.reviewMessageZh, /\$archive flow/);
+    assert.equal(nextSkillCommand(review.state), '$archive flow');
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     const report = parseFrontmatter(reportText);
     assert.equal(report.reviewed_run_id, 'flow-build-run-1');
@@ -3106,6 +3108,10 @@ describe('loopx skill-first workflow contract', () => {
       reviewer: 'qa-1',
       adapter: createScriptedReviewAdapter(),
     });
+    const reviewed = await readState(wd, 'archive-cli-next');
+    const reviewPayload = withNextSkill({ ok: true, command: 'review', root: clarified.root, state: reviewed }, reviewed);
+    assert.equal(reviewPayload.next_skill_command, '$archive archive-cli-next');
+    assert.equal(reviewPayload.next_skill_hint, 'Next: $archive archive-cli-next');
     const done = await approveStage(wd, 'archive-cli-next', { from: 'review', to: 'done' });
 
     const payload = withNextSkill({ ok: true, command: 'approve', root: done.root, state: done.state }, done.state);

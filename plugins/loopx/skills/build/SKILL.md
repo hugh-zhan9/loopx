@@ -3,7 +3,7 @@ name: build
 description: "Executes an approved loopx plan or review rework contract with evidence, verification, deslop, and regression gates. Not for unclear requirements or independent review."
 when_to_use: "build, implement approved plan, execute PRD, --from-review, review rework, implementation fixes, 执行, 实现, 修改"
 metadata:
-  version: "0.1.8"
+  version: "0.1.9"
 argument-hint: "[--no-deslop] <approved PRD path or workflow slug> | --from-review <review artifact path>"
 ---
 

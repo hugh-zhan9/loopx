@@ -19,6 +19,13 @@ export function nextSkillCommand(state) {
     && state.archive_status !== 'archived') {
     return `$archive ${state.slug}`;
   }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'approve'
+    && state.pending_user_decision === 'review->done'
+    && ['requested', 'approved'].includes(state.approval?.complete)
+    && state.archive_status !== 'archived') {
+    return `$archive ${state.slug}`;
+  }
   if (state.stage_status !== 'awaiting-approval') {
     return null;
   }

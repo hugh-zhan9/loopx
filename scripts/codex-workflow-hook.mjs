@@ -40,6 +40,13 @@ function nextSkill(state) {
     && state.archive_status !== 'archived') {
     return `$archive ${state.slug}`;
   }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'approve'
+    && state.pending_user_decision === 'review->done'
+    && ['requested', 'approved'].includes(state.approval?.complete)
+    && state.archive_status !== 'archived') {
+    return `$archive ${state.slug}`;
+  }
   if (state.stage_status === 'awaiting-approval'
     && state.current_stage === 'plan'
     && Array.isArray(state.plan_blockers)
@@ -83,9 +90,6 @@ function nextSkill(state) {
     && state.requested_transition === 'review->clarify'
     && state.approval?.rollback === 'approved') {
     return `$clarify ${state.slug}`;
-  }
-  if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.pending_user_decision === 'review->done') {
-    return `loopx approve ${state.slug} --from review --to done`;
   }
   return null;
 }
