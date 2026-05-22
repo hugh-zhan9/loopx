@@ -121,17 +121,13 @@ loopx approve my-task --from build --to review
 loopx review my-task
 ```
 
-Complete an approved review:
-
-```bash
-loopx approve my-task --from review --to done
-```
-
 Archive accepted behavior into long-lived specs:
 
 ```text
 $archive my-task
 ```
+
+When review has approved the workflow and routed it to `done`, `$archive` consumes the pending `review -> done` completion transition before syncing specs. CLI-only operators can still run `loopx approve my-task --from review --to done` followed by `loopx archive my-task` explicitly.
 
 Check status:
 
@@ -268,13 +264,13 @@ The approved PRD, test spec, previous execution record, and workflow-local plan 
 
 The user-facing review result is expected to be written in Chinese.
 
-If review approves the run, the workflow still requires an explicit `review -> done` approval. If review requests implementation changes, run `$build --from-review .loopx/workflows/<slug>/review-report.md`. Plan and clarify rollbacks still use `$plan <slug>` or `$clarify <slug>` when the review finding says the plan or requirements are wrong.
+If review approves the run and routes it to `done`, the normal Codex-facing next step is `$archive <slug>`; archive consumes the pending completion transition and then syncs specs. CLI-only operators may still explicitly run `loopx approve <slug> --from review --to done` before `loopx archive <slug>`. If review requests implementation changes, run `$build --from-review .loopx/workflows/<slug>/review-report.md`. Plan and clarify rollbacks still use `$plan <slug>` or `$clarify <slug>` when the review finding says the plan or requirements are wrong.
 
 The architecture-smell lane is part of review; it does not add a new stage. It records findings under `review-support/architecture-smell.json` and only blocks when module seams, testability, domain vocabulary, or plan architecture assumptions are materially wrong.
 
 ### archive
 
-`archive` consumes a completed workflow and syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived domain specs under `.loopx/specs/`. The change folder is moved to:
+`archive` consumes a completed workflow, or a review-approved workflow whose only pending route is `done`, and syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived domain specs under `.loopx/specs/`. The change folder is moved to:
 
 ```text
 .loopx/changes/archive/<change-id>/
