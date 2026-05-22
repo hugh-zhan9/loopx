@@ -533,4 +533,4 @@ node src/cli.mjs status --json
 
 ## 版本
 
-当前 npm 包版本：`0.1.7`。
+当前 npm 包版本：`0.1.8`。

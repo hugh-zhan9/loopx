@@ -673,13 +673,16 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.source_requirements_status, 'complete');
     assert.equal(planned.state.requirement_traceability_path, join(planned.root, 'requirement-traceability.md'));
     assert.equal(existsSync(planned.state.requirement_traceability_path), true);
-    assert.match(await readFile(planned.state.requirement_traceability_path, 'utf8'), /Source Requirements/);
+    assert.match(await readFile(planned.state.requirement_traceability_path, 'utf8'), /原始需求覆盖矩阵/);
     assert.equal(planned.state.html_view_status, 'written');
     assert.equal(planned.state.html_view_path, join(planned.root, 'view', 'index.html'));
     assert.equal(planned.state.workspace_view_path, join(resolveWorkspaceRoot(wd), 'views', 'index.html'));
     assert.equal(existsSync(planned.state.html_view_path), true);
     assert.equal(existsSync(planned.state.workspace_view_path), true);
-    assert.match(await readFile(join(planned.root, 'view', 'plan.html'), 'utf8'), /计划与架构/);
+    const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
+    assert.match(planHtml, /计划与架构/);
+    assert.match(planHtml, /需求覆盖矩阵/);
+    assert.match(planHtml, /requirement-traceability\.md/);
     assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
     assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
     assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
@@ -3190,6 +3193,11 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(workflowHtml, /下一步/);
     assert.match(workflowHtml, /href="\.\.\/plan\.md"/);
     assert.match(workflowHtml, /readiness/);
+    assert.match(workflowHtml, /需求覆盖/);
+    const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
+    assert.match(planHtml, /需求覆盖矩阵/);
+    assert.match(planHtml, /<table>/);
+    assert.match(planHtml, /原始需求项/);
 
     const workspaceHtml = await readFile(workspaceViewPath, 'utf8');
     assert.match(workspaceHtml, /loopx 工作台/);
