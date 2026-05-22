@@ -90,6 +90,8 @@ function printHumanStatus(status) {
     console.log(`plan_architect_review_status: ${status.state.plan_architect_review_status}`);
     console.log(`plan_critic_verdict: ${status.state.plan_critic_verdict}`);
     console.log(`plan_artifact_status: ${status.state.plan_docs_status}`);
+    console.log(`plan_delegation_mode: ${status.state.plan_delegation_mode ?? 'unknown'}`);
+    console.log(`plan_delegation_decision_path: ${status.state.plan_delegation_decision_path ?? '(none)'}`);
     console.log(`source_requirements_status: ${status.state.source_requirements_status ?? 'unknown'}`);
     console.log(`requirement_traceability_path: ${status.state.requirement_traceability_path ?? '(none)'}`);
     console.log(`plan_blockers: ${Array.isArray(status.state.plan_blockers) && status.state.plan_blockers.length > 0 ? status.state.plan_blockers.join(', ') : '(none)'}`);

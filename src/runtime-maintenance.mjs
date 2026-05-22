@@ -39,12 +39,52 @@ const CHANGE_ARTIFACT_FILE_MAP = {
   graph: 'artifact-graph.json',
 };
 
+const PLAN_ARTIFACTS = ['plan.md', 'architecture.md', 'development-plan.md', 'test-plan.md'];
+
 function normalizeSlug(raw) {
   return String(raw || '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function containsChineseText(text) {
+  const chineseChars = text.match(/[\u3400-\u9fff]/g) || [];
+  const latinChars = text.match(/[A-Za-z]/g) || [];
+  const signalChars = chineseChars.length + latinChars.length;
+  if (signalChars === 0) {
+    return false;
+  }
+  return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
+}
+
+async function legacyPlanArtifactBlockers(workflowRoot) {
+  const blockers = [];
+  for (const name of PLAN_ARTIFACTS) {
+    const path = join(workflowRoot, name);
+    const key = name
+      .replace(/\.md$/, '')
+      .replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+    if (!existsSync(path)) {
+      blockers.push(`missing_plan_artifact_${key}`);
+      continue;
+    }
+    const text = await readFile(path, 'utf8');
+    if (!containsChineseText(text)) {
+      blockers.push(`plan_artifact_not_chinese_${key}`);
+    }
+  }
+  if (!existsSync(join(workflowRoot, 'requirement-traceability.md'))) {
+    blockers.push('missing_requirement_traceability');
+  }
+  if (!existsSync(join(workflowRoot, 'plan-delegation-decision.md'))) {
+    blockers.push('missing_plan_delegation_decision');
+  }
+  if (!existsSync(join(workflowRoot, 'plan-reviews'))) {
+    blockers.push('missing_plan_review_artifacts');
+  }
+  return blockers;
 }
 
 export function resolveLoopxRoot(cwd) {
@@ -332,24 +372,25 @@ async function migrateLegacyWorkflowState(cwd, slug, workflowRoot, legacyState) 
   const canonicalPlanPath = join(resolveLoopxRoot(cwd), 'plans', `prd-${slug}.md`);
   const canonicalTestSpecPath = join(resolveLoopxRoot(cwd), 'plans', `test-spec-${slug}.md`);
   const baseState = createMigratedWorkflowBaseState(slug, legacyState, change);
-  const planDocsComplete = ['plan.md', 'architecture.md', 'development-plan.md', 'test-plan.md']
-    .every((name) => existsSync(join(workflowRoot, name)));
+  const planBlockers = await legacyPlanArtifactBlockers(workflowRoot);
+  const planDocsComplete = planBlockers.length === 0;
   const executionRecordStatus = await inferExecutionStatus(workflowRoot);
-  const planState = planDocsComplete ? {
+  const planState = PLAN_ARTIFACTS.some((name) => existsSync(join(workflowRoot, name))) ? {
     current_stage: STAGES.PLAN,
-    stage_status: 'awaiting-approval',
-    plan_package_status: 'complete',
+    stage_status: planDocsComplete ? 'awaiting-approval' : 'blocked',
+    plan_package_status: planDocsComplete ? 'complete' : 'partial',
     plan_current_iteration: 1,
-    plan_principles_resolved: true,
-    plan_options_reviewed: true,
-    plan_architect_review_status: 'complete',
-    plan_critic_verdict: 'approve',
-    plan_acceptance_criteria_testable: true,
-    plan_verification_steps_resolved: true,
-    plan_execution_inputs_resolved: true,
-    plan_docs_status: 'complete',
+    plan_principles_resolved: planDocsComplete,
+    plan_options_reviewed: planDocsComplete,
+    plan_architect_review_status: planDocsComplete ? 'complete' : 'not-started',
+    plan_critic_verdict: planDocsComplete ? 'approve' : 'none',
+    plan_acceptance_criteria_testable: planDocsComplete,
+    plan_verification_steps_resolved: planDocsComplete,
+    plan_execution_inputs_resolved: planDocsComplete,
+    plan_docs_status: planDocsComplete ? 'complete' : 'partial',
+    plan_blockers: planBlockers,
     approval: {
-      plan: APPROVAL_STATES.APPROVED,
+      plan: planDocsComplete ? APPROVAL_STATES.APPROVED : APPROVAL_STATES.NOT_REQUESTED,
       build: APPROVAL_STATES.NOT_REQUESTED,
       review: APPROVAL_STATES.NOT_REQUESTED,
       rollback: APPROVAL_STATES.NOT_REQUESTED,
