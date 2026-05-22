@@ -138,5 +138,7 @@ describe('loopx skill governance', () => {
     const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     assert.match(review, /Default implementation-fix handoff:/);
     assert.match(review, /\$build --from-review \.loopx\/workflows\/<slug>\/review-report\.md/);
+    assert.match(review, /Next:\n\$archive <slug>/);
+    assert.match(review, /Do not ask the user to run a separate `loopx approve <slug> --from review --to done` command/);
   });
 });

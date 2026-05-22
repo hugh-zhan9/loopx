@@ -2248,7 +2248,7 @@ function buildCurrentEvidenceChain(state, readiness = buildReadiness(state), aut
     evidence.push(evidenceEntry(
       'review_approved',
       'Review verdict is approve.',
-      authorization.done.authorized ? 'The approved review -> done transition can be consumed.' : 'Completion still requires explicit review -> done authorization.',
+      authorization.done.authorized ? 'Archive can consume the approved review -> done transition before syncing specs.' : 'Completion still requires explicit review -> done authorization.',
     ));
   }
   if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
@@ -2371,9 +2371,7 @@ function recommendedAction(state, legacy = false) {
         : 'Approve build -> review when execution-record.md is complete.';
     case STAGES.REVIEW:
       if (state.review_verdict === 'approve') {
-        return state.approval.complete === APPROVAL_STATES.APPROVED
-          ? 'Run loopx review again to consume the approved review -> done transition.'
-          : 'Approve review -> done to complete the workflow.';
+        return 'Run loopx archive; archive consumes the pending review -> done completion transition before syncing specs.';
       }
       if (state.review_verdict === 'request-changes') {
         if (state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD && state.approval.build === APPROVAL_STATES.APPROVED) {
@@ -2574,7 +2572,11 @@ function nextCommandForRollbackTarget(slug, target) {
   if (target === 'none') {
     return [
       'Next:',
+      `$archive ${slug}`,
+      '',
+      'CLI-only equivalent:',
       `loopx approve ${slug} --from review --to done`,
+      `loopx archive ${slug}`,
     ].join('\n');
   }
   return [
@@ -2587,7 +2589,7 @@ function nextCommandForRollbackTarget(slug, target) {
 function reviewUserMessageZh({ slug, verdict, rollbackTarget, findings }) {
   const label = reviewVerdictLabel(verdict);
   const next = verdict === 'APPROVE'
-    ? `下一步：批准 review -> done 后完成工作流。\n${nextCommandForRollbackTarget(slug, 'none')}`
+    ? `下一步：直接归档；archive 会先消费 pending 的 review -> done 完成态。\n${nextCommandForRollbackTarget(slug, 'none')}`
     : `下一步：按审查发现处理，并${rollbackTargetLabel(rollbackTarget)}。\n${nextCommandForRollbackTarget(slug, rollbackTarget)}`;
   const findingText = Array.isArray(findings) && findings.length > 0 ? findings.join('；') : '无额外发现。';
   return `Review 结果：${slug} ${label}。审查发现：${findingText} ${next}`;
@@ -3929,7 +3931,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
         verdict: reviewInput.verdict,
         reviewMessageZh: reviewMessage,
         evidenceManifest: reviewInput.evidenceManifest,
-        followUps: ['等待 review -> done 审批。'],
+        followUps: ['执行 $archive；archive 会消费 pending 的 review -> done 完成态。'],
       });
     } catch (error) {
       journalWarning = error instanceof Error ? error.message : String(error);
