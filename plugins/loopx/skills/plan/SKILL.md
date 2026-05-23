@@ -189,7 +189,7 @@ The final plan must include:
 - Chinese reviewer-facing Markdown for `plan.md`, `architecture.md`, `development-plan.md`, `test-plan.md`, canonical PRD/test spec, traceability, and delegation decision; English prose is allowed only for code paths, API names, commands, enum values, and source terms
 - an HTML reading view that exposes stage status, human approval points, blockers, source coverage, and artifact summaries before the full Markdown bodies
 - a source-requirement coverage matrix that maps the original requirements/PRD to plan, architecture, slices, spec delta, and tests
-- a delegation decision with mode `local|critic-only|parallel-review`, score, triggers, and reason for whether subagent-style review is warranted
+- a delegation decision with recommended mode `local|critic-only|parallel-review`, actual authorized mode, threshold, authorization source, score, triggers, and reason for whether subagent-style review is warranted
 - ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
 - concrete implementation steps sized to the actual task
 - target long-lived spec domains and an OpenSpec-style requirements delta for archive
@@ -199,6 +199,13 @@ The final plan must include:
 - test and verification commands
 - residual risks and assumptions
 - explicit build/autopilot handoff guidance
+
+Reviewer-facing document contract:
+
+- `architecture.md` is the architecture document. It answers system boundaries and design tradeoffs, not implementation scheduling. It must include `文档定位`, `架构目标与非目标`, `上下文与系统边界`, `组件与职责`, `数据与状态模型`, `接口与集成契约`, `关键流程`, `质量属性与风险`, and `架构决策记录`.
+- `development-plan.md` is the development plan. It answers execution order, slices, dependencies, verification, manual gates, rollback, and done criteria, not architecture selection. It must include `文档定位`, `交付切片`, `实施顺序与依赖`, `需求到开发切片`, `文件级变更清单`, `验证计划`, `人工确认点`, `回滚/降级策略`, and `完成定义`.
+- `.loopx/changes/active/<change-id>/design.md` is the detailed design. It answers field/function/component-level implementation details and must include `文档定位`, `需求到设计映射`, `数据结构与字段`, `接口、函数与组件契约`, `状态机与流程细节`, `错误处理与边界条件`, `测试设计`, and `实现注意事项`.
+- If any of these documents only contains a short summary or layer names without source-requirement mapping and concrete contracts, plan handoff must stay blocked.
 
 ## Step 7. Execution Bridge
 
@@ -252,7 +259,10 @@ HTML:
 - `plan_execution_inputs_resolved`: `true|false`
 - `source_requirements_status`: `complete|partial`
 - `requirement_traceability_path`: `.loopx/workflows/<slug>/requirement-traceability.md`
-- `plan_delegation_mode`: `local|critic-only|parallel-review`
+- `plan_delegation_mode`: recommended `local|critic-only|parallel-review`
+- `plan_delegation_recommended_mode`: `local|critic-only|parallel-review`
+- `plan_delegation_actual_mode`: authorized actual `local|critic-only|parallel-review`
+- `plan_delegation_authorization_status`: `disabled|below-threshold|manual-required|auto-authorized`
 - `plan_delegation_decision_path`: `.loopx/workflows/<slug>/plan-delegation-decision.md`
 - `requested_transition`: remains explicit before build/autopilot
 
@@ -271,7 +281,7 @@ The plan gate is blocked until:
 - verification steps are concrete
 - execution inputs are fully mapped to concrete sources
 - source requirements are covered by `requirement-traceability.md`; uncovered original PRD requirements block build handoff
-- delegation decision is recorded in `plan-delegation-decision.md`; absence of an explicit local/critic/parallel-review rationale blocks build handoff
+- delegation decision is recorded in `plan-delegation-decision.md`; absence of an explicit recommended/actual local/critic/parallel-review rationale and authorization source blocks build handoff
 - user approval exists for any execution transition
 </Runtime_State_Machine>
 
@@ -279,6 +289,7 @@ The plan gate is blocked until:
 - Do not skip Architect review.
 - Do not run Architect and Critic in parallel; Critic depends on Architect.
 - Do not launch build/autopilot without explicit approval.
+- Do not treat recommended subagent review as actual execution authorization. Actual subagent startup must be authorized by `.loopx/config.json` `agent_delegation.enabled=true`, `auto_start=true`, and a matching threshold.
 - Do not widen scope beyond clarify non-goals because a broader redesign seems cleaner.
 - Do not erase residual-risk warnings inherited from clarify.
 - Do not treat a plan as approved when Critic returns `ITERATE` or `REJECT`.

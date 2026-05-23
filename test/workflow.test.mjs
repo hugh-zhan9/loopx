@@ -622,6 +622,13 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(config.verification_commands.typecheck, 'npm run typecheck');
     assert.equal(config.verification_commands.build, 'npm run build');
     assert.equal(config.verification_commands.e2e, 'npm run test:e2e');
+    assert.deepEqual(config.agent_delegation, {
+      enabled: false,
+      auto_start: false,
+      threshold: 'critic-only',
+      plan_parallelism: 'review-only',
+      build_parallelism: 'disjoint-only',
+    });
 
     const state = await readState(wd, 'demo-init');
     assert.equal(state.current_stage, 'clarify');
@@ -1319,6 +1326,102 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(changesRoot, 'tasks.md')), true);
   });
 
+  it('enriches short planner output with source requirement mappings for human review', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-richness-'));
+    const specPath = join(wd, 'rich-source.md');
+    await writeFile(
+      specPath,
+      [
+        '# Rich Source Spec',
+        '',
+        '## Functional Requirements',
+        '',
+        '- 分红派息任务必须展示客户应收、税费和净额。',
+        '- 拆股任务必须生成新旧数量、成本和订单影响。',
+        '- 期权退市 OCC 任务必须展示 memo 编号和受影响合约。',
+        '- 异常处理必须支持金额、数量和客户范围差异处理。',
+        '',
+        '## Execution Inputs',
+        '',
+        '- source spec path: rich-source.md',
+        '- workflow slug: rich-source',
+      ].join('\n'),
+    );
+
+    const shortChineseAdapter = {
+      async planner() {
+        return {
+          principles: ['中文审阅文档必须可确认。'],
+          decisionDrivers: ['源需求不能丢失。'],
+          options: [{ name: '短计划', pros: ['简单'], cons: ['容易遗漏'] }],
+          planText: '# 计划\n\n## 摘要\n\n这是一个故意很短的中文计划摘要。',
+          architectureText: '# 架构\n\n## 摘要\n\n这是一个故意很短的中文架构摘要。',
+          developmentPlanText: '# 开发计划\n\n## 摘要\n\n这是一个故意很短的中文开发摘要。',
+          testPlanText: '# 测试计划\n\n## 摘要\n\n这是一个故意很短的中文测试摘要。',
+          principlesResolved: true,
+          optionsReviewed: true,
+          acceptanceCriteriaTestable: true,
+          verificationStepsResolved: true,
+          executionInputsResolved: true,
+        };
+      },
+      async architect() {
+        return { status: 'complete', verdict: 'approve', findings: [] };
+      },
+      async critic() {
+        return {
+          verdict: 'approve',
+          findings: [],
+          acceptanceCriteriaTestable: true,
+          verificationStepsResolved: true,
+          executionInputsResolved: true,
+        };
+      },
+    };
+
+    const planned = await planStage(wd, undefined, { directSpecPath: specPath, adapter: shortChineseAdapter });
+    const planText = await readFile(join(planned.root, 'plan.md'), 'utf8');
+    const architectureText = await readFile(join(planned.root, 'architecture.md'), 'utf8');
+    const developmentText = await readFile(join(planned.root, 'development-plan.md'), 'utf8');
+    const designText = await readFile(planned.state.change_artifact_paths.design, 'utf8');
+    const testText = await readFile(join(planned.root, 'test-plan.md'), 'utf8');
+    const deltaText = await readFile(planned.state.change_artifact_paths.specDelta, 'utf8');
+    const htmlText = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
+
+    assert.equal(planned.state.stage_status, 'awaiting-approval');
+    assert.equal(planned.state.plan_docs_status, 'complete');
+    assert.equal(planned.state.source_requirements_item_count, 4);
+    assert.match(planText, /## 原始需求清单/);
+    assert.match(planText, /分红派息任务必须展示客户应收、税费和净额/);
+    assert.match(planText, /## 原始需求映射/);
+    assert.match(architectureText, /## 需求到架构映射/);
+    assert.match(architectureText, /## 文档定位/);
+    assert.match(architectureText, /## 上下文与系统边界/);
+    assert.match(architectureText, /## 组件与职责/);
+    assert.match(architectureText, /## 数据与状态模型/);
+    assert.match(architectureText, /## 接口与集成契约/);
+    assert.match(architectureText, /## 关键流程/);
+    assert.match(architectureText, /## 架构决策记录/);
+    assert.match(developmentText, /## 需求到开发切片/);
+    assert.match(developmentText, /## 文档定位/);
+    assert.match(developmentText, /## 交付切片/);
+    assert.match(developmentText, /## 实施顺序与依赖/);
+    assert.match(developmentText, /## 文件级变更清单/);
+    assert.match(developmentText, /## 验证计划/);
+    assert.match(developmentText, /## 完成定义/);
+    assert.match(designText, /## 文档定位/);
+    assert.match(designText, /## 需求到设计映射/);
+    assert.match(designText, /## 数据结构与字段/);
+    assert.match(designText, /## 接口、函数与组件契约/);
+    assert.match(designText, /## 状态机与流程细节/);
+    assert.match(designText, /## 错误处理与边界条件/);
+    assert.match(designText, /## 测试设计/);
+    assert.match(testText, /## 需求到测试矩阵/);
+    assert.equal((deltaText.match(/### Requirement:/g) || []).length >= 4, true);
+    assert.match(htmlText, /原始需求清单/);
+    assert.match(htmlText, /需求到测试矩阵/);
+  });
+
   it('connects domain context and vertical slices through plan, build, and review', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-slice-context-flow-'));
     await execFileAsync(process.execPath, [cliPath, 'init'], { cwd: wd });
@@ -1477,7 +1580,7 @@ describe('loopx skill-first workflow contract', () => {
     );
   });
 
-  it('blocks plan handoff when source requirement coverage is incomplete', async () => {
+  it('carries explicit source requirements into generated coverage artifacts', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-source-coverage-block-'));
     await initWorkspace(wd);
     const specPath = join(wd, 'source-product-prd.md');
@@ -1501,17 +1604,18 @@ describe('loopx skill-first workflow contract', () => {
       ].join('\n'),
     );
 
-    const planned = await planStage(wd, undefined, {
-      directSpecPath: specPath,
-      adapter: createScriptedPlanAdapter(),
-    });
+    const planned = await planStage(wd, undefined, { directSpecPath: specPath, adapter: createScriptedPlanAdapter() });
+    const deltaText = await readFile(planned.state.change_artifact_paths.specDelta, 'utf8');
+    const traceabilityText = await readFile(join(planned.root, 'requirement-traceability.md'), 'utf8');
 
-    assert.equal(planned.state.stage_status, 'blocked');
-    assert.equal(planned.state.source_requirements_status, 'partial');
-    assert.equal(planned.state.plan_blockers.includes('source_requirement_uncovered_alpha-ledger-settlement-gate'), true);
-    assert.equal(planned.state.plan_blockers.includes('source_requirement_uncovered_beta-customer-impact-reconciliation'), true);
+    assert.equal(planned.state.stage_status, 'awaiting-approval');
+    assert.equal(planned.state.source_requirements_status, 'complete');
+    assert.equal(planned.state.plan_blockers.length, 0);
     assert.equal(existsSync(join(planned.root, 'requirement-traceability.md')), true);
-    assert.match(await readFile(join(planned.root, 'requirement-traceability.md'), 'utf8'), /Alpha Ledger Settlement Gate/);
+    assert.match(traceabilityText, /Alpha Ledger Settlement Gate/);
+    assert.match(traceabilityText, /已覆盖/);
+    assert.match(deltaText, /### Requirement: Alpha Ledger Settlement Gate/);
+    assert.match(deltaText, /### Requirement: Beta Customer Impact Reconciliation/);
   });
 
   it('records plan delegation decision and escalates high-risk planning to parallel review', async () => {
@@ -1546,13 +1650,51 @@ describe('loopx skill-first workflow contract', () => {
     });
 
     assert.equal(planned.state.plan_delegation_mode, 'parallel-review');
+    assert.equal(planned.state.plan_delegation_recommended_mode, 'parallel-review');
+    assert.equal(planned.state.plan_delegation_actual_mode, 'local');
+    assert.equal(planned.state.plan_delegation_authorization_status, 'disabled');
+    assert.equal(planned.state.plan_delegation_threshold, 'critic-only');
     assert.equal(planned.state.plan_delegation_score >= 7, true);
     assert.equal(planned.state.plan_delegation_triggers.includes('high_risk_domain'), true);
     assert.equal(planned.state.plan_delegation_triggers.includes('cross_module_scope'), true);
     assert.equal(existsSync(planned.state.plan_delegation_decision_path), true);
     const decisionText = await readFile(planned.state.plan_delegation_decision_path, 'utf8');
-    assert.match(decisionText, /parallel-review/);
+    assert.match(decisionText, /recommended_mode: parallel-review/);
+    assert.match(decisionText, /actual_mode: local/);
+    assert.match(decisionText, /authorization_status: disabled/);
     assert.match(decisionText, /high_risk_domain/);
+  });
+
+  it('authorizes actual plan delegation when workspace config enables auto start', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-delegation-auto-'));
+    await initWorkspace(wd, {
+      agentDelegation: {
+        enabled: true,
+        auto_start: true,
+        threshold: 'critic-only',
+      },
+    });
+    const specPath = join(wd, 'corporate-action-auto-prd.md');
+    await writeFile(
+      specPath,
+      [
+        '# 公司行动自动委派 PRD',
+        '',
+        '涉及资金资产、交易订单、清算结算、权限审计、API、service、data migration、worker、幂等、补偿、回滚、差异和 e2e acceptance。',
+      ].join('\n'),
+    );
+
+    const planned = await planStage(wd, undefined, {
+      directSpecPath: specPath,
+      adapter: createScriptedPlanAdapter(),
+    });
+
+    assert.equal(planned.state.plan_delegation_recommended_mode, 'parallel-review');
+    assert.equal(planned.state.plan_delegation_actual_mode, 'parallel-review');
+    assert.equal(planned.state.plan_delegation_authorization_status, 'auto-authorized');
+    const decisionText = await readFile(planned.state.plan_delegation_decision_path, 'utf8');
+    assert.match(decisionText, /runtime_execution: auto-subagent-review/);
+    assert.match(decisionText, /authorization_source: \.loopx\/config\.json:agent_delegation\.auto_start=true/);
   });
 
   it('archives approved change deltas into long-lived specs', async () => {
@@ -2068,7 +2210,7 @@ describe('loopx skill-first workflow contract', () => {
         '',
         '## MODIFIED Requirements',
         '',
-        '### Requirement: 规划输出完整且可审阅',
+        '### Requirement: Run the bounded loopx flow',
         'Replacement requirement after archive parser repair SHALL replace the prior requirement block.',
         '',
         '#### Scenario: Replacement archive',
@@ -2081,7 +2223,7 @@ describe('loopx skill-first workflow contract', () => {
     const specText = await readFile(specPath, 'utf8');
 
     assert.match(specText, /Replacement requirement after archive parser repair/);
-    assert.equal((specText.match(/### Requirement: 规划输出完整且可审阅/g) || []).length, 1);
+    assert.equal((specText.match(/### Requirement: Run the bounded loopx flow/g) || []).length, 1);
     assert.doesNotMatch(specText, /### Change:/);
   });
 

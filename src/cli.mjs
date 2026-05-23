@@ -15,7 +15,7 @@ function usage() {
   return [
     'Usage:',
     '  loopx --version',
-    '  loopx init [--slug <slug>]',
+    '  loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]',
     '  loopx clarify <slug> [--standard|--deep]',
     '  loopx approve <slug> --from <stage> --to <stage>',
     '  loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]',
@@ -91,6 +91,9 @@ function printHumanStatus(status) {
     console.log(`plan_critic_verdict: ${status.state.plan_critic_verdict}`);
     console.log(`plan_artifact_status: ${status.state.plan_docs_status}`);
     console.log(`plan_delegation_mode: ${status.state.plan_delegation_mode ?? 'unknown'}`);
+    console.log(`plan_delegation_recommended_mode: ${status.state.plan_delegation_recommended_mode ?? status.state.plan_delegation_mode ?? 'unknown'}`);
+    console.log(`plan_delegation_actual_mode: ${status.state.plan_delegation_actual_mode ?? 'unknown'}`);
+    console.log(`plan_delegation_authorization_status: ${status.state.plan_delegation_authorization_status ?? 'unknown'}`);
     console.log(`plan_delegation_decision_path: ${status.state.plan_delegation_decision_path ?? '(none)'}`);
     console.log(`source_requirements_status: ${status.state.source_requirements_status ?? 'unknown'}`);
     console.log(`requirement_traceability_path: ${status.state.requirement_traceability_path ?? '(none)'}`);
@@ -158,7 +161,14 @@ async function main() {
   try {
     switch (command) {
       case 'init': {
-        const result = await initWorkspace(process.cwd(), { slug: options.get('--slug') || positionals[0] });
+        const result = await initWorkspace(process.cwd(), {
+          slug: options.get('--slug') || positionals[0],
+          agentDelegation: {
+            enabled: Boolean(options.get('--enable-agent-delegation') || options.get('--auto-agent-delegation')),
+            auto_start: Boolean(options.get('--auto-agent-delegation')),
+            threshold: options.get('--agent-delegation-threshold'),
+          },
+        });
         console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
         return;
       }

@@ -161,7 +161,7 @@ loopx plan --direct ./path/to/spec.md
 ## CLI 命令
 
 ```bash
-loopx init [--slug <slug>]
+loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]
 loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]
@@ -236,7 +236,7 @@ plan 成功后，loopx 还会写入派生阅读视图：`.loopx/workflows/<slug>
 
 `requirement-traceability.md` 会把原始需求或 PRD 映射到生成的 plan package、change delta、vertical slices 和测试。若显式需求覆盖项或需求表格项没有被计划包覆盖，`plan` 会在 build approval 前保持 blocked。
 
-`plan-delegation-decision.md` 会记录规划阶段应保持本地顺序审阅，还是需要更强的 critic/parallel-review 深度。决策依据包括风险、范围、状态/数据完整性、验证复杂度和架构取舍；缺少委派依据会阻塞 build handoff。
+`plan-delegation-decision.md` 会同时记录推荐的委派深度和实际授权后的执行模式。推荐依据包括风险、范围、状态/数据完整性、验证复杂度和架构取舍；`.loopx/config.json` 决定达到阈值时是否可以实际启动 subagent review。缺少委派依据会阻塞 build handoff。
 
 `spec-delta.md` 使用 requirement delta：`## ADDED Requirements`、`## MODIFIED Requirements`、`## REMOVED Requirements` 和 `## RENAMED Requirements`。ADDED / MODIFIED 必须是完整的 `### Requirement:` 块，包含 SHALL/MUST 约束和 `#### Scenario:` 场景，archive 才能把它们合并进长期 spec 当前状态。
 
@@ -386,7 +386,7 @@ loopx 在当前项目下写入 `.loopx/`：
       run.json
 ```
 
-`config.json` 记录 loopx 产品契约和 init 时的项目发现结果：已有 AI 规则文件，例如 `AGENTS.md`、`CLAUDE.md`、Cursor / Copilot 规则；已有 spec 来源，例如 `docs/changes`、ADR/RFC 目录；以及自动发现的 install/test/lint/typecheck/build/E2E 命令。这不会引入轻量版 loopx；它只是让 `plan`、`build`、`review` 能看到项目事实，同时保持完整闭环。
+`config.json` 记录 loopx 产品契约和 init 时的项目发现结果：已有 AI 规则文件，例如 `AGENTS.md`、`CLAUDE.md`、Cursor / Copilot 规则；已有 spec 来源，例如 `docs/changes`、ADR/RFC 目录；以及自动发现的 install/test/lint/typecheck/build/E2E 命令。它还记录 `agent_delegation`，默认关闭；当 workflow 被授权自动启动 subagent review 时，可使用 `loopx init --enable-agent-delegation --auto-agent-delegation --agent-delegation-threshold critic-only` 或手动编辑配置开启。这不会引入轻量版 loopx；它只是让 `plan`、`build`、`review` 能看到项目事实，同时保持完整闭环。
 
 `intake` 保存一次需求的 clarify 快照；`workflows` 保存当前任务的运行时工作副本；`changes` 保存本次需求对长期行为的 change delta；`specs` 只保存 archive 后的长期领域行为契约。
 
@@ -400,9 +400,15 @@ loopx 在当前项目下写入 `.loopx/`：
 - `.loopx/workflows/<slug>/spec.md`：当前需求工作副本。
 - `.loopx/workflows/<slug>/plan.md`、`architecture.md`、`development-plan.md`、`test-plan.md`：当前任务的计划、架构和验证约定。
 - `.loopx/workflows/<slug>/requirement-traceability.md`：plan、build、review 都会消费的原始需求覆盖门禁。
-- `.loopx/workflows/<slug>/plan-delegation-decision.md`：记录 local / critic-only / parallel-review 规划委派依据。
+- `.loopx/workflows/<slug>/plan-delegation-decision.md`：记录推荐的 local / critic-only / parallel-review 规划委派模式、实际授权模式、阈值和授权来源。
 - `.loopx/workflows/<slug>/execution-record.md`、`review-report.md`：执行证据和评审结论。
 - `.loopx/views/index.html` 与 `.loopx/workflows/<slug>/view/index.html`：plan 后写入、也可由 `loopx render` 重新生成的阅读入口。
+
+规划文档的职责边界：
+
+- `architecture.md` 是架构文档，负责系统边界、组件职责、数据/状态模型、接口集成、关键流程、质量属性和 ADR，不负责开发排期或字段级实现。
+- `development-plan.md` 是开发计划，负责交付切片、实施顺序、依赖、文件级变更清单、验证计划、人工确认点、回滚/降级策略和完成定义，不重新选择架构。
+- `.loopx/changes/active/<change-id>/design.md` 是详细设计，负责需求到设计映射、数据结构与字段、接口/函数/组件契约、状态机细节、错误处理、边界条件和测试设计。它是 build 阶段最接近实现的输入。
 
 用户可以阅读和按流程修改的事实源文档：
 

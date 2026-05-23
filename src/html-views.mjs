@@ -520,7 +520,8 @@ function planGateSummary(state) {
     ['变更工件', state.change_artifacts_status || 'missing'],
     ['Spec Delta', state.spec_delta_status || 'missing'],
     ['Vertical Slices', state.slice_artifacts_status || 'missing'],
-    ['委派决策', state.plan_delegation_mode || 'unknown'],
+    ['委派决策', `${state.plan_delegation_recommended_mode || state.plan_delegation_mode || 'unknown'} / ${state.plan_delegation_actual_mode || 'unknown'}`],
+    ['授权状态', state.plan_delegation_authorization_status || 'unknown'],
   ];
   return [
     '<section class="panel">',
