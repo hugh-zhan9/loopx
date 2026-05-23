@@ -67,6 +67,14 @@ const CLARIFY_PROFILES = {
     maxRounds: 25,
   },
 };
+const DELEGATION_MODES = ['local', 'critic-only', 'parallel-review'];
+const DEFAULT_AGENT_DELEGATION_CONFIG = {
+  enabled: false,
+  auto_start: false,
+  threshold: 'critic-only',
+  plan_parallelism: 'review-only',
+  build_parallelism: 'disjoint-only',
+};
 
 function normalizeSlug(raw) {
   const slug = String(raw || '')
@@ -127,6 +135,33 @@ function normalizeClarifyProfile(raw) {
     throw new Error(`invalid_clarify_profile:${value}`);
   }
   return value;
+}
+
+function normalizeDelegationThreshold(raw) {
+  const value = String(raw || DEFAULT_AGENT_DELEGATION_CONFIG.threshold).trim().toLowerCase();
+  if (!DELEGATION_MODES.includes(value)) {
+    throw new Error(`invalid_agent_delegation_threshold:${value}`);
+  }
+  return value;
+}
+
+function delegationModeRank(mode) {
+  return DELEGATION_MODES.indexOf(String(mode || 'local'));
+}
+
+function delegationMeetsThreshold(mode, threshold) {
+  return delegationModeRank(mode) >= delegationModeRank(normalizeDelegationThreshold(threshold));
+}
+
+function normalizeAgentDelegationConfig(raw = {}) {
+  const candidate = raw && typeof raw === 'object' ? raw : {};
+  return {
+    enabled: candidate.enabled === true,
+    auto_start: candidate.auto_start === true,
+    threshold: normalizeDelegationThreshold(candidate.threshold),
+    plan_parallelism: String(candidate.plan_parallelism || DEFAULT_AGENT_DELEGATION_CONFIG.plan_parallelism),
+    build_parallelism: String(candidate.build_parallelism || DEFAULT_AGENT_DELEGATION_CONFIG.build_parallelism),
+  };
 }
 
 function parseFrontmatter(text) {
@@ -315,6 +350,11 @@ export async function readWorkspaceConfig(cwd) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
+async function readAgentDelegationConfig(cwd) {
+  const config = await readWorkspaceConfig(cwd);
+  return normalizeAgentDelegationConfig(config?.agent_delegation);
+}
+
 export async function readState(cwd, slug) {
   const path = statePath(resolveWorkflowRoot(cwd, slug));
   if (!existsSync(path)) {
@@ -418,6 +458,12 @@ function createInitialState(slug, profile) {
     plan_docs_artifact_paths: null,
     plan_delegation_decision_path: null,
     plan_delegation_mode: 'local',
+    plan_delegation_recommended_mode: 'local',
+    plan_delegation_actual_mode: 'local',
+    plan_delegation_runtime_execution: 'local-sequential',
+    plan_delegation_authorization_status: 'disabled',
+    plan_delegation_authorization_source: '.loopx/config.json:agent_delegation.enabled=false',
+    plan_delegation_threshold: DEFAULT_AGENT_DELEGATION_CONFIG.threshold,
     plan_delegation_score: 0,
     plan_delegation_triggers: [],
     plan_delegation_reason: null,
@@ -587,10 +633,11 @@ function bulletsFromSectionText(text, heading) {
     .filter(Boolean);
 }
 
-function sectionBodyForHeadings(text, headingPatterns) {
+function sectionBodiesForHeadings(text, headingPatterns) {
   const body = stripFrontmatter(text);
   const headingPattern = /^#{2,4}\s+(.+?)\s*$/gm;
   const headings = [...body.matchAll(headingPattern)];
+  const bodies = [];
   for (let index = 0; index < headings.length; index += 1) {
     const title = headings[index][1].trim();
     if (!headingPatterns.some((pattern) => pattern.test(title))) {
@@ -598,25 +645,33 @@ function sectionBodyForHeadings(text, headingPatterns) {
     }
     const start = headings[index].index + headings[index][0].length;
     const end = index + 1 < headings.length ? headings[index + 1].index : body.length;
-    return body.slice(start, end).trim();
+    bodies.push(body.slice(start, end).trim());
   }
-  return '';
+  return bodies;
 }
 
 function explicitCoverageItems(sourceText) {
-  const body = sectionBodyForHeadings(sourceText, [
+  const bodies = sectionBodiesForHeadings(sourceText, [
+    /^in\s+scope$/i,
+    /^testable\s+acceptance\s+criteria$/i,
+    /^functional\s+requirements?$/i,
     /required\s+coverage/i,
     /requirement\s+coverage/i,
+    /requirements?/i,
     /coverage\s+matrix/i,
+    /功能需求/,
+    /交付范围/,
+    /验收/,
+    /成功标准/,
     /需求.*覆盖/,
     /需求.*完整/,
     /需求.*卡点/,
   ]);
-  if (!body) {
+  if (bodies.length === 0) {
     return [];
   }
-  return body
-    .split('\n')
+  return bodies
+    .flatMap((body) => body.split('\n'))
     .map((line) => line.trim())
     .filter((line) => /^[-*]\s+/.test(line) || /^\d+[.)]\s+/.test(line))
     .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\d+[.)]\s+/, '').trim())
@@ -668,6 +723,340 @@ function sourceRequirementItems(sourceText) {
   ]).slice(0, 80);
 }
 
+function markdownTableCell(value) {
+  return String(value ?? '')
+    .replace(/\n/g, ' ')
+    .replace(/\|/g, '\\|')
+    .trim();
+}
+
+function numberedPlanItems(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^\d+[.)]\s+/.test(line))
+    .map((line) => line.replace(/^\d+[.)]\s+/, '').trim())
+    .filter(Boolean);
+}
+
+function hasMarkdownHeading(text, heading) {
+  const escaped = String(heading || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^#{2,4}\\s+${escaped}\\s*$`, 'm').test(String(text || ''));
+}
+
+function appendMarkdownSectionIfMissing(text, heading, body) {
+  if (hasMarkdownHeading(text, heading)) {
+    return text;
+  }
+  return [
+    String(text || '').trimEnd(),
+    '',
+    `## ${heading}`,
+    '',
+    String(body || '').trim(),
+  ].join('\n');
+}
+
+function sourceItemsForPlanEnrichment(sourceText, plannerDraft) {
+  const sourceItems = sourceRequirementItems(sourceText);
+  if (sourceItems.length > 0) {
+    return sourceItems;
+  }
+  return dedupeStrings([
+    ...numberedPlanItems(plannerDraft?.planText),
+    ...numberedPlanItems(plannerDraft?.developmentPlanText),
+  ]).slice(0, 24);
+}
+
+function requirementMappingTable(items, columns) {
+  const header = `| ${columns.map(([label]) => markdownTableCell(label)).join(' | ')} |`;
+  const divider = `| ${columns.map(() => '---').join(' | ')} |`;
+  const rows = items.map((item, index) => `| ${columns.map(([, render]) => markdownTableCell(render(item, index))).join(' | ')} |`);
+  return [header, divider, ...rows].join('\n');
+}
+
+function sourceRequirementRows(items, columns) {
+  return requirementMappingTable(items, [
+    ['#', (_, index) => index + 1],
+    ['原始需求项', (item) => item],
+    ...columns,
+  ]);
+}
+
+function enrichPlanTextForReview(text, items) {
+  let next = text;
+  next = appendMarkdownSectionIfMissing(next, '原始需求清单', [
+    '以下条目来自本次 plan 的源需求，是 build 前必须保留的审阅面。后续实现不得把这些条目隐含在泛化任务里。',
+    '',
+    ...items.map((item, index) => `${index + 1}. ${item}`),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '原始需求映射', [
+    requirementMappingTable(items, [
+      ['#', (_, index) => index + 1],
+      ['原始需求项', (item) => item],
+      ['计划落点', () => '进入交付范围、变更规格、开发切片和测试计划'],
+      ['Build 证据要求', () => 'execution-record.md 中必须记录对应实现、验证命令或人工验收证据'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, 'Build 前审阅清单', [
+    '- `requirement-traceability.md` 中所有原始需求项必须为 covered。',
+    '- `spec-delta.md` 中每个新增/修改需求必须有 SHALL/MUST 和 Scenario。',
+    '- `slices.json` 中每个切片必须有 AFK/HITL 类型、验收标准和验证信号。',
+    '- 执行阶段只能从用户显式批准的 plan package 启动，不允许 plan 自动进入 build。',
+  ].join('\n'));
+  return next;
+}
+
+function enrichArchitectureTextForReview(text, items) {
+  let next = text;
+  next = appendMarkdownSectionIfMissing(next, '文档定位', [
+    '架构文档回答“系统应如何分层、如何集成、哪些边界不能越过”。它不是任务清单，也不是字段级详细设计；build 阶段必须用它约束模块归属、数据流、状态边界和风险控制。',
+    '',
+    '| 文档 | 负责回答 | 不负责回答 |',
+    '| --- | --- | --- |',
+    '| `architecture.md` | 系统边界、模块职责、数据/状态流、接口边界、架构决策和质量属性 | 逐文件编码步骤、字段默认值、函数签名细节 |',
+    '| `development-plan.md` | 交付顺序、切片、依赖、验证和完成定义 | 重新选择架构方向 |',
+    '| `design.md` | 数据结构、接口/函数/组件契约、流程细节和边界条件 | 跨系统架构取舍或排期 |',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '架构目标与非目标', [
+    '- 目标：把每个原始需求映射到稳定的系统边界、模块职责、状态/数据模型和集成方式。',
+    '- 目标：暴露关键风险、不可越过的副作用边界，以及后续真实接入需要重新规划的位置。',
+    '- 非目标：不在架构文档里安排开发顺序，不写字段级实现细节，不替代详细设计。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '上下文与系统边界', [
+    sourceRequirementRows(items, [
+      ['系统入口/用户', () => '在 build 前由 Planner 明确入口、操作者、上游来源和下游消费者'],
+      ['边界约束', () => '列明本次可修改模块、不可修改模块、外部系统是否 mock、权限/审计约束'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '组件与职责', [
+    sourceRequirementRows(items, [
+      ['承载组件', () => '明确后端 domain/usecase/repository/API、前端页面/组件、provider 或 adapter 的归属'],
+      ['职责边界', () => '说明该组件负责什么、不负责什么，以及和相邻模块的调用方向'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '数据与状态模型', [
+    sourceRequirementRows(items, [
+      ['核心数据', () => '列出必须结构化保存或传递的实体、字段组、状态值和关联键'],
+      ['状态/一致性', () => '说明状态推进、幂等、去重、审计、补偿或异常处理边界'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '接口与集成契约', [
+    sourceRequirementRows(items, [
+      ['入口契约', () => '列出 API、CLI、任务、页面路由、事件或 provider 方法的输入输出边界'],
+      ['集成约束', () => '说明真实依赖、mock 依赖、权限、错误传播和副作用控制'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '关键流程', [
+    sourceRequirementRows(items, [
+      ['主流程', () => '用步骤描述从入口到状态/数据落点再到响应或回写的路径'],
+      ['异常流程', () => '列出失败、重试、人工介入、回滚或 no-op 的处理方式'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '需求到架构映射', [
+    requirementMappingTable(items, [
+      ['#', (_, index) => index + 1],
+      ['原始需求项', (item) => item],
+      ['架构落点', () => '在模块边界、数据结构、接口入口或状态流转中显式承接'],
+      ['风险控制', () => '通过状态校验、mock/adapter 隔离、权限/日志或回归测试约束副作用'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '架构审阅重点', [
+    '- 模块边界必须能解释每个原始需求项由谁负责，不得只写“新增模块”。',
+    '- 数据持久化、外部依赖、前端入口和状态推进必须分别列出约束。',
+    '- 高风险领域必须写出不做什么，以及为什么不会触达真实副作用。',
+    '- 后续接真实系统时，必须通过 adapter 或新 plan 增量承接，不在本次 build 中暗接。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '质量属性与风险', [
+    '- 可测试性：每个模块边界都必须能被单测、集成测试或人工验收独立证明。',
+    '- 可观测性：关键状态推进、人工动作、外部依赖和异常处理必须有日志或执行记录证据。',
+    '- 可维护性：共享抽象只能承载真实共性；事件/场景差异必须在受控扩展点中表达。',
+    '- 安全与副作用：涉及资金、资产、交易、权限、通知或外部系统时必须显式说明 mock/真实边界。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '架构决策记录', [
+    '| 决策 | 选项 | 取舍 | 后续影响 |',
+    '| --- | --- | --- | --- |',
+    '| 当前架构方向 | 采用计划中已批准的模块边界和 adapter/provider 隔离方式 | 优先降低误实现和真实副作用风险 | build 阶段如发现边界不成立，必须回到 plan 修订 |',
+  ].join('\n'));
+  return next;
+}
+
+function enrichDevelopmentPlanTextForReview(text, items) {
+  let next = text;
+  next = appendMarkdownSectionIfMissing(next, '文档定位', [
+    '开发计划回答“按什么顺序交付、每个切片完成到什么程度、如何验证和交接”。它不重新做架构取舍，也不写字段级详细设计；build 阶段用它排定执行顺序和完成定义。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '交付切片', [
+    sourceRequirementRows(items, [
+      ['切片目标', (_, index) => `Slice ${index + 1}: 交付该需求的最小端到端可验证行为`],
+      ['验收标准', () => '代码、数据/接口、测试、执行记录和必要人工验收证据齐全'],
+      ['模式', () => '按风险标记 AFK 或 HITL；涉及人工审批、外部副作用或产品判断时必须 HITL'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '实施顺序与依赖', [
+    '| 顺序 | 工作 | 依赖 | 退出条件 |',
+    '| --- | --- | --- | --- |',
+    '| 1 | 建立领域/数据/状态底座 | 已批准架构和详细设计 | 状态、数据结构和基础测试可运行 |',
+    '| 2 | 接入入口和业务编排 | 底座可测 | API/页面/任务入口能驱动核心流程 |',
+    '| 3 | 完成异常、权限、日志和验收样例 | 主流程可运行 | 风险边界和异常路径有证据 |',
+    '| 4 | 收敛回归和人工验收 | 自动化验证通过 | execution-record.md 覆盖全部切片 |',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '需求到开发切片', [
+    requirementMappingTable(items, [
+      ['#', (_, index) => index + 1],
+      ['原始需求项', (item) => item],
+      ['建议切片', (_, index) => `Slice ${index + 1}`],
+      ['交付物', () => '代码变更、测试、执行记录和必要的人工验收截图/说明'],
+      ['完成判定', () => '对应验证信号通过且 completion audit 标记 covered'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '文件级变更清单', [
+    sourceRequirementRows(items, [
+      ['预计文件/目录', () => '列出应新增或修改的后端、前端、schema、测试、配置或文档路径'],
+      ['变更类型', () => '新增/修改/生成/迁移/测试；生成代码必须说明来源命令'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '验证计划', [
+    sourceRequirementRows(items, [
+      ['自动化验证', () => '列出最小命令、仓库级回归命令和失败时回退路径'],
+      ['人工验证', () => '列出页面、审批、外部副作用或数据核对等必须人工确认的点'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '人工确认点', [
+    '- Plan 完成后只能等待用户批准 `plan -> build`。',
+    '- 每个 HITL 切片在 build 阶段必须记录人工确认或人工验收缺口。',
+    '- 如果实现时发现源需求与代码事实冲突，必须停止对应分支并回到 plan/clarify，而不是自行改范围。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '回滚/降级策略', [
+    '- 如果某个切片无法完成，`execution-record.md` 必须把它放入 `remaining_scope`，不得声明 full completion。',
+    '- 如果验证失败来自计划边界错误，回到 plan；如果来自需求歧义，回到 clarify；如果来自实现缺陷，留在 build 修复。',
+    '- 不允许为了通过 build 删除源需求或把未完成项改成隐含非目标。',
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '完成定义', [
+    '- 所有源需求在 `requirement-traceability.md` 中保持 covered。',
+    '- 每个 vertical slice 有实现证据、验证证据和必要人工验收记录。',
+    '- `execution-record.md` 的 `completion_claim` 与实际完成范围一致。',
+    '- deslop 后回归重新通过，且 review handoff blocker 为空。',
+  ].join('\n'));
+  return next;
+}
+
+function detailedDesignTextForChange({ changeId, slug, items, plannerDraft }) {
+  return [
+    `# loopx Detailed Design: ${changeId}`,
+    '',
+    '## 文档定位',
+    '',
+    '详细设计回答“具体怎么实现到字段、接口、函数、组件、状态流转和边界条件”。它承接 `architecture.md` 的边界和 `development-plan.md` 的切片，但比二者更接近 build 可执行输入；build 阶段不得只凭概要描述自行发明字段、接口或状态。',
+    '',
+    '## 需求到设计映射',
+    '',
+    sourceRequirementRows(items, [
+      ['设计落点', () => '数据结构、接口/函数/组件契约、状态机、错误处理和测试设计均需有对应条目'],
+      ['实现证据', () => 'build 阶段在 execution-record.md 记录代码路径、验证命令或人工验收证据'],
+    ]),
+    '',
+    '## 数据结构与字段',
+    '',
+    sourceRequirementRows(items, [
+      ['实体/结构', () => '列出需要新增或修改的实体、DTO、schema、payload 或前端 state'],
+      ['关键字段', () => '字段名、类型、来源、是否必填、默认值、唯一性/索引、审计要求'],
+      ['迁移/兼容', () => '是否需要 migration、生成代码、旧数据兼容或回填策略'],
+    ]),
+    '',
+    '## 接口、函数与组件契约',
+    '',
+    sourceRequirementRows(items, [
+      ['契约对象', () => 'API 路径、provider 方法、usecase 函数、repository 方法、前端组件 props/events'],
+      ['输入输出', () => '参数、响应、错误码、权限、幂等键、分页/筛选/排序或事件格式'],
+      ['调用方/被调方', () => '明确调用方向和禁止调用的真实外部依赖'],
+    ]),
+    '',
+    '## 状态机与流程细节',
+    '',
+    sourceRequirementRows(items, [
+      ['状态/步骤', () => '列出允许状态、动作、前置条件、后置条件和审计日志'],
+      ['非法路径', () => '列出必须拒绝的动作、重复请求、越权、缺数据和异常回写'],
+    ]),
+    '',
+    '## 错误处理与边界条件',
+    '',
+    sourceRequirementRows(items, [
+      ['错误场景', () => '输入缺失、依赖失败、并发冲突、数据不一致、mock/真实边界误用'],
+      ['处理方式', () => '返回错误、保持原状态、写日志、创建异常、人工处理或回滚'],
+    ]),
+    '',
+    '## 测试设计',
+    '',
+    sourceRequirementRows(items, [
+      ['测试类型', () => '单测、集成、API、前端构建、浏览器人工验收或回归命令'],
+      ['断言重点', () => '状态、字段、权限、副作用隔离、日志、错误路径和源需求覆盖'],
+    ]),
+    '',
+    '## 实现注意事项',
+    '',
+    '- build 阶段必须优先遵循本详细设计；发现字段、接口或状态缺失时，不得自行扩大范围，必须记录 blocker 或回到 plan。',
+    '- 任何真实外部系统、资金资产、交易订单、通知或权限相关副作用，都必须在本文件中有明确允许才可实现。',
+    '- 生成代码、迁移和前端构建产物必须记录来源命令，避免把运行时临时产物当作设计输入。',
+    '',
+    '## 上游架构摘要',
+    '',
+    plannerDraft.architectureText || '- 见 workflow-local `architecture.md`。',
+    '',
+    '## 上游开发切片摘要',
+    '',
+    plannerDraft.developmentPlanText || '- 见 workflow-local `development-plan.md`。',
+    '',
+    '## Source',
+    '',
+    `- workflow slug: ${slug}`,
+    `- change id: ${changeId}`,
+  ].join('\n');
+}
+
+function enrichTestPlanTextForReview(text, items) {
+  let next = text;
+  next = appendMarkdownSectionIfMissing(next, '需求到测试矩阵', [
+    requirementMappingTable(items, [
+      ['#', (_, index) => index + 1],
+      ['原始需求项', (item) => item],
+      ['自动化验证', () => '优先使用仓库原生命令覆盖状态、接口、数据或构建行为'],
+      ['人工验收', () => '对无法自动证明的页面、审批、风险边界做人工确认'],
+      ['证据', () => '命令输出、截图路径、日志片段或执行记录条目'],
+    ]),
+  ].join('\n'));
+  next = appendMarkdownSectionIfMissing(next, '回归门禁', [
+    '- build 阶段必须先跑计划列出的最小验证，再跑仓库级回归。',
+    '- deslop 后必须重新验证，不能复用旧输出。',
+    '- 如果某个源需求没有验证信号，execution-record.md 必须把它列入 blocker 或 remaining_scope。',
+  ].join('\n'));
+  return next;
+}
+
+function enrichPlannerDraftForReview({ sourceText, plannerDraft }) {
+  const draft = {
+    ...plannerDraft,
+    principles: Array.isArray(plannerDraft.principles) ? plannerDraft.principles : [],
+    decisionDrivers: Array.isArray(plannerDraft.decisionDrivers) ? plannerDraft.decisionDrivers : [],
+    options: Array.isArray(plannerDraft.options) ? plannerDraft.options : [],
+    planText: String(plannerDraft.planText || ''),
+    architectureText: String(plannerDraft.architectureText || ''),
+    developmentPlanText: String(plannerDraft.developmentPlanText || ''),
+    testPlanText: String(plannerDraft.testPlanText || ''),
+  };
+  const items = sourceItemsForPlanEnrichment(sourceText, draft);
+  if (items.length === 0) {
+    return draft;
+  }
+  return {
+    ...draft,
+    planText: canEnrichChineseReviewText(draft.planText) ? enrichPlanTextForReview(draft.planText, items) : draft.planText,
+    architectureText: canEnrichChineseReviewText(draft.architectureText) ? enrichArchitectureTextForReview(draft.architectureText, items) : draft.architectureText,
+    developmentPlanText: canEnrichChineseReviewText(draft.developmentPlanText) ? enrichDevelopmentPlanTextForReview(draft.developmentPlanText, items) : draft.developmentPlanText,
+    testPlanText: canEnrichChineseReviewText(draft.testPlanText) ? enrichTestPlanTextForReview(draft.testPlanText, items) : draft.testPlanText,
+  };
+}
+
 function normalizedCoverageText(...parts) {
   return parts.join('\n')
     .toLowerCase()
@@ -695,7 +1084,8 @@ function sourceRequirementCovered(item, haystack) {
   if (tokens.length === 0) {
     return false;
   }
-  return tokens.every((token) => haystack.includes(token));
+  const matched = tokens.filter((token) => haystack.includes(token)).length;
+  return matched / tokens.length >= 0.65;
 }
 
 async function writeRequirementTraceabilityArtifact({ root, sourceSpecPath, sourceText, plannerDraft, changeArtifactPaths }) {
@@ -728,22 +1118,34 @@ async function writeRequirementTraceabilityArtifact({ root, sourceSpecPath, sour
     '# 原始需求覆盖矩阵',
     '',
     `- 来源：${sourceSpecPath}`,
-    `- 状态：${status}`,
+    `- 覆盖状态：${status === 'complete' ? '完整' : '部分缺失'} (${status})`,
     `- 提取项数量：${rows.length}`,
+    '',
+    '## 审阅说明',
+    '',
+    '- 本文件用于人工确认源需求是否被计划、架构、开发切片、规格增量和测试计划承接。',
+    '- “原始需求项”保留源文档原文；如果源文档是英文，表格会保留英文原句，但覆盖状态和审阅说明必须使用中文。',
+    '- 未覆盖项会阻断 `plan -> build`，直到 Planner 重新展开计划或明确把该项列为非目标并说明理由。',
     '',
     '## 覆盖矩阵',
     '',
-    '| 原始需求项 | 覆盖状态 |',
-    '| --- | --- |',
+    '| 原始需求项 | 覆盖状态 | 审阅说明 |',
+    '| --- | --- | --- |',
     ...(rows.length > 0
-      ? rows.map((row) => `| ${row.item.replace(/\|/g, '\\|')} | ${row.status} |`)
-      : ['| 未检测到显式需求覆盖项 | covered |']),
+      ? rows.map((row) => `| ${row.item.replace(/\|/g, '\\|')} | ${row.status === 'covered' ? '已覆盖' : '未覆盖'} | ${row.status === 'covered' ? '已在计划包或变更工件中找到对应表述。' : '计划包没有找到可追溯表述，需要回到 plan 修订。'} |`)
+      : ['| 未检测到显式需求覆盖项 | 已覆盖 | 没有从源文档中提取到独立覆盖项。 |']),
     '',
     '## 门禁',
     '',
     ...(blockers.length > 0
-      ? blockers.map((blocker) => `- ${blocker}`)
-      : ['- complete']),
+      ? [
+          '- 结果：存在原始需求未被计划包充分承接，不能进入 build handoff。',
+          ...rows
+            .filter((row) => row.status !== 'covered')
+            .map((row) => `- 未覆盖需求：${row.item}`),
+          ...blockers.map((blocker) => `- ${blocker}`),
+        ]
+      : ['- 结果：全部原始需求已覆盖，可以进入后续 plan gate 检查。']),
   ].join('\n'));
 
   return {
@@ -796,32 +1198,83 @@ function delegationDecisionForPlan(sourceText, plannerDraft) {
     addTrigger('architectural_tradeoff', 1);
   }
 
-  const mode = score >= 7 ? 'parallel-review' : (score >= 4 ? 'critic-only' : 'local');
-  const reason = mode === 'parallel-review'
+  const recommendedMode = score >= 7 ? 'parallel-review' : (score >= 4 ? 'critic-only' : 'local');
+  const reason = recommendedMode === 'parallel-review'
     ? '高风险或跨模块规划，建议独立 Planner/Architect/Critic 视角并行审查。'
-    : mode === 'critic-only'
+    : recommendedMode === 'critic-only'
       ? '存在中等复杂度或验证风险，建议至少引入独立 critic 复核 PRD 覆盖和风险。'
       : '范围较小或风险较低，本地顺序 Planner/Architect/Critic 审阅足够。';
 
   return {
-    mode,
+    mode: recommendedMode,
+    recommended_mode: recommendedMode,
     score,
     triggers,
     reason,
-    current_runtime_execution: 'local-sequential',
-    execution_note: '当前 runtime 记录委派决策依据；是否实际启动 native subagents 仍受执行环境和用户授权约束。',
   };
 }
 
-async function writePlanDelegationDecisionArtifact({ root, sourceText, plannerDraft }) {
+function resolvePlanDelegationExecution(recommendedMode, config) {
+  const normalized = normalizeAgentDelegationConfig(config);
+  const thresholdMet = delegationMeetsThreshold(recommendedMode, normalized.threshold);
+  if (!normalized.enabled) {
+    return {
+      actual_mode: 'local',
+      runtime_execution: 'local-sequential',
+      authorization_status: 'disabled',
+      authorization_source: '.loopx/config.json:agent_delegation.enabled=false',
+      threshold: normalized.threshold,
+      config: normalized,
+      note: '已记录推荐委派模式；未授权自动启动 subagents，因此本次实际执行保持本地顺序审阅。',
+    };
+  }
+  if (!thresholdMet) {
+    return {
+      actual_mode: 'local',
+      runtime_execution: 'local-sequential',
+      authorization_status: 'below-threshold',
+      authorization_source: '.loopx/config.json:agent_delegation.threshold',
+      threshold: normalized.threshold,
+      config: normalized,
+      note: `推荐模式 ${recommendedMode} 低于自动委派阈值 ${normalized.threshold}，实际执行保持本地顺序审阅。`,
+    };
+  }
+  if (!normalized.auto_start) {
+    return {
+      actual_mode: 'local',
+      runtime_execution: 'manual-subagent-review',
+      authorization_status: 'manual-required',
+      authorization_source: '.loopx/config.json:agent_delegation.auto_start=false',
+      threshold: normalized.threshold,
+      config: normalized,
+      note: '配置允许记录委派建议，但未授权自动启动；需要用户或外部执行器手动开启推荐的 subagent review。',
+    };
+  }
+  return {
+    actual_mode: recommendedMode,
+    runtime_execution: 'auto-subagent-review',
+    authorization_status: 'auto-authorized',
+    authorization_source: '.loopx/config.json:agent_delegation.auto_start=true',
+    threshold: normalized.threshold,
+    config: normalized,
+    note: '配置已授权达到阈值时自动使用推荐的 subagent review 模式；具体启动由当前 agent runtime 执行。',
+  };
+}
+
+async function writePlanDelegationDecisionArtifact({ root, sourceText, plannerDraft, agentDelegationConfig }) {
   const decision = delegationDecisionForPlan(sourceText, plannerDraft);
+  const execution = resolvePlanDelegationExecution(decision.recommended_mode, agentDelegationConfig);
   const path = artifactPath(root, 'plan-delegation-decision.md');
   await writeText(path, [
     '# Plan Delegation Decision',
     '',
-    `- mode: ${decision.mode}`,
+    `- recommended_mode: ${decision.recommended_mode}`,
+    `- actual_mode: ${execution.actual_mode}`,
+    `- runtime_execution: ${execution.runtime_execution}`,
+    `- authorization_status: ${execution.authorization_status}`,
+    `- authorization_source: ${execution.authorization_source}`,
+    `- threshold: ${execution.threshold}`,
     `- score: ${decision.score}`,
-    `- current_runtime_execution: ${decision.current_runtime_execution}`,
     `- reason: ${decision.reason}`,
     '',
     '## Triggers',
@@ -834,11 +1287,17 @@ async function writePlanDelegationDecisionArtifact({ root, sourceText, plannerDr
     '- critic-only: 中等风险或覆盖面较宽，至少需要独立 critic 复核 PRD 覆盖、验证和遗漏风险。',
     '- parallel-review: 高风险、多模块、状态/资产/安全相关任务，建议独立 Planner/Architect/Critic 视角并行审查。',
     '',
+    '## Authorization',
+    '',
+    '- `recommended_mode` 是基于 PRD/plan 风险面的规划建议。',
+    '- `actual_mode` 是结合 `.loopx/config.json` 授权边界后的本次实际执行模式。',
+    '- 只有 `agent_delegation.enabled=true`、`auto_start=true` 且推荐模式达到 `threshold` 时，loopx 才会把实际模式提升到推荐的 subagent review。',
+    '',
     '## Runtime Note',
     '',
-    `- ${decision.execution_note}`,
+    `- ${execution.note}`,
   ].join('\n'));
-  return { path, ...decision };
+  return { path, ...decision, ...execution };
 }
 
 function frontmatterList(text, key) {
@@ -1092,19 +1551,18 @@ function validateRequirementDelta(text) {
   return { delta, blockers: dedupeStrings(blockers) };
 }
 
-function requirementsForDelta(slug, plannerDraft) {
-  const requirements = String(plannerDraft.planText || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /^\d+\.\s+/.test(line))
-    .map((line) => line.replace(/^\d+\.\s+/, '').trim());
+function requirementsForDelta(slug, plannerDraft, sourceText = '') {
+  const sourceRequirements = sourceRequirementItems(sourceText);
+  const requirements = sourceRequirements.length > 0
+    ? sourceRequirements
+    : numberedPlanItems(plannerDraft.planText);
   return dedupeStrings(requirements.length > 0 ? requirements : [
     `Workflow ${slug} SHALL implement the approved loopx plan package.`,
   ]);
 }
 
-function verticalSlicesForChange(slug, plannerDraft) {
-  const requirements = requirementsForDelta(slug, plannerDraft);
+function verticalSlicesForChange(slug, plannerDraft, sourceText = '') {
+  const requirements = requirementsForDelta(slug, plannerDraft, sourceText);
   const slices = requirements.slice(0, 8).map((requirement, index) => ({
     id: `VS-${index + 1}`,
     title: requirement.length > 90 ? `${requirement.slice(0, 87)}...` : requirement,
@@ -1189,8 +1647,8 @@ async function writeChangeArtifacts(cwd, root, slug, sourceText, plannerDraft, c
     graph: join(changeRoot, 'artifact-graph.json'),
   };
   const domains = targetDomainsForChange(slug, sourceText);
-  const requirements = requirementsForDelta(slug, plannerDraft);
-  const slices = verticalSlicesForChange(slug, plannerDraft);
+  const requirements = requirementsForDelta(slug, plannerDraft, sourceText);
+  const slices = verticalSlicesForChange(slug, plannerDraft, sourceText);
 
   await writeText(paths.proposal, [
     `# loopx Change Proposal: ${normalizedChangeId}`,
@@ -1230,17 +1688,12 @@ async function writeChangeArtifacts(cwd, root, slug, sourceText, plannerDraft, c
     ...requirements.flatMap((item, index) => [requirementBlockFromText({ slug, text: item, index }), '']),
   ].join('\n'));
 
-  await writeText(paths.design, [
-    `# loopx Change Design: ${normalizedChangeId}`,
-    '',
-    '## Technical Approach',
-    '',
-    plannerDraft.architectureText || '- See workflow architecture artifact.',
-    '',
-    '## Task Plan',
-    '',
-    plannerDraft.developmentPlanText || '- See workflow development plan artifact.',
-  ].join('\n'));
+  await writeText(paths.design, detailedDesignTextForChange({
+    changeId: normalizedChangeId,
+    slug,
+    items: requirements,
+    plannerDraft,
+  }));
 
   await writeText(paths.tasks, [
     `# loopx Change Tasks: ${normalizedChangeId}`,
@@ -1614,7 +2067,44 @@ function containsChineseText(text) {
   return chineseChars.length >= 40 || (chineseChars.length >= 8 && chineseChars.length / signalChars >= 0.2);
 }
 
-async function planLanguageBlockers(pathsByKey) {
+function canEnrichChineseReviewText(text) {
+  const chineseChars = String(text || '').match(/[\u3400-\u9fff]/g) || [];
+  return chineseChars.length >= 12;
+}
+
+const REVIEW_DOCUMENT_CONTRACTS = {
+  architecture: ['文档定位', '架构目标与非目标', '上下文与系统边界', '组件与职责', '数据与状态模型', '接口与集成契约', '关键流程', '架构决策记录'],
+  developmentPlan: ['文档定位', '交付切片', '实施顺序与依赖', '文件级变更清单', '验证计划', '完成定义'],
+  design: ['文档定位', '需求到设计映射', '数据结构与字段', '接口、函数与组件契约', '状态机与流程细节', '错误处理与边界条件', '测试设计'],
+};
+
+function planReviewabilityBlockers(key, text, sourceItemCount) {
+  const reviewerDocs = new Set(['plan', 'architecture', 'developmentPlan', 'testPlan', 'prd', 'testSpec', 'design']);
+  if (!reviewerDocs.has(key)) {
+    return [];
+  }
+  const blockers = [];
+  const nonEmptyLineCount = String(text || '').split('\n').filter((line) => line.trim()).length;
+  const headingCount = (String(text || '').match(/^#{2,4}\s+/gm) || []).length;
+  const needsSourceMapping = sourceItemCount >= 2;
+  const minLines = needsSourceMapping ? Math.min(22, 8 + sourceItemCount) : 3;
+  const minHeadings = needsSourceMapping ? 3 : 1;
+  if (nonEmptyLineCount < minLines || headingCount < minHeadings) {
+    blockers.push(`plan_artifact_too_thin_${key}`);
+  }
+  if (needsSourceMapping && !/(原始需求|需求.*映射|需求.*覆盖|覆盖矩阵)/.test(text)) {
+    blockers.push(`plan_artifact_missing_source_mapping_${key}`);
+  }
+  const requiredHeadings = REVIEW_DOCUMENT_CONTRACTS[key] || [];
+  for (const heading of requiredHeadings) {
+    if (!hasMarkdownHeading(text, heading)) {
+      blockers.push(`plan_artifact_missing_section_${key}_${slugKey(heading)}`);
+    }
+  }
+  return blockers;
+}
+
+async function planLanguageBlockers(pathsByKey, { sourceItemCount = 0 } = {}) {
   const blockers = [];
   for (const [key, path] of Object.entries(pathsByKey)) {
     if (!existsSync(path)) {
@@ -1625,6 +2115,7 @@ async function planLanguageBlockers(pathsByKey) {
     if (!containsChineseText(text)) {
       blockers.push(`plan_artifact_not_chinese_${key}`);
     }
+    blockers.push(...planReviewabilityBlockers(key, text, sourceItemCount));
   }
   return blockers;
 }
@@ -1816,6 +2307,10 @@ async function readPlanCompletion(cwd, root, slug, state) {
       blockers.push(`source_requirements_${state.source_requirements_status}`);
     }
   }
+  let sourceItemCount = 0;
+  if (state.plan_source_spec_path && existsSync(state.plan_source_spec_path)) {
+    sourceItemCount = sourceRequirementItems(await readFile(state.plan_source_spec_path, 'utf8')).length;
+  }
   blockers.push(...await planLanguageBlockers({
     plan: artifactPath(root, 'plan.md'),
     architecture: artifactPath(root, 'architecture.md'),
@@ -1825,7 +2320,8 @@ async function readPlanCompletion(cwd, root, slug, state) {
     testSpec: state.test_spec_artifact_path || join(resolvePlansRoot(cwd), `test-spec-${slug}.md`),
     traceability: state.requirement_traceability_path || artifactPath(root, 'requirement-traceability.md'),
     delegationDecision: state.plan_delegation_decision_path || artifactPath(root, 'plan-delegation-decision.md'),
-  }));
+    design: state.change_artifact_paths?.design || join(resolveChangeRoot(cwd, state.change_id || changeIdForWorkflowSlug(slug)), 'design.md'),
+  }, { sourceItemCount }));
   const changeStatus = await readChangeArtifactStatus(state.change_artifact_paths);
   blockers.push(...changeStatus.blockers);
 
@@ -2845,7 +3341,7 @@ async function renderPlanReadingViews(cwd, root, state, slug) {
   }
 }
 
-export async function initWorkspace(cwd, { slug } = {}) {
+export async function initWorkspace(cwd, { slug, agentDelegation = {} } = {}) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
   const projectConventions = await inspectProjectConventions(cwd);
   await ensureLoopxRoot(cwd);
@@ -2872,6 +3368,7 @@ export async function initWorkspace(cwd, { slug } = {}) {
       existing_spec_sources: projectConventions.existing_spec_sources,
     },
     verification_commands: projectConventions.verification_commands,
+    agent_delegation: normalizeAgentDelegationConfig(agentDelegation),
   };
 
   if (!existsSync(workspaceConfigPath(workspaceRoot))) {
@@ -3287,6 +3784,7 @@ export async function planStage(cwd, slug, options = {}) {
 
   const sourceSpecPath = options.directSpecPath ? resolve(cwd, options.directSpecPath) : (state.plan_source_spec_path || artifactPath(root, 'spec.md'));
   const sourceText = await readFile(sourceSpecPath, 'utf8');
+  const agentDelegationConfig = await readAgentDelegationConfig(cwd);
   const adapter = options.adapter || createDefaultPlanAdapter();
   const maxIterations = DEFAULT_MAX_ITERATIONS;
   let iteration = 1;
@@ -3296,7 +3794,7 @@ export async function planStage(cwd, slug, options = {}) {
   const reviewHistory = initialPlanReviewHistory(state);
 
   while (iteration <= maxIterations) {
-    const plannerDraft = await adapter.planner({
+    const rawPlannerDraft = await adapter.planner({
       cwd,
       root,
       slug: normalized,
@@ -3306,6 +3804,7 @@ export async function planStage(cwd, slug, options = {}) {
       deliberateMode: Boolean(options.deliberate),
       interactiveMode: Boolean(options.interactive),
     });
+    const plannerDraft = enrichPlannerDraftForReview({ sourceText, plannerDraft: rawPlannerDraft });
     await writePlanArtifacts(root, cwd, normalized, plannerDraft);
     const artifactPaths = await writeCanonicalPlanArtifacts(cwd, root, normalized);
     const changeId = state.change_id || changeIdForWorkflowSlug(normalized);
@@ -3322,6 +3821,7 @@ export async function planStage(cwd, slug, options = {}) {
       root,
       sourceText,
       plannerDraft,
+      agentDelegationConfig,
     });
 
     architectReview = await adapter.architect({
@@ -3373,6 +3873,12 @@ export async function planStage(cwd, slug, options = {}) {
       source_requirements_item_count: traceability.itemCount,
       plan_delegation_decision_path: delegationDecision.path,
       plan_delegation_mode: delegationDecision.mode,
+      plan_delegation_recommended_mode: delegationDecision.recommended_mode,
+      plan_delegation_actual_mode: delegationDecision.actual_mode,
+      plan_delegation_runtime_execution: delegationDecision.runtime_execution,
+      plan_delegation_authorization_status: delegationDecision.authorization_status,
+      plan_delegation_authorization_source: delegationDecision.authorization_source,
+      plan_delegation_threshold: delegationDecision.threshold,
       plan_delegation_score: delegationDecision.score,
       plan_delegation_triggers: delegationDecision.triggers,
       plan_delegation_reason: delegationDecision.reason,

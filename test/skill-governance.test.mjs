@@ -131,6 +131,8 @@ describe('loopx skill governance', () => {
     assert.match(plan, /source requirements are covered/);
     assert.match(plan, /plan-delegation-decision\.md/);
     assert.match(plan, /delegation decision is recorded/);
+    assert.match(plan, /plan_delegation_actual_mode/);
+    assert.match(plan, /Actual subagent startup must be authorized/);
 
     const build = await readFile(join(repoRoot, 'skills', 'build', 'SKILL.md'), 'utf8');
     assert.match(build, /Default review handoff after build readiness:/);
