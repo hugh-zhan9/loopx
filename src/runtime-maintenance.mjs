@@ -369,7 +369,8 @@ function createMigratedWorkflowBaseState(slug, legacyState, change) {
 async function migrateLegacyWorkflowState(cwd, slug, workflowRoot, legacyState) {
   const change = await findActiveChangeForWorkflow(cwd, slug);
   const reviewState = await inferReviewState(workflowRoot);
-  const canonicalPlanPath = join(resolveLoopxRoot(cwd), 'plans', `prd-${slug}.md`);
+  const canonicalPlanPath = join(resolveLoopxRoot(cwd), 'plans', `requirements-snapshot-${slug}.md`);
+  const legacyCanonicalPlanPath = join(resolveLoopxRoot(cwd), 'plans', `prd-${slug}.md`);
   const canonicalTestSpecPath = join(resolveLoopxRoot(cwd), 'plans', `test-spec-${slug}.md`);
   const baseState = createMigratedWorkflowBaseState(slug, legacyState, change);
   const planBlockers = await legacyPlanArtifactBlockers(workflowRoot);
@@ -422,7 +423,9 @@ async function migrateLegacyWorkflowState(cwd, slug, workflowRoot, legacyState) 
     schema_version: WORKFLOW_SCHEMA_VERSION,
     slug,
     clarify_profile: legacyState.clarify_profile || legacyState.profile || 'standard',
-    plan_artifact_path: existsSync(canonicalPlanPath) ? canonicalPlanPath : join(workflowRoot, 'plan.md'),
+    plan_artifact_path: existsSync(canonicalPlanPath)
+      ? canonicalPlanPath
+      : (existsSync(legacyCanonicalPlanPath) ? legacyCanonicalPlanPath : join(workflowRoot, 'plan.md')),
     test_spec_artifact_path: existsSync(canonicalTestSpecPath) ? canonicalTestSpecPath : join(workflowRoot, 'test-plan.md'),
     execution_record_status: executionRecordStatus,
     ...(reviewState || {}),

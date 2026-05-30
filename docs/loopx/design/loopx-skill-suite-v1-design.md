@@ -1,0 +1,73 @@
+# loopx Skill Suite v1 Design
+
+## Context
+
+loopx is moving from a CLI-runtime-first workflow into a skill-first suite for agentic coding assistants. Codex and Claude are supported targets. The CLI remains as installer, governance, diagnostics, rendering, and legacy `.loopx/workflows/` support.
+
+## Decision
+
+The v1 product surface is a bundled skill suite:
+
+- `clarify`
+- `spec`
+- `plan`
+- `subagent-exec`
+- `exec`
+- `review`
+- `fix-review`
+- `finish`
+- `refactor-plan`
+- `tdd`
+- `debug`
+- `verify`
+- `go-style`
+- `kratos`
+
+Legacy runtime skills are not bundled as Codex or Claude skills in v1. Legacy CLI commands may remain for compatibility.
+
+## Workflow
+
+Recommended flow:
+
+```text
+clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> finish
+```
+
+`spec` is a conditional design gate. `clarify` may route directly to `plan` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
+
+`plan` is the superpowers `writing-plans` workflow under the loopx name. It writes executable plans and offers two execution options: `subagent-exec` recommended, or `exec` inline.
+
+`review` is the superpowers `requesting-code-review` workflow under the loopx name. `fix-review` is the superpowers `receiving-code-review` workflow under the loopx name.
+
+## Artifacts
+
+Human-maintained artifacts use `docs/loopx/`:
+
+- `docs/loopx/design/`
+- `docs/loopx/plans/`
+- `docs/loopx/reviews/`
+- `docs/loopx/refactors/`
+
+Runtime state, hook diagnostics, installer metadata, and legacy workflows use `.loopx/`.
+
+## Installer
+
+Default installation writes user-level skills and hooks for both supported targets:
+
+- Codex skills: `~/.agents/skills/`
+- Claude skills: `~/.claude/skills/`
+- Codex hook: existing loopx workflow hook
+- Claude hook: non-blocking prompt hook
+
+Project-level Claude installation and custom directories are explicit installer choices.
+
+## Claude Hook
+
+The Claude hook is advisory only. It must not block tools, mutate workflow state, or enforce git safety. It emits next-action context when loopx support or legacy runtime context exists.
+
+## Non-Goals
+
+- No alias skills for renamed superpowers skills.
+- No automatic project-level `.claude/skills` writes in postinstall.
+- No new mandatory CLI state machine for the v1 skill suite.
+- No blocking Claude hook in v1.

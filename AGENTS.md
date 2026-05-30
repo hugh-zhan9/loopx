@@ -1,5 +1,12 @@
 # Repository Guidelines
 
+## Iron Law:
+
+**All skills must do not  have descriptive content. The content of skills should be clear and unambiguous, and must not be ambiguous.
+Skills should be kept as simple as possible. It is like a Swiss Army knife - versatile but not a universal key.**
+
+
+
 ## Project Structure & Module Organization
 
 This repository is a Node.js ESM CLI package for loopx, a skill-first workflow harness for Codex-style agents.
@@ -40,4 +47,4 @@ Pull requests should include a concise behavior summary, tests run, and any user
 
 ## Agent-Specific Instructions
 
-Do not commit generated local runtime state such as `.loopx/`, `.omc/`, or ad hoc demo output unless the change explicitly requires it. Preserve user edits in skill files and avoid overwriting installed local skill copies outside this repository.
+Do not commit generated local runtime state such as `.loopx/`, or ad hoc demo output unless the change explicitly requires it. Preserve user edits in skill files and avoid overwriting installed local skill copies outside this repository.

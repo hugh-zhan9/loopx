@@ -2,7 +2,7 @@
   "name": "@ai-content-space/loopx",
   "type": "module",
   "version": "0.1.10",
-  "description": "Skill-first loopx workflow product for Codex",
+  "description": "Skill-first workflow suite for agentic coding assistants",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hugh-zhan9/loopx.git"
@@ -18,11 +18,14 @@
     "loopx": "src/cli.mjs"
   },
   "files": [
+    "AGENTS.md",
     "README.md",
     "README.zh-CN.md",
+    "docs/loopx/",
     "package.json",
     "scripts/install-skills.mjs",
     "scripts/verify-skills.mjs",
+    "scripts/claude-workflow-hook.mjs",
     "scripts/codex-stop-hook.mjs",
     "scripts/codex-workflow-hook.mjs",
     "assets/logo.svg",

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline/promises';
 
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { renderHtmlViews } from './html-views.mjs';
-import { installBundledSkills } from './install-discovery.mjs';
+import { installBundledSkills, installSkillsForTargets } from './install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
@@ -27,10 +28,43 @@ function usage() {
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
+    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]',
     '  loopx doctor',
     '  loopx migrate',
     '  loopx repair-install',
   ].join('\n');
+}
+
+async function promptInstallOptions() {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const targetAnswer = (await rl.question('Install targets (codex, claude, all) [all]: ')).trim().toLowerCase();
+    const projectAnswer = (await rl.question('Install Claude project skills instead of user skills? [y/N]: ')).trim().toLowerCase();
+    const modeAnswer = (await rl.question('Install mode (copy, symlink) [copy]: ')).trim().toLowerCase();
+    const proceedAnswer = (await rl.question('Proceed? [y/N]: ')).trim().toLowerCase();
+    if (proceedAnswer !== 'y' && proceedAnswer !== 'yes') {
+      return null;
+    }
+    const target = targetAnswer || 'all';
+    return {
+      targets: target === 'all' ? ['codex', 'claude'] : [target],
+      project: projectAnswer === 'y' || projectAnswer === 'yes',
+      installMethod: modeAnswer === 'symlink' ? 'symlink' : 'copy',
+    };
+  } finally {
+    rl.close();
+  }
+}
+
+function installOptionsFromArgs(options) {
+  const target = String(options.get('--target') || 'all').trim().toLowerCase();
+  const targets = target === 'all' ? ['codex', 'claude'] : [target];
+  return {
+    targets,
+    project: Boolean(options.get('--project')),
+    installMethod: options.get('--mode') === 'symlink' ? 'symlink' : 'copy',
+    dir: options.get('--dir'),
+  };
 }
 
 function parseArgs(argv) {
@@ -177,6 +211,21 @@ async function main() {
         console.log(JSON.stringify({ ok: true, command, contextSetup }, null, 2));
         return;
       }
+      case 'install-skills': {
+        const installOptions = process.stdin.isTTY && !options.get('--target') && !options.get('--yes')
+          ? await promptInstallOptions()
+          : installOptionsFromArgs(options);
+        if (!installOptions) {
+          console.log(JSON.stringify({ ok: false, command, cancelled: true }, null, 2));
+          return;
+        }
+        const result = await installSkillsForTargets({
+          ...process.env,
+          LOOPX_INSTALL_CWD: process.cwd(),
+        }, installOptions);
+        console.log(JSON.stringify({ ok: result.ok, command, ...result }, null, 2));
+        return;
+      }
       case 'clarify': {
         const profile = options.get('--deep') ? 'deep' : 'standard';
         const result = await clarifyStage(process.cwd(), positionals[0], { profile });
@@ -255,9 +304,22 @@ async function main() {
         return;
       }
       case 'repair-install': {
-        const result = await installBundledSkills(process.env);
+        const result = await installSkillsForTargets({
+          ...process.env,
+          LOOPX_INSTALL_CWD: process.cwd(),
+        });
         const ok = result.ok !== false;
-        console.log(JSON.stringify({ ok, command, ...result }, null, 2));
+        const codex = result.results?.codex || {};
+        console.log(JSON.stringify({
+          ok,
+          command,
+          ...result,
+          installed: codex.installed || [],
+          conflicts: codex.conflicts || [],
+          skipped: codex.skipped || [],
+          templateGovernance: codex.templateGovernance,
+          inspection: codex.inspection,
+        }, null, 2));
         if (!ok) {
           process.exitCode = 1;
         }

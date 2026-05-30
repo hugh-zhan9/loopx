@@ -4,37 +4,46 @@ Central routing map for loopx bundled skills. Keep this file in sync with every 
 
 Read the selected skill file before acting. If multiple skills match, read every likely candidate and use the disambiguation rules below.
 
-## Public Workflow Skills
+## Core Workflow Skills
 
 | Trigger | Skill |
 |---|---|
 | Ambiguous request, unclear scope, non-goals, decision boundaries, requirements interview | `skills/clarify/SKILL.md` |
-| Approved clarify spec, direct requirements artifact, PRD/test/architecture planning, consensus planning | `skills/plan/SKILL.md` |
-| Approved plan execution, implementation persistence, review-requested implementation fixes | `skills/build/SKILL.md` |
-| Independent acceptance, code review, architecture-smell review, go/no-go after build | `skills/review/SKILL.md` |
-| Completed workflow needs long-lived spec sync and ADR candidate | `skills/archive/SKILL.md` |
-| User wants one bounded end-to-end loopx run over clarify/plan/build/review | `skills/autopilot/SKILL.md` |
+| Design方案, technical design, API/data/state/security decisions, or architecture tradeoffs | `skills/spec/SKILL.md` |
+| Approved requirements or design need a bite-sized implementation plan | `skills/plan/SKILL.md` |
+| Approved plan has independent tasks and should run with subagents plus staged review | `skills/subagent-exec/SKILL.md` |
+| Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
+| Completed task, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
+| Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
+| Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |
+| Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
 
 ## Support Skills
 
 | Trigger | Skill |
 |---|---|
+| Feature or bugfix implementation should be covered by a failing test first | `skills/tdd/SKILL.md` |
 | Bug, test failure, build failure, regression, unexpected behavior, root-cause investigation | `skills/debug/SKILL.md` |
-| Feature or bugfix implementation where behavior should be covered by a failing test first | `skills/tdd/SKILL.md` |
 | Completion, fixed, passing, review-ready, commit, or handoff claims need fresh evidence | `skills/verify/SKILL.md` |
-| Editing `.go` files or reviewing Go style inside build/review | `skills/go-style/SKILL.md` |
-| Go-Kratos proto, service, biz, data, middleware, auth, config, or Kratos troubleshooting | `skills/kratos/SKILL.md` |
+| Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
+| Go-Kratos proto, service, biz, data, middleware, auth, config, or troubleshooting | `skills/kratos/SKILL.md` |
 
 ## Disambiguation
 
-1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify` before `plan`.
-2. If requirements are approved but execution has not started, use `plan` before `build`.
-3. If implementation is broken or tests fail during build, use `debug` as the diagnostic lens before patching.
-4. If code is already implemented and needs acceptance, use `review`; do not run new build work from review.
-5. If review requests implementation-only fixes, route to `build --from-review`; route to `plan` only when the plan itself is wrong.
-6. If the user asks for autonomous execution, use `autopilot` only when requirements are bounded enough to run without new human decisions.
-7. Treat `tdd`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
-8. `archive` is only valid after `review -> done`.
+1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify`.
+2. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
+3. If remaining questions are local implementation choices, use `plan`.
+4. `plan` writes `docs/loopx/plans/*.md` and then offers `subagent-exec` or `exec`.
+5. Use `subagent-exec` when subagents are available and the plan has independent tasks.
+6. Use `exec` when the user chooses inline execution or subagents are unavailable.
+7. Use `review` to request code review of completed work. Use `fix-review` only after feedback exists.
+8. Use `finish` only after implementation and verification are complete.
+9. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
+10. Treat `tdd`, `debug`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
+
+## Legacy CLI Runtime
+
+Legacy `.loopx/workflows/` commands may still exist in the CLI for compatibility. They are not the v1 bundled skill workflow.
 
 ## Deterministic Guard
 

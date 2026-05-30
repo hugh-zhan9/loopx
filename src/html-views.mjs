@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { basename, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
-import { nextSkillCommand } from './next-skill.mjs';
 import { statusSummary } from './workflow.mjs';
 
 const WORKFLOW_ARTIFACTS = [
@@ -24,7 +23,7 @@ const WORKFLOW_ARTIFACTS = [
 
 const PAGE_GROUPS = [
   { file: 'intake.html', title: '需求澄清', artifacts: ['spec'] },
-  { file: 'plan.html', title: '计划与架构', artifacts: ['plan', 'architecture', 'development-plan', 'test-plan', 'requirement-traceability', 'plan-delegation-decision'] },
+  { file: 'plan.html', title: '计划与架构', artifacts: ['plan', 'architecture', 'development-plan', 'test-plan', 'requirement-traceability'] },
   { file: 'change.html', title: '变更设计方案', artifacts: ['change-proposal', 'change-spec-delta', 'change-design', 'change-tasks', 'change-slices'] },
   { file: 'build.html', title: '执行与验证', artifacts: ['execution-record'] },
   { file: 'review.html', title: '评审结论', artifacts: ['review-report'] },
@@ -148,17 +147,13 @@ function resolveArtifactPath(root, state, artifact) {
   if (artifact.changeKey) {
     return state.change_artifact_paths?.[artifact.changeKey] || null;
   }
+  if (artifact.id === 'spec') {
+    const candidate = state.spec_artifact_path || state.clarify_spec_path || null;
+    if (candidate) {
+      return isAbsolute(candidate) ? candidate : resolve(dirname(dirname(root)), candidate);
+    }
+  }
   return join(root, artifact.name);
-}
-
-function statusBadge(label, status) {
-  const normalized = String(status ?? '').toLowerCase();
-  const cls = ['true', 'complete', 'approved', 'written', 'ready', 'exists', 'ok'].includes(normalized)
-    ? 'ok'
-    : ['false', 'missing', 'blocked', 'partial', 'failed', 'none', 'needs-review'].includes(normalized)
-      ? 'bad'
-      : 'warn';
-  return `<span class="badge ${cls}">${escapeHtml(label)}: ${escapeHtml(status)}</span>`;
 }
 
 function extractHeadings(text) {
@@ -287,14 +282,6 @@ function parseSlicesJson(text) {
   }
 }
 
-function listItems(items) {
-  const values = Array.isArray(items) ? items.filter(Boolean) : [];
-  if (values.length === 0) {
-    return '<span class="muted">无</span>';
-  }
-  return values.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join(' ');
-}
-
 function markdownToHtml(markdown) {
   const lines = String(markdown || '').split('\n');
   const html = [];
@@ -401,6 +388,59 @@ function markdownToHtml(markdown) {
   return html.join('\n');
 }
 
+function replaceDocumentReferences(text) {
+  return String(text || '')
+    .replace(/^#\s+Clarify Spec:\s*/gim, '# ')
+    .replace(/^#+\s+loopx\s+/gim, (match) => match.replace(/loopx\s+/i, ''))
+    .replace(/`?architecture\.md`?/g, '架构方案')
+    .replace(/`?development-plan\.md`?/g, '开发计划')
+    .replace(/`?design\.md`?/g, '详细设计')
+    .replace(/`?plan\.md`?/g, '计划')
+    .replace(/`?test-plan\.md`?/g, '测试计划')
+    .replace(/`?requirement-traceability\.md`?/g, '需求覆盖矩阵')
+    .replace(/`?plan-delegation-decision\.md`?/g, '委派决策')
+    .replace(/`?spec-delta\.md`?/g, '规格增量')
+    .replace(/`?tasks\.md`?/g, '任务拆解')
+    .replace(/`?slices\.json`?/g, '切片定义');
+}
+
+function displayTextForArtifact(artifact, text) {
+  if (artifact.name.endsWith('.json')) {
+    return text;
+  }
+  const removeSectionTitles = artifact.id === 'plan'
+    ? [/^状态$/, /^推荐执行入口$/, /^Build 前审阅清单$/i]
+    : [];
+  const lines = String(text || '').split('\n');
+  const kept = [];
+  let skippingLevel = null;
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,4})\s+(.+?)\s*$/);
+    if (heading) {
+      const level = heading[1].length;
+      const title = heading[2].replace(/`/g, '').trim();
+      if (skippingLevel !== null && level <= skippingLevel) {
+        skippingLevel = null;
+      }
+      if (skippingLevel === null && removeSectionTitles.some((pattern) => pattern.test(title))) {
+        skippingLevel = level;
+        continue;
+      }
+    }
+    if (skippingLevel !== null) {
+      continue;
+    }
+    if (/\$build\s+/.test(line) || /\.loopx\//.test(line)) {
+      continue;
+    }
+    if (/^\s*-\s*(iteration|Architect review|Critic verdict|plan package|execution approved)\s*:/i.test(line)) {
+      continue;
+    }
+    kept.push(line);
+  }
+  return replaceDocumentReferences(kept.join('\n'));
+}
+
 function artifactDetailHtml(artifact, text) {
   const blocks = collectHeadingBlocks(text);
   const topBlocks = blocks.filter((block) => block.level <= 3).slice(0, 12);
@@ -482,86 +522,41 @@ function artifactDetailHtml(artifact, text) {
   return sectionCards;
 }
 
-function artifactLink(viewRoot, artifactPath, label) {
-  const href = relative(viewRoot, artifactPath).replaceAll('\\', '/');
-  return `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+function cleanDocumentTitle(title) {
+  return String(title || '')
+    .replace(/^loopx\s+/i, '')
+    .replace(/^工作流\s+/i, '')
+    .replace(/^Clarify Spec:\s*/i, '')
+    .trim() || '技术方案';
 }
 
-function approvalPanels(state) {
-  const approval = state.approval || {};
-  const slug = state.slug || '(slug)';
-  const transitions = [
-    ['clarify -> plan', approval.plan || 'not-requested', `loopx approve ${slug} --from clarify --to plan`],
-    ['plan -> build', approval.build || 'not-requested', `loopx approve ${slug} --from plan --to build`],
-    ['build -> review', approval.review || 'not-requested', `loopx approve ${slug} --from build --to review`],
-    ['review -> done', approval.complete || 'not-requested', `loopx approve ${slug} --from review --to done`],
-  ];
-  return [
-    '<section class="panel">',
-    '<h2>人工确认点</h2>',
-    '<table><thead><tr><th>阶段流转</th><th>授权状态</th><th>命令</th></tr></thead><tbody>',
-    ...transitions.map(([label, status, command]) => [
-      '<tr>',
-      `<td>${escapeHtml(label)}</td>`,
-      `<td>${statusBadge('approval', status)}</td>`,
-      `<td><code>${escapeHtml(command)}</code></td>`,
-      '</tr>',
-    ].join('')),
-    '</tbody></table>',
-    '</section>',
-  ].join('\n');
+function pageIntro(group) {
+  if (group.file === 'plan.html') {
+    return '本页汇总需求方案、架构方案、开发计划、测试计划和需求覆盖，供直接阅读和人工确认。';
+  }
+  if (group.file === 'change.html') {
+    return '本页汇总变更提案、规格增量、详细设计和任务拆解，供确认具体实现边界。';
+  }
+  if (group.file === 'intake.html') {
+    return '本页汇总需求澄清结果，供确认范围、非目标、约束和验收口径。';
+  }
+  if (group.file === 'build.html') {
+    return '本页汇总执行结果和验证证据。';
+  }
+  if (group.file === 'review.html') {
+    return '本页汇总评审结论、问题和后续处理建议。';
+  }
+  return '本页汇总相关方案内容。';
 }
 
-function planGateSummary(state) {
-  const gates = [
-    ['Planner / Architect / Critic', `${state.plan_architect_review_status || 'not-started'} / ${state.plan_critic_verdict || 'none'}`],
-    ['中文规划文档', state.plan_docs_status || 'missing'],
-    ['需求覆盖矩阵', state.source_requirements_status || 'unknown'],
-    ['变更工件', state.change_artifacts_status || 'missing'],
-    ['Spec Delta', state.spec_delta_status || 'missing'],
-    ['Vertical Slices', state.slice_artifacts_status || 'missing'],
-    ['委派决策', `${state.plan_delegation_recommended_mode || state.plan_delegation_mode || 'unknown'} / ${state.plan_delegation_actual_mode || 'unknown'}`],
-    ['授权状态', state.plan_delegation_authorization_status || 'unknown'],
-  ];
-  return [
-    '<section class="panel">',
-    '<h2>Plan 审阅门禁</h2>',
-    '<table><thead><tr><th>门禁</th><th>状态</th></tr></thead><tbody>',
-    ...gates.map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`),
-    '</tbody></table>',
-    '</section>',
-  ].join('\n');
-}
-
-function statusPanels(status) {
-  const state = status.state || {};
-  const readiness = state.readiness || {};
-  const authorization = state.authorization || {};
-  const nextSkill = nextSkillCommand(state);
-  return [
-    '<section class="grid">',
-    `<div class="panel"><strong>阶段</strong><br>${escapeHtml(state.current_stage || '(none)')}</div>`,
-    `<div class="panel"><strong>状态</strong><br>${escapeHtml(state.stage_status || '(unknown)')}</div>`,
-    `<div class="panel"><strong>需求覆盖</strong><br>${escapeHtml(state.source_requirements_status || 'unknown')}</div>`,
-    `<div class="panel"><strong>下一步</strong><br><code>${escapeHtml(nextSkill || status.next_action || 'none')}</code></div>`,
-    `<div class="panel"><strong>归档</strong><br>${escapeHtml(state.archive_status || 'pending')}</div>`,
-    '</section>',
-    approvalPanels(state),
-    state.current_stage === 'plan' || state.plan_package_status ? planGateSummary(state) : '',
-    '<section class="panel">',
-    '<h2>readiness / authorization</h2>',
-    '<table><thead><tr><th>关卡</th><th>ready</th><th>authorized</th><th>blockers</th></tr></thead><tbody>',
-    ...['plan', 'build', 'review', 'done', 'archive'].map((key) => [
-      '<tr>',
-      `<td>${escapeHtml(key)}</td>`,
-      `<td>${escapeHtml(readiness[key]?.ready ?? false)}</td>`,
-      `<td>${escapeHtml(authorization[key]?.authorized ?? false)}</td>`,
-      `<td>${listItems(readiness[key]?.blockers || [])}</td>`,
-      '</tr>',
-    ].join('')),
-    '</tbody></table>',
-    '</section>',
-  ].join('\n');
+async function solutionTitle(artifactRows) {
+  const preferred = artifactRows.find((artifact) => ['plan', 'spec', 'change-proposal'].includes(artifactId(artifact)) && artifact.exists)
+    || artifactRows.find((artifact) => artifact.exists);
+  if (!preferred) {
+    return '技术方案';
+  }
+  const text = await readFile(preferred.path, 'utf8');
+  return cleanDocumentTitle(sectionDigest(text).title);
 }
 
 async function renderWorkflowPages(status) {
@@ -580,30 +575,19 @@ async function renderWorkflowPages(status) {
 
   const renderArtifactBody = async (artifact) => {
     const text = await readFile(artifact.path, 'utf8');
-    const metrics = artifactMetrics(text);
-    const digest = sectionDigest(text);
+    const displayText = displayTextForArtifact(artifact, text);
+    const metrics = artifactMetrics(displayText);
+    const digest = sectionDigest(displayText);
     const isJson = artifact.name.endsWith('.json');
-    const detailHtml = artifactDetailHtml(artifact, text);
-    const outline = digest.outline.length > 0
-      ? `<div class="outline">${digest.outline.map((item) => `<span class="badge">${escapeHtml('H'.repeat(item.level))} ${escapeHtml(item.title)}</span>`).join(' ')}</div>`
-      : '<span class="muted">无可提取标题</span>';
+    const detailHtml = artifactDetailHtml(artifact, displayText);
     return {
-      text,
+      text: displayText,
       metrics,
       digest,
       detailHtml,
       body: isJson
-        ? `<pre><code>${escapeHtml(text)}</code></pre>`
-        : markdownToHtml(text),
-      meta: [
-        statusBadge('产物', artifact.name),
-        statusBadge('中文', metrics.chineseOk ? 'ok' : 'needs-review'),
-        statusBadge('行数', metrics.lines),
-        statusBadge('标题', metrics.headings),
-        statusBadge('表格', metrics.tables),
-        metrics.todoCount > 0 ? statusBadge('占位符', metrics.todoCount) : '',
-      ].join(''),
-      digestHtml: outline,
+        ? `<pre><code>${escapeHtml(displayText)}</code></pre>`
+        : markdownToHtml(displayText),
     };
   };
 
@@ -621,33 +605,20 @@ async function renderWorkflowPages(status) {
       const rendered = await renderArtifactBody(artifact);
       sections.push([
         `<section class="markdown" id="${escapeHtml(anchorForArtifact(artifact))}">`,
-        '<div class="hero-grid">',
-        '<div>',
         `<h2>${escapeHtml(artifact.label)}</h2>`,
-        `<p class="muted">${artifactLink(viewRoot, artifact.path, artifact.name)}</p>`,
-        `<p>${escapeHtml(rendered.digest.summary || '该产物没有单独摘要，直接阅读正文。')}</p>`,
-        '</div>',
-        '<div class="stack">',
-      rendered.meta,
-        `<div class="panel"><strong>结构预览</strong><div class="outline">${rendered.digestHtml}</div></div>`,
-        '</div>',
-        '</div>',
-        '<div class="artifact-meta">',
-        rendered.meta,
-        '</div>',
+        `<p>${escapeHtml(rendered.digest.summary || '该部分正文如下。')}</p>`,
         rendered.detailHtml,
         rendered.body,
         '</section>',
       ].join('\n'));
     }
     await writeFile(join(viewRoot, group.file), htmlDoc({
-      title: `${group.title} - ${status.slug}`,
+      title: group.title,
       body: [
         '<header>',
         `<h1>${escapeHtml(group.title)}</h1>`,
-        `<p class="muted">工作流：${escapeHtml(status.slug)}</p>`,
-        '<div class="callout">这是人工审阅入口。先看上方视觉摘要，再按导航逐项审阅正文；HTML 负责可视化阅读，原始文件仍可点击查看。</div>',
-        '<p><a href="index.html">返回工作流首页</a></p>',
+        `<div class="callout">${escapeHtml(pageIntro(group))}</div>`,
+        '<p><a href="index.html">返回方案总览</a></p>',
         nav,
         '</header>',
         sections.length > 0 ? sections.join('\n') : '<section class="panel muted">暂无对应产物。</section>',
@@ -655,66 +626,38 @@ async function renderWorkflowPages(status) {
     }));
   }
 
-  const artifactTableRows = await Promise.all(artifactRows.map(async (artifact) => {
-    if (!artifact.exists) {
-      return [
-        '<tr>',
-        `<td>${escapeHtml(artifact.label)}</td>`,
-        '<td>缺失</td>',
-        '<td><span class="muted">无</span></td>',
-        '<td><span class="muted">无</span></td>',
-        '<td><span class="muted">无</span></td>',
-        '<td><span class="muted">无</span></td>',
-        '</tr>',
-      ].join('');
+  const title = await solutionTitle(artifactRows);
+  const pageRows = PAGE_GROUPS.map((group) => {
+    const availableArtifacts = artifactRows.filter((artifact) => group.artifacts.includes(artifactId(artifact)) && artifact.exists);
+    if (availableArtifacts.length === 0) {
+      return '';
     }
-    const rendered = await renderArtifactBody(artifact);
     return [
       '<tr>',
-      `<td>${escapeHtml(artifact.label)}</td>`,
-      '<td>存在</td>',
-      `<td>${artifact.page ? `<a href="${escapeHtml(artifact.page)}">${escapeHtml(basename(artifact.page))}</a>` : '<span class="muted">无</span>'}</td>`,
-      `<td>${rendered.meta}</td>`,
-      `<td>${escapeHtml(rendered.metrics.headings)} 标题 / ${escapeHtml(rendered.metrics.tables)} 表格 / ${escapeHtml(rendered.metrics.lines)} 行</td>`,
-      `<td>${artifactLink(viewRoot, artifact.path, artifact.name)}</td>`,
+      `<td><a href="${escapeHtml(group.file)}">${escapeHtml(group.title)}</a></td>`,
+      `<td>${escapeHtml(availableArtifacts.map((artifact) => artifact.label).join('、'))}</td>`,
+      `<td>${escapeHtml(pageIntro(group))}</td>`,
       '</tr>',
     ].join('');
-  }));
-
-  const heroSummary = [
-    `<div class="hero">`,
-    '<div class="hero-grid">',
-    '<div>',
-    `<h1>工作流 ${escapeHtml(status.slug)}</h1>`,
-    `<p class="muted">HTML 是派生阅读视图；Markdown 和 JSON 仍是运行时事实源。</p>`,
-    '<div class="hero-kpi">',
-    `<div class="kpi"><div class="label">阶段</div><div class="value">${escapeHtml(status.state?.current_stage || '(none)')}</div></div>`,
-    `<div class="kpi"><div class="label">状态</div><div class="value">${escapeHtml(status.state?.stage_status || '(unknown)')}</div></div>`,
-    `<div class="kpi"><div class="label">中文产物</div><div class="value">${escapeHtml(status.state?.plan_docs_status || 'unknown')}</div></div>`,
-    `<div class="kpi"><div class="label">下一步</div><div class="value">${escapeHtml(status.next_action || 'none')}</div></div>`,
-    '</div>',
-    '</div>',
-    '<div class="stack">',
-    approvalPanels(status.state || {}),
-    '</div>',
-    '</div>',
-    '</div>',
-  ].join('\n');
+  }).filter(Boolean);
 
   const indexBody = [
-    heroSummary,
-    statusPanels(status),
+    '<header>',
+    '<h1>技术方案总览</h1>',
+    `<p class="muted">${escapeHtml(title)}</p>`,
+    '<div class="callout">本页面提供完整 HTML 阅读入口；各页面已内嵌方案正文，可直接阅读和确认。</div>',
+    '</header>',
     '<section class="panel">',
-    '<h2>关键产物审阅清单</h2>',
-    '<table><thead><tr><th>产物</th><th>状态</th><th>阅读视图</th><th>中文</th><th>结构</th><th>原始文件</th></tr></thead><tbody>',
-    ...artifactTableRows,
+    '<h2>方案阅读目录</h2>',
+    '<table><thead><tr><th>页面</th><th>包含内容</th><th>阅读重点</th></tr></thead><tbody>',
+    ...pageRows,
     '</tbody></table>',
     '</section>',
   ].join('\n');
 
   const workflowViewPath = join(viewRoot, 'index.html');
   await writeFile(workflowViewPath, htmlDoc({
-    title: `loopx 工作流 ${status.slug}`,
+    title: '技术方案总览',
     body: indexBody,
   }));
 
@@ -730,27 +673,20 @@ async function renderWorkspaceIndex(workspaceStatus, renderedSlugs = []) {
     const link = rendered.has(workflow.slug)
       ? `<a href="${escapeHtml(href)}">${escapeHtml(workflow.slug)}</a>`
       : escapeHtml(workflow.slug);
-    return [
-      '<tr>',
-      `<td>${link}</td>`,
-      `<td>${escapeHtml(workflow.current_stage || '(none)')}</td>`,
-      `<td>${escapeHtml(workflow.contract)}</td>`,
-      `<td>${escapeHtml(workflow.missing_artifact_count)}</td>`,
-      '</tr>',
-    ].join('');
+    return `<tr><td>${link}</td><td>技术方案总览</td></tr>`;
   });
   const workspaceViewPath = join(viewsRoot, 'index.html');
   await writeFile(workspaceViewPath, htmlDoc({
-    title: 'loopx 工作台',
+    title: '方案阅读入口',
     body: [
       '<header>',
-      '<h1>loopx 工作台</h1>',
-      `<p class="muted">工作区：${escapeHtml(workspaceStatus.workspaceRoot)}</p>`,
+      '<h1>方案阅读入口</h1>',
+      '<p class="muted">选择一个需求方案，进入完整 HTML 阅读页。</p>',
       '</header>',
       '<section class="panel">',
-      '<h2>工作流</h2>',
-      '<table><thead><tr><th>工作流</th><th>阶段</th><th>契约</th><th>缺失产物数</th></tr></thead><tbody>',
-      rows.join('\n') || '<tr><td colspan="4" class="muted">暂无工作流。</td></tr>',
+      '<h2>方案列表</h2>',
+      '<table><thead><tr><th>方案</th><th>阅读入口</th></tr></thead><tbody>',
+      rows.join('\n') || '<tr><td colspan="2" class="muted">暂无方案。</td></tr>',
       '</tbody></table>',
       '</section>',
     ].join('\n'),
@@ -767,9 +703,6 @@ export async function renderHtmlViews(cwd, { slug = null, all = false } = {}) {
   const workflowViews = [];
   if (all || !slug) {
     for (const workflow of workspaceStatus.workflows) {
-      if (workflow.legacy) {
-        continue;
-      }
       const workflowStatus = await statusSummary(cwd, workflow.slug);
       workflowViews.push({
         slug: workflow.slug,
@@ -778,7 +711,7 @@ export async function renderHtmlViews(cwd, { slug = null, all = false } = {}) {
     }
   } else if (slug) {
     const workflowStatus = await statusSummary(cwd, slug);
-    if (!workflowStatus.state || workflowStatus.legacy) {
+    if (!workflowStatus.state) {
       throw new Error('render_workflow_not_available');
     }
     workflowViews.push({

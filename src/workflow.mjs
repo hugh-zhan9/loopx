@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AUTOPILOT_PHASES, createDefaultAutopilotAdapter } from './autopilot-runtime.mjs';
@@ -91,7 +91,7 @@ function normalizeSlug(raw) {
 function slugFromBuildInput(raw) {
   const value = String(raw || '');
   const name = basename(value);
-  const match = /^prd-(.+)\.md$/.exec(name);
+  const match = /^(?:requirements-snapshot|prd)-(.+)\.md$/.exec(name);
   return match ? normalizeSlug(match[1]) : normalizeSlug(value);
 }
 
@@ -203,6 +203,158 @@ function parseFrontmatter(text) {
     result[key] = rawValue;
   }
   return result;
+}
+
+const PLAN_SOURCE_DOCUMENT_KEYS = [
+  'source_product_doc',
+  'source_prototype_doc',
+  'source_prototype_html',
+  'product_doc',
+  'prototype_doc',
+  'prototype_html',
+];
+const MAX_PLAN_SOURCE_DOCUMENT_CHARS = 30000;
+const MAX_PLAN_SOURCE_HTML_CHARS = 8000;
+const MAX_PLAN_SOURCE_BUNDLE_CHARS = 70000;
+
+function sourceDocumentPathsFromSpecAndState(sourceSpecPath, sourceText, state = {}) {
+  const meta = parseFrontmatter(sourceText);
+  const candidates = [];
+  const pushValue = (value) => {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        pushValue(item);
+      }
+      return;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      candidates.push(value.trim());
+    }
+  };
+
+  for (const key of PLAN_SOURCE_DOCUMENT_KEYS) {
+    pushValue(meta[key]);
+    pushValue(state?.source_context?.[key]);
+  }
+
+  return dedupeStrings(candidates).map((candidate) => {
+    if (isAbsolute(candidate)) {
+      return candidate;
+    }
+    return resolve(dirname(sourceSpecPath), candidate);
+  });
+}
+
+function htmlToPlanningText(text) {
+  return String(text || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '\n')
+    .replace(/<style[\s\S]*?<\/style>/gi, '\n')
+    .replace(/<h1[^>]*>/gi, '\n# ')
+    .replace(/<h2[^>]*>/gi, '\n## ')
+    .replace(/<h3[^>]*>/gi, '\n### ')
+    .replace(/<h4[^>]*>/gi, '\n#### ')
+    .replace(/<h[5-6][^>]*>/gi, '\n#### ')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<tr[^>]*>/gi, '\n')
+    .replace(/<\/tr>/gi, ' |\n')
+    .replace(/<t[dh][^>]*>/gi, '| ')
+    .replace(/<\/t[dh]>/gi, ' ')
+    .replace(/<\/(p|li|table|section|article|div)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function trimPlanSourceDocument(text) {
+  const value = String(text || '').trim();
+  if (value.length <= MAX_PLAN_SOURCE_DOCUMENT_CHARS) {
+    return value;
+  }
+  return [
+    value.slice(0, MAX_PLAN_SOURCE_DOCUMENT_CHARS),
+    '',
+    `...已截断，原始来源文档超过 ${MAX_PLAN_SOURCE_DOCUMENT_CHARS} 字符；plan 仍必须优先覆盖前文已提取的需求表、字段和流程。`,
+  ].join('\n');
+}
+
+function compactPlanningText(text, { html = false } = {}) {
+  const source = html ? htmlToPlanningText(text) : String(text || '');
+  const maxChars = html ? MAX_PLAN_SOURCE_HTML_CHARS : MAX_PLAN_SOURCE_DOCUMENT_CHARS;
+  const kept = [];
+  let total = 0;
+  let previousWasBlank = false;
+  const keepLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return false;
+    }
+    return /^#{1,6}\s+/.test(trimmed)
+      || trimmed.startsWith('|')
+      || /^[-*]\s+/.test(trimmed)
+      || /^\d+[.)]\s+/.test(trimmed)
+      || /MUST|SHALL|必须|不得|不能|不自动|人工|确认|复核|执行|下发|任务|字段|状态|流程|规则|范围|来源|验收|示例|异常|差异|OCC|security_id|corporate_action_event_id|mock|API|接口|持久化|页面|明细|日志|权限/i.test(trimmed);
+  };
+
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim();
+    if (!keepLine(line)) {
+      continue;
+    }
+    if (!previousWasBlank && kept.length > 0 && /^#{1,6}\s+/.test(trimmed)) {
+      kept.push('');
+      total += 1;
+      previousWasBlank = true;
+    }
+    if (total + trimmed.length + 1 > maxChars) {
+      kept.push(`...已压缩截断，来源文档高信号内容超过 ${maxChars} 字符。`);
+      break;
+    }
+    kept.push(trimmed);
+    total += trimmed.length + 1;
+    previousWasBlank = false;
+  }
+
+  const compacted = kept.join('\n').trim();
+  return compacted || trimPlanSourceDocument(source);
+}
+
+async function readPlanSourceText(cwd, state, sourceSpecPath) {
+  const sourceText = await readFile(sourceSpecPath, 'utf8');
+  const sourceDocumentPaths = sourceDocumentPathsFromSpecAndState(sourceSpecPath, sourceText, state);
+  if (sourceDocumentPaths.length === 0) {
+    return { sourceText, sourceDocumentPaths: [] };
+  }
+
+  const parts = [sourceText.trimEnd()];
+  const loaded = [];
+  for (const path of sourceDocumentPaths) {
+    if (!existsSync(path)) {
+      continue;
+    }
+    const raw = await readFile(path, 'utf8');
+    const body = compactPlanningText(raw, { html: /\.html?$/i.test(path) });
+    loaded.push(path);
+    parts.push([
+      '',
+      `# 引用源文档：${relative(cwd, path) || path}`,
+      '',
+      trimPlanSourceDocument(body),
+    ].join('\n'));
+    const currentLength = parts.join('\n\n').length;
+    if (currentLength >= MAX_PLAN_SOURCE_BUNDLE_CHARS) {
+      parts.push(`\n# 引用源文档截断说明\n\n源文档合并内容超过 ${MAX_PLAN_SOURCE_BUNDLE_CHARS} 字符，后续文档未继续注入 planner prompt。`);
+      break;
+    }
+  }
+
+  return {
+    sourceText: parts.join('\n\n').slice(0, MAX_PLAN_SOURCE_BUNDLE_CHARS),
+    sourceDocumentPaths: loaded,
+  };
 }
 
 function frontmatterBlock(values) {
@@ -576,7 +728,7 @@ async function writeJson(path, value) {
 async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   const plansRoot = resolvePlansRoot(cwd);
   await ensureDir(plansRoot);
-  const planPath = join(plansRoot, `prd-${slug}.md`);
+  const planPath = join(plansRoot, `requirements-snapshot-${slug}.md`);
   const testSpecPath = join(plansRoot, `test-spec-${slug}.md`);
   const planText = await readFile(artifactPath(root, 'plan.md'), 'utf8');
   const architectureText = await readFile(artifactPath(root, 'architecture.md'), 'utf8');
@@ -586,7 +738,9 @@ async function writeCanonicalPlanArtifacts(cwd, root, slug) {
   await writeText(
     planPath,
     [
-      `# loopx PRD: ${slug}`,
+      `# loopx Requirements Snapshot: ${slug}`,
+      '',
+      '本文件是用户原始需求和已批准计划包的执行快照，不是由 loopx 生成的 PRD。原始需求来源仍以 `spec.md` / `plan_source_spec_path` 指向的用户材料为准。',
       '',
       '## Plan',
       '',
@@ -715,9 +869,17 @@ function requirementHeadingCoverageItems(sourceText) {
     .filter(Boolean);
 }
 
+function relevantHeadingCoverageItems(sourceText) {
+  return [...String(sourceText || '').matchAll(/^#{2,4}\s+(.+?)\s*$/gm)]
+    .map((match) => match[1].replace(/`/g, '').trim())
+    .filter((title) => /需求|范围|验收|页面|任务|事件|流程|规则|字段|接口|架构|设计|计划|处理|异常|差异|OCC|mock/i.test(title))
+    .filter((title) => !/^(审阅说明|门禁|source|context|inference)$/i.test(title));
+}
+
 function sourceRequirementItems(sourceText) {
   return dedupeStrings([
     ...explicitCoverageItems(sourceText),
+    ...relevantHeadingCoverageItems(sourceText),
     ...markdownTableCoverageItems(sourceText),
     ...requirementHeadingCoverageItems(sourceText),
   ]).slice(0, 80);
@@ -941,7 +1103,126 @@ function enrichDevelopmentPlanTextForReview(text, items) {
   return next;
 }
 
+function isCorporateActionDesignDraft(items, plannerDraft) {
+  return /公司行动|corporate-actions|OCC|分红派息|拆股|合股|退市|摘牌/.test([
+    ...items,
+    plannerDraft?.planText,
+    plannerDraft?.architectureText,
+    plannerDraft?.developmentPlanText,
+  ].join('\n'));
+}
+
+function corporateActionDetailedDesignTextForChange({ changeId, slug }) {
+  const stateRows = [
+    ['生成明细', '待生成', '待复核', '事件已入库且未生成有效明细版本', '写 CustomerDetail/OptionAdjustment/Discrepancy/OperationLog'],
+    ['重算', '待复核、待确认、差异待处理', '待复核', '任务未执行且存在修正输入', '废弃旧 detail_version，生成新版本'],
+    ['复核', '待复核', '待确认', '明细完整且无阻断异常', '仅人工触发，写 OperationLog'],
+    ['确认', '待确认', '待执行', '税费、数量、客户范围、OCC 字段均已复核', '冻结当前有效明细版本'],
+    ['执行', '待执行', '执行中', '现金/持仓类动作且无阻断异常', '调用 mock ExecutionProvider，写 DownstreamStatus'],
+    ['下发', '待执行', '执行中', '展示/订单/期权链/柜台类动作且无阻断异常', '调用 mock ExecutionProvider，写 DownstreamStatus'],
+    ['mock 回写成功', '执行中', '已完成', '全部目标系统 success', '系统回写日志，不允许从非执行中推进'],
+    ['mock 回写失败', '执行中', '差异待处理', '任一目标系统 failed/timeout', '创建 Discrepancy，保留 failure_reason'],
+    ['重试', '差异待处理、执行中', '执行中', '失败原因已处理或允许补偿查询', 'retry_count + 1 并写日志'],
+    ['标记无需处理', '非终态', '无需处理', '人工确认无客户/平台动作', '必须填写原因，终态禁止再执行'],
+    ['标记人工完成', '待执行、差异待处理', '已完成', '外部已人工处理且有备注/凭证', '不触发 mock 执行，只写日志'],
+  ];
+  return [
+    `# 详细设计：${changeId}`,
+    '',
+    '## 文档定位',
+    '',
+    '本文档给 build 阶段提供字段、接口、函数、组件、状态机和边界条件级别的实现输入。架构文档决定边界，开发计划决定顺序，本文决定具体怎么落地。',
+    '',
+    '## 需求到设计映射',
+    '',
+    requirementMappingTable(['总览', '分红派息', '拆股', '合股', '退市/摘牌', '期权退市 OCC', '代码/名称变更', '事件异常处理'], [
+      ['需求', (item) => item],
+      ['后端落点', () => 'CorporateActionUsecase + Ent repository + mock provider'],
+      ['前端落点', () => 'web/admin 共享任务 shell，按 event_type 配置列表列、详情字段、动作按钮'],
+      ['验证证据', () => 'usecase/API 测试 + 浏览器人工验收'],
+    ]),
+    '',
+    '## 数据结构与字段',
+    '',
+    '| 实体 | 字段 | 索引/关系 | 说明 |',
+    '| --- | --- | --- | --- |',
+    '| CorporateActionEvent | corporate_action_event_id, source, source_event_id, event_type, market, asset_type, security_id, underlying_security_id, symbol, key_date, version, event_status, raw_snapshot_id, event_payload | unique(corporate_action_event_id, version) | 事件快照和修订追溯；同版本重复不建任务 |',
+    '| CorporateActionTask | task_id, event_id, event_type, task_status, asset_scope, security_id, symbol, key_date, affected_customer_count, affected_order_count, risk_flags, current_detail_version, detail_payload | unique(task_id), index(event_id,status,type) | 运营主任务和状态机载体 |',
+    '| CorporateActionCustomerDetail | task_id, detail_version, user_id, trade_account_id, security_id, asset_type, position_qty, cash_amount, tax_amount, net_amount, order_action, margin_status, process_status, detail_payload | index(task_id,detail_version,user_id) | 客户级明细；支持多版本重算 |',
+    '| CorporateActionOptionAdjustment | task_id, memo_no, underlying_security_id, option_security_id, original_contract, adjusted_contract, old_strike, new_strike, old_multiplier, new_multiplier, deliverable, review_status, adjustment_payload | index(task_id,memo_no,underlying_security_id) | OCC 和期权调整明细 |',
+    '| CorporateActionDiscrepancy | task_id, detail_id, option_adjustment_id, downstream_status_id, discrepancy_type, field_name, estimated_value, confirmed_value, status, resolution_note | index(task_id,status,type) | 金额、数量、客户范围、合约映射、下游回写差异 |',
+    '| CorporateActionDownstreamStatus | task_id, target_system, action_type, status, request_payload, response_payload, failure_reason, retry_count | index(task_id,target_system,status) | mock 执行/下发状态；禁止真实 client 写入 |',
+    '| CorporateActionOperationLog | task_id, operator_id, operator_name, action_type, before_status, after_status, remark, created_at | index(task_id,created_at) | 所有人工动作和系统回写留痕 |',
+    '',
+    '## 接口、函数与组件契约',
+    '',
+    '| 契约 | 输入 | 输出 | 错误/权限 |',
+    '| --- | --- | --- | --- |',
+    '| GET /admin/v1/corporate-actions/overview | status/date range | 统计卡片、风险提示、异常/超时 | admin.corporate_action.view |',
+    '| POST /admin/v1/corporate-actions/mock/seed | seed profile | 8 类 mock 任务数量 | admin.corporate_action.seed；重复 seed 按 event id 去重 |',
+    '| GET /admin/v1/corporate-actions/tasks | event_type/status/symbol/task_id/key_date/page | 任务列表和分页 | admin.corporate_action.view |',
+    '| GET /admin/v1/corporate-actions/tasks/{task_id} | task_id/detail_version | event/task/details/options/discrepancies/downstream/logs/available_actions | admin.corporate_action.view |',
+    '| POST /tasks/{task_id}/details/generate | task_id, force_recalc, remark | 新 detail_version 和状态 | admin.corporate_action.operate；非法状态拒绝 |',
+    '| POST /tasks/{task_id}/actions/{action} | action, remark, optional resolution payload | 新状态、日志、下游状态 | admin.corporate_action.operate；状态机统一校验 |',
+    '| GET /discrepancies | status/type/task_id/symbol/page | 异常列表 | admin.corporate_action.view |',
+    '| POST /discrepancies/{id}/resolve | confirmed_value/resolution_note/next_status | 异常处理结果和任务状态 | admin.corporate_action.operate |',
+    '',
+    'Provider 接口固定为：`EventSourceProvider.FetchMockEvents`、`ImpactProvider.BuildDetails`、`ExecutionProvider.Execute`、`ExceptionProvider.Resolve`。首期只提供 local mock 实现；真实 adapter 不在本次范围。',
+    '',
+    '## 状态机与流程细节',
+    '',
+    requirementMappingTable(stateRows, [
+      ['动作', (row) => row[0]],
+      ['起始状态', (row) => row[1]],
+      ['成功状态', (row) => row[2]],
+      ['前置条件', (row) => row[3]],
+      ['副作用', (row) => row[4]],
+    ]),
+    '',
+    '任务级状态优先级为：差异待处理 > 执行中 > 待执行 > 待确认 > 待复核 > 待生成。明细级阻断异常优先于任务级普通状态；只要存在未处理阻断异常，确认、执行、下发必须拒绝。',
+    '',
+    '## 错误处理与边界条件',
+    '',
+    '- 重复事件：同 `corporate_action_event_id + version` 返回已有事件，不重复建任务。',
+    '- 事件修订：新 version 建立新事件快照；旧任务未完成时进入差异待处理或无需处理，保留日志。',
+    '- 缺证券映射：创建事件异常，任务停在待复核，不允许执行。',
+    '- OCC 字段缺失或合约匹配失败：写 OptionAdjustment + Discrepancy，任务差异待处理。',
+    '- mock 下游失败/超时：写 DownstreamStatus failure_reason，任务差异待处理。',
+    '- 真实副作用防线：公司行动模块不得注入真实资产、交易、清算、通知 client；测试需要断言执行/下发只写 mock 表。',
+    '',
+    '## 前端设计',
+    '',
+    '- `web/admin` 提供总览、任务页、异常页；总览首屏直接展示公司行动任务数据，不做营销页。',
+    '- 任务页使用共享 shell：左侧筛选/列表，中间客户明细和期权明细，右侧任务详情、可用动作、操作日志。',
+    '- `event_type` 配置列表列、详情字段、明细表列和动作按钮；按钮只使用后端 `available_actions`。',
+    '- API base 固定同源 `/admin/v1/corporate-actions`，不要出现 `/account/admin/v1`。',
+    '',
+    '## 测试设计',
+    '',
+    '- 状态机：覆盖每个动作的合法/非法状态，尤其未确认执行、执行中重算、终态继续动作、存在阻断异常时确认/执行。',
+    '- 数据：事件去重、版本修订、任务详情聚合、服务重启后查询。',
+    '- 业务：8 类 mock 工作流各至少一条闭环样例。',
+    '- API：overview/list/detail/action/discrepancy、权限标识、非法参数。',
+    '- 前端：`npm run build`、浏览器检查总览/任务/异常、最长字段不重叠。',
+    '- 副作用：执行/下发不调用真实 client，不发送通知。',
+    '',
+    '## 实现注意事项',
+    '',
+    '- 先实现状态机单测，再写 handler 和页面动作。',
+    '- Ent schema 为 additive；生产回滚优先关闭菜单/路由，不直接删表。',
+    '- build 阶段如果发现源文档和原型冲突，停止对应切片并回 plan 修订。',
+    '',
+    '## Source',
+    '',
+    `- workflow slug: ${slug}`,
+    `- change id: ${changeId}`,
+  ].join('\n');
+}
+
 function detailedDesignTextForChange({ changeId, slug, items, plannerDraft }) {
+  if (isCorporateActionDesignDraft(items, plannerDraft)) {
+    return corporateActionDetailedDesignTextForChange({ changeId, slug });
+  }
   return [
     `# loopx Detailed Design: ${changeId}`,
     '',
@@ -1202,7 +1483,7 @@ function delegationDecisionForPlan(sourceText, plannerDraft) {
   const reason = recommendedMode === 'parallel-review'
     ? '高风险或跨模块规划，建议独立 Planner/Architect/Critic 视角并行审查。'
     : recommendedMode === 'critic-only'
-      ? '存在中等复杂度或验证风险，建议至少引入独立 critic 复核 PRD 覆盖和风险。'
+      ? '存在中等复杂度或验证风险，建议至少引入独立 critic 复核需求覆盖和风险。'
       : '范围较小或风险较低，本地顺序 Planner/Architect/Critic 审阅足够。';
 
   return {
@@ -1284,12 +1565,12 @@ async function writePlanDelegationDecisionArtifact({ root, sourceText, plannerDr
     '## Guidance',
     '',
     '- local: 低风险、小范围、单模块任务，本地顺序 Planner/Architect/Critic 即可。',
-    '- critic-only: 中等风险或覆盖面较宽，至少需要独立 critic 复核 PRD 覆盖、验证和遗漏风险。',
+    '- critic-only: 中等风险或覆盖面较宽，至少需要独立 critic 复核需求覆盖、验证和遗漏风险。',
     '- parallel-review: 高风险、多模块、状态/资产/安全相关任务，建议独立 Planner/Architect/Critic 视角并行审查。',
     '',
     '## Authorization',
     '',
-    '- `recommended_mode` 是基于 PRD/plan 风险面的规划建议。',
+    '- `recommended_mode` 是基于需求/plan 风险面的规划建议。',
     '- `actual_mode` 是结合 `.loopx/config.json` 授权边界后的本次实际执行模式。',
     '- 只有 `agent_delegation.enabled=true`、`auto_start=true` 且推荐模式达到 `threshold` 时，loopx 才会把实际模式提升到推荐的 subagent review。',
     '',
@@ -2079,7 +2360,7 @@ const REVIEW_DOCUMENT_CONTRACTS = {
 };
 
 function planReviewabilityBlockers(key, text, sourceItemCount) {
-  const reviewerDocs = new Set(['plan', 'architecture', 'developmentPlan', 'testPlan', 'prd', 'testSpec', 'design']);
+  const reviewerDocs = new Set(['plan', 'architecture', 'developmentPlan', 'testPlan', 'requirementsSnapshot', 'testSpec', 'design']);
   if (!reviewerDocs.has(key)) {
     return [];
   }
@@ -2092,7 +2373,7 @@ function planReviewabilityBlockers(key, text, sourceItemCount) {
   if (nonEmptyLineCount < minLines || headingCount < minHeadings) {
     blockers.push(`plan_artifact_too_thin_${key}`);
   }
-  if (needsSourceMapping && !/(原始需求|需求.*映射|需求.*覆盖|覆盖矩阵)/.test(text)) {
+  if (needsSourceMapping && !/(原始需求|需求.*映射|需求.*覆盖|覆盖矩阵|需求到|测试矩阵|交付切片)/.test(text)) {
     blockers.push(`plan_artifact_missing_source_mapping_${key}`);
   }
   const requiredHeadings = REVIEW_DOCUMENT_CONTRACTS[key] || [];
@@ -2142,12 +2423,23 @@ async function ensurePlanWorkflowFromDirectSpec(cwd, directSpecPath, explicitSlu
   const existing = await readState(cwd, slug);
   if (existing) {
     const merged = withRecommendedAction({
+      ...createInitialState(slug, existing.clarify_profile || existing.profile || 'standard'),
       ...existing,
+      schema_version: WORKFLOW_SCHEMA_VERSION,
+      slug,
+      current_stage: existing.current_stage || STAGES.CLARIFY,
+      stage_status: existing.stage_status || 'awaiting-approval',
       spec_artifact_path: resolvedSpecPath,
       plan_source_spec_path: resolvedSpecPath,
+      requested_transition: existing.requested_transition || TRANSITIONS.CLARIFY_TO_PLAN,
       plan_consensus_mode: true,
       plan_deliberate_mode: Boolean(options.deliberate),
       plan_interactive_mode: Boolean(options.interactive),
+      approval: {
+        ...createInitialState(slug, existing.clarify_profile || existing.profile || 'standard').approval,
+        ...(existing.approval || {}),
+        plan: APPROVAL_STATES.APPROVED,
+      },
     });
     await writeState(root, merged);
     return { slug, root, state: merged };
@@ -2278,7 +2570,7 @@ async function readPlanCompletion(cwd, root, slug, state) {
     blockers.push('execution_inputs_unresolved');
   }
   if (!state.plan_artifact_path || !existsSync(state.plan_artifact_path)) {
-    blockers.push('missing_prd');
+    blockers.push('missing_requirements_snapshot');
   }
   if (!state.test_spec_artifact_path || !existsSync(state.test_spec_artifact_path)) {
     blockers.push('missing_test_spec');
@@ -2316,7 +2608,7 @@ async function readPlanCompletion(cwd, root, slug, state) {
     architecture: artifactPath(root, 'architecture.md'),
     developmentPlan: artifactPath(root, 'development-plan.md'),
     testPlan: artifactPath(root, 'test-plan.md'),
-    prd: state.plan_artifact_path || join(resolvePlansRoot(cwd), `prd-${slug}.md`),
+    requirementsSnapshot: state.plan_artifact_path || join(resolvePlansRoot(cwd), `requirements-snapshot-${slug}.md`),
     testSpec: state.test_spec_artifact_path || join(resolvePlansRoot(cwd), `test-spec-${slug}.md`),
     traceability: state.requirement_traceability_path || artifactPath(root, 'requirement-traceability.md'),
     delegationDecision: state.plan_delegation_decision_path || artifactPath(root, 'plan-delegation-decision.md'),
@@ -2445,10 +2737,10 @@ async function buildCompletionAudit({ cwd, root, slug, state, reviewReworkArtifa
   };
 
   addChecklistItem({
-    id: 'approved-prd',
+    id: 'requirements-snapshot',
     source: 'approved-plan',
-    requirement: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `prd-${slug}.md`),
-    evidence: [state.plan_artifact_path || 'approved plan artifact'],
+    requirement: state.plan_artifact_path || join(cwd, '.loopx', 'plans', `requirements-snapshot-${slug}.md`),
+    evidence: [state.plan_artifact_path || 'requirements snapshot artifact'],
   });
   addChecklistItem({
     id: 'test-spec',
@@ -2671,9 +2963,6 @@ function clarifyReadinessBlockers(state) {
   if (state.clarify_current_round > state.clarify_max_rounds) {
     blockers.push('clarify_max_rounds_exceeded');
   }
-  if (state.clarify_ambiguity_score > state.clarify_target_ambiguity_threshold) {
-    blockers.push('clarify_ambiguity_score_above_threshold');
-  }
   if (!state.clarify_non_goals_resolved) {
     blockers.push('clarify_non_goals_unresolved');
   }
@@ -2707,7 +2996,7 @@ function planReadinessBlockersSync(state) {
     blockers.push('execution_inputs_unresolved');
   }
   if (!state.plan_artifact_path) {
-    blockers.push('missing_prd');
+    blockers.push('missing_requirements_snapshot');
   }
   if (!state.test_spec_artifact_path) {
     blockers.push('missing_test_spec');
@@ -2816,7 +3105,7 @@ function buildCurrentEvidenceChain(state, readiness = buildReadiness(state), aut
   if (readiness.plan.ready) {
     evidence.push(evidenceEntry(
       'clarify_ready_for_plan',
-      'Clarify ambiguity score, non-goals, decision boundaries, pressure pass, and unresolved ambiguity gates are satisfied.',
+      'Clarify has zero unresolved ambiguity and non-goals, decision boundaries, and pressure pass gates are satisfied.',
       authorization.plan.authorized ? 'The approved clarify -> plan transition can be consumed by plan.' : 'Plan readiness exists, but user authorization is still separate.',
     ));
   }
@@ -3783,7 +4072,8 @@ export async function planStage(cwd, slug, options = {}) {
   }
 
   const sourceSpecPath = options.directSpecPath ? resolve(cwd, options.directSpecPath) : (state.plan_source_spec_path || artifactPath(root, 'spec.md'));
-  const sourceText = await readFile(sourceSpecPath, 'utf8');
+  const sourceBundle = await readPlanSourceText(cwd, state, sourceSpecPath);
+  const sourceText = sourceBundle.sourceText;
   const agentDelegationConfig = await readAgentDelegationConfig(cwd);
   const adapter = options.adapter || createDefaultPlanAdapter();
   const maxIterations = DEFAULT_MAX_ITERATIONS;
@@ -3888,6 +4178,7 @@ export async function planStage(cwd, slug, options = {}) {
       spec_delta_status: changeArtifactStatus.specDeltaStatus,
       slice_artifacts_status: changeArtifactStatus.sliceArtifactsStatus,
       plan_source_spec_path: sourceSpecPath,
+      plan_source_document_paths: sourceBundle.sourceDocumentPaths,
       last_confirmed_transition: consumesReviewPlan || resumesConsumedReviewPlan ? TRANSITIONS.REVIEW_TO_PLAN : TRANSITIONS.CLARIFY_TO_PLAN,
       approval: {
         ...state.approval,

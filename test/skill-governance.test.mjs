@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
@@ -38,6 +38,23 @@ function parseFrontmatter(text) {
   return fields;
 }
 
+async function recursiveFiles(root) {
+  const { readdir } = await import('node:fs/promises');
+  const files = [];
+  async function walk(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (entry.isFile()) {
+        files.push(relative(root, path));
+      }
+    }
+  }
+  await walk(root);
+  return files.sort();
+}
+
 describe('loopx skill governance', () => {
   it('keeps a resolver and deterministic verifier for bundled skills', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -45,6 +62,7 @@ describe('loopx skill governance', () => {
     assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md must exist');
     assert.equal(existsSync(verifyScriptPath), true, 'scripts/verify-skills.mjs must exist');
     assert.equal(packageJson.files.includes('scripts/verify-skills.mjs'), true, 'npm package must include verify-skills.mjs');
+    assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
 
     const resolver = await readFile(resolverPath, 'utf8');
     for (const skillName of LOOPX_BUNDLED_SKILLS) {
@@ -66,7 +84,23 @@ describe('loopx skill governance', () => {
       assert.ok(fields.when_to_use?.length >= 20, `${skillName} needs when_to_use trigger metadata`);
       assert.ok(fields['metadata.version'], `${skillName} needs metadata.version`);
       assert.equal(pluginSkill, rootSkill, `${skillName} plugin mirror drifted`);
+
+      const rootSkillDir = join(repoRoot, 'skills', skillName);
+      const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
+      const rootFiles = await recursiveFiles(rootSkillDir);
+      const pluginFiles = await recursiveFiles(pluginSkillDir);
+      assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted`);
+      for (const relativeFile of rootFiles) {
+        const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
+        const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
+        assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted`);
+      }
     }
+
+    const specTemplate = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+    assert.match(specTemplate, /## 三、概要设计/);
+    assert.match(specTemplate, /## 四、详细设计/);
+    assert.match(specTemplate, /## 十一、QA/);
   });
 
   it('keeps public docs structurally valid and bilingual release docs aligned', async () => {
@@ -106,6 +140,7 @@ describe('loopx skill governance', () => {
       'loopx doctor',
       'loopx migrate',
       'loopx repair-install',
+      'loopx install-skills',
       'node scripts/verify-skills.mjs',
     ]) {
       assert.match(readme, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.md`);
@@ -115,34 +150,89 @@ describe('loopx skill governance', () => {
 
   it('keeps workflow skill handoff commands unambiguous', async () => {
     const clarify = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
-    assert.match(clarify, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
-    assert.match(clarify, /Conditional artifact-pinned handoff: `\$plan --direct <spec-path>`/);
-    assert.match(clarify, /Recommend `\$plan --direct <spec-path>` when the user explicitly wants to plan from a specific requirements artifact/);
-    assert.match(clarify, /Do not use `\$plan --direct` to work around unclear workflow state/);
-    assert.match(clarify, /For the normal loopx clarify happy path, prefer `\$plan <slug>`/);
+    assert.match(clarify, /needs_spec/);
+    assert.match(clarify, /direct_to_plan/);
+    assert.match(clarify, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.match(clarify, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.doesNotMatch(clarify, /Recommended invocation: `\$spec/);
+    assert.doesNotMatch(clarify, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
 
     const plan = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
-    assert.match(plan, /Default build handoff after an approved plan package:/);
-    assert.match(plan, /\$build \.loopx\/plans\/prd-<slug>\.md/);
-    assert.match(plan, /Do not emit `\$build <slug>` as the primary handoff/);
-    assert.match(plan, /HTML:\n\.loopx\/workflows\/<slug>\/view\/index\.html/);
-    assert.match(plan, /derived HTML reading views/);
-    assert.match(plan, /requirement-traceability\.md/);
-    assert.match(plan, /source requirements are covered/);
-    assert.match(plan, /plan-delegation-decision\.md/);
-    assert.match(plan, /delegation decision is recorded/);
-    assert.match(plan, /plan_delegation_actual_mode/);
-    assert.match(plan, /Actual subagent startup must be authorized/);
+    assert.match(plan, /Bite-Sized Task Granularity/);
+    assert.match(plan, /No Placeholders/);
+    assert.match(plan, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.match(plan, /loopx:subagent-exec/);
+    assert.match(plan, /loopx:exec/);
+    assert.doesNotMatch(plan, /Planner -> Architect -> Critic/);
+    assert.doesNotMatch(plan, /consensus-first/i);
 
-    const build = await readFile(join(repoRoot, 'skills', 'build', 'SKILL.md'), 'utf8');
-    assert.match(build, /Default review handoff after build readiness:/);
-    assert.match(build, /\$review \.loopx\/workflows\/<slug>\/execution-record\.md/);
-    assert.match(build, /Do not emit `\$review <slug>` as the primary skill handoff/);
+    const spec = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
+    assert.match(spec, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.match(spec, /\$plan --direct docs\/loopx\/design\/<需求名>需求设计文档\.md/);
 
     const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
-    assert.match(review, /Default implementation-fix handoff:/);
-    assert.match(review, /\$build --from-review \.loopx\/workflows\/<slug>\/review-report\.md/);
-    assert.match(review, /Next:\n\$archive <slug>/);
-    assert.match(review, /Do not ask the user to run a separate `loopx approve <slug> --from review --to done` command/);
+    assert.match(review, /Dispatch a code reviewer subagent/);
+    assert.match(review, /code-reviewer\.md/);
+
+    const fixReview = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
+    assert.match(fixReview, /Verify before implementing/);
+    assert.match(fixReview, /technical evaluation/i);
+  });
+
+  it('bundles every loopx execution skill referenced by plan handoffs', async () => {
+    const requiredExecutionSkills = [
+      'subagent-exec',
+      'exec',
+      'finish',
+      'review',
+      'fix-review',
+      'refactor-plan',
+    ];
+
+    for (const skillName of requiredExecutionSkills) {
+      assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, `${skillName} missing from bundled install list`);
+      assert.equal(existsSync(join(repoRoot, 'skills', skillName, 'SKILL.md')), true, `${skillName} root skill missing`);
+      assert.equal(existsSync(join(repoRoot, 'plugins', 'loopx', 'skills', skillName, 'SKILL.md')), true, `${skillName} plugin skill missing`);
+    }
+
+    const subagentDriven = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    for (const skillName of ['plan', 'review', 'finish', 'tdd', 'exec']) {
+      assert.match(subagentDriven, new RegExp(`loopx:${skillName}`), `subagent-exec must reference loopx:${skillName}`);
+      assert.doesNotMatch(subagentDriven, new RegExp(`superpowers:${skillName}`), `subagent-exec still references superpowers:${skillName}`);
+    }
+    assert.doesNotMatch(subagentDriven, /using-git-worktrees/);
+    assert.doesNotMatch(subagentDriven, /main\/master branch/);
+
+    const executingPlans = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    assert.doesNotMatch(executingPlans, /using-git-worktrees/);
+    assert.doesNotMatch(executingPlans, /main\/master branch/);
+
+    for (const relativePath of [
+      'implementer-prompt.md',
+      'spec-reviewer-prompt.md',
+      'code-quality-reviewer-prompt.md',
+    ]) {
+      assert.equal(
+        existsSync(join(repoRoot, 'skills', 'subagent-exec', relativePath)),
+        true,
+        `subagent-exec missing ${relativePath}`,
+      );
+      assert.equal(
+        existsSync(join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec', relativePath)),
+        true,
+        `plugin subagent-exec missing ${relativePath}`,
+      );
+    }
+
+    assert.equal(
+      existsSync(join(repoRoot, 'skills', 'review', 'code-reviewer.md')),
+      true,
+      'review/code-reviewer.md missing',
+    );
+    assert.equal(
+      existsSync(join(repoRoot, 'plugins', 'loopx', 'skills', 'review', 'code-reviewer.md')),
+      true,
+      'plugin review/code-reviewer.md missing',
+    );
   });
 });
