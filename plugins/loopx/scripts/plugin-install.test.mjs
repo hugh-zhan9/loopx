@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { verifyInstallState } from '../../../src/install-discovery.mjs';
+import { LOOPX_BUNDLED_SKILLS, verifyInstallState } from '../../../src/install-discovery.mjs';
 
 const execFileAsync = promisify(execFile);
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -17,15 +17,7 @@ const MANIFEST_PATH = join(PLUGIN_ROOT, '.codex-plugin', 'plugin.json');
 const INSTALL_SCRIPT = join(MODULE_DIR, 'plugin-install.mjs');
 const ROOT_SKILLS_DIR = join(REPO_ROOT, 'skills');
 const PLUGIN_SKILLS_DIR = join(PLUGIN_ROOT, 'skills');
-const RALPLAN_SKILL_PATH = join(ROOT_SKILLS_DIR, 'ralplan', 'SKILL.md');
-const LOOPX_SKILLS = [
-  'clarify',
-  'plan',
-  'build',
-  'review',
-  'archive',
-  'autopilot',
-];
+const LOOPX_SKILLS = LOOPX_BUNDLED_SKILLS;
 
 function loopxEnv(home) {
   return {
@@ -69,26 +61,30 @@ describe('loopx plugin shell', () => {
     }
   });
 
-  it('locks plan as the canonical consensus-first planning contract', async () => {
+  it('locks plan as the canonical implementation-planning contract', async () => {
     const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
     const pluginPlanSkill = await readFile(join(PLUGIN_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
-    const ralplanSkill = await readFile(RALPLAN_SKILL_PATH, 'utf8');
 
-    assert.match(planSkill, /consensus-first/i);
-    assert.match(planSkill, /Planner -> Architect -> Critic/);
-    assert.match(planSkill, /Critic verdict is `approve`/);
-    assert.match(planSkill, /Default planning is consensus-first/);
+    assert.match(planSkill, /Bite-Sized Task Granularity/);
+    assert.match(planSkill, /No Placeholders/);
+    assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.match(planSkill, /loopx:subagent-exec/);
+    assert.doesNotMatch(planSkill, /Planner -> Architect -> Critic/);
+    assert.doesNotMatch(planSkill, /consensus-first/i);
     assert.equal(pluginPlanSkill, planSkill);
-    assert.equal(ralplanSkill.includes('compatibility alias for `$plan`'), true);
-    assert.equal(ralplanSkill.includes('$plan --consensus'), false);
   });
 
-  it('locks clarify handoff to plan instead of direct implementation', async () => {
+  it('locks clarify to use the conditional spec or plan handoff gate', async () => {
     const clarifySkill = await readFile(join(ROOT_SKILLS_DIR, 'clarify', 'SKILL.md'), 'utf8');
     const pluginClarifySkill = await readFile(join(PLUGIN_SKILLS_DIR, 'clarify', 'SKILL.md'), 'utf8');
 
     assert.equal(pluginClarifySkill, clarifySkill);
-    assert.match(clarifySkill, /Recommended invocation: `\$plan <slug>`/);
+    assert.match(clarifySkill, /needs_spec/);
+    assert.match(clarifySkill, /direct_to_plan/);
+    assert.match(clarifySkill, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.doesNotMatch(clarifySkill, /Recommended invocation: `\$spec/);
+    assert.doesNotMatch(clarifySkill, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
     assert.doesNotMatch(clarifySkill, /hand off to `build` only/i);
     assert.doesNotMatch(clarifySkill, /direct execution/i);
     assert.doesNotMatch(clarifySkill, /direct implementation/i);
@@ -121,5 +117,9 @@ describe('loopx plugin shell', () => {
         true,
       );
     }
+
+    const installedSpecTemplate = await readFile(join(home, '.agents', 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+    const pluginSpecTemplate = await readFile(join(PLUGIN_SKILLS_DIR, 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+    assert.equal(installedSpecTemplate, pluginSpecTemplate);
   });
 });

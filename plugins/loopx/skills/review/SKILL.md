@@ -1,139 +1,106 @@
 ---
 name: review
-description: "Reviews a loopx build execution record for acceptance, code risks, evidence quality, and architecture smells. Not for doing implementation work or replanning."
-when_to_use: "review, code review, acceptance, go no-go, execution-record, architecture smell, build complete, 审查, 验收"
+description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements. Not for implementation, planning, or unresolved review scope."
+when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check"
 metadata:
   version: "0.1.10"
-argument-hint: "<execution-record path or workflow slug>"
 ---
 
-# loopx Review
+# Review
 
-## Purpose
+Dispatch a code reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
 
-Repo-local acceptance surface for loopx. Use it to evaluate the execution package from `build` and return an explicit go / no-go result.
+**Core principle:** Review early, review often.
 
-## Inputs
+## When to Request Review
 
-Preferred skill input:
+**Mandatory:**
+- After each task in subagent-exec
+- After completing major feature
+- Before merge to main
 
-- `.loopx/workflows/<slug>/execution-record.md`
+**Optional but valuable:**
+- When stuck (fresh perspective)
+- Before refactoring (baseline check)
+- After fixing complex bug
 
-Compatible skill / CLI input:
+## How to Request
 
-- `<slug>`
-
-When invoked with an execution record path, derive `<slug>` from the workflow directory and evaluate the matching active run.
-
-When present, use `.loopx/config.json` as supporting context for project-native verification commands, existing AI rule files, and existing spec sources. Do not treat those external or pre-existing sources as replacements for the loopx execution record and review artifact.
-
-## Expected Outputs
-
-- a review artifact tied to the run being evaluated
-- verdict and rationale
-- code review findings for the implementation diff, including file / line references when issues are found
-- architecture-smell findings from the internal review lane, focused on module depth, test seams, domain vocabulary, duplicated rules, and plan architecture alignment
-- rollback/fix guidance when execution is incomplete, unstable, or needs another iteration
-- an explicit `Next:` block with the exact next skill command when more work remains
-
-## User Notification Language
-
-The final user-facing review result must be written in Chinese.
-
-Use stable machine values only where they are commands, file paths, JSON/state fields, or exact verdict identifiers. The human-readable summary, rationale, findings, residual risks, rollback guidance, and next-step instruction must be Chinese.
-
-## Decision Boundary
-
-- Use this only after build has produced execution and verification evidence for a specific run.
-- Stop here if review evidence is incomplete. `review` remains an independent gate and does not auto-complete the workflow.
-- Review must include code review of the build-owned implementation diff. Do not limit review to artifact/schema checks.
-- Review should compare verification evidence against project-native commands recorded in `.loopx/config.json` when available, while still accepting stronger task-specific verification from the approved plan.
-- Review must include the architecture-smell lane as part of review evidence. This is not a new workflow stage and must not create extra user steps.
-- Review must compare the execution scope against the approved workflow scope. If `execution-record.md` declares non-empty `remaining_scope`, `completion_claim` other than `full`, or a mismatch between `planned_scope` and `implemented_scope`, review must return no-go and route to build or plan. A partial slice may be accepted as useful work, but it must not be approved as full workflow completion.
-- Review must compare implementation evidence against the original source requirements and `.loopx/workflows/<slug>/requirement-traceability.md`, not only against the generated plan. If the traceability matrix is missing, partial, or contradicted by code/tests, route to `review -> plan` or `review -> clarify` depending on whether the plan or requirements are wrong.
-- Code review findings should focus on real bugs, regressions, missing tests, broken contracts, security/data-integrity risks, and user-visible behavior gaps.
-- If code review finds blocking high or medium severity issues, return a no-go verdict and rollback guidance instead of approving completion.
-- If architecture-smell findings are only advisory, record them as warnings without blocking. Block only when module seams, testability, domain boundaries, duplicated rules, or plan architecture assumptions are materially wrong.
-- Route request-changes by problem type:
-  - implementation bugs, missing tests, small contract fixes: `review -> build`
-  - wrong plan, wrong architecture, unresolved execution inputs: `review -> plan`
-  - unclear product requirements or decision boundaries: `review -> clarify`
-- Do not route implementation-only fixes back to plan unless the plan itself is wrong.
-
-## Next Step Format
-
-Every no-go review result must end with a concrete next command block.
-
-For implementation fixes:
-
-Default implementation-fix handoff:
-
-```text
-Next:
-$build --from-review .loopx/workflows/<slug>/review-report.md
-```
-
-The review artifact is the direct rework contract for implementation fixes. `$build --from-review ...` must load the review findings first, while still using the approved PRD, test spec, previous `execution-record.md`, and workflow-local plan package as supporting context. Do not make the normal Codex-facing handoff require a separate bash `loopx approve ... --from review --to build` step.
-
-For CLI/runtime debugging only, the equivalent state transition is:
-
+**1. Get git SHAs:**
 ```bash
-loopx build --from-review .loopx/workflows/<slug>/review-report.md
+BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
+HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-For plan fixes:
+**2. Dispatch code reviewer subagent:**
 
-```text
-Next:
-loopx approve <slug> --from review --to plan
-$plan <slug>
+Use the platform's native subagent mechanism when available and fill template at `code-reviewer.md`.
+
+**Placeholders:**
+- `{DESCRIPTION}` - Brief summary of what you built
+- `{PLAN_OR_REQUIREMENTS}` - What it should do
+- `{BASE_SHA}` - Starting commit
+- `{HEAD_SHA}` - Ending commit
+
+**3. Act on feedback:**
+- Fix Critical issues immediately
+- Fix Important issues before proceeding
+- Note Minor issues for later
+- Push back if reviewer is wrong (with reasoning)
+
+## Example
+
+```
+[Just completed Task 2: Add verification function]
+
+You: Let me request code review before proceeding.
+
+BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')
+HEAD_SHA=$(git rev-parse HEAD)
+
+[Dispatch code reviewer subagent]
+  DESCRIPTION: Added verifyIndex() and repairIndex() with 4 issue types
+  PLAN_OR_REQUIREMENTS: Task 2 from docs/loopx/plans/deployment-plan.md
+  BASE_SHA: a7981ec
+  HEAD_SHA: 3df7661
+
+[Subagent returns]:
+  Strengths: Clean architecture, real tests
+  Issues:
+    Important: Missing progress indicators
+    Minor: Magic number (100) for reporting interval
+  Assessment: Ready to proceed
+
+You: [Fix progress indicators]
+[Continue to Task 3]
 ```
 
-For clarify fixes:
+## Integration with Workflows
 
-```text
-Next:
-loopx approve <slug> --from review --to clarify
-$clarify <slug>
-```
+**Subagent Exec:**
+- Review after EACH task
+- Catch issues before they compound
+- Fix before moving to next task
 
-For approval:
+**Exec:**
+- Review after each task or at natural checkpoints
+- Get feedback, apply, continue
 
-```text
-Next:
-$archive <slug>
-```
+**Ad-Hoc Development:**
+- Review before merge
+- Review when stuck
 
-`$archive` consumes the pending `review -> done` completion transition before syncing specs. Do not ask the user to run a separate `loopx approve <slug> --from review --to done` command in the normal Codex-facing flow.
+## Red Flags
 
-For CLI/runtime debugging only, the equivalent explicit sequence is:
+**Never:**
+- Skip review because "it's simple"
+- Ignore Critical issues
+- Proceed with unfixed Important issues
+- Argue with valid technical feedback
 
-```bash
-loopx approve <slug> --from review --to done
-loopx archive <slug>
-```
+**If reviewer wrong:**
+- Push back with technical reasoning
+- Show code/tests that prove it works
+- Request clarification
 
-This syncs the approved `.loopx/changes/active/<change-id>/spec-delta.md` into long-lived `.loopx/specs/` files and moves the change folder under `.loopx/changes/archive/<change-id>/`.
-
-## Support Skill Review Lenses
-
-Use loopx support skills as review lenses, not as implementation instructions:
-
-- `verify`: Evidence lens. Reject completion, passing, or review-ready claims that lack fresh command output and exit status.
-- `scope`: Completion lens. Reject full-completion claims when the execution record still declares remaining workflow scope or only a partial slice was implemented.
-- `tdd`: Behavior-change lens. Feature work and bug fixes should include failing-test or regression-test evidence unless the execution record explicitly explains why tests are not applicable.
-- `debug`: Failure-analysis lens. Fixes for bugs, test failures, build failures, and unexpected behavior should document root cause, not only symptoms or attempted patches.
-- `go-style`: Go diff lens. For `.go` changes, review happy-path structure, error handling, context usage, interface boundaries, naming, table tests, and `gofmt`/Go verification evidence.
-- `kratos`: Kratos diff lens. For Kratos/proto/service/biz/data/middleware/auth/config changes, review layer boundaries, generated-code flow, proto/package contracts, middleware/auth ordering, config compatibility, and project-native verification.
-
-These lenses can produce review findings when the execution package violates them. Do not run new build work from `review`; request rollback or changes instead.
-
-## Must Not Decide Automatically
-
-- final completion without an explicit approval step
-- re-running build work inside the review surface
-- editing code or rerunning build from inside review
-
-## Notes
-
-- Review consumes structured outputs from the active loopx run. It should reject thin or placeholder-only evidence.
+See template at: review/code-reviewer.md

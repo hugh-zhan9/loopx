@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
@@ -16,6 +16,8 @@ const markdownPaths = [
   'README.md',
   'README.zh-CN.md',
   'AGENTS.md',
+  'docs/loopx/design/loopx-skill-suite-v1-design.md',
+  'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
   'skills/RESOLVER.md',
 ];
 const personalPathPattern = /\/(?:Users|home)\/[A-Za-z0-9._-]+\//;
@@ -81,6 +83,22 @@ async function assertMarkdownStructure(relativePath) {
   assert.deepEqual(fenceStack, [], `${relativePath} has unclosed fenced block`);
 }
 
+async function recursiveFiles(root) {
+  const files = [];
+  async function walk(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (entry.isFile()) {
+        files.push(relative(root, path));
+      }
+    }
+  }
+  await walk(root);
+  return files.sort();
+}
+
 function assertContains(text, value, label) {
   assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
 }
@@ -89,6 +107,7 @@ async function assertPublicDocsAligned() {
   const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
   const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
   const commands = [
+    'loopx install-skills',
     'loopx init',
     'loopx clarify',
     'loopx approve',
@@ -131,6 +150,17 @@ async function assertSkill(skillName, resolverText) {
   assert.equal(pluginText, rootText, `${skillName} plugin mirror drifted`);
   assert.equal(personalPathPattern.test(rootText), false, `${skillName} contains a personal absolute path`);
 
+  const rootSkillDir = join(repoRoot, 'skills', skillName);
+  const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
+  const rootFiles = await recursiveFiles(rootSkillDir);
+  const pluginFiles = await recursiveFiles(pluginSkillDir);
+  assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted`);
+  for (const relativeFile of rootFiles) {
+    const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
+    const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
+    assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted`);
+  }
+
   const fields = parseFrontmatter(rootPath, rootText);
   assert.equal(fields.name, skillName, `${skillName} frontmatter name mismatch`);
   assert.equal(fields.version, packageJson.version, `${skillName} metadata.version must match package.json`);
@@ -147,6 +177,7 @@ async function assertSkill(skillName, resolverText) {
 
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
+assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
 
 for (const relativePath of markdownPaths) {
   await assertMarkdownStructure(relativePath);

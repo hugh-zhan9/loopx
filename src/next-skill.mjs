@@ -9,9 +9,7 @@ export function nextSkillCommand(state) {
     && state.clarify_non_goals_resolved === true
     && state.clarify_decision_boundaries_resolved === true
     && state.clarify_pressure_pass_complete === true
-    && typeof state.clarify_ambiguity_score === 'number'
-    && typeof state.clarify_target_ambiguity_threshold === 'number'
-    && state.clarify_ambiguity_score <= state.clarify_target_ambiguity_threshold) {
+  ) {
     return `$plan ${state.slug}`;
   }
   if (state.current_stage === 'done'
@@ -30,7 +28,7 @@ export function nextSkillCommand(state) {
     return null;
   }
   if (state.current_stage === 'plan' && Array.isArray(state.plan_blockers) && state.plan_blockers.length === 0) {
-    return `$build .loopx/plans/prd-${state.slug}.md`;
+    return `$build .loopx/plans/requirements-snapshot-${state.slug}.md`;
   }
   if (state.current_stage === 'build'
     && state.stage_status === 'awaiting-approval'

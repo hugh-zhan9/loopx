@@ -55,7 +55,7 @@ export function createRealAutopilotAdapter({ model } = {}) {
         'Required spec frontmatter updates:',
         '- unresolved_ambiguity_count: 0',
         '- current_round: at least 1',
-        '- ambiguity_score: <= target threshold',
+        '- ambiguity_score: 0',
         '- non_goals_resolved: true',
         '- decision_boundaries_resolved: true',
         '- pressure_pass_complete: true',

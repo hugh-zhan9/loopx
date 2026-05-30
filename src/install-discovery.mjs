@@ -16,24 +16,47 @@ const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(MODULE_DIR, '..');
 const LOOPX_SKILLS = [
   'clarify',
+  'spec',
   'plan',
-  'build',
+  'subagent-exec',
+  'exec',
   'review',
-  'autopilot',
-  'archive',
+  'fix-review',
+  'finish',
+  'refactor-plan',
   'debug',
   'tdd',
   'verify',
   'go-style',
   'kratos',
 ];
+const LOOPX_LEGACY_SKILLS = [
+  'build',
+  'autopilot',
+  'archive',
+  'writing-plans',
+  'executing-plans',
+  'subagent-driven-development',
+  'requesting-code-review',
+  'receiving-code-review',
+  'finishing-a-development-branch',
+  'request-refactor-plan',
+];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
   {
     name: 'codex-workflow-hook',
     kind: 'hook',
+    targets: ['codex'],
     sourceRelativePath: 'scripts/codex-workflow-hook.mjs',
     targetRelativePath: '.codex/hooks/codex-workflow-hook.mjs',
+  },
+  {
+    name: 'claude-workflow-hook',
+    kind: 'hook',
+    targets: ['claude'],
+    sourceRelativePath: 'scripts/claude-workflow-hook.mjs',
+    targetRelativePath: '.claude/hooks/loopx-workflow-hook.mjs',
   },
 ];
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
@@ -105,6 +128,16 @@ export function getInstalledSkillsRoot(env = process.env) {
   return resolve(env.LOOPX_SKILLS_ROOT || join(getAgentsRoot(env), 'skills'));
 }
 
+export function getClaudeSkillsRoot(env = process.env) {
+  const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+  return resolve(env.LOOPX_CLAUDE_SKILLS_ROOT || join(home, '.claude', 'skills'));
+}
+
+export function getClaudeSettingsPath(env = process.env) {
+  const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+  return resolve(env.LOOPX_CLAUDE_SETTINGS_PATH || join(home, '.claude', 'settings.json'));
+}
+
 export function getSkillLockPath(env = process.env) {
   return resolve(env.LOOPX_SKILL_LOCK_PATH || join(getAgentsRoot(env), '.skill-lock.json'));
 }
@@ -152,6 +185,10 @@ function installedManagedScriptPath(item, env = process.env) {
   return join(installTemplateRoot(env), item.targetRelativePath);
 }
 
+function managedScriptItemsForTarget(target) {
+  return LOOPX_MANAGED_SCRIPT_ITEMS.filter((item) => !Array.isArray(item.targets) || item.targets.includes(target || 'codex'));
+}
+
 async function fileHash(path) {
   const hash = createHash('sha1');
   const stat = await lstat(path);
@@ -194,6 +231,17 @@ async function writeSkillLock(data, env = process.env) {
   const path = getSkillLockPath(env);
   await ensureDir(dirname(path));
   await writeFile(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+async function readJsonFile(path, fallback) {
+  if (!existsSync(path)) {
+    return jsonClone(fallback);
+  }
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    return jsonClone(fallback);
+  }
 }
 
 async function removeInstalledSkill(path) {
@@ -365,6 +413,7 @@ function buildRegistryRow(record, env = process.env, options = {}) {
     installedAt: isoNow(),
     updatedAt: isoNow(),
     skillFolderHash: record.skillFolderHash,
+    target: options.target || 'codex',
     provenance: [
       {
         distributionChannel: options.distributionChannel,
@@ -401,6 +450,20 @@ async function removeStaleOwnedInstall(currentRow) {
     return;
   }
   await removeInstalledSkill(currentRow.installedPath);
+}
+
+async function pruneLegacyLoopxOwnedSkills(nextData, env = process.env) {
+  const pruned = [];
+  for (const skillName of LOOPX_LEGACY_SKILLS) {
+    const row = nextData.skills?.[skillName];
+    if (!isLoopxOwnedIdentity(skillName, row, env)) {
+      continue;
+    }
+    await removeStaleOwnedInstall(row);
+    delete nextData.skills[skillName];
+    pruned.push({ skillName, installedPath: row.installedPath });
+  }
+  return pruned;
 }
 
 async function removeInstalledFile(path) {
@@ -525,7 +588,7 @@ export async function inspectInstallState(env = process.env) {
   }
 
   const managedArtifacts = {};
-  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+  for (const item of managedScriptItemsForTarget(env.LOOPX_INSTALL_TARGET || 'codex')) {
     const targetPath = installedManagedScriptPath(item, env);
     const sourcePath = projectSourceEntry(item.sourceRelativePath, env);
     if (!existsSync(sourcePath)) {
@@ -578,7 +641,7 @@ export async function verifyInstallState(env = process.env) {
     }
   }
 
-  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+  for (const item of managedScriptItemsForTarget(env.LOOPX_INSTALL_TARGET || 'codex')) {
     const info = inspection.managedArtifacts?.[item.name];
     if (!info?.available) {
       continue;
@@ -604,6 +667,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const nextData = jsonClone(data);
   nextData.version = nextData.version || 3;
   nextData.skills = nextData.skills || {};
+  const pruned = await pruneLegacyLoopxOwnedSkills(nextData, env);
   const baselinePath = getTemplateBaselinePath(env);
   const existingBaseline = await readTemplateBaseline(baselinePath);
   const baselineItemsByPath = new Map((existingBaseline?.items || []).map((item) => [templateItemKey(item), item]));
@@ -650,7 +714,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
     installed.push(row);
   }
 
-  for (const item of LOOPX_MANAGED_SCRIPT_ITEMS) {
+  for (const item of managedScriptItemsForTarget(options.target || env.LOOPX_INSTALL_TARGET || 'codex')) {
     const { targetPath, sourcePath } = managedScriptTemplatePaths(item, env);
     if (!existsSync(sourcePath)) {
       continue;
@@ -702,6 +766,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
     installed,
     conflicts,
     skipped,
+    pruned,
     templateGovernance,
     inspection: await inspectInstallState(env),
   };
@@ -709,6 +774,145 @@ export async function installBundledSkills(env = process.env, options = {}) {
 
 export async function repairBundledSkills(env = process.env) {
   return installBundledSkills(env);
+}
+
+function codexInstallEnv(env = process.env) {
+  if (!env.LOOPX_INSTALL_CUSTOM_DIR) {
+    return {
+      ...env,
+      LOOPX_INSTALL_TARGET: 'codex',
+    };
+  }
+  const root = resolve(env.LOOPX_INSTALL_CUSTOM_DIR);
+  return {
+    ...env,
+    LOOPX_INSTALL_TARGET: 'codex',
+    LOOPX_SKILLS_ROOT: root,
+    LOOPX_SKILL_LOCK_PATH: join(dirname(root), '.loopx-skill-lock.json'),
+    LOOPX_TEMPLATE_BASELINE_PATH: join(dirname(root), '.loopx-template-hashes.json'),
+  };
+}
+
+function claudeInstallEnv(env = process.env, options = {}) {
+  const root = options.project === true
+    ? join(resolve(env.LOOPX_INSTALL_CWD || process.cwd()), '.claude', 'skills')
+    : getClaudeSkillsRoot(env);
+  return {
+    ...env,
+    LOOPX_INSTALL_TARGET: 'claude',
+    LOOPX_SKILLS_ROOT: options.dir || root,
+    LOOPX_SKILL_LOCK_PATH: options.lockPath || join(dirname(root), '.loopx-skill-lock.json'),
+    LOOPX_TEMPLATE_BASELINE_PATH: options.templateBaselinePath || join(dirname(root), '.loopx-template-hashes.json'),
+    LOOPX_DISTRIBUTION_CHANNEL: options.distributionChannel || 'claude',
+  };
+}
+
+async function mergeClaudeHookSettings(env = process.env, options = {}) {
+  const settingsPath = options.project === true
+    ? join(resolve(env.LOOPX_INSTALL_CWD || process.cwd()), '.claude', 'settings.json')
+    : getClaudeSettingsPath(env);
+  const hookPath = join(dirname(settingsPath), 'hooks', 'loopx-workflow-hook.mjs');
+  const settings = await readJsonFile(settingsPath, {});
+  const hooks = settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks)
+    ? settings.hooks
+    : {};
+  const promptHooks = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
+  const command = `node ${JSON.stringify(hookPath)}`;
+  const hasCommand = promptHooks.some((entry) => {
+    if (typeof entry === 'string') {
+      return entry === command;
+    }
+    return Array.isArray(entry?.hooks)
+      && entry.hooks.some((hook) => hook?.command === command);
+  });
+  const nextPromptHooks = hasCommand
+    ? promptHooks
+    : [
+        ...promptHooks,
+        {
+          matcher: '',
+          hooks: [
+            {
+              type: 'command',
+              command,
+            },
+          ],
+        },
+      ];
+  const nextSettings = {
+    ...settings,
+    hooks: {
+      ...hooks,
+      UserPromptSubmit: nextPromptHooks,
+    },
+  };
+  await ensureDir(dirname(settingsPath));
+  await writeFile(settingsPath, `${JSON.stringify(nextSettings, null, 2)}\n`);
+  return { settingsPath, hookPath, command };
+}
+
+export async function installSkillsForTargets(env = process.env, options = {}) {
+  const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
+    ? options.targets
+    : ['codex', 'claude'];
+  const results = {};
+  for (const target of requestedTargets) {
+    if (target === 'codex') {
+      const codexEnv = codexInstallEnv({
+        ...env,
+        LOOPX_INSTALL_CUSTOM_DIR: options.dir,
+      });
+      results.codex = await installBundledSkills(codexEnv, {
+        ...options,
+        dir: undefined,
+        target: 'codex',
+        distributionChannel: options.distributionChannel || env.LOOPX_DISTRIBUTION_CHANNEL || 'npm',
+      });
+      continue;
+    }
+    if (target === 'claude') {
+      const claudeEnv = claudeInstallEnv(env, options);
+      results.claude = await installBundledSkills(claudeEnv, {
+        ...options,
+        target: 'claude',
+        distributionChannel: options.distributionChannel || 'claude',
+      });
+      results.claudeHook = await mergeClaudeHookSettings(env, options);
+      continue;
+    }
+    throw new Error(`unknown_install_target:${target}`);
+  }
+  return {
+    ok: Object.values(results).every((result) => result?.ok !== false),
+    targets: requestedTargets,
+    results,
+  };
+}
+
+export async function verifyInstallTargets(env = process.env, options = {}) {
+  const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
+    ? options.targets
+    : ['codex', 'claude'];
+  const results = {};
+  for (const target of requestedTargets) {
+    if (target === 'codex') {
+      results.codex = await verifyInstallState(codexInstallEnv({
+        ...env,
+        LOOPX_INSTALL_CUSTOM_DIR: options.dir,
+      }));
+      continue;
+    }
+    if (target === 'claude') {
+      results.claude = await verifyInstallState(claudeInstallEnv(env, options));
+      continue;
+    }
+    throw new Error(`unknown_install_target:${target}`);
+  }
+  return {
+    ok: Object.values(results).every((result) => result?.ok !== false),
+    targets: requestedTargets,
+    results,
+  };
 }
 
 export const LOOPX_BUNDLED_SKILLS = LOOPX_SKILLS;

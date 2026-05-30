@@ -1,317 +1,173 @@
 ---
 name: plan
-description: "Creates a consensus-first loopx plan package with Planner, Architect, and Critic review from an approved spec. Not for unresolved requirements or direct implementation."
-when_to_use: "plan, planning, consensus planning, PRD, architecture plan, test plan, approved clarify spec, 规划, 方案, 架构评审"
+description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
+when_to_use: "plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
   version: "0.1.10"
-argument-hint: "[--interactive] [--deliberate] [--direct <spec-path>] <clarified task or spec path>"
+argument-hint: "[--direct <design-spec-path>] <design spec path or feature name>"
 ---
 
 # loopx Plan
 
-<Purpose>
-`plan` is loopx's canonical planning gate. It turns an approved clarify result or execution-ready spec into a reviewed plan package before build or autopilot starts.
+## Overview
 
-By default, `plan` includes the full consensus review loop formerly documented under `ralplan`: Planner -> Architect -> Critic. Planner creates the plan, Architect reviews it, Critic gates it, and the plan iterates until approved or the iteration cap is reached.
-</Purpose>
+Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, and how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
 
-<Use_When>
-- A clarify spec exists and needs a concrete execution package.
-- The user asks for `plan`, `ralplan`, consensus planning, PRD, test spec, implementation plan, or architecture review.
-- The request is clear enough to plan, but execution should not start before architecture and verification shape are reviewed.
-- The downstream path may be `build`, `autopilot`, or another execution lane, but still needs a stable plan artifact first.
-</Use_When>
+Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
-<Do_Not_Use_When>
-- Requirements are still vague enough that intent, non-goals, or decision boundaries are unresolved. Use `clarify` first.
-- The user explicitly asks to implement a concrete small change immediately and no planning gate is needed.
-- A current approved plan package already exists and the next action is execution.
-</Do_Not_Use_When>
+Use this skill after requirements are clear. The source may be:
 
-<Core_Principles>
-- Default planning is consensus-first, not lightweight-by-default.
-- Treat the clarify spec as source of truth; do not re-interview unless the spec is incomplete or contradictory.
-- Keep planning artifact-bound: produce PRD, architecture, development plan, and test plan outputs.
-- Preserve accepted intent as durable change artifacts: proposal, spec delta, design, tasks, and artifact dependency graph.
-- Separate planning approval from execution approval.
-- Treat human review as a first-class product surface: planning Markdown and HTML views must be readable enough for a reviewer to approve or reject without opening runtime state JSON.
-- Do not start implementation from `plan`.
-- Prefer a smaller executable plan over a broad plan that cannot be verified.
-- Preserve non-goals, decision boundaries, and residual-risk warnings from clarify.
-</Core_Principles>
+- `docs/loopx/design/<需求名>需求设计文档.md`
+- `.loopx/intake/clarify-<slug>-<timestamp>.md`
+- an issue, PRD, or requirements document that already fixes material decisions
 
-<Inputs>
-Accepted inputs:
+Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
 
-- an approved loopx clarify workflow slug
-- `.loopx/intake/clarify-*.md`
-- `.omx/specs/deep-interview-*.md`
-- a direct task description when enough context is already present
-- `--direct <spec-path>` to force a specific requirements artifact
+**Announce at start:** "I'm using the plan skill to create the implementation plan."
 
-If no requirements artifact is provided, derive a task slug and run pre-context intake before planning.
-</Inputs>
+**Save plans to:** `docs/loopx/plans/YYYY-MM-DD-<feature-name>.md`
 
-<Flags>
-- `--interactive`: ask the user at draft review and final approval boundaries.
-- `--deliberate`: force high-rigor planning. Add pre-mortem and expanded test planning.
-- `--direct <spec-path>`: use the given artifact as the planning source of truth.
+- User preferences for plan location override this default.
 
-`ralplan` is a compatibility alias for this default consensus behavior. It should not maintain a separate planning contract.
-</Flags>
+## Scope Check
 
-<Pre_Context_Intake>
-Before planning:
+If the design spec covers multiple independent subsystems, it should have been broken into sub-project specs before planning. If it wasn't, suggest breaking this into separate plans: one per subsystem. Each plan should produce working, testable software on its own.
 
-1. Derive a task slug.
-2. Reuse the latest relevant `.loopx/context/{slug}-*.md` snapshot when available.
-3. If none exists, create `.loopx/context/{slug}-{timestamp}.md` with:
-   - task statement
-   - desired outcome
-   - source requirements artifact
-   - known facts / evidence
-   - constraints
-   - non-goals
-   - decision boundaries
-   - unknowns / open questions
-   - likely codebase touchpoints
-4. For brownfield tasks, inspect relevant repo files before finalizing the plan.
-5. If ambiguity is still high, route back to `clarify` instead of inventing missing requirements.
-6. If planning depends on unfamiliar SDKs, external APIs, or version-sensitive framework behavior, use official documentation or a researcher lane before final approval.
-</Pre_Context_Intake>
+## File Structure
 
-<Consensus_Workflow>
-## Step 1. Planner Draft
+Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
-Planner creates the initial plan package and a compact RALPLAN-DR summary:
+- Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
+- Prefer smaller, focused files over large files that do too much.
+- Files that change together should live together. Split by responsibility, not by technical layer.
+- In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure. If a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
 
-- Principles: 3-5 guiding constraints
-- Decision Drivers: top 3 forces shaping the plan
-- Viable Options: at least 2 options with bounded pros / cons
-- Rejected Options: explicit invalidation when only one option remains viable
-- Plan Package:
-  - PRD / requirements translation
-  - architecture approach
-  - development plan
-  - test plan
-  - acceptance criteria
-  - risk register
+This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
-In `--deliberate` mode, also include:
+## Bite-Sized Task Granularity
 
-- pre-mortem with 3 plausible failure scenarios
-- expanded test plan covering unit, integration, e2e, and observability where applicable
+Each step is one action, normally 2-5 minutes:
 
-## Step 2. Draft User Review (`--interactive` only)
+- "Write the failing test" is a step.
+- "Run it to make sure it fails" is a step.
+- "Implement the minimal code to make the test pass" is a step.
+- "Run the tests and make sure they pass" is a step.
+- "Commit" is a step.
 
-If interactive mode is enabled, present the draft plus the DR summary and ask whether to:
+## Plan Document Header
 
-- proceed to Architect review
-- request changes
-- reject / stop
+Every plan must start with this header:
 
-Without `--interactive`, proceed automatically to Architect review.
+```markdown
+# [Feature Name] Implementation Plan
 
-## Step 3. Architect Review
+> **For agentic workers:** REQUIRED SUB-SKILL: Use loopx:subagent-exec (recommended) or loopx:exec to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Architect reviews the plan for soundness. This step must finish before Critic starts.
+**Source:** [Path to design, clarify bundle, issue, PRD, or requirements document]
 
-Architect must provide:
+**Goal:** [One sentence describing what this builds]
 
-- strongest steelman objection to the plan
-- at least one real tradeoff tension
-- architecture risks and mitigations
-- synthesis or recommended revision when the objection is valid
-- deliberate-mode principle-violation checks when applicable
+**Architecture:** [2-3 sentences summarizing the approved approach; do not introduce new design decisions]
 
-## Step 4. Critic Gate
+**Tech Stack:** [Key technologies/libraries]
 
-Critic runs only after Architect review completes.
-
-Critic evaluates:
-
-- principle-option consistency
-- fairness of alternatives
-- clarity of risk mitigation
-- testable acceptance criteria
-- concrete verification steps
-- execution-input completeness for each new or changed ingress / workflow entrypoint
-- explicit non-goals and decision boundaries
-- in deliberate mode: pre-mortem and expanded test plan quality
-
-Critic verdicts:
-
-- `APPROVE`
-- `ITERATE`
-- `REJECT`
-
-## Step 5. Closed Re-Review Loop
-
-If Critic returns `ITERATE` or `REJECT`, run a full closed loop:
-
-1. collect Architect + Critic feedback
-2. revise the plan with Planner
-3. return to Architect review
-4. return to Critic gate
-5. repeat until `APPROVE` or 5 iterations
-
-Do not patch only the Critic complaint in isolation if the Architect objection implies a deeper plan change.
-
-## Step 6. Final Plan Package
-
-On approval, write canonical planning artifacts:
-
-- `.loopx/workflows/<slug>/plan.md`
-- `.loopx/workflows/<slug>/architecture.md`
-- `.loopx/workflows/<slug>/development-plan.md`
-- `.loopx/workflows/<slug>/test-plan.md`
-- `.loopx/workflows/<slug>/requirement-traceability.md`
-- `.loopx/workflows/<slug>/plan-delegation-decision.md`
-- `.loopx/plans/prd-<slug>.md`
-- `.loopx/plans/test-spec-<slug>.md`
-- `.loopx/changes/active/<change-id>/proposal.md`
-- `.loopx/changes/active/<change-id>/spec-delta.md`
-- `.loopx/changes/active/<change-id>/design.md`
-- `.loopx/changes/active/<change-id>/tasks.md`
-- `.loopx/changes/active/<change-id>/slices.json`
-- `.loopx/changes/active/<change-id>/artifact-graph.json`
-
-Also generate derived HTML reading views:
-
-- `.loopx/workflows/<slug>/view/index.html`
-- `.loopx/workflows/<slug>/view/plan.html`
-- `.loopx/views/index.html`
-
-The HTML files are derived reading views for human plan review. They are not canonical fact sources; Markdown and JSON remain authoritative.
-
-The final plan must include:
-
-- Chinese reviewer-facing Markdown for `plan.md`, `architecture.md`, `development-plan.md`, `test-plan.md`, canonical PRD/test spec, traceability, and delegation decision; English prose is allowed only for code paths, API names, commands, enum values, and source terms
-- an HTML reading view that exposes stage status, human approval points, blockers, source coverage, and artifact summaries before the full Markdown bodies
-- a source-requirement coverage matrix that maps the original requirements/PRD to plan, architecture, slices, spec delta, and tests
-- a delegation decision with recommended mode `local|critic-only|parallel-review`, actual authorized mode, threshold, authorization source, score, triggers, and reason for whether subagent-style review is warranted
-- ADR: Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups
-- concrete implementation steps sized to the actual task
-- target long-lived spec domains and an OpenSpec-style requirements delta for archive
-- vertical slices sized as independently verifiable tracer bullets, not horizontal layer-only task groups
-- execution inputs mapped to concrete sources before build starts
-- available execution lanes and recommended lane
-- test and verification commands
-- residual risks and assumptions
-- explicit build/autopilot handoff guidance
-
-Reviewer-facing document contract:
-
-- `architecture.md` is the architecture document. It answers system boundaries and design tradeoffs, not implementation scheduling. It must include `文档定位`, `架构目标与非目标`, `上下文与系统边界`, `组件与职责`, `数据与状态模型`, `接口与集成契约`, `关键流程`, `质量属性与风险`, and `架构决策记录`.
-- `development-plan.md` is the development plan. It answers execution order, slices, dependencies, verification, manual gates, rollback, and done criteria, not architecture selection. It must include `文档定位`, `交付切片`, `实施顺序与依赖`, `需求到开发切片`, `文件级变更清单`, `验证计划`, `人工确认点`, `回滚/降级策略`, and `完成定义`.
-- `.loopx/changes/active/<change-id>/design.md` is the detailed design. It answers field/function/component-level implementation details and must include `文档定位`, `需求到设计映射`, `数据结构与字段`, `接口、函数与组件契约`, `状态机与流程细节`, `错误处理与边界条件`, `测试设计`, and `实现注意事项`.
-- If any of these documents only contains a short summary or layer names without source-requirement mapping and concrete contracts, plan handoff must stay blocked.
-
-## Step 7. Execution Bridge
-
-`plan` stops at an approved plan package.
-
-In `--interactive` mode, ask for the next lane:
-
-- approve for `build`
-- approve for `autopilot`
-- request plan changes
-- stop
-
-Without `--interactive`, report the approved plan and recommended next command, but do not launch execution.
-</Consensus_Workflow>
-
-<Final_Response_Contract>
-Default build handoff after an approved plan package:
-
-```text
-Next:
-$build .loopx/plans/prd-<slug>.md
+---
 ```
 
-Use the artifact-first PRD path because it pins build to the approved plan package. Do not emit `$build <slug>` as the primary handoff when `.loopx/plans/prd-<slug>.md` is known. If execution is not approved or plan gates remain blocked, state the blocker instead of emitting a build handoff.
+## Task Structure
 
-Also report the generated HTML reading entrypoint so the user can review the plan without running another command:
+````markdown
+### Task N: [Component Name]
+
+**Files:**
+- Create: `exact/path/to/file.py`
+- Modify: `exact/path/to/existing.py:123-145`
+- Test: `tests/exact/path/to/test.py`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+def test_specific_behavior():
+    result = function(input)
+    assert result == expected
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pytest tests/path/test.py::test_name -v`
+Expected: FAIL with "function not defined"
+
+- [ ] **Step 3: Write minimal implementation**
+
+```python
+def function(input):
+    return expected
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `pytest tests/path/test.py::test_name -v`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/path/test.py src/path/file.py
+git commit -m "feat: add specific feature"
+```
+````
+
+## No Placeholders
+
+Every step must contain the actual content an engineer needs. These are plan failures; never write them:
+
+- "TBD", "TODO", "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases"
+- "Write tests for the above" without actual test code
+- "Similar to Task N"; repeat the code because the engineer may be reading tasks out of order
+- Steps that describe what to do without showing how when code is required
+- References to types, functions, or methods not defined in any task
+
+## Remember
+
+- Exact file paths always
+- Complete code in every step when a step changes code
+- Exact commands with expected output
+- DRY, YAGNI, TDD, frequent commits
+- The approved design spec is binding; do not expand scope
+
+## Self-Review
+
+After writing the complete plan, look at the design spec with fresh eyes and check the plan against it. This is a checklist you run yourself, not a subagent dispatch.
+
+1. **Spec coverage:** Skim each section/requirement in the design spec. Can you point to a task that implements it? List any gaps.
+2. **Placeholder scan:** Search your plan for red flags from the "No Placeholders" section. Fix them.
+3. **Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks?
+4. **Design drift:** Did you introduce a new architecture, API, data model, or business behavior not present in the design spec? If yes, return to `spec`.
+
+If you find issues, fix them inline. If you find a design requirement with no task, add the task.
+
+## Execution Handoff
+
+After saving the plan, offer execution choice:
 
 ```text
-HTML:
-.loopx/workflows/<slug>/view/index.html
+Plan complete and saved to `docs/loopx/plans/<filename>.md`.
+
+Two execution options:
+
+1. Subagent-Driven (recommended) - dispatch a fresh subagent per task, review between tasks, fast iteration
+2. Inline Execution - execute tasks in this session using exec, batch execution with checkpoints
+
+Which approach?
 ```
-</Final_Response_Contract>
 
-<Runtime_State_Machine>
-`plan` must keep the planning gate machine-checkable. Runtime state should track:
+If Subagent-Driven is chosen:
 
-- `plan_current_iteration`: starts at `1`
-- `plan_max_iterations`: default `5`
-- `plan_consensus_mode`: `true` by default
-- `plan_deliberate_mode`: `true|false`
-- `plan_principles_resolved`: `true` after principles are explicit
-- `plan_options_reviewed`: `true` after alternatives are fairly compared
-- `plan_architect_review_status`: `not-started|complete|changes-requested`
-- `plan_critic_verdict`: `none|approve|iterate|reject`
-- `plan_package_status`: `missing|partial|complete`
-- `change_artifacts_status`: `missing|partial|complete|archived`
-- `spec_delta_status`: `missing|partial|complete`
-- `slice_artifacts_status`: `missing|partial|complete`
-- `plan_acceptance_criteria_testable`: `true|false`
-- `plan_verification_steps_resolved`: `true|false`
-- `plan_execution_inputs_resolved`: `true|false`
-- `source_requirements_status`: `complete|partial`
-- `requirement_traceability_path`: `.loopx/workflows/<slug>/requirement-traceability.md`
-- `plan_delegation_mode`: recommended `local|critic-only|parallel-review`
-- `plan_delegation_recommended_mode`: `local|critic-only|parallel-review`
-- `plan_delegation_actual_mode`: authorized actual `local|critic-only|parallel-review`
-- `plan_delegation_authorization_status`: `disabled|below-threshold|manual-required|auto-authorized`
-- `plan_delegation_decision_path`: `.loopx/workflows/<slug>/plan-delegation-decision.md`
-- `requested_transition`: remains explicit before build/autopilot
+- REQUIRED SUB-SKILL: Use `loopx:subagent-exec`
+- Fresh subagent per task plus two-stage review
 
-The plan gate is blocked until:
+If Inline Execution is chosen:
 
-- plan package artifacts exist
-- Planner, Architect, and Critic evidence artifacts exist
-- reviewer-facing planning docs and derived canonical PRD/test spec are Chinese-readable
-- change proposal, spec delta, design, tasks, vertical slices, and artifact graph exist
-- spec delta declares target domains and `## ADDED|MODIFIED|REMOVED|RENAMED Requirements` blocks
-- every ADDED or MODIFIED requirement uses `### Requirement:`, contains SHALL or MUST text, and includes at least one `#### Scenario:`
-- vertical slices contain at least one `AFK` or `HITL` end-to-end slice with acceptance criteria and verification signal
-- Architect review is complete
-- Critic verdict is `approve`
-- acceptance criteria are testable
-- verification steps are concrete
-- execution inputs are fully mapped to concrete sources
-- source requirements are covered by `requirement-traceability.md`; uncovered original PRD requirements block build handoff
-- delegation decision is recorded in `plan-delegation-decision.md`; absence of an explicit recommended/actual local/critic/parallel-review rationale and authorization source blocks build handoff
-- user approval exists for any execution transition
-</Runtime_State_Machine>
-
-<Must_Not_Decide_Automatically>
-- Do not skip Architect review.
-- Do not run Architect and Critic in parallel; Critic depends on Architect.
-- Do not launch build/autopilot without explicit approval.
-- Do not treat recommended subagent review as actual execution authorization. Actual subagent startup must be authorized by `.loopx/config.json` `agent_delegation.enabled=true`, `auto_start=true`, and a matching threshold.
-- Do not widen scope beyond clarify non-goals because a broader redesign seems cleaner.
-- Do not erase residual-risk warnings inherited from clarify.
-- Do not treat a plan as approved when Critic returns `ITERATE` or `REJECT`.
-</Must_Not_Decide_Automatically>
-
-<Output_Contract>
-Primary outputs:
-
-- approved plan package under `.loopx/workflows/<slug>/`
-- original source requirements and traceability matrix under `.loopx/workflows/<slug>/requirement-traceability.md`
-- delegation decision under `.loopx/workflows/<slug>/plan-delegation-decision.md`
-- canonical PRD and test spec under `.loopx/plans/`
-- change artifacts under `.loopx/changes/active/<change-id>/`
-- derived HTML reading views under `.loopx/workflows/<slug>/view/` and `.loopx/views/`
-- consensus review summary with Planner / Architect / Critic evidence
-- next-step recommendation
-
-Status output must clearly state:
-
-- current iteration
-- Architect review status
-- Critic verdict
-- missing plan gates, if any
-- whether execution is approved
-</Output_Contract>
+- REQUIRED SUB-SKILL: Use `loopx:exec`
+- Batch execution with checkpoints for review

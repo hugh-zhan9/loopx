@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, it } from 'node:test';
 
-import { installBundledSkills, verifyInstallState } from '../src/install-discovery.mjs';
+import { installBundledSkills, LOOPX_BUNDLED_SKILLS, verifyInstallState } from '../src/install-discovery.mjs';
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createRealBuildAdapter, createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { buildActivePath, evaluateBuildStopGate, readBuildActiveState, writeBuildActiveState } from '../src/build-stop-gate.mjs';
@@ -61,6 +61,14 @@ function parseFrontmatter(text) {
 }
 
 async function writeResolvedSpec(root, slug, overrides = {}) {
+  const defaultKeys = new Set([
+    'current_round',
+    'ambiguity_score',
+    'non_goals_resolved',
+    'decision_boundaries_resolved',
+    'pressure_pass_complete',
+    'unresolved_ambiguity_count',
+  ]);
   const meta = {
     current_round: 3,
     ambiguity_score: 0.1,
@@ -84,6 +92,9 @@ async function writeResolvedSpec(root, slug, overrides = {}) {
       `decision_boundaries_resolved: ${meta.decision_boundaries_resolved}`,
       `pressure_pass_complete: ${meta.pressure_pass_complete}`,
       `unresolved_ambiguity_count: ${meta.unresolved_ambiguity_count}`,
+      ...Object.entries(overrides)
+        .filter(([key]) => !defaultKeys.has(key))
+        .map(([key, value]) => `${key}: ${value}`),
       '---',
       '',
       `# loopx Spec: ${slug}`,
@@ -102,21 +113,41 @@ async function writeResolvedSpec(root, slug, overrides = {}) {
       '',
       '## Non-Goals',
       '',
-      '- Reintroduce team.',
+      '- Do not skip required loopx gates.',
       '',
       '## Decision Boundaries',
       '',
-      '- Human approval is required before stage promotion.',
+      '- Human approval is required before stage transitions.',
+      '',
+      '## Constraints',
+      '',
+      '- Preserve the existing repository contract.',
+      '',
+      '## Success Criteria',
+      '',
+      '- Source requirements are clear enough for planning.',
+      '- Non-goals and decision boundaries are explicit.',
       '',
       '## Execution Inputs',
       '',
       '- workflow slug: CLI argument provided by the operator',
       '- source spec path: resolved from the approved clarify artifact',
       '',
-      '## Success Criteria',
+      '## Assumptions Exposed',
       '',
-      '- Plan stage is unblocked.',
+      '- The workflow can proceed through plan before build.',
       '',
+      '## Brownfield Evidence vs Inference',
+      '',
+      '- Evidence: loopx workflow artifacts are the execution context.',
+      '',
+      '## Design Direction',
+      '',
+      '- Keep changes within the loopx stage contract.',
+      '',
+      '## Next Handoff Recommendation',
+      '',
+      '- default: `plan`',
     ].join('\n'),
   );
 }
@@ -240,12 +271,21 @@ describe('loopx skill-first workflow contract', () => {
     await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
     const after = await verifyInstallState(env);
     const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+    const claudeBaseline = JSON.parse(await readFile(join(home, '.claude', '.loopx-template-hashes.json'), 'utf8'));
 
     assert.equal(after.ok, true);
     assert.equal(baseline.schema_version, 1);
-    assert.equal(baseline.items.length, 21);
+    assert.equal(baseline.items.filter((item) => item.kind === 'skill').length, LOOPX_BUNDLED_SKILLS.length);
+    assert.equal(baseline.items.length, LOOPX_BUNDLED_SKILLS.length + 10);
     assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), true);
-    assert.equal(after.inspection.skills.archive.installedDirExists, true);
+    assert.equal(existsSync(join(home, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), true);
+    assert.equal(existsSync(join(home, '.claude', 'skills', 'subagent-exec', 'SKILL.md')), true);
+    assert.equal(existsSync(join(home, '.claude', 'settings.json')), true);
+    const claudeSettings = JSON.parse(await readFile(join(home, '.claude', 'settings.json'), 'utf8'));
+    assert.equal(Array.isArray(claudeSettings.hooks.UserPromptSubmit), true);
+    assert.equal(claudeSettings.hooks.Stop, undefined);
+    assert.equal(after.inspection.skills['subagent-exec'].installedDirExists, true);
+    assert.equal(after.inspection.skills.archive, undefined);
     assert.equal(after.inspection.skills.status, undefined);
     for (const [skillName, info] of Object.entries(after.inspection.skills)) {
       assert.equal(info.installedDirExists, true, skillName);
@@ -271,6 +311,11 @@ describe('loopx skill-first workflow contract', () => {
       baseline.items.some((item) => item.path === '.codex/hooks/codex-workflow-hook.mjs' && item.source_path.endsWith('/scripts/codex-workflow-hook.mjs')),
       true,
       'codex-workflow-hook-template-baseline',
+    );
+    assert.equal(
+      claudeBaseline.items.some((item) => item.path === '.claude/hooks/loopx-workflow-hook.mjs' && item.source_path.endsWith('/scripts/claude-workflow-hook.mjs')),
+      true,
+      'claude-workflow-hook-template-baseline',
     );
     assert.equal(
       baseline.items.some((item) => item.kind === 'plugin' && item.source_path.endsWith('/plugins/loopx/.codex-plugin/plugin.json')),
@@ -314,6 +359,76 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(hookRun.stdout, /implementation gate: blocked until plan is approved/);
   });
 
+  it('install-skills isolates codex and claude targets and honors custom directories', async () => {
+    const codexHome = await mkdtemp(join(tmpdir(), 'loopx-codex-target-'));
+    const codexCustomDir = join(codexHome, 'custom-codex-skills');
+    const codexEnv = loopxEnv(codexHome);
+    await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'codex', '--dir', codexCustomDir, '--yes'], {
+      cwd: repoRoot,
+      env: codexEnv,
+    });
+    assert.equal(existsSync(join(codexCustomDir, 'plan', 'SKILL.md')), true);
+    assert.equal(existsSync(join(codexHome, '.agents', 'skills', 'plan', 'SKILL.md')), false);
+    assert.equal(existsSync(join(codexHome, '.codex', 'hooks', 'codex-workflow-hook.mjs')), true);
+    assert.equal(existsSync(join(codexHome, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), false);
+
+    const claudeHome = await mkdtemp(join(tmpdir(), 'loopx-claude-target-'));
+    const claudeEnv = loopxEnv(claudeHome);
+    await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'claude', '--yes'], {
+      cwd: repoRoot,
+      env: claudeEnv,
+    });
+    assert.equal(existsSync(join(claudeHome, '.claude', 'skills', 'plan', 'SKILL.md')), true);
+    assert.equal(existsSync(join(claudeHome, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), true);
+    assert.equal(existsSync(join(claudeHome, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+    const claudeSettings = JSON.parse(await readFile(join(claudeHome, '.claude', 'settings.json'), 'utf8'));
+    assert.equal(Array.isArray(claudeSettings.hooks.UserPromptSubmit), true);
+    assert.equal(claudeSettings.hooks.Stop, undefined);
+  });
+
+  it('install prunes loopx-owned legacy skills without deleting foreign legacy skills', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-legacy-prune-'));
+    const env = loopxEnv(home);
+    const legacyOwnedDir = join(home, '.agents', 'skills', 'build');
+    const legacyForeignDir = join(home, '.agents', 'skills', 'archive');
+    await mkdir(legacyOwnedDir, { recursive: true });
+    await mkdir(legacyForeignDir, { recursive: true });
+    await writeFile(join(legacyOwnedDir, 'SKILL.md'), 'legacy build\n');
+    await writeFile(join(legacyForeignDir, 'SKILL.md'), 'foreign archive\n');
+    await mkdir(join(home, '.agents'), { recursive: true });
+    await writeFile(join(home, '.agents', '.skill-lock.json'), `${JSON.stringify({
+      version: 3,
+      skills: {
+        build: {
+          source: 'loopx',
+          sourceType: 'local',
+          installationIdentity: 'loopx',
+          sourceUrl: repoRoot,
+          skillPath: 'skills/build/SKILL.md',
+          installedPath: legacyOwnedDir,
+        },
+        archive: {
+          source: 'ForeignVendor',
+          sourceType: 'local',
+          installationIdentity: 'foreign',
+          sourceUrl: 'foreign',
+          skillPath: 'skills/archive/SKILL.md',
+          installedPath: legacyForeignDir,
+        },
+      },
+    }, null, 2)}\n`);
+
+    await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'codex', '--yes'], {
+      cwd: repoRoot,
+      env,
+    });
+    const lock = JSON.parse(await readFile(join(home, '.agents', '.skill-lock.json'), 'utf8'));
+    assert.equal(lock.skills.build, undefined);
+    assert.equal(existsSync(legacyOwnedDir), false);
+    assert.equal(lock.skills.archive.source, 'ForeignVendor');
+    assert.equal(existsSync(legacyForeignDir), true);
+  });
+
   it('repair-install upgrades pristine loopx skills and preserves user-modified skills', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-template-repair-home-'));
     const sourceRoot = join(home, 'registry', 'skills');
@@ -323,7 +438,7 @@ describe('loopx skill-first workflow contract', () => {
       LOOPX_PROJECT_ROOT: join(home, 'registry'),
     };
 
-    for (const skillName of ['clarify', 'plan', 'build', 'review', 'autopilot', 'archive', 'debug', 'tdd', 'verify', 'go-style', 'kratos']) {
+    for (const skillName of LOOPX_BUNDLED_SKILLS) {
       await mkdir(join(sourceRoot, skillName), { recursive: true });
       await writeFile(join(sourceRoot, skillName, 'SKILL.md'), `${skillName} v1\n`);
     }
@@ -668,7 +783,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(planned.root, 'development-plan.md')), true);
     assert.match(planned.state.spec_artifact_path, /\.loopx\/intake\/clarify-flow-\d{8}T\d{6}Z\.md$/);
     assert.equal(existsSync(planned.state.spec_artifact_path), true);
-    assert.equal(planned.state.plan_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'prd-flow.md'));
+    assert.equal(planned.state.plan_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'requirements-snapshot-flow.md'));
     assert.equal(planned.state.test_spec_artifact_path, join(resolveWorkspaceRoot(wd), 'plans', 'test-spec-flow.md'));
     assert.equal(existsSync(planned.state.plan_artifact_path), true);
     assert.equal(existsSync(planned.state.test_spec_artifact_path), true);
@@ -693,10 +808,9 @@ describe('loopx skill-first workflow contract', () => {
     const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
     assert.match(planHtml, /计划与架构/);
     assert.match(planHtml, /需求覆盖矩阵/);
-    assert.match(planHtml, /requirement-traceability\.md/);
-    assert.match(planHtml, /委派决策/);
-    assert.match(planHtml, /plan-delegation-decision\.md/);
-    assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
+    assert.doesNotMatch(planHtml, /href="[^"]+\.md"/);
+    assert.doesNotMatch(planHtml, /原始文件/);
+    assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构方案/);
     assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
     assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
 
@@ -1229,7 +1343,7 @@ describe('loopx skill-first workflow contract', () => {
 
     await assert.rejects(
       () => approveStage(wd, 'gated-flow', { from: 'clarify', to: 'plan' }),
-      /clarify_readiness_blocked:.*clarify_ambiguity_score_above_threshold.*clarify_non_goals_unresolved.*clarify_decision_boundaries_unresolved.*clarify_pressure_pass_incomplete/,
+      /clarify_readiness_blocked:.*clarify_non_goals_unresolved.*clarify_decision_boundaries_unresolved.*clarify_pressure_pass_incomplete/,
     );
 
     const state = await readState(wd, 'gated-flow');
@@ -1290,7 +1404,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(await readFile(join(planned.root, 'architecture.md'), 'utf8'), /架构文档/);
     assert.match(await readFile(join(planned.root, 'development-plan.md'), 'utf8'), /开发计划/);
     assert.match(await readFile(join(planned.root, 'test-plan.md'), 'utf8'), /测试计划/);
-    assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'prd-direct-spec.md')), true);
+    assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'requirements-snapshot-direct-spec.md')), true);
   });
 
   it('plan writes change delta artifacts and an artifact dependency graph', async () => {
@@ -1420,6 +1534,179 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal((deltaText.match(/### Requirement:/g) || []).length >= 4, true);
     assert.match(htmlText, /原始需求清单/);
     assert.match(htmlText, /需求到测试矩阵/);
+  });
+
+  it('includes linked product and prototype source documents in plan coverage', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-linked-source-plan-'));
+    const docsRoot = join(wd, 'docs');
+    await mkdir(docsRoot, { recursive: true });
+    const productDoc = join(docsRoot, 'product.md');
+    const prototypeDoc = join(docsRoot, 'prototype.md');
+    await writeFile(productDoc, [
+      '# 美股公司行动',
+      '',
+      '## 事件范围与处理模式',
+      '',
+      '| 事件类型 | 系统处理范围 | 人工确认 / 执行动作 | 是否自动改客户资产 |',
+      '|---|---|---|---|',
+      '| 分红派息 | 生成分红任务，识别多头 / 空头客户，生成应收 / 应付、税费和净额明细 | 运营 / 清算复核金额、币种、税费、客户明细和清算结果 | 不自动 |',
+      '| 期权退市 OCC | 生成 Liquidation、Contract Adjustment、Accelerated Expiration 监控任务 | 运营复核 OCC 字段、现金结算、到期日和交易限制 | 不自动 |',
+      '',
+      '## 正股退市联动期权监控与处理链路',
+      '',
+      '| 处理环节 | 处理要求 |',
+      '|---|---|',
+      '| 孤儿任务 | 若期权退市关联 OCC 事件先于正股退市任务进入平台，先生成未关联期权任务，并持续等待补偿匹配 |',
+    ].join('\n'));
+    await writeFile(prototypeDoc, [
+      '# 美股公司行动任务管理平台原型图具体说明',
+      '',
+      '## 原型范围',
+      '',
+      '| 页面 | 对应事件 | 页面定位 |',
+      '|---|---|---|',
+      '| 公司行动总览 | 全部公司行动任务 | 汇总待处理、异常、超时和未来生效任务 |',
+      '| 事件异常处理 | 全部公司行动任务产生的异常和差异 | 集中处理金额、数量、税费、客户范围、合约映射、订单、下游回写和确认超时异常 |',
+      '',
+      '## 明细跟随选中任务刷新',
+      '',
+      '| 当前选中任务 | 客户明细展示 | 期权调整展示 |',
+      '|---|---|---|',
+      '| AAPL 特殊分红 | 仅展示 AAPL 分红影响客户、主体税费分摊和净额 | 展示 AAPL 对应 OCC Memo 和受影响期权合约 |',
+    ].join('\n'));
+
+    const clarified = await clarifyStage(wd, 'linked-source-plan');
+    await writeResolvedSpec(clarified.root, 'linked-source-plan', {
+      source_product_doc: productDoc,
+      source_prototype_doc: prototypeDoc,
+    });
+    await approveStage(wd, 'linked-source-plan', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'linked-source-plan', { adapter: createScriptedPlanAdapter() });
+
+    const traceabilityText = await readFile(planned.state.requirement_traceability_path, 'utf8');
+    const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
+
+    assert.equal(planned.state.stage_status, 'awaiting-approval');
+    assert.equal(planned.state.source_requirements_item_count >= 7, true);
+    assert.match(traceabilityText, /分红派息/);
+    assert.match(traceabilityText, /期权退市 OCC/);
+    assert.match(traceabilityText, /孤儿任务/);
+    assert.match(traceabilityText, /事件异常处理/);
+    assert.match(planHtml, /期权退市 OCC/);
+    assert.match(planHtml, /事件异常处理/);
+  });
+
+  it('compacts linked prototype HTML before planning source coverage', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-linked-html-plan-'));
+    const docsRoot = join(wd, 'docs');
+    await mkdir(docsRoot, { recursive: true });
+    const prototypeHtml = join(docsRoot, 'prototype.html');
+    await writeFile(prototypeHtml, [
+      '<!doctype html><html><body>',
+      '<h1>美股公司行动任务管理平台原型</h1>',
+      '<section><h2>事件异常处理</h2>',
+      '<table><tr><th>异常类型</th><th>处理动作</th></tr>',
+      '<tr><td>金额差异</td><td>人工复核后按确认值重算</td></tr>',
+      '<tr><td>期权退市 OCC 合约映射差异</td><td>人工确认 OCC Memo、underlying_security_id 和 adjustment_type</td></tr>',
+      '</table></section>',
+      '<section><h2>大量展示样例</h2>',
+      Array.from({ length: 600 }, (_, index) => `<div class="row"><span>${index}</span><span>装饰性原型文本 ${index}</span><button>确认</button></div>`).join('\n'),
+      '</section>',
+      '</body></html>',
+    ].join('\n'));
+
+    const clarified = await clarifyStage(wd, 'linked-html-plan');
+    await writeResolvedSpec(clarified.root, 'linked-html-plan', {
+      source_prototype_html: prototypeHtml,
+    });
+    await approveStage(wd, 'linked-html-plan', { from: 'clarify', to: 'plan' });
+    const planned = await planStage(wd, 'linked-html-plan', { adapter: createScriptedPlanAdapter() });
+
+    const traceabilityText = await readFile(planned.state.requirement_traceability_path, 'utf8');
+
+    assert.equal(planned.state.stage_status, 'awaiting-approval');
+    assert.equal(planned.state.plan_source_document_paths.includes(prototypeHtml), true);
+    assert.equal(planned.state.source_requirements_item_count >= 3, true);
+    assert.match(traceabilityText, /事件异常处理/);
+    assert.match(traceabilityText, /期权退市 OCC 合约映射差异/);
+    assert.doesNotMatch(traceabilityText, /装饰性原型文本 599/);
+  });
+
+  it('renders review HTML for legacy-like plan packages instead of leaving stale simple pages', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-render-legacy-plan-'));
+    await initWorkspace(wd);
+    const workspaceRoot = resolveWorkspaceRoot(wd);
+    const root = join(workspaceRoot, 'workflows', 'legacy-like-plan');
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, 'state.json'), JSON.stringify({
+      slug: 'legacy-like-plan',
+      plan_package_status: 'complete',
+      plan_critic_verdict: 'approve',
+      requested_transition: 'none',
+    }, null, 2));
+    await writeFile(join(root, 'plan.md'), '# 计划\n\n## 原始需求清单\n\n1. 事件异常处理必须可审阅。\n');
+    await writeFile(join(root, 'architecture.md'), '# 架构\n\n## 文档定位\n\n架构边界。\n');
+    await writeFile(join(root, 'development-plan.md'), '# 开发计划\n\n## 交付切片\n\n- Slice 1。\n');
+    await writeFile(join(root, 'test-plan.md'), '# 测试计划\n\n## 需求到测试矩阵\n\n- 验证。\n');
+    await writeFile(join(root, 'requirement-traceability.md'), '# 需求覆盖矩阵\n\n| 原始需求项 | 覆盖状态 |\n|---|---|\n| 事件异常处理 | 已覆盖 |\n');
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'render', 'legacy-like-plan'], { cwd: wd });
+    const payload = JSON.parse(stdout);
+    const workflowHtml = await readFile(join(root, 'view', 'index.html'), 'utf8');
+    const planHtml = await readFile(join(root, 'view', 'plan.html'), 'utf8');
+
+    assert.equal(payload.ok, true);
+    assert.match(workflowHtml, /方案阅读目录/);
+    assert.match(planHtml, /计划与架构/);
+    assert.match(planHtml, /事件异常处理/);
+    assert.match(planHtml, /review-nav/);
+  });
+
+  it('direct spec planning upgrades old schema workflow state before replanning', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-direct-plan-legacy-'));
+    await initWorkspace(wd);
+    const workspaceRoot = resolveWorkspaceRoot(wd);
+    const root = join(workspaceRoot, 'workflows', 'direct-legacy-plan');
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, 'state.json'), JSON.stringify({
+      slug: 'direct-legacy-plan',
+      plan_package_status: 'complete',
+      plan_critic_verdict: 'approve',
+      requested_transition: 'none',
+    }, null, 2));
+    const specPath = join(wd, 'clarify-direct-legacy-plan.md');
+    await writeFile(specPath, [
+      '---',
+      'schema_version: 1',
+      'workflow_id: direct-legacy-plan',
+      'stage: clarify',
+      'approval_status: requested',
+      'current_round: 3',
+      'ambiguity_score: 0.1',
+      'non_goals_resolved: true',
+      'decision_boundaries_resolved: true',
+      'pressure_pass_complete: true',
+      'unresolved_ambiguity_count: 0',
+      '---',
+      '',
+      '# Clarify Spec',
+      '',
+      '## Functional Requirements',
+      '',
+      '- 事件异常处理必须保留人工确认点。',
+    ].join('\n'));
+
+    const planned = await planStage(wd, 'direct-legacy-plan', {
+      directSpecPath: specPath,
+      adapter: createScriptedPlanAdapter(),
+    });
+    const status = await statusSummary(wd, 'direct-legacy-plan');
+    const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
+
+    assert.equal(planned.state.schema_version, 1);
+    assert.equal(status.legacy, false);
+    assert.equal(['awaiting-approval', 'blocked'].includes(planned.state.stage_status), true);
+    assert.match(planHtml, /事件异常处理必须保留人工确认点/);
   });
 
   it('connects domain context and vertical slices through plan, build, and review', async () => {
@@ -2388,7 +2675,14 @@ describe('loopx skill-first workflow contract', () => {
       fakeCodex,
       [
         '#!/usr/bin/env node',
-        "import { writeFileSync } from 'node:fs';",
+        "import { existsSync, readFileSync, writeFileSync } from 'node:fs';",
+        'let stdin = \'\';',
+        'for await (const chunk of process.stdin) stdin += chunk;',
+        'if (process.env.LOOPX_FAKE_CODEX_RECORD) {',
+        '  const previous = existsSync(process.env.LOOPX_FAKE_CODEX_RECORD) ? JSON.parse(readFileSync(process.env.LOOPX_FAKE_CODEX_RECORD, \'utf8\')) : [];',
+        '  previous.push({ argv: process.argv, stdin });',
+        '  writeFileSync(process.env.LOOPX_FAKE_CODEX_RECORD, JSON.stringify(previous));',
+        '}',
         'const outputPath = process.argv[process.argv.indexOf(\'-o\') + 1];',
         'let payload;',
         "if (outputPath.includes('planner-iteration')) {",
@@ -2415,20 +2709,27 @@ describe('loopx skill-first workflow contract', () => {
       ].join('\n'),
     );
     await chmod(fakeCodex, 0o755);
+    const codexRecord = join(wd, 'fake-codex-record.json');
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'plan', 'cli-rerun-flow'], {
       cwd: wd,
       env: {
         ...process.env,
         LOOPX_CODEX_BIN: fakeCodex,
+        LOOPX_FAKE_CODEX_RECORD: codexRecord,
+        LOOPX_PLAN_CODEX_TIMEOUT_MS: '300000',
       },
     });
     const payload = JSON.parse(stdout);
+    const records = JSON.parse(await readFile(codexRecord, 'utf8'));
+    const plannerRecord = records.find((record) => /planner-iteration/.test(record.argv.join(' ')));
 
     assert.equal(payload.ok, true);
     assert.equal(payload.state.stage_status, 'awaiting-approval');
     assert.equal(payload.state.plan_current_iteration, 1);
     assert.equal(payload.state.plan_critic_verdict, 'approve');
+    assert.match(plannerRecord.stdin, /real loopx plan runtime/);
+    assert.equal(plannerRecord.argv.some((arg) => /real loopx plan runtime/.test(arg)), false);
   });
 
   it('does not rerun an approved plan that is only waiting for build approval', async () => {
@@ -2771,7 +3072,7 @@ describe('loopx skill-first workflow contract', () => {
       slug: 'real-build',
       iteration: 1,
       noDeslop: false,
-      planArtifactPath: '.loopx/plans/prd-real-build.md',
+      planArtifactPath: '.loopx/plans/requirements-snapshot-real-build.md',
       testSpecArtifactPath: '.loopx/plans/test-spec-real-build.md',
     });
 
@@ -2861,7 +3162,7 @@ describe('loopx skill-first workflow contract', () => {
       slug: 'real-build-deslop-files',
       iteration: 1,
       noDeslop: false,
-      planArtifactPath: '.loopx/plans/prd-real-build-deslop-files.md',
+      planArtifactPath: '.loopx/plans/requirements-snapshot-real-build-deslop-files.md',
       testSpecArtifactPath: '.loopx/plans/test-spec-real-build-deslop-files.md',
     });
 
@@ -3293,8 +3594,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.command, 'approve');
     assert.equal(payload.state.current_stage, 'plan');
     assert.equal(payload.state.requested_transition, 'plan->build');
-    assert.equal(payload.next_skill_command, '$build .loopx/plans/prd-plan-cli-next.md');
-    assert.equal(payload.next_skill_hint, 'Next: $build .loopx/plans/prd-plan-cli-next.md');
+    assert.equal(payload.next_skill_command, '$build .loopx/plans/requirements-snapshot-plan-cli-next.md');
+    assert.equal(payload.next_skill_hint, 'Next: $build .loopx/plans/requirements-snapshot-plan-cli-next.md');
   });
 
   it('CLI payload adds the next skill command for a completed build', async () => {
@@ -3417,23 +3718,23 @@ describe('loopx skill-first workflow contract', () => {
 
     const workflowHtml = await readFile(workflowViewPath, 'utf8');
     assert.match(workflowHtml, /<!doctype html>/i);
-    assert.match(workflowHtml, /工作流/);
-    assert.match(workflowHtml, /html-render/);
-    assert.match(workflowHtml, /下一步/);
-    assert.match(workflowHtml, /href="\.\.\/plan\.md"/);
-    assert.match(workflowHtml, /readiness/);
-    assert.match(workflowHtml, /需求覆盖/);
-    assert.match(workflowHtml, /人工确认点/);
-    assert.match(workflowHtml, /关键产物审阅清单/);
-    assert.match(workflowHtml, /中文/);
+    assert.match(workflowHtml, /技术方案总览/);
+    assert.match(workflowHtml, /方案阅读目录/);
+    assert.doesNotMatch(workflowHtml, /工作流/);
+    assert.doesNotMatch(workflowHtml, /下一步/);
+    assert.doesNotMatch(workflowHtml, /href="\.\.\/plan\.md"/);
+    assert.doesNotMatch(workflowHtml, /readiness/);
+    assert.doesNotMatch(workflowHtml, /原始文件/);
+    assert.doesNotMatch(workflowHtml, /Markdown/);
     const planHtml = await readFile(join(planned.root, 'view', 'plan.html'), 'utf8');
     assert.match(planHtml, /需求覆盖矩阵/);
-    assert.match(planHtml, /委派决策/);
-    assert.match(planHtml, /这是人工审阅入口/);
+    assert.doesNotMatch(planHtml, /委派决策/);
+    assert.match(planHtml, /本页汇总/);
     assert.match(planHtml, /review-nav/);
-    assert.match(planHtml, /hero-grid/);
     assert.match(planHtml, /<table>/);
     assert.match(planHtml, /原始需求项/);
+    assert.doesNotMatch(planHtml, /原始文件/);
+    assert.doesNotMatch(planHtml, /href="[^"]+\.md"/);
     const changeHtml = await readFile(join(planned.root, 'view', 'change.html'), 'utf8');
     assert.match(changeHtml, /变更设计方案/);
     assert.match(changeHtml, /设计方案/);
@@ -3443,8 +3744,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(changeHtml, /任务拆解详解/);
 
     const workspaceHtml = await readFile(workspaceViewPath, 'utf8');
-    assert.match(workspaceHtml, /loopx 工作台/);
-    assert.match(workspaceHtml, /html-render/);
+    assert.match(workspaceHtml, /方案阅读入口/);
+    assert.doesNotMatch(workspaceHtml, /loopx/i);
     assert.match(workspaceHtml, /href="\.\.\/workflows\/html-render\/view\/index\.html"/);
   });
 
@@ -3469,7 +3770,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(run.currentPhase, 'complete');
     assert.equal(run.completed, true);
     assert.equal(run.reviewedRunId, 'auto-flow-build-run-1');
-    assert.equal(run.artifacts.planPath, join(resolveWorkspaceRoot(wd), 'plans', 'prd-auto-flow.md'));
+    assert.equal(run.artifacts.planPath, join(resolveWorkspaceRoot(wd), 'plans', 'requirements-snapshot-auto-flow.md'));
     assert.equal(run.artifacts.testSpecPath, join(resolveWorkspaceRoot(wd), 'plans', 'test-spec-auto-flow.md'));
     assert.equal(result.runPath, join(resolveWorkspaceRoot(wd), 'autopilot', 'auto-flow', 'run.json'));
   });
