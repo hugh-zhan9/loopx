@@ -12,7 +12,7 @@ metadata:
 
 `go-style` is a lightweight Go coding discipline skill. It should guide edits to `.go` files without overriding the repository's established conventions.
 
-Use it as a support skill from `build` when Go files are created or modified, and directly when the user asks for Go style, idiomatic Go, or Go code cleanup.
+Use it as a support skill from `subagent-exec` or `exec` when Go files are created or modified, and directly when the user asks for Go style, idiomatic Go, or Go code cleanup.
 
 ## Core Rules
 

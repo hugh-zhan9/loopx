@@ -6,7 +6,7 @@ loopx is moving from a CLI-runtime-first workflow into a skill-first suite for a
 
 ## Decision
 
-The v1 product surface is a bundled skill suite:
+The v1 product surface is the installed and governed bundled skill suite:
 
 - `clarify`
 - `spec`
@@ -23,7 +23,9 @@ The v1 product surface is a bundled skill suite:
 - `go-style`
 - `kratos`
 
-Legacy runtime skills are not bundled as Codex or Claude skills in v1. Legacy CLI commands may remain for compatibility.
+Legacy runtime skills are not installed as Codex or Claude skills in v1. Legacy CLI commands may remain for compatibility.
+
+The repository may retain auxiliary or compatibility skill source directories for development history or adjacent workflows. They are not part of the v1 product surface unless they are listed in the bundled install set and mirrored into the plugin skill set.
 
 ## Workflow
 
@@ -41,14 +43,14 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 
 ## Artifacts
 
-Human-maintained artifacts use `docs/loopx/`:
+Human-maintained v1 skill-suite artifacts use `docs/loopx/`:
 
 - `docs/loopx/design/`
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
 
-Runtime state, hook diagnostics, installer metadata, and legacy workflows use `.loopx/`.
+Legacy CLI runtime working documents may use `.loopx/workflows/<slug>/`, `.loopx/changes/`, and `.loopx/specs/`. Runtime state, hook diagnostics, installer metadata, manifests, generated HTML views, and runtime JSON also use `.loopx/`.
 
 ## Installer
 
@@ -67,7 +69,7 @@ The Claude hook is advisory only. It must not block tools, mutate workflow state
 
 ## Non-Goals
 
-- No alias skills for renamed superpowers skills.
+- No alias skills in the v1 bundled install surface for renamed superpowers skills.
 - No automatic project-level `.claude/skills` writes in postinstall.
 - No new mandatory CLI state machine for the v1 skill suite.
 - No blocking Claude hook in v1.

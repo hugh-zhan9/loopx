@@ -10,7 +10,7 @@
 
 [中文文档](./README.zh-CN.md)
 
-`loopx` bundles a pragmatic set of skills for Codex and Claude-style coding agents. It combines grill-me style clarification with superpowers-style planning, execution, review, and finishing workflows.
+`loopx` installs a pragmatic v1 skill suite for Codex and Claude-style coding agents. It combines grill-me style clarification with superpowers-style planning, execution, review, and finishing workflows.
 
 Recommended v1 flow:
 
@@ -21,6 +21,8 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 `spec` is conditional. Use it when API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. Skip it when the remaining work is local implementation choice.
 
 ## Skills
+
+The installed and governed v1 skill surface is the list below. The repository may keep auxiliary or compatibility skill sources under `skills/`, but they are not installed by `loopx install-skills` unless they are in the bundled v1 set.
 
 Core workflow skills:
 
@@ -44,14 +46,16 @@ Support skills:
 
 ## Artifacts
 
-Human-maintained artifacts live under `docs/loopx/`:
+For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loopx/`:
 
 - `docs/loopx/design/`
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
 
-`.loopx/` is for local support state, hook diagnostics, installer metadata, and legacy runtime workflows.
+Legacy CLI runtime commands may also create user-facing working documents under `.loopx/workflows/<slug>/`, `.loopx/changes/`, and `.loopx/specs/`. Those files are compatibility artifacts for the legacy runtime, not the primary v1 skill-suite document surface.
+
+Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
 ## Installation
 
@@ -94,13 +98,14 @@ Plugin install script:
 node plugins/loopx/scripts/plugin-install.mjs
 ```
 
-The plugin mirrors the canonical `skills/` directory and uses the same install/discovery core.
+The plugin mirrors the canonical bundled v1 skills from `skills/` and uses the same install/discovery core.
 
 ## CLI
 
 The CLI supports installation, diagnostics, rendering, and legacy runtime compatibility:
 
 ```bash
+loopx --version
 loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]
 loopx clarify <slug> [--standard|--deep]
@@ -135,4 +140,4 @@ Run deterministic governance checks before release or when changing bundled skil
 node scripts/verify-skills.mjs
 ```
 
-The verifier checks bundled skill frontmatter, plugin mirrors, resolver coverage, local references, package inclusion, version alignment, and public docs.
+The verifier checks the bundled v1 skill frontmatter, plugin mirrors, resolver coverage, local references, package inclusion, version alignment, and public docs. It intentionally verifies the installed v1 skill set, not every auxiliary source directory that may exist under `skills/`.

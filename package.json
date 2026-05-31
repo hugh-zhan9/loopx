@@ -32,7 +32,8 @@
     "src/",
     "skills/",
     "templates/",
-    "plugins/loopx/"
+    "plugins/loopx/",
+    "!plugins/loopx/scripts/plugin-install.test.mjs"
   ],
   "publishConfig": {
     "access": "public"

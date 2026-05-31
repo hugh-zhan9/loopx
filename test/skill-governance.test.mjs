@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { promisify } from 'node:util';
 
 import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
 
+const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
 const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
@@ -146,6 +149,19 @@ describe('loopx skill governance', () => {
       assert.match(readme, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.md`);
       assert.match(readmeZh, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.zh-CN.md`);
     }
+  });
+
+  it('keeps deprecated local skills and plugin tests out of the npm package', async () => {
+    const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], { cwd: repoRoot });
+    const [pack] = JSON.parse(stdout);
+    const paths = pack.files.map((file) => file.path);
+
+    assert.equal(paths.some((path) => path.startsWith('skills/ralph/')), false);
+    assert.equal(paths.some((path) => path.startsWith('skills/ralplan/')), false);
+    assert.equal(paths.some((path) => path.startsWith('skills/deep-interview/')), false);
+    assert.equal(paths.some((path) => path.startsWith('skills/ai-slop-cleaner/')), false);
+    assert.equal(paths.some((path) => path.startsWith('skills/autoresearch/')), false);
+    assert.equal(paths.includes('plugins/loopx/scripts/plugin-install.test.mjs'), false);
   });
 
   it('keeps workflow skill handoff commands unambiguous', async () => {

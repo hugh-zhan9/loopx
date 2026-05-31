@@ -296,7 +296,7 @@ function compactPlanningText(text, { html = false } = {}) {
       || trimmed.startsWith('|')
       || /^[-*]\s+/.test(trimmed)
       || /^\d+[.)]\s+/.test(trimmed)
-      || /MUST|SHALL|必须|不得|不能|不自动|人工|确认|复核|执行|下发|任务|字段|状态|流程|规则|范围|来源|验收|示例|异常|差异|OCC|security_id|corporate_action_event_id|mock|API|接口|持久化|页面|明细|日志|权限/i.test(trimmed);
+      || /MUST|SHALL|必须|不得|不能|不自动|人工|确认|复核|执行|下发|任务|字段|状态|流程|规则|范围|来源|验收|示例|异常|差异|mock|API|接口|持久化|页面|明细|日志|权限/i.test(trimmed);
   };
 
   for (const line of source.split('\n')) {
@@ -854,8 +854,8 @@ function markdownTableCoverageItems(sourceText) {
       continue;
     }
     if (
-      /事件|字段|处理模式|标准化|范围|任务|确认|下发|source|event|field|coverage|requirement/i.test(currentHeading)
-      || cells.some((cell) => /SHALL|MUST|Reuters|OCC|manual_|raw_snapshot|event_|处理|确认|下发|不自动/i.test(cell))
+      /事件|字段|处理模式|标准化|范围|任务|确认|复核|审批|审计|权限|资源|下发|source|event|field|coverage|requirement/i.test(currentHeading)
+      || cells.some((cell) => /SHALL|MUST|manual_|raw_snapshot|event_|处理|确认|复核|审批|补偿|回滚|下发|不自动/i.test(cell))
     ) {
       items.push(first);
     }
@@ -872,7 +872,7 @@ function requirementHeadingCoverageItems(sourceText) {
 function relevantHeadingCoverageItems(sourceText) {
   return [...String(sourceText || '').matchAll(/^#{2,4}\s+(.+?)\s*$/gm)]
     .map((match) => match[1].replace(/`/g, '').trim())
-    .filter((title) => /需求|范围|验收|页面|任务|事件|流程|规则|字段|接口|架构|设计|计划|处理|异常|差异|OCC|mock/i.test(title))
+    .filter((title) => /需求|范围|验收|页面|任务|事件|流程|规则|字段|接口|架构|设计|计划|处理|异常|差异|复核|审批|审计|权限|资源|mock/i.test(title))
     .filter((title) => !/^(审阅说明|门禁|source|context|inference)$/i.test(title));
 }
 
@@ -1103,126 +1103,7 @@ function enrichDevelopmentPlanTextForReview(text, items) {
   return next;
 }
 
-function isCorporateActionDesignDraft(items, plannerDraft) {
-  return /公司行动|corporate-actions|OCC|分红派息|拆股|合股|退市|摘牌/.test([
-    ...items,
-    plannerDraft?.planText,
-    plannerDraft?.architectureText,
-    plannerDraft?.developmentPlanText,
-  ].join('\n'));
-}
-
-function corporateActionDetailedDesignTextForChange({ changeId, slug }) {
-  const stateRows = [
-    ['生成明细', '待生成', '待复核', '事件已入库且未生成有效明细版本', '写 CustomerDetail/OptionAdjustment/Discrepancy/OperationLog'],
-    ['重算', '待复核、待确认、差异待处理', '待复核', '任务未执行且存在修正输入', '废弃旧 detail_version，生成新版本'],
-    ['复核', '待复核', '待确认', '明细完整且无阻断异常', '仅人工触发，写 OperationLog'],
-    ['确认', '待确认', '待执行', '税费、数量、客户范围、OCC 字段均已复核', '冻结当前有效明细版本'],
-    ['执行', '待执行', '执行中', '现金/持仓类动作且无阻断异常', '调用 mock ExecutionProvider，写 DownstreamStatus'],
-    ['下发', '待执行', '执行中', '展示/订单/期权链/柜台类动作且无阻断异常', '调用 mock ExecutionProvider，写 DownstreamStatus'],
-    ['mock 回写成功', '执行中', '已完成', '全部目标系统 success', '系统回写日志，不允许从非执行中推进'],
-    ['mock 回写失败', '执行中', '差异待处理', '任一目标系统 failed/timeout', '创建 Discrepancy，保留 failure_reason'],
-    ['重试', '差异待处理、执行中', '执行中', '失败原因已处理或允许补偿查询', 'retry_count + 1 并写日志'],
-    ['标记无需处理', '非终态', '无需处理', '人工确认无客户/平台动作', '必须填写原因，终态禁止再执行'],
-    ['标记人工完成', '待执行、差异待处理', '已完成', '外部已人工处理且有备注/凭证', '不触发 mock 执行，只写日志'],
-  ];
-  return [
-    `# 详细设计：${changeId}`,
-    '',
-    '## 文档定位',
-    '',
-    '本文档给 build 阶段提供字段、接口、函数、组件、状态机和边界条件级别的实现输入。架构文档决定边界，开发计划决定顺序，本文决定具体怎么落地。',
-    '',
-    '## 需求到设计映射',
-    '',
-    requirementMappingTable(['总览', '分红派息', '拆股', '合股', '退市/摘牌', '期权退市 OCC', '代码/名称变更', '事件异常处理'], [
-      ['需求', (item) => item],
-      ['后端落点', () => 'CorporateActionUsecase + Ent repository + mock provider'],
-      ['前端落点', () => 'web/admin 共享任务 shell，按 event_type 配置列表列、详情字段、动作按钮'],
-      ['验证证据', () => 'usecase/API 测试 + 浏览器人工验收'],
-    ]),
-    '',
-    '## 数据结构与字段',
-    '',
-    '| 实体 | 字段 | 索引/关系 | 说明 |',
-    '| --- | --- | --- | --- |',
-    '| CorporateActionEvent | corporate_action_event_id, source, source_event_id, event_type, market, asset_type, security_id, underlying_security_id, symbol, key_date, version, event_status, raw_snapshot_id, event_payload | unique(corporate_action_event_id, version) | 事件快照和修订追溯；同版本重复不建任务 |',
-    '| CorporateActionTask | task_id, event_id, event_type, task_status, asset_scope, security_id, symbol, key_date, affected_customer_count, affected_order_count, risk_flags, current_detail_version, detail_payload | unique(task_id), index(event_id,status,type) | 运营主任务和状态机载体 |',
-    '| CorporateActionCustomerDetail | task_id, detail_version, user_id, trade_account_id, security_id, asset_type, position_qty, cash_amount, tax_amount, net_amount, order_action, margin_status, process_status, detail_payload | index(task_id,detail_version,user_id) | 客户级明细；支持多版本重算 |',
-    '| CorporateActionOptionAdjustment | task_id, memo_no, underlying_security_id, option_security_id, original_contract, adjusted_contract, old_strike, new_strike, old_multiplier, new_multiplier, deliverable, review_status, adjustment_payload | index(task_id,memo_no,underlying_security_id) | OCC 和期权调整明细 |',
-    '| CorporateActionDiscrepancy | task_id, detail_id, option_adjustment_id, downstream_status_id, discrepancy_type, field_name, estimated_value, confirmed_value, status, resolution_note | index(task_id,status,type) | 金额、数量、客户范围、合约映射、下游回写差异 |',
-    '| CorporateActionDownstreamStatus | task_id, target_system, action_type, status, request_payload, response_payload, failure_reason, retry_count | index(task_id,target_system,status) | mock 执行/下发状态；禁止真实 client 写入 |',
-    '| CorporateActionOperationLog | task_id, operator_id, operator_name, action_type, before_status, after_status, remark, created_at | index(task_id,created_at) | 所有人工动作和系统回写留痕 |',
-    '',
-    '## 接口、函数与组件契约',
-    '',
-    '| 契约 | 输入 | 输出 | 错误/权限 |',
-    '| --- | --- | --- | --- |',
-    '| GET /admin/v1/corporate-actions/overview | status/date range | 统计卡片、风险提示、异常/超时 | admin.corporate_action.view |',
-    '| POST /admin/v1/corporate-actions/mock/seed | seed profile | 8 类 mock 任务数量 | admin.corporate_action.seed；重复 seed 按 event id 去重 |',
-    '| GET /admin/v1/corporate-actions/tasks | event_type/status/symbol/task_id/key_date/page | 任务列表和分页 | admin.corporate_action.view |',
-    '| GET /admin/v1/corporate-actions/tasks/{task_id} | task_id/detail_version | event/task/details/options/discrepancies/downstream/logs/available_actions | admin.corporate_action.view |',
-    '| POST /tasks/{task_id}/details/generate | task_id, force_recalc, remark | 新 detail_version 和状态 | admin.corporate_action.operate；非法状态拒绝 |',
-    '| POST /tasks/{task_id}/actions/{action} | action, remark, optional resolution payload | 新状态、日志、下游状态 | admin.corporate_action.operate；状态机统一校验 |',
-    '| GET /discrepancies | status/type/task_id/symbol/page | 异常列表 | admin.corporate_action.view |',
-    '| POST /discrepancies/{id}/resolve | confirmed_value/resolution_note/next_status | 异常处理结果和任务状态 | admin.corporate_action.operate |',
-    '',
-    'Provider 接口固定为：`EventSourceProvider.FetchMockEvents`、`ImpactProvider.BuildDetails`、`ExecutionProvider.Execute`、`ExceptionProvider.Resolve`。首期只提供 local mock 实现；真实 adapter 不在本次范围。',
-    '',
-    '## 状态机与流程细节',
-    '',
-    requirementMappingTable(stateRows, [
-      ['动作', (row) => row[0]],
-      ['起始状态', (row) => row[1]],
-      ['成功状态', (row) => row[2]],
-      ['前置条件', (row) => row[3]],
-      ['副作用', (row) => row[4]],
-    ]),
-    '',
-    '任务级状态优先级为：差异待处理 > 执行中 > 待执行 > 待确认 > 待复核 > 待生成。明细级阻断异常优先于任务级普通状态；只要存在未处理阻断异常，确认、执行、下发必须拒绝。',
-    '',
-    '## 错误处理与边界条件',
-    '',
-    '- 重复事件：同 `corporate_action_event_id + version` 返回已有事件，不重复建任务。',
-    '- 事件修订：新 version 建立新事件快照；旧任务未完成时进入差异待处理或无需处理，保留日志。',
-    '- 缺证券映射：创建事件异常，任务停在待复核，不允许执行。',
-    '- OCC 字段缺失或合约匹配失败：写 OptionAdjustment + Discrepancy，任务差异待处理。',
-    '- mock 下游失败/超时：写 DownstreamStatus failure_reason，任务差异待处理。',
-    '- 真实副作用防线：公司行动模块不得注入真实资产、交易、清算、通知 client；测试需要断言执行/下发只写 mock 表。',
-    '',
-    '## 前端设计',
-    '',
-    '- `web/admin` 提供总览、任务页、异常页；总览首屏直接展示公司行动任务数据，不做营销页。',
-    '- 任务页使用共享 shell：左侧筛选/列表，中间客户明细和期权明细，右侧任务详情、可用动作、操作日志。',
-    '- `event_type` 配置列表列、详情字段、明细表列和动作按钮；按钮只使用后端 `available_actions`。',
-    '- API base 固定同源 `/admin/v1/corporate-actions`，不要出现 `/account/admin/v1`。',
-    '',
-    '## 测试设计',
-    '',
-    '- 状态机：覆盖每个动作的合法/非法状态，尤其未确认执行、执行中重算、终态继续动作、存在阻断异常时确认/执行。',
-    '- 数据：事件去重、版本修订、任务详情聚合、服务重启后查询。',
-    '- 业务：8 类 mock 工作流各至少一条闭环样例。',
-    '- API：overview/list/detail/action/discrepancy、权限标识、非法参数。',
-    '- 前端：`npm run build`、浏览器检查总览/任务/异常、最长字段不重叠。',
-    '- 副作用：执行/下发不调用真实 client，不发送通知。',
-    '',
-    '## 实现注意事项',
-    '',
-    '- 先实现状态机单测，再写 handler 和页面动作。',
-    '- Ent schema 为 additive；生产回滚优先关闭菜单/路由，不直接删表。',
-    '- build 阶段如果发现源文档和原型冲突，停止对应切片并回 plan 修订。',
-    '',
-    '## Source',
-    '',
-    `- workflow slug: ${slug}`,
-    `- change id: ${changeId}`,
-  ].join('\n');
-}
-
 function detailedDesignTextForChange({ changeId, slug, items, plannerDraft }) {
-  if (isCorporateActionDesignDraft(items, plannerDraft)) {
-    return corporateActionDetailedDesignTextForChange({ changeId, slug });
-  }
   return [
     `# loopx Detailed Design: ${changeId}`,
     '',
@@ -2335,7 +2216,7 @@ function deriveSlugFromSpecPath(path, text) {
     return normalizeSlug(meta.workflow_id);
   }
   const name = basename(path).replace(/\.md$/i, '');
-  return normalizeSlug(name.replace(/^deep-interview-/, '').replace(/^clarify-/, ''));
+  return normalizeSlug(name.replace(/^clarify-/, ''));
 }
 
 function containsChineseText(text) {
