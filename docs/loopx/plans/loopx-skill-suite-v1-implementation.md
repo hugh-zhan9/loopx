@@ -6,7 +6,7 @@
 
 **Goal:** Convert loopx into a Codex and Claude ready skill suite with renamed superpowers-style workflow skills, dual-target installation, and non-blocking Claude hook support.
 
-**Architecture:** `skills/` remains canonical. `plugins/loopx/skills/` mirrors canonical skills for Codex plugin packaging. `src/install-discovery.mjs` owns multi-target installation and lock metadata.
+**Architecture:** `skills/` remains the canonical source root. `plugins/loopx/skills/` mirrors the bundled v1 skill set for Codex plugin packaging, not every auxiliary source directory that may exist under `skills/`. `src/install-discovery.mjs` owns multi-target installation and lock metadata.
 
 **Tech Stack:** Node.js ESM, `node:test`, filesystem APIs from `node:fs/promises`.
 
@@ -23,8 +23,9 @@
 - [ ] Rename canonical superpowers-derived skills to v1 names.
 - [ ] Remove old runtime workflow skills from the bundled install list.
 - [ ] Keep `plan` as the canonical implementation-planning skill.
-- [ ] Mirror all canonical skill files into `plugins/loopx/skills/`.
+- [ ] Mirror all bundled v1 canonical skill files into `plugins/loopx/skills/`.
 - [ ] Update internal references from old names to new `loopx:` names.
+- [ ] Keep auxiliary or compatibility skill sources outside the bundled install list unless explicitly promoted into the v1 product surface.
 
 ### Task 2: Installer Targets
 
@@ -63,6 +64,8 @@
 
 - [ ] Reframe loopx as a skill suite for agentic coding assistants.
 - [ ] Document the new workflow and artifact paths.
+- [ ] Clarify v1 `docs/loopx/` artifacts versus legacy CLI runtime `.loopx/` artifacts.
+- [ ] Clarify installed bundled skills versus auxiliary skill source directories.
 - [ ] Document Codex and Claude installation.
 - [ ] Update governance checks for the v1 bundled skill list and mirrors.
 - [ ] Update install tests for dual user targets and hooks.

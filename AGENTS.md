@@ -1,25 +1,24 @@
 # Repository Guidelines
 
-## Iron Law:
+## Iron Law
 
-**All skills must do not  have descriptive content. The content of skills should be clear and unambiguous, and must not be ambiguous.
-Skills should be kept as simple as possible. It is like a Swiss Army knife - versatile but not a universal key.**
+**Skill frontmatter descriptions are required for discovery, but skill bodies should stay operational, clear, and bounded. Avoid vague narrative, broad promises, and ambiguous handoffs. Keep each skill focused: versatile enough to be useful, not a universal key.**
 
 
 
 ## Project Structure & Module Organization
 
-This repository is a Node.js ESM CLI package for loopx, a skill-first workflow harness for Codex-style agents.
+This repository is a Node.js ESM CLI package for loopx, a skill-first workflow harness for Codex and Claude-style agentic coding assistants.
 
 - `src/` contains runtime modules and the `src/cli.mjs` executable.
 - `test/` contains Node test suites, mainly `workflow.test.mjs` and `trellis-hardening.test.mjs`.
-- `skills/` contains bundled agent skills installed by the package.
-- `plugins/loopx/` mirrors plugin-ready skills and plugin install scripts.
+- `skills/` contains canonical skill source files. The v1 installed set is controlled by `LOOPX_BUNDLED_SKILLS` in `src/install-discovery.mjs`; not every local skill source is installed or governed as part of v1.
+- `plugins/loopx/` mirrors the bundled plugin-ready v1 skills and plugin install scripts.
 - `templates/` stores canonical workflow artifact templates.
 - `scripts/` contains postinstall and hook scripts.
-- `assets/`, `docs/`, and `examples/` hold static assets, release notes, and demos.
+- `assets/` and `docs/` hold static assets, release notes, and design/planning documents.
 
-Keep source changes close to the owning module. When changing workflow behavior, update matching tests and any affected skill docs in both `skills/` and `plugins/loopx/skills/` when they are intentionally mirrored.
+Keep source changes close to the owning module. When changing workflow behavior, update matching tests and any affected bundled skill docs in both `skills/` and `plugins/loopx/skills/` when they are intentionally mirrored.
 
 ## Build, Test, and Development Commands
 

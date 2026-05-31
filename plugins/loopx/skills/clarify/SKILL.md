@@ -66,8 +66,8 @@ Then stop before implementation planning and report:
 $plan --direct docs/loopx/design/<需求名>需求设计文档.md
 ```
 
-For `direct_to_plan`, immediately use the `plan` skill with the clarification context bundle as the source. `plan` writes:
+For `direct_to_plan`, hand off to the `plan` skill with the clarification context bundle as the source. `plan` writes:
 
 - `docs/loopx/plans/YYYY-MM-DD-<feature-name>.md`
 
-Do not start code changes or implementation planning from `clarify`.
+Do not write implementation plans or start code changes inside `clarify`.

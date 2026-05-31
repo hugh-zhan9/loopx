@@ -10,7 +10,7 @@
 
 [English](./README.md)
 
-`loopx` 为 Codex 和 Claude 风格的 coding agent 打包一组实用 skills。它把 grill-me 式需求澄清和 superpowers 式计划、执行、评审、收尾流程组合成一套可安装、可治理的技能套件。
+`loopx` 为 Codex 和 Claude 风格的 coding agent 安装一组实用的 v1 skills。它把 grill-me 式需求澄清和 superpowers 式计划、执行、评审、收尾流程组合成一套可安装、可治理的技能套件。
 
 推荐 v1 流程：
 
@@ -21,6 +21,8 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 `spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan`。
 
 ## Skills
+
+安装和治理意义上的 v1 skill surface 是下面这组。仓库里可以保留辅助或兼容 skill 源文件，但除非它们属于 bundled v1 集合，否则 `loopx install-skills` 不会安装它们。
 
 核心工作流 skills：
 
@@ -44,14 +46,16 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 
 ## 产物
 
-人工维护的长期产物放在 `docs/loopx/`：
+v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 - `docs/loopx/design/`
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
 
-`.loopx/` 用于本地支撑状态、hook 诊断、安装元数据和 legacy runtime workflows。
+Legacy CLI runtime 命令也可能在 `.loopx/workflows/<slug>/`、`.loopx/changes/` 和 `.loopx/specs/` 下创建用户可读写的工作文档。这些是 legacy runtime 兼容产物，不是 v1 skill-suite 的主要文档面。
+
+生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 
 ## 安装
 
@@ -94,13 +98,14 @@ plugins/loopx/
 node plugins/loopx/scripts/plugin-install.mjs
 ```
 
-插件镜像 canonical `skills/` 目录，并复用同一套 install/discovery core。
+插件镜像 `skills/` 中 canonical bundled v1 skills，并复用同一套 install/discovery core。
 
 ## CLI
 
 CLI 用于安装、诊断、渲染和 legacy runtime 兼容：
 
 ```bash
+loopx --version
 loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]
 loopx clarify <slug> [--standard|--deep]
@@ -135,4 +140,4 @@ skills/RESOLVER.md
 node scripts/verify-skills.mjs
 ```
 
-治理脚本检查 bundled skill frontmatter、plugin mirrors、resolver coverage、本地引用、发布包包含项、版本一致性和公开文档。
+治理脚本检查 bundled v1 skill frontmatter、plugin mirrors、resolver coverage、本地引用、发布包包含项、版本一致性和公开文档。它刻意验证安装意义上的 v1 skill 集合，而不是 `skills/` 下可能存在的每个辅助源目录。

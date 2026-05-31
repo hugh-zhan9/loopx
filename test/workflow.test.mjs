@@ -1407,6 +1407,30 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'requirements-snapshot-direct-spec.md')), true);
   });
 
+  it('does not strip removed deep-interview prefixes from direct spec slugs', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-direct-prefix-'));
+    const specPath = join(wd, 'deep-interview-access-review.md');
+    await writeFile(
+      specPath,
+      [
+        '# Direct Plan Spec',
+        '',
+        '## Intent',
+        '',
+        '- Preserve direct spec filenames as workflow slugs.',
+        '',
+        '## Execution Inputs',
+        '',
+        '- direct spec path: deep-interview-access-review.md',
+      ].join('\n'),
+    );
+
+    const planned = await planStage(wd, undefined, { directSpecPath: specPath, adapter: createScriptedPlanAdapter() });
+
+    assert.equal(planned.state.slug, 'deep-interview-access-review');
+    assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'plans', 'requirements-snapshot-deep-interview-access-review.md')), true);
+  });
+
   it('plan writes change delta artifacts and an artifact dependency graph', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-change-delta-plan-'));
     const clarified = await clarifyStage(wd, 'change-delta');
@@ -1450,10 +1474,10 @@ describe('loopx skill-first workflow contract', () => {
         '',
         '## Functional Requirements',
         '',
-        '- 分红派息任务必须展示客户应收、税费和净额。',
-        '- 拆股任务必须生成新旧数量、成本和订单影响。',
-        '- 期权退市 OCC 任务必须展示 memo 编号和受影响合约。',
-        '- 异常处理必须支持金额、数量和客户范围差异处理。',
+        '- 访问审批任务必须展示申请人、资源、审批状态和截止时间。',
+        '- 权限变更任务必须记录旧权限、新权限、审批人和生效时间。',
+        '- 审计异常任务必须展示规则编号、影响范围和处理建议。',
+        '- 异常处理必须支持状态、负责人和备注更新。',
         '',
         '## Execution Inputs',
         '',
@@ -1506,7 +1530,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_docs_status, 'complete');
     assert.equal(planned.state.source_requirements_item_count, 4);
     assert.match(planText, /## 原始需求清单/);
-    assert.match(planText, /分红派息任务必须展示客户应收、税费和净额/);
+    assert.match(planText, /访问审批任务必须展示申请人、资源、审批状态和截止时间/);
     assert.match(planText, /## 原始需求映射/);
     assert.match(architectureText, /## 需求到架构映射/);
     assert.match(architectureText, /## 文档定位/);
@@ -1543,36 +1567,36 @@ describe('loopx skill-first workflow contract', () => {
     const productDoc = join(docsRoot, 'product.md');
     const prototypeDoc = join(docsRoot, 'prototype.md');
     await writeFile(productDoc, [
-      '# 美股公司行动',
+      '# 权限审计工作台',
       '',
-      '## 事件范围与处理模式',
+      '## 审计范围与处理模式',
       '',
-      '| 事件类型 | 系统处理范围 | 人工确认 / 执行动作 | 是否自动改客户资产 |',
+      '| 审计对象 | 系统处理范围 | 人工确认 / 执行动作 | 是否自动变更权限 |',
       '|---|---|---|---|',
-      '| 分红派息 | 生成分红任务，识别多头 / 空头客户，生成应收 / 应付、税费和净额明细 | 运营 / 清算复核金额、币种、税费、客户明细和清算结果 | 不自动 |',
-      '| 期权退市 OCC | 生成 Liquidation、Contract Adjustment、Accelerated Expiration 监控任务 | 运营复核 OCC 字段、现金结算、到期日和交易限制 | 不自动 |',
+      '| 访问审批 | 生成审批任务，识别申请人 / 资源负责人，展示申请原因、审批状态和截止时间 | 安全运营复核申请范围、审批链和到期时间 | 不自动 |',
+      '| 权限变更 | 生成权限变更任务，记录旧权限、新权限、审批人和生效时间 | 管理员复核变更影响、回滚窗口和通知状态 | 不自动 |',
       '',
-      '## 正股退市联动期权监控与处理链路',
+      '## 高风险资源联动审批链路',
       '',
       '| 处理环节 | 处理要求 |',
       '|---|---|',
-      '| 孤儿任务 | 若期权退市关联 OCC 事件先于正股退市任务进入平台，先生成未关联期权任务，并持续等待补偿匹配 |',
+      '| 继发复核 | 若权限变更先于访问审批进入平台，先生成待关联复核任务，并持续等待补偿匹配 |',
     ].join('\n'));
     await writeFile(prototypeDoc, [
-      '# 美股公司行动任务管理平台原型图具体说明',
+      '# 权限审计工作台原型图具体说明',
       '',
       '## 原型范围',
       '',
-      '| 页面 | 对应事件 | 页面定位 |',
+      '| 页面 | 对应对象 | 页面定位 |',
       '|---|---|---|',
-      '| 公司行动总览 | 全部公司行动任务 | 汇总待处理、异常、超时和未来生效任务 |',
-      '| 事件异常处理 | 全部公司行动任务产生的异常和差异 | 集中处理金额、数量、税费、客户范围、合约映射、订单、下游回写和确认超时异常 |',
+      '| 审计总览 | 全部审计任务 | 汇总待处理、异常、超时和未来生效任务 |',
+      '| 异常处理 | 全部审计任务产生的异常和差异 | 集中处理审批链、权限范围、资源归属、通知回写和确认超时异常 |',
       '',
       '## 明细跟随选中任务刷新',
       '',
-      '| 当前选中任务 | 客户明细展示 | 期权调整展示 |',
+      '| 当前选中任务 | 审批明细展示 | 权限变更展示 |',
       '|---|---|---|',
-      '| AAPL 特殊分红 | 仅展示 AAPL 分红影响客户、主体税费分摊和净额 | 展示 AAPL 对应 OCC Memo 和受影响期权合约 |',
+      '| 生产库临时访问 | 展示申请人、审批人和截止时间 | 展示旧权限、新权限和影响资源 |',
     ].join('\n'));
 
     const clarified = await clarifyStage(wd, 'linked-source-plan');
@@ -1588,12 +1612,12 @@ describe('loopx skill-first workflow contract', () => {
 
     assert.equal(planned.state.stage_status, 'awaiting-approval');
     assert.equal(planned.state.source_requirements_item_count >= 7, true);
-    assert.match(traceabilityText, /分红派息/);
-    assert.match(traceabilityText, /期权退市 OCC/);
-    assert.match(traceabilityText, /孤儿任务/);
-    assert.match(traceabilityText, /事件异常处理/);
-    assert.match(planHtml, /期权退市 OCC/);
-    assert.match(planHtml, /事件异常处理/);
+    assert.match(traceabilityText, /访问审批/);
+    assert.match(traceabilityText, /权限变更/);
+    assert.match(traceabilityText, /继发复核/);
+    assert.match(traceabilityText, /异常处理/);
+    assert.match(planHtml, /权限变更/);
+    assert.match(planHtml, /异常处理/);
   });
 
   it('compacts linked prototype HTML before planning source coverage', async () => {
@@ -1603,11 +1627,11 @@ describe('loopx skill-first workflow contract', () => {
     const prototypeHtml = join(docsRoot, 'prototype.html');
     await writeFile(prototypeHtml, [
       '<!doctype html><html><body>',
-      '<h1>美股公司行动任务管理平台原型</h1>',
+      '<h1>权限审计工作台原型</h1>',
       '<section><h2>事件异常处理</h2>',
       '<table><tr><th>异常类型</th><th>处理动作</th></tr>',
-      '<tr><td>金额差异</td><td>人工复核后按确认值重算</td></tr>',
-      '<tr><td>期权退市 OCC 合约映射差异</td><td>人工确认 OCC Memo、underlying_security_id 和 adjustment_type</td></tr>',
+      '<tr><td>审批链差异</td><td>人工复核后按确认链路重算</td></tr>',
+      '<tr><td>权限变更资源归属差异</td><td>人工确认 resource_id、owner_id 和 access_level</td></tr>',
       '</table></section>',
       '<section><h2>大量展示样例</h2>',
       Array.from({ length: 600 }, (_, index) => `<div class="row"><span>${index}</span><span>装饰性原型文本 ${index}</span><button>确认</button></div>`).join('\n'),
@@ -1628,7 +1652,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(planned.state.plan_source_document_paths.includes(prototypeHtml), true);
     assert.equal(planned.state.source_requirements_item_count >= 3, true);
     assert.match(traceabilityText, /事件异常处理/);
-    assert.match(traceabilityText, /期权退市 OCC 合约映射差异/);
+    assert.match(traceabilityText, /权限变更资源归属差异/);
     assert.doesNotMatch(traceabilityText, /装饰性原型文本 599/);
   });
 
@@ -1908,15 +1932,15 @@ describe('loopx skill-first workflow contract', () => {
   it('records plan delegation decision and escalates high-risk planning to parallel review', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-delegation-'));
     await initWorkspace(wd);
-    const specPath = join(wd, 'corporate-action-risk-prd.md');
+    const specPath = join(wd, 'access-review-risk-prd.md');
     await writeFile(
       specPath,
       [
-        '# 公司行动资金资产 PRD',
+        '# 高风险权限审计 PRD',
         '',
         '## Intent',
         '',
-        '规划一个涉及资金、资产、交易订单、清算结算和权限审计的 corporate action workflow。',
+        '规划一个涉及资金、资产、交易订单、清算结算和权限审计的 access review workflow。',
         '',
         '## Scope',
         '',
@@ -1961,11 +1985,11 @@ describe('loopx skill-first workflow contract', () => {
         threshold: 'critic-only',
       },
     });
-    const specPath = join(wd, 'corporate-action-auto-prd.md');
+    const specPath = join(wd, 'access-review-auto-prd.md');
     await writeFile(
       specPath,
       [
-        '# 公司行动自动委派 PRD',
+        '# 权限审计自动委派 PRD',
         '',
         '涉及资金资产、交易订单、清算结算、权限审计、API、service、data migration、worker、幂等、补偿、回滚、差异和 e2e acceptance。',
       ].join('\n'),

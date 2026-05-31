@@ -320,4 +320,4 @@ $plan --direct docs/loopx/design/<需求名>需求设计文档.md
 
 | 问题 | 需要谁确认 | 阻塞阶段 | 推荐答案 | 状态 |
 |---|---|---|---|---|
-| <问题> | <角色> | clarify/spec/plan/build | <建议> | open/closed |
+| <问题> | <角色> | clarify/spec/plan/subagent-exec/exec/review | <建议> | open/closed |
