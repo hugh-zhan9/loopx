@@ -63,7 +63,7 @@ For `needs_spec`, immediately use the `spec` skill with the clarification contex
 Then stop before implementation planning and report:
 
 ```text
-$plan --direct docs/loopx/design/<需求名>需求设计文档.md
+$plan docs/loopx/design/<需求名>需求设计文档.md
 ```
 
 For `direct_to_plan`, hand off to the `plan` skill with the clarification context bundle as the source. `plan` writes:

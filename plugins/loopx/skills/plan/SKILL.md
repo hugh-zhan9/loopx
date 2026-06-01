@@ -4,7 +4,7 @@ description: "Creates bite-sized implementation plans from approved requirements
 when_to_use: "plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
   version: "0.2.0"
-argument-hint: "[--direct <design-spec-path>] <design spec path or feature name>"
+argument-hint: "<design spec path or feature name>"
 ---
 
 # loopx Plan

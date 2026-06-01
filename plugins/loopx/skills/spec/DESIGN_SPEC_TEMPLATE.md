@@ -305,7 +305,7 @@
 - 推荐下一步：
 
 ```text
-$plan --direct docs/loopx/design/<需求名>需求设计文档.md
+$plan docs/loopx/design/<需求名>需求设计文档.md
 ```
 
 ## 十一、QA

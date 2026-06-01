@@ -184,7 +184,8 @@ describe('loopx skill governance', () => {
 
     const spec = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
     assert.match(spec, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
-    assert.match(spec, /\$plan --direct docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.match(spec, /\$plan docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.doesNotMatch(spec, /\$plan --direct/);
 
     const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     assert.match(review, /Dispatch a code reviewer subagent/);
