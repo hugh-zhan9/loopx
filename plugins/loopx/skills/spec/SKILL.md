@@ -70,7 +70,7 @@ The `十、排期与规划` section must include a `Planning Handoff` subsection
 After the spec is complete, recommend:
 
 ```text
-$plan --direct docs/loopx/design/<需求名>需求设计文档.md
+$plan docs/loopx/design/<需求名>需求设计文档.md
 ```
 
 Use `plan` only after the design document is internally consistent and all material requirements questions are resolved.

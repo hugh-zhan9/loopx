@@ -1384,7 +1384,7 @@ describe('loopx skill-first workflow contract', () => {
         '',
         '## Execution Inputs',
         '',
-        '- direct spec path: provided via --direct or planStage directSpecPath option',
+        '- source spec path: provided via planStage directSpecPath option',
         '- workflow slug: derived from the direct spec filename when not explicitly provided',
         '',
         '## Constraints',
@@ -3894,7 +3894,8 @@ describe('loopx skill-first workflow contract', () => {
 
     const { stdout: help } = await execFileAsync(process.execPath, [cliPath, '--help'], { cwd: repoRoot, env });
     assert.match(help, /loopx repair-install/);
-    assert.match(help, /loopx plan \[slug\] \[--direct <spec-path>\] \[--interactive\] \[--deliberate\]/);
+    assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
+    assert.doesNotMatch(help, /--direct/);
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
     assert.doesNotMatch(help, /loopx team/);

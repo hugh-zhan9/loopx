@@ -19,7 +19,7 @@ function usage() {
     '  loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]',
     '  loopx clarify <slug> [--standard|--deep]',
     '  loopx approve <slug> --from <stage> --to <stage>',
-    '  loopx plan [slug] [--direct <spec-path>] [--interactive] [--deliberate]',
+    '  loopx plan [slug] [--interactive] [--deliberate]',
     '  loopx build <slug> [--no-deslop]',
     '  loopx build --from-review <review-report-path> [--no-deslop]',
     '  loopx review <slug> [--reviewer <name>]',
@@ -242,7 +242,6 @@ async function main() {
       }
       case 'plan': {
         const result = await planStage(process.cwd(), positionals[0], {
-          directSpecPath: options.get('--direct'),
           interactive: Boolean(options.get('--interactive')),
           deliberate: Boolean(options.get('--deliberate')),
         });
