@@ -56,6 +56,12 @@ Use only the reference file needed for the current task:
 - Use validation annotations when the project already uses `buf.validate` or `protovalidate`.
 - Regenerate code with the repository's existing command, such as `buf generate`, `make api`, or project scripts.
 
+## Database DDL
+
+- MySQL `CREATE TABLE` statements must include a table-level `COMMENT`.
+- MySQL column definitions in `CREATE TABLE` or `ALTER TABLE ... ADD COLUMN` statements must include column-level `COMMENT`.
+- When using Ent schema for MySQL tables, add `.Comment(...)` to fields that are persisted as columns.
+
 ## Integration With Other loopx Skills
 
 - Use `go-style` for handwritten `.go` edits.
