@@ -41,10 +41,6 @@ Read the selected skill file before acting. If multiple skills match, read every
 9. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
 10. Treat `tdd`, `debug`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
 
-## Legacy CLI Runtime
-
-Legacy `.loopx/workflows/` commands may still exist in the CLI for compatibility. They are not the v1 bundled skill workflow.
-
 ## Deterministic Guard
 
 Run this before release or when changing bundled skills:

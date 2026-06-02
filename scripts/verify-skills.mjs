@@ -114,7 +114,6 @@ async function assertPublicDocsAligned() {
     'loopx plan',
     'loopx build',
     'loopx review',
-    'loopx archive',
     'loopx autopilot',
     'loopx render',
     'loopx status',
@@ -128,6 +127,8 @@ async function assertPublicDocsAligned() {
     assertContains(readme, command, 'README.md');
     assertContains(readmeZh, command, 'README.zh-CN.md');
   }
+  assert.doesNotMatch(readme, /loopx archive/, 'README.md should not expose archive runtime command');
+  assert.doesNotMatch(readmeZh, /loopx archive/, 'README.zh-CN.md should not expose archive runtime command');
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)

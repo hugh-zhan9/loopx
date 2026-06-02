@@ -135,7 +135,6 @@ describe('loopx skill governance', () => {
       'loopx plan',
       'loopx build',
       'loopx review',
-      'loopx archive',
       'loopx autopilot',
       'loopx render',
       'loopx status',
@@ -148,6 +147,14 @@ describe('loopx skill governance', () => {
     ]) {
       assert.match(readme, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.md`);
       assert.match(readmeZh, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.zh-CN.md`);
+    }
+    for (const required of [
+      '.loopx/memory/MEMORY.md',
+      '.loopx/memory/index.jsonl',
+      'docs/loopx/specs/',
+    ]) {
+      assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
+      assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
     }
   });
 
@@ -194,6 +201,14 @@ describe('loopx skill governance', () => {
     const fixReview = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
     assert.match(fixReview, /Verify before implementing/);
     assert.match(fixReview, /technical evaluation/i);
+
+    const finish = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+    assert.match(finish, /Learning Extraction/);
+    assert.match(finish, /\.loopx\/memory\/MEMORY\.md/);
+    assert.match(finish, /\.loopx\/memory\/index\.jsonl/);
+    assert.match(finish, /docs\/loopx\/specs\/<domain>\.md/);
+    assert.match(finish, /curated active index/);
+    assert.match(finish, /Spec candidates/);
   });
 
   it('bundles every loopx execution skill referenced by plan handoffs', async () => {

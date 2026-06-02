@@ -2,7 +2,7 @@
 
 ## Context
 
-loopx is moving from a CLI-runtime-first workflow into a skill-first suite for agentic coding assistants. Codex and Claude are supported targets. The CLI remains as installer, governance, diagnostics, rendering, and legacy `.loopx/workflows/` support.
+loopx is moving from a CLI-runtime-first workflow into a skill-first suite for agentic coding assistants. Codex and Claude are supported targets. The CLI remains as installer, governance, diagnostics, rendering, and runtime maintenance.
 
 ## Decision
 
@@ -23,7 +23,7 @@ The v1 product surface is the installed and governed bundled skill suite:
 - `go-style`
 - `kratos`
 
-Legacy runtime skills are not installed as Codex or Claude skills in v1. Legacy CLI commands may remain for compatibility.
+Runtime-only skills are not installed as Codex or Claude skills in v1.
 
 The repository may retain auxiliary or compatibility skill source directories for development history or adjacent workflows. They are not part of the v1 product surface unless they are listed in the bundled install set and mirrored into the plugin skill set.
 
@@ -41,6 +41,8 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 
 `review` is the superpowers `requesting-code-review` workflow under the loopx name. `fix-review` is the superpowers `receiving-code-review` workflow under the loopx name.
 
+`finish` verifies completion, extracts local memory, proposes repo-tracked spec candidates when stable team rules emerged, then presents merge, PR, keep, or discard options.
+
 ## Artifacts
 
 Human-maintained v1 skill-suite artifacts use `docs/loopx/`:
@@ -49,8 +51,11 @@ Human-maintained v1 skill-suite artifacts use `docs/loopx/`:
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
+- `docs/loopx/specs/`
 
-Legacy CLI runtime working documents may use `.loopx/workflows/<slug>/`, `.loopx/changes/`, and `.loopx/specs/`. Runtime state, hook diagnostics, installer metadata, manifests, generated HTML views, and runtime JSON also use `.loopx/`.
+Runtime state, hook diagnostics, installer metadata, manifests, generated HTML views, and runtime JSON use `.loopx/`.
+
+Local agent memory uses `.loopx/memory/`. `.loopx/memory/MEMORY.md` is bounded curated project memory. `.loopx/memory/index.jsonl` is a curated active index for agent file-search. Stable shared rules belong in `docs/loopx/specs/<domain>.md`, with `docs/loopx/specs/inbox.md` as the fallback domain.
 
 ## Installer
 
@@ -65,7 +70,7 @@ Project-level Claude installation and custom directories are explicit installer 
 
 ## Claude Hook
 
-The Claude hook is advisory only. It must not block tools, mutate workflow state, or enforce git safety. It emits next-action context when loopx support or legacy runtime context exists.
+The Claude hook is advisory only. It must not block tools, mutate workflow state, or enforce git safety. It emits next-action context when loopx support context exists.
 
 ## Non-Goals
 

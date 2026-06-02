@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by presenting merge, PR, keep, or discard options. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Finish
@@ -12,7 +12,7 @@ metadata:
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
-**Core principle:** Verify tests → Detect environment → Present options → Execute choice → Clean up.
+**Core principle:** Verify tests → extract memory/spec learnings → Present options → Execute choice → Clean up.
 
 **Announce at start:** "I'm using the finish skill to complete this work."
 
@@ -66,7 +66,83 @@ git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 
 Or ask: "This branch split from main - is that correct?"
 
-### Step 4: Present Options
+### Step 4: Learning Extraction
+
+Run learning extraction before presenting merge, PR, keep, or discard options.
+
+Allowed inputs:
+- current git diff
+- executed verification output
+- plan, spec, and review artifacts used in this task
+- explicit user decisions in the current conversation
+- existing `.loopx/memory/MEMORY.md` and `.loopx/memory/index.jsonl`
+- existing `docs/loopx/specs/*.md`
+
+Do not infer durable rules from agent intuition alone. Do not promote unverified implementation details.
+
+#### Memory
+
+Memory is local, agent-queryable project context. It is not repo-tracked by default.
+
+Use:
+
+```text
+.loopx/memory/MEMORY.md
+.loopx/memory/index.jsonl
+.loopx/memory/entries/
+.loopx/memory/archive/
+```
+
+`MEMORY.md` is the bounded curated summary an agent should read first. Keep it dense and useful.
+
+`index.jsonl` is a curated active index, not an append-only history. It should point only to active memory cards worth querying.
+
+Use memory only for facts that will help a future agent avoid rework, avoid mistakes, or preserve a decision. Do not record process negatives such as "no spec promotion".
+
+One finish run may write 0-3 active memory cards. If more learnings appear, consolidate, promote to spec, archive stale cards, or skip low-signal items.
+
+Memory entry index rows should use this shape:
+
+```json
+{"id":"2026-06-02-example","type":"decision","domain":"workflow","tags":["finish"],"summary":"finish writes local memory and repo-tracked spec candidates","path":"entries/2026-06-02-example.md","created_at":"2026-06-02T00:00:00Z"}
+```
+
+Allowed memory `type` values:
+- `decision`
+- `constraint`
+- `pattern`
+- `pitfall`
+- `handoff`
+
+Finish may automatically update `.loopx/memory/MEMORY.md`, `.loopx/memory/index.jsonl`, and active memory cards. The final response must list the memory changes.
+
+#### Spec Candidates
+
+Spec extraction is conditional. Run the audit every time, but write spec candidates only when the task produced stable, shared, reusable project rules.
+
+Write repo-tracked candidates directly to:
+
+```text
+docs/loopx/specs/<domain>.md
+```
+
+If the domain is unclear, use:
+
+```text
+docs/loopx/specs/inbox.md
+```
+
+Recommended domains:
+- `workflow`
+- `skills`
+- `installation`
+- `memory`
+- `testing`
+- `inbox`
+
+Spec candidates must be visible in the repo diff and reported in the final response. Do not silently change team specs.
+
+### Step 5: Present Options
 
 **Normal repo and named-branch worktree — present exactly these 4 options:**
 
@@ -95,7 +171,7 @@ Which option?
 
 **Don't add explanation** - keep options concise.
 
-### Step 5: Execute Choice
+### Step 6: Execute Choice
 
 #### Option 1: Merge Locally
 
@@ -112,10 +188,10 @@ git merge <feature-branch>
 # Verify tests on merged result
 <test command>
 
-# Only after merge succeeds: cleanup worktree (Step 6), then delete branch
+# Only after merge succeeds: cleanup worktree (Step 7), then delete branch
 ```
 
-Then: Cleanup worktree (Step 6), then delete branch:
+Then: Cleanup worktree (Step 7), then delete branch:
 
 ```bash
 git branch -d <feature-branch>
@@ -166,12 +242,12 @@ MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-tople
 cd "$MAIN_ROOT"
 ```
 
-Then: Cleanup worktree (Step 6), then force-delete branch:
+Then: Cleanup worktree (Step 7), then force-delete branch:
 ```bash
 git branch -D <feature-branch>
 ```
 
-### Step 6: Cleanup Workspace
+### Step 7: Cleanup Workspace
 
 **Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree.
 
@@ -202,6 +278,25 @@ git worktree prune  # Self-healing: clean up any stale registrations
 | 2. Create PR | - | yes | yes | - |
 | 3. Keep as-is | - | - | yes | - |
 | 4. Discard | - | - | - | yes (force) |
+
+## Final Response Contract
+
+Every finish response must include the verification result, chosen completion action, memory changes, and Spec candidates.
+
+Use this shape:
+
+```text
+Memory:
+- updated: .loopx/memory/MEMORY.md
+- entries: <N> added, <N> archived
+- summary:
+  - <high-signal memory change>
+
+Spec candidates:
+- docs/loopx/specs/<domain>.md: <candidate change>
+```
+
+If there are no memory changes or spec candidates, report `none`. Do not write `none` into memory.
 
 ## Common Mistakes
 
