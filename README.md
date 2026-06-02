@@ -52,10 +52,20 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
+- `docs/loopx/specs/`
 
-Legacy CLI runtime commands may also create user-facing working documents under `.loopx/workflows/<slug>/`, `.loopx/changes/`, and `.loopx/specs/`. Those files are compatibility artifacts for the legacy runtime, not the primary v1 skill-suite document surface.
+`finish` may generate spec candidates in `docs/loopx/specs/` when completed work produces stable team rules. These candidates are repo-tracked and must remain visible in the git diff.
 
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
+
+Local agent memory lives under `.loopx/memory/`:
+
+- `.loopx/memory/MEMORY.md`
+- `.loopx/memory/index.jsonl`
+- `.loopx/memory/entries/`
+- `.loopx/memory/archive/`
+
+`MEMORY.md` is a bounded curated project memory summary. `index.jsonl` is a curated active index for agent file-search, not an append-only log.
 
 ## Installation
 
@@ -102,7 +112,7 @@ The plugin mirrors the canonical bundled v1 skills from `skills/` and uses the s
 
 ## CLI
 
-The CLI supports installation, diagnostics, rendering, and legacy runtime compatibility:
+The CLI supports installation, diagnostics, rendering, and runtime maintenance:
 
 ```bash
 loopx --version
@@ -114,7 +124,6 @@ loopx plan [slug] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
 loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
-loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx render [slug|--all]
 loopx status [slug] [--json]
@@ -123,8 +132,6 @@ loopx doctor
 loopx migrate
 loopx repair-install
 ```
-
-Legacy `.loopx/workflows/` commands remain available for compatibility. They are not the v1 skill-suite workflow.
 
 ## Governance
 

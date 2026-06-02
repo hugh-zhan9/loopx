@@ -1,6 +1,6 @@
 # loopx Skill Suite v1 Implementation Plan
 
-> **For agentic workers:** execute task-by-task. Preserve existing user edits and keep legacy CLI runtime compatibility unless a task explicitly changes skill installation behavior.
+> **For agentic workers:** execute task-by-task. Preserve existing user edits and keep runtime maintenance behavior unless a task explicitly changes skill installation behavior.
 
 **Source Design:** `docs/loopx/design/loopx-skill-suite-v1-design.md`
 
@@ -64,7 +64,8 @@
 
 - [ ] Reframe loopx as a skill suite for agentic coding assistants.
 - [ ] Document the new workflow and artifact paths.
-- [ ] Clarify v1 `docs/loopx/` artifacts versus legacy CLI runtime `.loopx/` artifacts.
+- [ ] Clarify v1 `docs/loopx/` artifacts versus generated runtime support state.
+- [ ] Document finish memory extraction and `docs/loopx/specs/` candidate promotion.
 - [ ] Clarify installed bundled skills versus auxiliary skill source directories.
 - [ ] Document Codex and Claude installation.
 - [ ] Update governance checks for the v1 bundled skill list and mirrors.

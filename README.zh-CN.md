@@ -52,10 +52,20 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
+- `docs/loopx/specs/`
 
-Legacy CLI runtime 命令也可能在 `.loopx/workflows/<slug>/`、`.loopx/changes/` 和 `.loopx/specs/` 下创建用户可读写的工作文档。这些是 legacy runtime 兼容产物，不是 v1 skill-suite 的主要文档面。
+当完成的工作产生稳定团队规则时，`finish` 可以在 `docs/loopx/specs/` 生成 spec candidates。这些候选是 repo-tracked，必须保留在 git diff 中供审阅。
 
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
+
+本地 agent memory 放在 `.loopx/memory/`：
+
+- `.loopx/memory/MEMORY.md`
+- `.loopx/memory/index.jsonl`
+- `.loopx/memory/entries/`
+- `.loopx/memory/archive/`
+
+`MEMORY.md` 是有上限的 curated project memory summary。`index.jsonl` 是用于 agent 文件检索的 curated active index，不是 append-only log。
 
 ## 安装
 
@@ -102,7 +112,7 @@ node plugins/loopx/scripts/plugin-install.mjs
 
 ## CLI
 
-CLI 用于安装、诊断、渲染和 legacy runtime 兼容：
+CLI 用于安装、诊断、渲染和 runtime 维护：
 
 ```bash
 loopx --version
@@ -114,7 +124,6 @@ loopx plan [slug] [--interactive] [--deliberate]
 loopx build <slug> [--no-deslop]
 loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
-loopx archive <slug>
 loopx autopilot <slug> [--reviewer <name>]
 loopx render [slug|--all]
 loopx status [slug] [--json]
@@ -123,8 +132,6 @@ loopx doctor
 loopx migrate
 loopx repair-install
 ```
-
-Legacy `.loopx/workflows/` 命令仍保留兼容，但不是 v1 skill-suite workflow。
 
 ## 治理
 
