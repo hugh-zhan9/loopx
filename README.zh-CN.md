@@ -15,7 +15,7 @@
 推荐 v1 流程：
 
 ```text
-clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> finish
+clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
 `spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan`。
@@ -32,9 +32,12 @@ clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> fin
 - `subagent-exec`：用 fresh subagents 和 staged review 执行已批准计划。
 - `exec`：没有 subagent 或用户选择 inline 时顺序执行计划。
 - `review`：基于 git range 和计划/需求发起独立代码评审。
+- `final-review`：在收尾前对完整 feature 做运行时、集成和测试缺口风险评审。
 - `fix-review`：严谨评估并处理 code review feedback。
 - `finish`：验证完成后选择 merge、PR、保留或丢弃。
 - `refactor-plan`：访谈并写行为保持的 tiny-commit 重构计划。
+
+`review` 和对应的 `fix-review` 在 `subagent-exec` 或 `exec` 内部作为 task/checkpoint review loop 运行。`final-review` 是 `finish` 前的顶层 whole-feature review，它的反馈也通过 `fix-review` 处理。
 
 辅助 skills：
 
@@ -55,6 +58,8 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 - `docs/loopx/specs/`
 
 当完成的工作产生稳定团队规则时，`finish` 可以在 `docs/loopx/specs/` 生成 spec candidates。这些候选是 repo-tracked，必须保留在 git diff 中供审阅。
+
+`finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 

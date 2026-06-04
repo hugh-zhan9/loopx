@@ -15,7 +15,7 @@
 Recommended v1 flow:
 
 ```text
-clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> finish
+clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
 `spec` is conditional. Use it when API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. Skip it when the remaining work is local implementation choice.
@@ -32,9 +32,12 @@ Core workflow skills:
 - `subagent-exec`: execute an approved plan with fresh subagents and staged review.
 - `exec`: execute an approved plan inline when subagents are unavailable or not desired.
 - `review`: request independent code review against a git range and plan or requirements.
+- `final-review`: review the completed feature for runtime, integration, and test-gap risk before finishing.
 - `fix-review`: evaluate and implement code review feedback rigorously.
 - `finish`: verify and choose merge, PR, keep, or discard.
 - `refactor-plan`: interview and write a behavior-preserving refactor plan with tiny commits.
+
+`review` and its matching `fix-review` run inside `subagent-exec` or `exec` as task/checkpoint review loops. `final-review` is the top-level whole-feature review before `finish`, and its feedback also goes through `fix-review`.
 
 Support skills:
 
@@ -55,6 +58,8 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 - `docs/loopx/specs/`
 
 `finish` may generate spec candidates in `docs/loopx/specs/` when completed work produces stable team rules. These candidates are repo-tracked and must remain visible in the git diff.
+
+`finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
