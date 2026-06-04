@@ -209,12 +209,17 @@ describe('loopx skill governance', () => {
     assert.match(finish, /docs\/loopx\/specs\/<domain>\.md/);
     assert.match(finish, /curated active index/);
     assert.match(finish, /Spec candidates/);
+    assert.match(finish, /Learning extraction priority/);
+    assert.match(finish, /Durable behavior, contracts, or constraints proven by the implementation/);
+    assert.match(finish, /State, file, CLI, API, install, migration, compatibility, or test invariants/);
+    assert.match(finish, /Documentation changes when they define, correct, or preserve one of the above/);
   });
 
   it('bundles every loopx execution skill referenced by plan handoffs', async () => {
     const requiredExecutionSkills = [
       'subagent-exec',
       'exec',
+      'final-review',
       'finish',
       'review',
       'fix-review',
@@ -228,7 +233,7 @@ describe('loopx skill governance', () => {
     }
 
     const subagentDriven = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
-    for (const skillName of ['plan', 'review', 'finish', 'tdd', 'exec']) {
+    for (const skillName of ['plan', 'review', 'final-review', 'finish', 'tdd', 'exec']) {
       assert.match(subagentDriven, new RegExp(`loopx:${skillName}`), `subagent-exec must reference loopx:${skillName}`);
       assert.doesNotMatch(subagentDriven, new RegExp(`superpowers:${skillName}`), `subagent-exec still references superpowers:${skillName}`);
     }
@@ -265,6 +270,16 @@ describe('loopx skill governance', () => {
       existsSync(join(repoRoot, 'plugins', 'loopx', 'skills', 'review', 'code-reviewer.md')),
       true,
       'plugin review/code-reviewer.md missing',
+    );
+    assert.equal(
+      existsSync(join(repoRoot, 'skills', 'final-review', 'final-reviewer.md')),
+      true,
+      'final-review/final-reviewer.md missing',
+    );
+    assert.equal(
+      existsSync(join(repoRoot, 'plugins', 'loopx', 'skills', 'final-review', 'final-reviewer.md')),
+      true,
+      'plugin final-review/final-reviewer.md missing',
     );
   });
 });

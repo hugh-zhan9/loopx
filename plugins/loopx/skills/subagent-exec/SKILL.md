@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and staged review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, staged spec review, code quality review, parallel-capable execution"
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # Subagent Exec
@@ -65,7 +65,7 @@ digraph process {
 
     "Read plan, extract all tasks with full text, note context, create update_plan" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "Use loopx:final-review for entire implementation" [shape=box];
     "Use loopx:finish" [shape=box style=filled fillcolor=lightgreen];
 
     "Read plan, extract all tasks with full text, note context, create update_plan" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -84,8 +84,8 @@ digraph process {
     "Code quality reviewer subagent approves?" -> "Mark task complete in update_plan" [label="yes"];
     "Mark task complete in update_plan" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use loopx:finish";
+    "More tasks remain?" -> "Use loopx:final-review for entire implementation" [label="no"];
+    "Use loopx:final-review for entire implementation" -> "Use loopx:finish";
 }
 ```
 
@@ -199,8 +199,8 @@ Code reviewer: ✅ Approved
 ...
 
 [After all tasks]
-[Dispatch final code-reviewer]
-Final reviewer: All requirements met, ready to merge
+[Use loopx:final-review]
+Final reviewer: No whole-feature runtime or integration risks found. Ready for finish.
 
 Done!
 ```
@@ -273,6 +273,7 @@ Done!
 
 - **loopx:plan** - Creates the plan this skill executes
 - **loopx:review** - Code review template for reviewer subagents
+- **loopx:final-review** - Final whole-feature runtime and integration risk review
 - **loopx:finish** - Complete development after all tasks
 
 **Subagents should use:**

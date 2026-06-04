@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by presenting merge, PR, keep, or discard options. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # Finish
@@ -77,6 +77,13 @@ Allowed inputs:
 - explicit user decisions in the current conversation
 - existing `.loopx/memory/MEMORY.md` and `.loopx/memory/index.jsonl`
 - existing `docs/loopx/specs/*.md`
+
+Learning extraction priority:
+1. Durable behavior, contracts, or constraints proven by the implementation
+2. State, file, CLI, API, install, migration, compatibility, or test invariants
+3. Explicit user decisions that constrain future work
+4. Review findings or fixes that reveal a reusable pitfall, pattern, or boundary
+5. Documentation changes when they define, correct, or preserve one of the above
 
 Do not infer durable rules from agent intuition alone. Do not promote unverified implementation details.
 
