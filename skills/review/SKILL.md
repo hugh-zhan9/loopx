@@ -3,7 +3,7 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check"
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # Review

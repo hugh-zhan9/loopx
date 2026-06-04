@@ -14,6 +14,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Approved plan has independent tasks and should run with subagents plus staged review | `skills/subagent-exec/SKILL.md` |
 | Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
 | Completed task, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
+| Completed full feature needs final integration, runtime-risk, and test-gap review before finish | `skills/final-review/SKILL.md` |
 | Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
 | Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
@@ -36,10 +37,12 @@ Read the selected skill file before acting. If multiple skills match, read every
 4. `plan` writes `docs/loopx/plans/*.md` and then offers `subagent-exec` or `exec`.
 5. Use `subagent-exec` when subagents are available and the plan has independent tasks.
 6. Use `exec` when the user chooses inline execution or subagents are unavailable.
-7. Use `review` to request code review of completed work. Use `fix-review` only after feedback exists.
-8. Use `finish` only after implementation and verification are complete.
-9. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-10. Treat `tdd`, `debug`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
+7. Use `review` to request code review of completed task or checkpoint work.
+8. Use `final-review` after the whole feature is implemented and before `finish`.
+9. Use `fix-review` only after feedback exists.
+10. Use `finish` only after implementation, final review, and verification are complete.
+11. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
+12. Treat `tdd`, `debug`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
 
 ## Deterministic Guard
 

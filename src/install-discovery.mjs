@@ -21,6 +21,7 @@ const LOOPX_SKILLS = [
   'subagent-exec',
   'exec',
   'review',
+  'final-review',
   'fix-review',
   'finish',
   'refactor-plan',
