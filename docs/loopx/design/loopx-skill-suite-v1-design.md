@@ -14,6 +14,7 @@ The v1 product surface is the installed and governed bundled skill suite:
 - `subagent-exec`
 - `exec`
 - `review`
+- `final-review`
 - `fix-review`
 - `finish`
 - `refactor-plan`
@@ -32,16 +33,16 @@ The repository may retain auxiliary or compatibility skill source directories fo
 Recommended flow:
 
 ```text
-clarify -> spec? -> plan -> subagent-exec | exec -> review -> fix-review? -> finish
+clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
 `spec` is a conditional design gate. `clarify` may route directly to `plan` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
 
 `plan` is the superpowers `writing-plans` workflow under the loopx name. It writes executable plans and offers two execution options: `subagent-exec` recommended, or `exec` inline.
 
-`review` is the superpowers `requesting-code-review` workflow under the loopx name. `fix-review` is the superpowers `receiving-code-review` workflow under the loopx name.
+`review` is the task or checkpoint code review workflow inside `subagent-exec` or `exec`. `final-review` is the top-level whole-feature runtime, integration, and test-gap review before completion. `fix-review` handles feedback from either review layer.
 
-`finish` verifies completion, extracts local memory, proposes repo-tracked spec candidates when stable team rules emerged, then presents merge, PR, keep, or discard options.
+`finish` verifies completion, extracts local memory, proposes repo-tracked spec candidates when stable team rules emerged, then presents merge, PR, keep, or discard options. It is the terminal completion step for one implementation decision; rerun it only after keep-as-is, PR iteration, interruption before choice execution, or new changes after review feedback. Do not rerun it after merge or discard.
 
 ## Artifacts
 

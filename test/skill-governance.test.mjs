@@ -149,6 +149,13 @@ describe('loopx skill governance', () => {
       assert.match(readmeZh, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${command} missing from README.zh-CN.md`);
     }
     for (const required of [
+      'final-review',
+      'clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish',
+    ]) {
+      assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
+      assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
+    }
+    for (const required of [
       '.loopx/memory/MEMORY.md',
       '.loopx/memory/index.jsonl',
       'docs/loopx/specs/',

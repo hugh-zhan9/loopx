@@ -35,9 +35,12 @@ For each task:
 ### Step 3: Complete Development
 
 After all tasks complete and verified:
+- Announce: "I'm using the final-review skill to review the completed feature."
+- **REQUIRED SUB-SKILL:** Use loopx:final-review
+- If final-review finds Critical or Important issues, use loopx:fix-review to handle feedback before proceeding
 - Announce: "I'm using the finish skill to complete this work."
 - **REQUIRED SUB-SKILL:** Use loopx:finish
-- Follow that skill to verify tests, present options, execute choice
+- Follow finish to verify tests, present options, execute choice
 
 ## When to Stop and Ask for Help
 
@@ -68,4 +71,6 @@ After all tasks complete and verified:
 
 **Required workflow skills:**
 - **loopx:plan** - Creates the plan this skill executes
+- **loopx:final-review** - Final whole-feature runtime and integration risk review
+- **loopx:fix-review** - Handles final-review feedback before finish
 - **loopx:finish** - Complete development after all tasks
