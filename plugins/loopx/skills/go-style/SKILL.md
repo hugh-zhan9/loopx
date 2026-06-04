@@ -59,7 +59,13 @@ Choose the one already used in the codebase.
 
 - Exported symbols should have Go doc comments that start with the symbol name.
 - Short local comments are acceptable when they explain why, not what.
-- Prefer complete sentences for package, exported type, exported function, and non-obvious behavior comments.
+- Prefer complete sentences for package, exported type, exported function, exported method, and non-obvious behavior comments.
+- Match new comments to the user's requested language. If the user asks in Chinese or explicitly requests Chinese comments, write new comments in Chinese while preserving Go doc naming conventions such as `// UserService ...` and `// CreateUser ...`.
+- Do not translate existing comments unless the user explicitly asks for translation; preserve the surrounding file's established comment language when no user preference is stated.
+- Remove comments that only restate syntax, names, or immediately obvious control flow.
+- Add comments for non-obvious business rules, ordering constraints, compatibility behavior, concurrency assumptions, performance tradeoffs, and external API quirks.
+- Check nearby existing comments when behavior changes; stale comments are worse than missing comments.
+- Prefer clearer names, smaller functions, or stronger types over comments that explain avoidable confusion.
 
 ## Verification
 
