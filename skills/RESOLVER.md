@@ -26,6 +26,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Feature or bugfix implementation should be covered by a failing test first | `skills/tdd/SKILL.md` |
 | Bug, test failure, build failure, regression, unexpected behavior, root-cause investigation | `skills/debug/SKILL.md` |
 | Completion, fixed, passing, review-ready, commit, or handoff claims need fresh evidence | `skills/verify/SKILL.md` |
+| Document readability, PRD assessment, requirements gaps, unclear viewpoint, AI-like prose, or document rewriting | `skills/doc-readability/SKILL.md` |
 | Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
 | Go-Kratos proto, service, biz, data, middleware, auth, config, or troubleshooting | `skills/kratos/SKILL.md` |
 
@@ -42,7 +43,8 @@ Read the selected skill file before acting. If multiple skills match, read every
 9. Use `fix-review` only after feedback exists.
 10. Use `finish` only after implementation, final review, and verification are complete.
 11. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-12. Treat `tdd`, `debug`, `verify`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
+12. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan`.
+13. Treat `tdd`, `debug`, `verify`, `doc-readability`, `go-style`, and `kratos` as support lenses unless the user explicitly invokes them directly.
 
 ## Deterministic Guard
 
