@@ -11,7 +11,7 @@ import { installBundledSkills, LOOPX_BUNDLED_SKILLS, verifyInstallState } from '
 import { createScriptedAutopilotAdapter } from '../src/autopilot-runtime.mjs';
 import { createRealBuildAdapter, createScriptedBuildAdapter } from '../src/build-runtime.mjs';
 import { buildActivePath, evaluateBuildStopGate, readBuildActiveState, writeBuildActiveState } from '../src/build-stop-gate.mjs';
-import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
+import { nextCliCommand, nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
 import { createScriptedPlanAdapter } from '../src/plan-runtime.mjs';
 import { createRealReviewAdapter, createScriptedReviewAdapter } from '../src/review-runtime.mjs';
 import { doctorRuntime, migrateLegacyRuntime, resolveLegacyRoot, resolveLoopxRoot } from '../src/runtime-maintenance.mjs';
@@ -386,8 +386,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(claudeSettings.hooks.Stop, undefined);
   });
 
-  it('install prunes loopx-owned legacy skills without deleting foreign legacy skills', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'loopx-legacy-prune-'));
+  it('install leaves legacy skill registry rows untouched', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-legacy-preserve-'));
     const env = loopxEnv(home);
     const legacyOwnedDir = join(home, '.agents', 'skills', 'build');
     const legacyForeignDir = join(home, '.agents', 'skills', 'archive');
@@ -423,8 +423,9 @@ describe('loopx skill-first workflow contract', () => {
       env,
     });
     const lock = JSON.parse(await readFile(join(home, '.agents', '.skill-lock.json'), 'utf8'));
-    assert.equal(lock.skills.build, undefined);
-    assert.equal(existsSync(legacyOwnedDir), false);
+    assert.equal(lock.skills.build.source, 'loopx');
+    assert.equal(lock.skills.build.installationIdentity, 'loopx');
+    assert.equal(existsSync(legacyOwnedDir), true);
     assert.equal(lock.skills.archive.source, 'ForeignVendor');
     assert.equal(existsSync(legacyForeignDir), true);
   });
@@ -1042,9 +1043,10 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(review.rollbackTarget, 'build');
     assert.match(review.reviewMessageZh, /要求修改/);
     assert.match(review.reviewMessageZh, /代码审查发现阻断问题/);
-    assert.match(review.reviewMessageZh, /\$build --from-review \.loopx\/workflows\/review-code\/review-report\.md/);
+    assert.match(review.reviewMessageZh, /loopx build --from-review \.loopx\/workflows\/review-code\/review-report\.md/);
     assert.equal(review.state.pending_user_decision, 'review->build');
-    assert.equal(nextSkillCommand(review.state), '$build --from-review .loopx/workflows/review-code/review-report.md');
+    assert.equal(nextSkillCommand(review.state), null);
+    assert.equal(nextCliCommand(review.state), 'loopx build --from-review .loopx/workflows/review-code/review-report.md');
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     const report = parseFrontmatter(reportText);
     assert.equal(report.verdict, 'request-changes');
@@ -1096,7 +1098,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(review.state.review_verdict, 'request-changes');
     assert.equal(review.state.rollback_target, 'build');
     assert.match(review.reviewMessageZh, /code-review 子流程失败/);
-    assert.match(review.reviewMessageZh, /\$build --from-review \.loopx\/workflows\/review-code-failure\/review-report\.md/);
+    assert.match(review.reviewMessageZh, /loopx build --from-review \.loopx\/workflows\/review-code-failure\/review-report\.md/);
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     assert.match(reportText, /code-review 子流程失败/);
     const codeReview = JSON.parse(await readFile(join(review.root, 'review-support', 'code-review.json'), 'utf8'));
@@ -1132,7 +1134,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(review.state.pending_user_decision, 'review->build');
     assert.equal(review.state.review_verdict, 'request-changes');
     assert.match(review.reviewMessageZh, /execution-record\.md 声明只完成了部分 scope/);
-    assert.match(review.reviewMessageZh, /\$build --from-review \.loopx\/workflows\/review-scope-gate\/review-report\.md/);
+    assert.match(review.reviewMessageZh, /loopx build --from-review \.loopx\/workflows\/review-scope-gate\/review-report\.md/);
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     assert.match(reportText, /partial_scope_remaining/);
     assert.match(reportText, /phase 4 video core/);
@@ -1169,7 +1171,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(review.rollbackTarget, 'build');
     assert.equal(review.state.rollback_target, 'build');
     assert.equal(review.state.pending_user_decision, 'review->build');
-    assert.match(review.reviewMessageZh, /\$build --from-review \.loopx\/workflows\/review-evidence-priority\/review-report\.md/);
+    assert.match(review.reviewMessageZh, /loopx build --from-review \.loopx\/workflows\/review-evidence-priority\/review-report\.md/);
   });
 
   it('routes review request-changes to plan or clarify when review target requires it', async () => {
@@ -3519,7 +3521,7 @@ describe('loopx skill-first workflow contract', () => {
       max_iterations: 10,
       review_handoff_ready: false,
       blockers: ['verification_pending'],
-      next_action: 'Continue $build verification and update execution-record.md.',
+      next_action: 'Continue loopx build verification and update execution-record.md.',
       completion_signal: 'Build may stop only after review handoff readiness or a real blocker is recorded.',
       build_owner_id: 'loopx-build-owner:active-build',
       delegation_ledger_path: '.loopx/workflows/active-build/build-support/delegation-ledger.json',
@@ -3603,7 +3605,9 @@ describe('loopx skill-first workflow contract', () => {
     const payload = withNextSkill({ ok: true, command: 'clarify', root: clarified.root, state }, state);
     assert.equal(payload.command, 'clarify');
     assert.equal(payload.next_skill_command, '$plan clarify-cli-next');
-    assert.equal(payload.next_skill_hint, 'Next: $plan clarify-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next skill: $plan clarify-cli-next');
+    assert.equal(payload.next_cli_command, null);
+    assert.equal(payload.next_cli_hint, null);
   });
 
   it('CLI payload adds the artifact-first next skill command for a completed plan', async () => {
@@ -3618,8 +3622,10 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.command, 'approve');
     assert.equal(payload.state.current_stage, 'plan');
     assert.equal(payload.state.requested_transition, 'plan->build');
-    assert.equal(payload.next_skill_command, '$build .loopx/plans/requirements-snapshot-plan-cli-next.md');
-    assert.equal(payload.next_skill_hint, 'Next: $build .loopx/plans/requirements-snapshot-plan-cli-next.md');
+    assert.equal(payload.next_skill_command, '$subagent-exec .loopx/plans/requirements-snapshot-plan-cli-next.md');
+    assert.equal(payload.next_skill_hint, 'Next skill: $subagent-exec .loopx/plans/requirements-snapshot-plan-cli-next.md');
+    assert.equal(payload.next_cli_command, 'loopx build .loopx/plans/requirements-snapshot-plan-cli-next.md');
+    assert.equal(payload.next_cli_hint, 'Next CLI: loopx build .loopx/plans/requirements-snapshot-plan-cli-next.md');
   });
 
   it('CLI payload adds the next skill command for a completed build', async () => {
@@ -3638,7 +3644,9 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.state.current_stage, 'build');
     assert.equal(payload.state.pending_user_decision, 'build->review');
     assert.equal(payload.next_skill_command, '$review .loopx/workflows/build-cli-next/execution-record.md');
-    assert.equal(payload.next_skill_hint, 'Next: $review .loopx/workflows/build-cli-next/execution-record.md');
+    assert.equal(payload.next_skill_hint, 'Next skill: $review .loopx/workflows/build-cli-next/execution-record.md');
+    assert.equal(payload.next_cli_command, null);
+    assert.equal(payload.next_cli_hint, null);
   });
 
   it('CLI payload adds the archive skill command after done approval', async () => {
@@ -3659,12 +3667,12 @@ describe('loopx skill-first workflow contract', () => {
     const reviewed = await readState(wd, 'archive-cli-next');
     const reviewPayload = withNextSkill({ ok: true, command: 'review', root: clarified.root, state: reviewed }, reviewed);
     assert.equal(reviewPayload.next_skill_command, '$archive archive-cli-next');
-    assert.equal(reviewPayload.next_skill_hint, 'Next: $archive archive-cli-next');
+    assert.equal(reviewPayload.next_skill_hint, 'Next skill: $archive archive-cli-next');
     const done = await approveStage(wd, 'archive-cli-next', { from: 'review', to: 'done' });
 
     const payload = withNextSkill({ ok: true, command: 'approve', root: done.root, state: done.state }, done.state);
     assert.equal(payload.next_skill_command, '$archive archive-cli-next');
-    assert.equal(payload.next_skill_hint, 'Next: $archive archive-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next skill: $archive archive-cli-next');
   });
 
   it('does not infer review next command from empty build blockers alone', () => {
@@ -3701,14 +3709,22 @@ describe('loopx skill-first workflow contract', () => {
       },
     };
 
-    assert.equal(nextSkillCommand(state), '$build --from-review .loopx/workflows/review-build-next/review-report.md');
+    assert.equal(nextSkillCommand(state), null);
+    assert.equal(nextCliCommand(state), 'loopx build --from-review .loopx/workflows/review-build-next/review-report.md');
     assert.equal(nextSkillCommand({
       ...state,
       requested_transition: 'review->build',
       approval: {
         build: 'approved',
       },
-    }), '$build --from-review .loopx/workflows/review-build-next/review-report.md');
+    }), null);
+    assert.equal(nextCliCommand({
+      ...state,
+      requested_transition: 'review->build',
+      approval: {
+        build: 'approved',
+      },
+    }), 'loopx build --from-review .loopx/workflows/review-build-next/review-report.md');
   });
 
   it('CLI status shows the next skill command for a handoff-ready clarify workflow', async () => {
@@ -3718,6 +3734,7 @@ describe('loopx skill-first workflow contract', () => {
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-status-next'], { cwd: wd });
     assert.match(stdout, /next skill: \$plan clarify-status-next/);
+    assert.doesNotMatch(stdout, /next cli:/);
   });
 
   it('CLI render writes derived HTML views without replacing canonical artifacts', async () => {

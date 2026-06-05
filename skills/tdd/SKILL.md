@@ -3,7 +3,7 @@ name: tdd
 description: "Guides feature and bugfix implementation through a failing test before production code and red-green-refactor discipline. Not for generated files or throwaway prototypes."
 when_to_use: "tdd, failing test first, feature implementation, bugfix, regression test, red green refactor, 测试先行"
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
 ---
 
 # Test-Driven Development (TDD)

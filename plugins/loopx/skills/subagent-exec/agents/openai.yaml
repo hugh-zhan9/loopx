@@ -1,3 +1,3 @@
 interface:
-  display_name: "Subagent-Driven Development"
-  short_description: "Execute implementation plans with staged subagent reviews"
+  display_name: "Subagent Exec"
+  short_description: "Execute loopx plans with staged subagent reviews"

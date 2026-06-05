@@ -73,7 +73,7 @@ export function evaluateBuildStopGate(state) {
     const delegationCount = Number.isFinite(Number(state.active_delegation_count)) ? Number(state.active_delegation_count) : null;
     const delegationText = delegationCount !== null ? ` active delegations=${delegationCount}.` : '';
     const auditText = state.completion_audit_status ? ` completion audit: ${state.completion_audit_status}.` : '';
-    const nextAction = state.next_action ? ` next action: ${state.next_action}` : ' next action: continue the contract-covered next step in $build.';
+    const nextAction = state.next_action ? ` next action: ${state.next_action}` : ' next action: continue the contract-covered loopx build step.';
     const completionSignal = state.completion_signal ? ` completion signal: ${state.completion_signal}` : ' completion signal: review handoff readiness, a real blocker, user stop, or a return to plan/clarify.';
     return {
       allow: false,

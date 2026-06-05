@@ -118,7 +118,7 @@ function reviewReportArtifactPath(slug) {
 }
 
 function reviewReworkBuildCommand(slug) {
-  return `$build --from-review ${reviewReportArtifactPath(slug)}`;
+  return `loopx build --from-review ${reviewReportArtifactPath(slug)}`;
 }
 
 function nowIso() {
@@ -4203,7 +4203,7 @@ export async function buildStage(cwd, slug, options = {}) {
       active_delegation_count: delegationLedger?.active_blocking_count || 0,
       completion_audit_path: displayPath(cwd, completionAuditPath),
       completion_audit_status: completionAudit?.status || 'pending',
-      next_action: 'Continue $build execution and gather fresh implementation evidence.',
+      next_action: 'Continue loopx build execution and gather fresh implementation evidence.',
       completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
     current = await adapter.executeLanes({
@@ -4271,7 +4271,7 @@ export async function buildStage(cwd, slug, options = {}) {
       completion_audit_status: completionAudit.status,
       next_action: blockers.length === 0
         ? 'Verify execution evidence and prepare build -> review handoff.'
-        : 'Continue $build to resolve blockers before review handoff.',
+        : 'Continue loopx build to resolve blockers before review handoff.',
       completion_signal: 'Build may stop only after execution-record.md is complete and build -> review handoff readiness is reached, or after a real blocker is recorded.',
     });
     const writtenSupportPaths = await writeBuildSupportArtifacts(root, current, noDeslop, {
@@ -4373,7 +4373,7 @@ export async function buildStage(cwd, slug, options = {}) {
     active_delegation_count: delegationLedger?.active_blocking_count || 0,
     completion_audit_path: displayPath(cwd, completionAuditPath),
     completion_audit_status: completionAudit?.status || (finalBlocked ? 'blocked' : 'passed'),
-    next_action: finalBlocked ? 'Run $build again after resolving recorded blockers.' : 'Approve build -> review and run $review.',
+    next_action: finalBlocked ? 'Run loopx build again after resolving recorded blockers.' : 'Approve build -> review and run $review.',
     completion_signal: finalBlocked ? 'Build is stopped because real blockers remain recorded.' : 'execution-record.md is complete and build -> review handoff is ready.',
     execution_record_status: next.execution_record_status,
     execution_record_path: artifactPath(root, 'execution-record.md'),

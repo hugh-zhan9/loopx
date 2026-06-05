@@ -31,18 +31,6 @@ const LOOPX_SKILLS = [
   'go-style',
   'kratos',
 ];
-const LOOPX_LEGACY_SKILLS = [
-  'build',
-  'autopilot',
-  'archive',
-  'writing-plans',
-  'executing-plans',
-  'subagent-driven-development',
-  'requesting-code-review',
-  'receiving-code-review',
-  'finishing-a-development-branch',
-  'request-refactor-plan',
-];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
   {
@@ -453,20 +441,6 @@ async function removeStaleOwnedInstall(currentRow) {
   await removeInstalledSkill(currentRow.installedPath);
 }
 
-async function pruneLegacyLoopxOwnedSkills(nextData, env = process.env) {
-  const pruned = [];
-  for (const skillName of LOOPX_LEGACY_SKILLS) {
-    const row = nextData.skills?.[skillName];
-    if (!isLoopxOwnedIdentity(skillName, row, env)) {
-      continue;
-    }
-    await removeStaleOwnedInstall(row);
-    delete nextData.skills[skillName];
-    pruned.push({ skillName, installedPath: row.installedPath });
-  }
-  return pruned;
-}
-
 async function removeInstalledFile(path) {
   if (!existsSync(path)) {
     return;
@@ -668,7 +642,6 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const nextData = jsonClone(data);
   nextData.version = nextData.version || 3;
   nextData.skills = nextData.skills || {};
-  const pruned = await pruneLegacyLoopxOwnedSkills(nextData, env);
   const baselinePath = getTemplateBaselinePath(env);
   const existingBaseline = await readTemplateBaseline(baselinePath);
   const baselineItemsByPath = new Map((existingBaseline?.items || []).map((item) => [templateItemKey(item), item]));
@@ -767,7 +740,6 @@ export async function installBundledSkills(env = process.env, options = {}) {
     installed,
     conflicts,
     skipped,
-    pruned,
     templateGovernance,
     inspection: await inspectInstallState(env),
   };
