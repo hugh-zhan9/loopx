@@ -193,6 +193,7 @@ describe('loopx skill governance', () => {
     assert.match(plan, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
     assert.match(plan, /loopx:subagent-exec/);
     assert.match(plan, /loopx:exec/);
+    assert.match(plan, /Subagent Exec \(recommended\)/);
     assert.doesNotMatch(plan, /Planner -> Architect -> Critic/);
     assert.doesNotMatch(plan, /consensus-first/i);
 
@@ -251,6 +252,12 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(executingPlans, /using-git-worktrees/);
     assert.doesNotMatch(executingPlans, /main\/master branch/);
 
+    const subagentProfile = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'agents', 'openai.yaml'), 'utf8');
+    const pluginSubagentProfile = await readFile(join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec', 'agents', 'openai.yaml'), 'utf8');
+    assert.match(subagentProfile, /display_name: "Subagent Exec"/);
+    assert.match(subagentProfile, /short_description: "Execute loopx plans with staged subagent reviews"/);
+    assert.equal(pluginSubagentProfile, subagentProfile);
+
     for (const relativePath of [
       'implementer-prompt.md',
       'spec-reviewer-prompt.md',
@@ -288,5 +295,28 @@ describe('loopx skill governance', () => {
       true,
       'plugin final-review/final-reviewer.md missing',
     );
+  });
+
+  it('keeps loopx skill and CLI handoff names separated', async () => {
+    const nextSkill = await readFile(join(repoRoot, 'src', 'next-skill.mjs'), 'utf8');
+    const workflow = await readFile(join(repoRoot, 'src', 'workflow.mjs'), 'utf8');
+    const buildStopGate = await readFile(join(repoRoot, 'src', 'build-stop-gate.mjs'), 'utf8');
+    const codexHook = await readFile(join(repoRoot, 'scripts', 'codex-workflow-hook.mjs'), 'utf8');
+    const installDiscovery = await readFile(join(repoRoot, 'src', 'install-discovery.mjs'), 'utf8');
+
+    for (const [label, text] of [
+      ['next-skill', nextSkill],
+      ['workflow', workflow],
+      ['build-stop-gate', buildStopGate],
+      ['codex-workflow-hook', codexHook],
+    ]) {
+      assert.doesNotMatch(text, /\$build\b/, `${label} must use loopx build for CLI handoffs, not $build`);
+    }
+
+    assert.match(nextSkill, /\$subagent-exec \.loopx\/plans\/requirements-snapshot-/);
+    assert.match(nextSkill, /loopx build \.loopx\/plans\/requirements-snapshot-/);
+    assert.doesNotMatch(installDiscovery, /LOOPX_PRUNED_LEGACY_OWNED_SKILLS/);
+    assert.doesNotMatch(installDiscovery, /pruneLegacyLoopxOwnedSkills/);
+    assert.doesNotMatch(installDiscovery, /const LOOPX_LEGACY_SKILLS/);
   });
 });

@@ -3,7 +3,7 @@ name: plan
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -156,13 +156,13 @@ Plan complete and saved to `docs/loopx/plans/<filename>.md`.
 
 Two execution options:
 
-1. Subagent-Driven (recommended) - dispatch a fresh subagent per task, review between tasks, fast iteration
+1. Subagent Exec (recommended) - dispatch a fresh subagent per task, review between tasks, fast iteration
 2. Inline Execution - execute tasks in this session using exec, batch execution with checkpoints
 
 Which approach?
 ```
 
-If Subagent-Driven is chosen:
+If Subagent Exec is chosen:
 
 - REQUIRED SUB-SKILL: Use `loopx:subagent-exec`
 - Fresh subagent per task plus two-stage review

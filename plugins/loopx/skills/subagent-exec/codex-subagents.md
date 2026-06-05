@@ -17,7 +17,7 @@ Use this reference before executing this skill in Codex.
 
 Subagent dispatch requires Codex multi-agent support. If `spawn_agent`,
 `wait_agent`, or `close_agent` are unavailable, do not pretend this skill ran
-as subagent-driven development. Use `loopx:exec` instead.
+as subagent-exec. Use `loopx:exec` instead.
 
 Codex environments that require explicit feature flags should enable:
 

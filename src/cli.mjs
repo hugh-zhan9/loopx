@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { installBundledSkills, installSkillsForTargets } from './install-discovery.mjs';
-import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
+import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
 
@@ -177,6 +177,10 @@ function printHumanStatus(status) {
   const nextSkill = nextSkillCommand(status.state);
   if (nextSkill) {
     console.log(`next skill: ${nextSkill}`);
+  }
+  const nextCli = nextCliCommand(status.state);
+  if (nextCli) {
+    console.log(`next cli: ${nextCli}`);
   }
   console.log(`next: ${status.next_action}`);
 }

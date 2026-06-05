@@ -31,7 +31,6 @@ function nextSkill(state) {
   if (!state || !state.slug) {
     return null;
   }
-  const reviewBuildCommand = `$build --from-review .loopx/workflows/${state.slug}/review-report.md`;
   if (isClarifyReadyForPlan(state)) {
     return `$plan ${state.slug}`;
   }
@@ -51,7 +50,7 @@ function nextSkill(state) {
     && state.current_stage === 'plan'
     && Array.isArray(state.plan_blockers)
     && state.plan_blockers.length === 0) {
-    return `$build .loopx/plans/requirements-snapshot-${state.slug}.md`;
+    return `$subagent-exec .loopx/plans/requirements-snapshot-${state.slug}.md`;
   }
   if (state.current_stage === 'build'
     && state.stage_status === 'awaiting-approval'
@@ -71,13 +70,13 @@ function nextSkill(state) {
       || state.approval?.build === 'requested'
       || state.approval?.build === 'approved'
     )) {
-    return reviewBuildCommand;
+    return null;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'
     && state.requested_transition === 'review->build'
     && state.approval?.build === 'approved') {
-    return reviewBuildCommand;
+    return null;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'
@@ -90,6 +89,36 @@ function nextSkill(state) {
     && state.requested_transition === 'review->clarify'
     && state.approval?.rollback === 'approved') {
     return `$clarify ${state.slug}`;
+  }
+  return null;
+}
+
+function nextCli(state) {
+  if (!state || !state.slug) {
+    return null;
+  }
+  if (state.stage_status === 'awaiting-approval'
+    && state.current_stage === 'plan'
+    && Array.isArray(state.plan_blockers)
+    && state.plan_blockers.length === 0) {
+    return `loopx build .loopx/plans/requirements-snapshot-${state.slug}.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.rollback_target === 'build'
+    && (
+      state.pending_user_decision === 'review->build'
+      || state.requested_transition === 'review->build'
+      || state.approval?.build === 'requested'
+      || state.approval?.build === 'approved'
+    )) {
+    return `loopx build --from-review .loopx/workflows/${state.slug}/review-report.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'request-changes'
+    && state.requested_transition === 'review->build'
+    && state.approval?.build === 'approved') {
+    return `loopx build --from-review .loopx/workflows/${state.slug}/review-report.md`;
   }
   return null;
 }
@@ -134,7 +163,7 @@ function nextActionLine(state, workflow) {
   if (isClarifyReadyForPlan(state) && state.approval?.plan !== 'approved') {
     return `approve clarify -> plan, then $plan ${state.slug || workflow}`;
   }
-  return nextSkill(state) || state.recommended_next_action || 'none';
+  return nextSkill(state) || nextCli(state) || state.recommended_next_action || 'none';
 }
 
 function implementationGateLines(state) {
@@ -228,6 +257,8 @@ try {
     `loopx workflow: ${state.slug || workflow}`,
     `stage: ${stageText(state)}`,
     `next: ${nextActionLine(state, workflow)}`,
+    `next skill: ${nextSkill(state) || '(none)'}`,
+    `next cli: ${nextCli(state) || '(none)'}`,
     `blockers: ${blockers(state)}`,
     ...implementationGateLines(state),
     `approval: ${JSON.stringify(state.approval || {})}`,
