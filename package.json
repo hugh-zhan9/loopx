@@ -1,7 +1,7 @@
 {
   "name": "@ai-content-space/loopx",
   "type": "module",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Skill-first workflow suite for agentic coding assistants",
   "repository": {
     "type": "git",

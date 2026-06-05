@@ -28,6 +28,7 @@ const LOOPX_SKILLS = [
   'debug',
   'tdd',
   'verify',
+  'doc-readability',
   'go-style',
   'kratos',
 ];
