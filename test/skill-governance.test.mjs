@@ -219,8 +219,12 @@ describe('loopx skill governance', () => {
     assert.match(finish, /Spec candidates/);
     assert.match(finish, /Learning extraction priority/);
     assert.match(finish, /Audit-First Learning Extraction/);
+    assert.match(finish, /finish-start/);
     assert.match(finish, /finish-audit/);
     assert.match(finish, /finish-record/);
+    assert.match(finish, /change_window/);
+    assert.match(finish, /baseline\.\.HEAD/);
+    assert.match(finish, /empty git diff/i);
     assert.match(finish, /\.loopx\/finish\/<audit-id>\/finish-state\.json/);
     assert.match(finish, /status` to `"audited"`/);
     assert.match(finish, /accepted_candidates` with evidence/);
@@ -231,6 +235,10 @@ describe('loopx skill governance', () => {
     assert.match(finish, /Durable behavior, contracts, or constraints proven by the implementation/);
     assert.match(finish, /State, file, CLI, API, install, migration, compatibility, or test invariants/);
     assert.match(finish, /Documentation changes when they define, correct, or preserve one of the above/);
+    assert.equal(
+      await readFile(join(repoRoot, 'plugins', 'loopx', 'skills', 'finish', 'SKILL.md'), 'utf8'),
+      finish,
+    );
   });
 
   it('bundles every loopx execution skill referenced by plan handoffs', async () => {
@@ -255,12 +263,24 @@ describe('loopx skill governance', () => {
       assert.match(subagentDriven, new RegExp(`loopx:${skillName}`), `subagent-exec must reference loopx:${skillName}`);
       assert.doesNotMatch(subagentDriven, new RegExp(`superpowers:${skillName}`), `subagent-exec still references superpowers:${skillName}`);
     }
+    assert.match(subagentDriven, /finish-start/);
+    assert.match(subagentDriven, /--source <plan-path>/);
     assert.doesNotMatch(subagentDriven, /using-git-worktrees/);
     assert.doesNotMatch(subagentDriven, /main\/master branch/);
 
     const executingPlans = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    assert.match(executingPlans, /finish-start/);
+    assert.match(executingPlans, /--source <plan-path>/);
     assert.doesNotMatch(executingPlans, /using-git-worktrees/);
     assert.doesNotMatch(executingPlans, /main\/master branch/);
+    assert.equal(
+      await readFile(join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec', 'SKILL.md'), 'utf8'),
+      subagentDriven,
+    );
+    assert.equal(
+      await readFile(join(repoRoot, 'plugins', 'loopx', 'skills', 'exec', 'SKILL.md'), 'utf8'),
+      executingPlans,
+    );
 
     const subagentProfile = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'agents', 'openai.yaml'), 'utf8');
     const pluginSubagentProfile = await readFile(join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec', 'agents', 'openai.yaml'), 'utf8');

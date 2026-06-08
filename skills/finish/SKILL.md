@@ -70,13 +70,18 @@ Or ask: "This branch split from main - is that correct?"
 
 Run `finish-audit` before presenting merge, PR, keep, or discard options.
 
+`loopx:exec` and `loopx:subagent-exec` should have run `finish-start` before implementation. `finish-audit` uses that baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean.
+
 Allowed inputs:
-- current git diff
+- `finish-state.json` `audit.change_window`, especially `baseline..HEAD` commits and changed files
+- current uncommitted git diff and `git status --short`
 - executed verification output
 - plan, spec, and review artifacts used in this task
 - explicit user decisions in the current conversation
 - existing `.loopx/memory/MEMORY.md` and `.loopx/memory/index.jsonl`
 - existing `docs/loopx/specs/*.md`
+
+An empty git diff does not mean there is no learning candidate. When `audit.change_window.commit_count > 0`, inspect the committed range before deciding memory/spec candidates. "Already committed" is not a rejection reason; reject only when the committed change window contains no durable behavior, contract, invariant, pitfall, or user decision worth preserving.
 
 Read the audit state from `.loopx/finish/<audit-id>/finish-state.json` before deciding what to record.
 After learning extraction, update `finish-state.json` before any `done` record: set `status` to `"audited"` and write either valid `accepted_candidates` with evidence, or `rejected_candidates` with reasons plus a replaced `no_candidates_reason` for `none`.

@@ -24,6 +24,16 @@ Load plan, review critically, execute all tasks, report when complete.
 3. If concerns: Raise them with your human partner before starting
 4. If no concerns: create update_plan and proceed
 
+### Step 1.5: Record Finish Baseline
+
+Before editing files or running the first task, run:
+
+```bash
+loopx finish-start <slug> --source <plan-path>
+```
+
+Use the plan filename slug when no workflow slug is available. This preserves the starting `HEAD` for finish learning/spec audit after the execution commits code.
+
 ### Step 2: Execute Tasks
 
 For each task:
