@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -171,15 +171,75 @@ describe('trellis-inspired loopx hardening', () => {
     await writeFile(join(wd, 'README.md'), 'finish audit\n');
     await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
     await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const { stdout: branchStdout } = await execFileAsync('git', ['branch', '--show-current'], { cwd: wd });
+    const branchName = branchStdout.trim();
+    await execFileAsync('git', ['config', `branch.${branchName}.merge`, 'refs/heads/release'], { cwd: wd });
 
     const result = await finishAuditStage(wd, 'finish-audit-flow');
 
     assert.match(result.auditId, /^\d{8}T\d{6}Z-finish-audit-flow$/);
     assert.equal(result.state.status, 'needs-agent-audit');
-    const stateText = await readFile(result.statePath, 'utf8');
-    assert.match(stateText, /"audit_id"/);
+    assert.equal(result.state.schema_version, 1);
+    assert.equal(result.state.slug, 'finish-audit-flow');
+    assert.deepEqual(Object.keys(result.state.audit).sort(), ['base_branch', 'branch', 'head', 'worktree']);
+
+    const persistedState = JSON.parse(await readFile(result.statePath, 'utf8'));
+    assert.deepEqual(persistedState, result.state);
+    assert.equal(persistedState.audit.branch, branchName);
+    assert.equal(persistedState.audit.base_branch, 'release');
+    assert.equal(persistedState.audit.worktree, result.state.audit.worktree);
+    assert.match(String(persistedState.audit.head), /^[0-9a-f]{7,40}$/);
+    assert.deepEqual(Object.keys(persistedState.choice).sort(), ['accepted', 'rejected']);
+    assert.equal(Array.isArray(persistedState.inputs.scanned), true);
+    assert.deepEqual(persistedState.inputs.scanned.slice(0, 5), [
+      'slug=finish-audit-flow',
+      `worktree=${persistedState.audit.worktree}`,
+      `branch=${branchName}`,
+      'base_branch=release',
+      `head=${persistedState.audit.head}`,
+    ]);
+
     const reportText = await readFile(result.reportPath, 'utf8');
-    assert.match(reportText, /Finish Audit/);
+    assert.match(reportText, /# Finish Audit/);
+    assert.match(reportText, /## Summary/);
+    assert.match(reportText, /## Scanned Inputs/);
+    assert.match(reportText, /## Accepted Candidates/);
+    assert.match(reportText, /## Rejected Candidates/);
+    assert.match(reportText, /## Next Steps/);
+    assert.match(reportText, new RegExp(`branch: ${branchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(reportText, /base branch: release/);
+    assert.match(reportText, new RegExp(`worktree: ${persistedState.audit.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(reportText, /slug=finish-audit-flow/);
+    assert.match(reportText, /worktree=/);
+  });
+
+  it('falls back to unknown when upstream branch evidence cannot be read', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-fallback-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish audit fallback\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const configPath = join(wd, '.git', 'config');
+    const branchStdout = await execFileAsync('git', ['branch', '--show-current'], { cwd: wd });
+    const branchName = branchStdout.stdout.trim();
+    await execFileAsync('git', ['config', `branch.${branchName}.remote`, 'origin'], { cwd: wd });
+    await execFileAsync('git', ['config', `branch.${branchName}.merge`, 'refs/heads/release'], { cwd: wd });
+    const originalMode = (await stat(configPath)).mode & 0o777;
+    await chmod(configPath, 0o000);
+    let result;
+    try {
+      result = await finishAuditStage(wd, 'finish-audit-fallback');
+    } finally {
+      await chmod(configPath, originalMode);
+    }
+
+    assert.equal(result.state.audit.base_branch, 'unknown');
+    assert.equal(result.state.inputs.scanned.includes('base_branch=unknown'), true);
+    const reportText = await readFile(result.reportPath, 'utf8');
+    assert.match(reportText, /base branch: unknown/);
   });
 
   it('generates context manifests, consumes them, and writes Chinese workspace journal', async () => {

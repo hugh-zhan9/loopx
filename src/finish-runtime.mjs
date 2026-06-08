@@ -46,31 +46,68 @@ async function gitOutputAllowFailure(cwd, args) {
   }
 }
 
-async function readGitField(cwd, args, fallback = 'unknown') {
-  const value = await gitOutputAllowFailure(cwd, args);
-  return value || fallback;
+async function gitOutputOrUnknown(cwd, args) {
+  try {
+    const value = await gitOutput(cwd, args);
+    return value || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function readGitField(cwd, args) {
+  return gitOutputOrUnknown(cwd, args);
+}
+
+function normalizeBranchRef(raw) {
+  const value = String(raw || '').trim();
+  if (!value) {
+    return 'unknown';
+  }
+  return value
+    .replace(/^refs\/heads\//, '')
+    .replace(/^refs\/remotes\/[^/]+\//, '')
+    || 'unknown';
+}
+
+function normalizeUpstreamRef(raw) {
+  const value = String(raw || '').trim();
+  if (!value) {
+    return 'unknown';
+  }
+  return value
+    .replace(/^refs\/remotes\/[^/]+\//, '')
+    .replace(/^[^/]+\//, '')
+    || 'unknown';
 }
 
 async function resolveGitEvidence(cwd) {
   const isWorktree = await gitOutputAllowFailure(cwd, ['rev-parse', '--is-inside-work-tree']);
-  const branch = isWorktree === 'true'
-    ? await readGitField(cwd, ['branch', '--show-current'])
+  if (isWorktree !== 'true') {
+    return {
+      branch: 'unknown',
+      base_branch: 'unknown',
+      head: 'unknown',
+      worktree: 'unknown',
+    };
+  }
+
+  const branch = normalizeBranchRef(await readGitField(cwd, ['branch', '--show-current']));
+  const head = await readGitField(cwd, ['rev-parse', '--short', 'HEAD']);
+  const mergeTarget = branch !== 'unknown'
+    ? normalizeBranchRef(await gitOutputOrUnknown(cwd, ['config', '--get', `branch.${branch}.merge`]))
     : 'unknown';
-  const head = isWorktree === 'true'
-    ? await readGitField(cwd, ['rev-parse', '--short', 'HEAD'])
+  const upstreamRef = branch !== 'unknown'
+    ? normalizeUpstreamRef(await gitOutputOrUnknown(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']))
     : 'unknown';
-  const baseBranch = isWorktree === 'true'
-    ? await readGitField(cwd, ['config', '--get', 'branch.main.merge'])
-    : 'unknown';
-  const worktree = isWorktree === 'true'
-    ? await readGitField(cwd, ['rev-parse', '--show-toplevel'])
-    : 'unknown';
+  const baseBranch = mergeTarget !== 'unknown' ? mergeTarget : upstreamRef;
+  const worktree = await readGitField(cwd, ['rev-parse', '--show-toplevel']);
 
   return {
-    branch: branch || 'unknown',
+    branch,
     base_branch: baseBranch || 'unknown',
-    head: head || 'unknown',
-    worktree: worktree || 'unknown',
+    head,
+    worktree,
   };
 }
 
@@ -135,8 +172,9 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
   await mkdir(root, { recursive: true });
 
   const evidence = await resolveGitEvidence(cwd);
+  const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
   const scannedInputs = [
-    `slug=${normalizeSlug(slug) || 'finish-audit'}`,
+    `slug=${normalizedSlug}`,
     `worktree=${evidence.worktree}`,
     `branch=${evidence.branch}`,
     `base_branch=${evidence.base_branch}`,
@@ -148,7 +186,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
   const state = {
     schema_version: FINISH_SCHEMA_VERSION,
     audit_id: auditId,
-    slug: normalizeSlug(slug),
+    slug: normalizedSlug,
     status: 'needs-agent-audit',
     inputs: {
       scanned: scannedInputs,
@@ -165,7 +203,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
   await writeFile(join(root, 'finish-state.json'), `${JSON.stringify(state, null, 2)}\n`);
   await writeFile(join(root, 'finish-report.md'), buildFinishReport({
     auditId,
-    slug: normalizeSlug(slug),
+    slug: normalizedSlug,
     evidence,
     scannedInputs,
     choices,
