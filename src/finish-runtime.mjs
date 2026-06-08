@@ -197,6 +197,165 @@ function selectReportCandidates(primary) {
   return [];
 }
 
+async function readJsonIfExists(path) {
+  if (!await pathExists(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function latestBaselineMatchesRequest(baseline, slug, evidence) {
+  if (!plainObject(baseline)) {
+    return false;
+  }
+  return normalizeSlug(baseline.slug) === normalizeSlug(slug)
+    && baseline.branch === evidence.branch
+    && baseline.worktree === evidence.worktree;
+}
+
+async function readFinishBaseline(cwd, slug, evidence) {
+  const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
+  const directBaseline = await readJsonIfExists(resolveFinishBaselinePath(cwd, normalizedSlug));
+  if (directBaseline) {
+    return directBaseline;
+  }
+
+  const latestBaseline = await readJsonIfExists(resolveLatestFinishBaselinePath(cwd));
+  if (!latestBaseline) {
+    return null;
+  }
+
+  const slugWasOmitted = String(slug ?? '').trim() === '';
+  if (slugWasOmitted || latestBaselineMatchesRequest(latestBaseline, normalizedSlug, evidence)) {
+    return latestBaseline;
+  }
+
+  return null;
+}
+
+function parseNameStatus(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [status, firstPath, secondPath] = line.split('\t');
+      return {
+        status,
+        path: secondPath || firstPath,
+      };
+    })
+    .filter((item) => item.status && item.path);
+}
+
+function parseCommitLog(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [sha, subject = ''] = line.split('\t');
+      return { sha, subject };
+    })
+    .filter((item) => /^[0-9a-f]{7,40}$/.test(item.sha));
+}
+
+function parseStatusShort(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+}
+
+async function resolveMergeBaseRef(cwd, baseBranch) {
+  if (!baseBranch || baseBranch === 'unknown') {
+    return null;
+  }
+  const remoteRefs = await gitOutputAllowFailure(cwd, [
+    'branch',
+    '-r',
+    '--list',
+    `*/${baseBranch}`,
+    '--format=%(refname:short)',
+  ]);
+  const candidates = [
+    baseBranch,
+    `origin/${baseBranch}`,
+    `refs/remotes/origin/${baseBranch}`,
+    ...remoteRefs.split('\n'),
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  const fullHead = await resolveFullHead(cwd);
+  for (const candidate of [...new Set(candidates)]) {
+    const value = await gitOutputAllowFailure(cwd, ['merge-base', 'HEAD', candidate]);
+    if (!/^[0-9a-f]{7,40}$/.test(value) || value === fullHead) {
+      continue;
+    }
+    return value;
+  }
+  return null;
+}
+
+async function resolveManualBaselineRef(cwd, ref) {
+  const value = String(ref || '').trim();
+  if (!value) {
+    return null;
+  }
+  try {
+    return await gitOutput(cwd, ['rev-parse', '--verify', `${value}^{commit}`]);
+  } catch {
+    throw new Error(`finish_audit_invalid_baseline_ref:${value}`);
+  }
+}
+
+async function resolveChangeWindow(cwd, slug, evidence, { baselineRef = null } = {}) {
+  const rootCwd = evidence.worktree === 'unknown' ? cwd : evidence.worktree;
+  const manualBaselineHead = await resolveManualBaselineRef(cwd, baselineRef);
+  const baseline = manualBaselineHead
+    ? { head: manualBaselineHead, head_short: manualBaselineHead.slice(0, 7), source: null }
+    : await readFinishBaseline(rootCwd, slug, evidence);
+  const fallbackMergeBase = baseline ? null : await resolveMergeBaseRef(cwd, evidence.base_branch);
+  const ref = baseline?.head || fallbackMergeBase;
+  const source = baseline?.head ? 'baseline' : fallbackMergeBase ? 'merge-base' : 'none';
+  const statusText = await gitOutputAllowFailure(cwd, ['status', '--short']);
+  const uncommittedStatus = parseStatusShort(statusText);
+
+  if (!ref || ref === 'unknown') {
+    return {
+      source,
+      baseline_ref: null,
+      baseline_ref_short: null,
+      range: null,
+      commit_count: 0,
+      commits: [],
+      changed_files: [],
+      diff_stat: '',
+      uncommitted_status: uncommittedStatus,
+      source_artifacts: baseline?.source ? [baseline.source] : [],
+    };
+  }
+
+  const range = `${ref}..HEAD`;
+  const commits = parseCommitLog(await gitOutputAllowFailure(cwd, ['log', '--pretty=format:%H%x09%s', range]));
+  const changedFiles = parseNameStatus(await gitOutputAllowFailure(cwd, ['diff', '--name-status', range]));
+  const diffStat = await gitOutputAllowFailure(cwd, ['diff', '--stat', range]);
+  return {
+    source,
+    baseline_ref: ref,
+    baseline_ref_short: baseline?.head_short || ref.slice(0, 7),
+    range: `${ref.slice(0, 7)}..HEAD`,
+    commit_count: commits.length,
+    commits,
+    changed_files: changedFiles,
+    diff_stat: diffStat,
+    uncommitted_status: uncommittedStatus,
+    source_artifacts: baseline?.source ? [baseline.source] : [],
+  };
+}
+
 function singleLineText(value) {
   return String(value ?? 'null').replace(/\s*\r?\n+\s*/g, ' ').trim() || 'null';
 }
@@ -272,6 +431,7 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
   const auditId = state.audit_id;
   const slug = state.slug;
   const auditChoices = state.audit || {};
+  const changeWindow = auditChoices.change_window || {};
   const noCandidatesReason = auditChoices.no_candidates_reason ?? null;
   const acceptedSource = selectReportCandidates(auditChoices.accepted_candidates);
   const rejectedSource = selectReportCandidates(auditChoices.rejected_candidates);
@@ -297,6 +457,21 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
   const scanned = scannedInputs.length > 0
     ? scannedInputs.map((item) => `- ${item}`).join('\n')
     : '- none';
+  const commits = Array.isArray(changeWindow.commits) && changeWindow.commits.length > 0
+    ? changeWindow.commits.map((item) => `- ${singleLineText(item.sha)} ${singleLineText(item.subject)}`).join('\n')
+    : '- none';
+  const changedFiles = Array.isArray(changeWindow.changed_files) && changeWindow.changed_files.length > 0
+    ? changeWindow.changed_files.map((item) => `- ${singleLineText(item.status)} ${singleLineText(item.path)}`).join('\n')
+    : '- none';
+  const uncommitted = Array.isArray(changeWindow.uncommitted_status) && changeWindow.uncommitted_status.length > 0
+    ? changeWindow.uncommitted_status.map((item) => `- ${singleLineText(item)}`).join('\n')
+    : '- none';
+  const sourceArtifacts = Array.isArray(changeWindow.source_artifacts) && changeWindow.source_artifacts.length > 0
+    ? changeWindow.source_artifacts.map((item) => `- ${singleLineText(item)}`).join('\n')
+    : '- none';
+  const diffStat = nonEmptyText(changeWindow.diff_stat)
+    ? String(changeWindow.diff_stat).split('\n').map((line) => `- ${singleLineText(line)}`).join('\n')
+    : '- none';
 
   return [
     '# Finish Audit',
@@ -314,6 +489,33 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     '## Scanned Inputs',
     '',
     scanned,
+    '',
+    '## Change Window',
+    '',
+    `- source: ${singleLineText(changeWindow.source)}`,
+    `- baseline_ref: ${singleLineText(changeWindow.baseline_ref_short ?? changeWindow.baseline_ref)}`,
+    `- range: ${singleLineText(changeWindow.range)}`,
+    `- committed_change_count: ${singleLineText(changeWindow.commit_count)}`,
+    '',
+    '### Commits',
+    '',
+    commits,
+    '',
+    '### Changed Files',
+    '',
+    changedFiles,
+    '',
+    '### Uncommitted Status',
+    '',
+    uncommitted,
+    '',
+    '### Source Artifacts',
+    '',
+    sourceArtifacts,
+    '',
+    '### Diff Stat',
+    '',
+    diffStat,
     '',
     '## Accepted Candidates',
     '',
@@ -407,6 +609,9 @@ function validateFinishRecordState(state, root) {
   if (!Array.isArray(state.audit.accepted_candidates) || !Array.isArray(state.audit.rejected_candidates)) {
     throwInvalidFinishState();
   }
+  if (state.audit.change_window !== undefined && !plainObject(state.audit.change_window)) {
+    throwInvalidFinishState();
+  }
   if (state.audit.no_candidates_reason !== null && typeof state.audit.no_candidates_reason !== 'string') {
     throwInvalidFinishState();
   }
@@ -485,18 +690,24 @@ function evidenceFromState(state, fallback = {}) {
   };
 }
 
-export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date() } = {}) {
+export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date(), baselineRef = null } = {}) {
   const auditDate = date instanceof Date ? date : new Date(date);
   const { auditId, root } = await createFinishAuditDirectory(cwd, slug, auditDate);
 
   const evidence = await resolveGitEvidence(cwd);
   const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
+  const changeWindow = await resolveChangeWindow(cwd, slug, evidence, { baselineRef });
   const scannedInputs = [
     `slug=${normalizedSlug}`,
     `worktree=${evidence.worktree}`,
     `branch=${evidence.branch}`,
     `base_branch=${evidence.base_branch}`,
     `head=${evidence.head}`,
+    `change_window_source=${changeWindow.source}`,
+    `change_range=${changeWindow.range ?? 'none'}`,
+    `committed_change_count=${changeWindow.commit_count}`,
+    `changed_files_count=${changeWindow.changed_files.length}`,
+    `uncommitted_change_count=${changeWindow.uncommitted_status.length}`,
     `cwd=${resolve(cwd)}`,
     `env.LOOPX_DEVELOPER=${String(env.LOOPX_DEVELOPER || 'unknown')}`,
   ];
@@ -518,6 +729,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
       accepted_candidates: [],
       rejected_candidates: [],
       no_candidates_reason: DEFAULT_NO_CANDIDATES_REASON,
+      change_window: changeWindow,
       report_candidates: {
         accepted: choices.accepted.map((item) => ({ ...item })),
         rejected: choices.rejected.map((item) => ({ ...item })),
