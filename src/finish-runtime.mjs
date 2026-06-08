@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -123,12 +123,30 @@ function finishChoices() {
   };
 }
 
-function buildFinishReport({ auditId, slug, evidence, scannedInputs, choices }) {
-  const accepted = choices.accepted.length > 0
-    ? choices.accepted.map((item) => `- ${item.id}: ${item.summary}`).join('\n')
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildFinishReport({ state, evidence, scannedInputs }) {
+  const auditId = state.audit_id;
+  const slug = state.slug;
+  const auditChoices = state.audit || {};
+  const accepted = Array.isArray(auditChoices.accepted_candidates) && auditChoices.accepted_candidates.length > 0
+    ? auditChoices.accepted_candidates.map((item) => `- ${item.id ?? 'candidate'}: ${item.summary ?? 'null'}`).join('\n')
     : '- none';
-  const rejected = choices.rejected.length > 0
-    ? choices.rejected.map((item) => `- ${item.id}: ${item.summary}`).join('\n')
+  const rejected = Array.isArray(auditChoices.rejected_candidates) && auditChoices.rejected_candidates.length > 0
+    ? auditChoices.rejected_candidates.map((item) => `- ${item.id ?? 'candidate'}: ${item.summary ?? 'null'}`).join('\n')
+    : '- none';
+  const choiceLine = state.choice?.action
+    ? `- action: ${state.choice.action}\n- status: ${state.choice.status}\n- summary: ${state.choice.summary ?? 'null'}\n- url: ${state.choice.url ?? 'null'}`
+    : '- action: null\n- status: null\n- summary: null\n- url: null';
+  const history = Array.isArray(state.choice_history) && state.choice_history.length > 0
+    ? state.choice_history.map((item, index) => `- ${index + 1}. ${item.action} / ${item.status} / ${item.summary ?? 'null'}`).join('\n')
     : '- none';
   const scanned = scannedInputs.length > 0
     ? scannedInputs.map((item) => `- ${item}`).join('\n')
@@ -141,7 +159,8 @@ function buildFinishReport({ auditId, slug, evidence, scannedInputs, choices }) 
     '',
     `- audit_id: ${auditId}`,
     `- slug: ${slug}`,
-    `- status: needs-agent-audit`,
+    `- status: ${state.status}`,
+    `- updated_at: ${state.updated_at ?? 'null'}`,
     `- branch: ${evidence.branch}`,
     `- base branch: ${evidence.base_branch}`,
     `- worktree: ${evidence.worktree}`,
@@ -158,12 +177,55 @@ function buildFinishReport({ auditId, slug, evidence, scannedInputs, choices }) 
     '',
     rejected,
     '',
+    '## Choice',
+    '',
+    choiceLine,
+    '',
+    '## Choice History',
+    '',
+    history,
+    '',
     '## Next Steps',
     '',
     '- Agent review the audit evidence and decide whether the finish state can advance.',
     '- Record the final audit decision once the audit is complete.',
     '',
   ].join('\n');
+}
+
+async function resolveFinishAuditDir(cwd, auditIdOrPath) {
+  const raw = String(auditIdOrPath || '').trim();
+  const idPath = resolveFinishAuditPath(cwd, raw);
+  const directPath = resolve(cwd, raw);
+
+  if (raw && await pathExists(join(directPath, 'finish-state.json'))) {
+    return directPath;
+  }
+  if (raw && await pathExists(join(idPath, 'finish-state.json'))) {
+    return idPath;
+  }
+  return idPath;
+}
+
+async function readFinishState(statePath) {
+  return JSON.parse(await readFile(statePath, 'utf8'));
+}
+
+function isFinishAuditReadyForDone(state) {
+  return state?.status === 'audited'
+    && Array.isArray(state?.audit?.accepted_candidates)
+    && state.audit.accepted_candidates.length > 0;
+}
+
+function nextChoiceHistory(state, choice, updatedAt) {
+  const history = Array.isArray(state.choice_history) ? state.choice_history.slice() : [];
+  if (state.choice?.action && state.choice.action !== choice.action) {
+    history.push({
+      ...state.choice,
+      superseded_at: updatedAt,
+    });
+  }
+  return history;
 }
 
 export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
@@ -188,6 +250,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
     audit_id: auditId,
     slug: normalizedSlug,
     status: 'needs-agent-audit',
+    updated_at: new Date().toISOString(),
     inputs: {
       scanned: scannedInputs,
     },
@@ -196,17 +259,19 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
       base_branch: evidence.base_branch,
       worktree: evidence.worktree,
       head: evidence.head,
+      accepted_candidates: [],
+      rejected_candidates: [],
+      no_candidates_reason: null,
     },
     choice: choices,
+    choice_history: [],
   };
 
   await writeFile(join(root, 'finish-state.json'), `${JSON.stringify(state, null, 2)}\n`);
   await writeFile(join(root, 'finish-report.md'), buildFinishReport({
-    auditId,
-    slug: normalizedSlug,
+    state,
     evidence,
     scannedInputs,
-    choices,
   }));
 
   return {
@@ -215,5 +280,65 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
     state,
     reportPath: join(root, 'finish-report.md'),
     statePath: join(root, 'finish-state.json'),
+  };
+}
+
+export async function finishRecordStage(cwd, auditIdOrPath, {
+  action,
+  status,
+  summary = null,
+  url = null,
+  env = process.env,
+} = {}) {
+  const normalizedAction = String(action || '').trim().toLowerCase();
+  if (!['merge', 'pr', 'keep', 'discard'].includes(normalizedAction)) {
+    throw new Error('finish_record_invalid_action');
+  }
+
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  if (!['pending', 'done', 'failed', 'aborted'].includes(normalizedStatus)) {
+    throw new Error('finish_record_invalid_status');
+  }
+
+  const root = await resolveFinishAuditDir(cwd, auditIdOrPath);
+  const statePath = join(root, 'finish-state.json');
+  const state = await readFinishState(statePath);
+  if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
+    throw new Error('finish_record_audit_incomplete');
+  }
+
+  const updatedAt = new Date().toISOString();
+  const choice = {
+    action: normalizedAction,
+    status: normalizedStatus,
+    summary,
+    url,
+    updated_at: updatedAt,
+  };
+
+  state.choice_history = nextChoiceHistory(state, choice, updatedAt);
+  state.choice = choice;
+  state.updated_at = updatedAt;
+  state.status = normalizedStatus === 'done'
+    ? 'completed'
+    : normalizedStatus === 'failed' || normalizedStatus === 'aborted'
+      ? 'failed'
+      : 'choice-recorded';
+
+  const evidence = await resolveGitEvidence(cwd);
+  const scannedInputs = Array.isArray(state.inputs?.scanned) ? state.inputs.scanned : [];
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+  await writeFile(join(root, 'finish-report.md'), buildFinishReport({
+    state,
+    evidence,
+    scannedInputs,
+  }));
+
+  return {
+    auditId: state.audit_id,
+    root,
+    state,
+    reportPath: join(root, 'finish-report.md'),
+    statePath,
   };
 }

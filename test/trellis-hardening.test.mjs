@@ -27,7 +27,7 @@ import {
   parseManagedBlocks,
   writeTemplateBaseline,
 } from '../src/template-governance.mjs';
-import { finishAuditStage } from '../src/finish-runtime.mjs';
+import { finishAuditStage, finishRecordStage } from '../src/finish-runtime.mjs';
 import { generateBuildContextManifest, readContextManifest } from '../src/context-manifest.mjs';
 import {
   approveStage,
@@ -181,7 +181,15 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(result.state.status, 'needs-agent-audit');
     assert.equal(result.state.schema_version, 1);
     assert.equal(result.state.slug, 'finish-audit-flow');
-    assert.deepEqual(Object.keys(result.state.audit).sort(), ['base_branch', 'branch', 'head', 'worktree']);
+    assert.deepEqual(Object.keys(result.state.audit).sort(), [
+      'accepted_candidates',
+      'base_branch',
+      'branch',
+      'head',
+      'no_candidates_reason',
+      'rejected_candidates',
+      'worktree',
+    ]);
 
     const persistedState = JSON.parse(await readFile(result.statePath, 'utf8'));
     assert.deepEqual(persistedState, result.state);
@@ -189,7 +197,12 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(persistedState.audit.base_branch, 'release');
     assert.equal(persistedState.audit.worktree, result.state.audit.worktree);
     assert.match(String(persistedState.audit.head), /^[0-9a-f]{7,40}$/);
+    assert.deepEqual(persistedState.audit.accepted_candidates, []);
+    assert.deepEqual(persistedState.audit.rejected_candidates, []);
+    assert.equal(persistedState.audit.no_candidates_reason, null);
     assert.deepEqual(Object.keys(persistedState.choice).sort(), ['accepted', 'rejected']);
+    assert.deepEqual(persistedState.choice_history, []);
+    assert.match(persistedState.updated_at, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(Array.isArray(persistedState.inputs.scanned), true);
     assert.deepEqual(persistedState.inputs.scanned.slice(0, 5), [
       'slug=finish-audit-flow',
@@ -211,6 +224,43 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(reportText, new RegExp(`worktree: ${persistedState.audit.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     assert.match(reportText, /slug=finish-audit-flow/);
     assert.match(reportText, /worktree=/);
+  });
+
+  it('records finish choices after an audited state becomes complete enough', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-record-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish record\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-record-flow');
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, { action: 'keep', status: 'done', summary: 'Kept as-is.' }),
+      /finish_record_audit_incomplete/,
+    );
+
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [{
+      id: 'candidate-1',
+      summary: 'Keep branch as-is.',
+    }];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const completed = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Kept branch as-is.',
+    });
+
+    assert.equal(completed.state.choice.action, 'keep');
+    assert.equal(completed.state.choice.status, 'done');
+    assert.equal(completed.state.status, 'completed');
+    assert.equal(completed.state.choice_history.length, 0);
+    assert.match(await readFile(completed.reportPath, 'utf8'), /Kept branch as-is\./);
   });
 
   it('falls back to unknown when upstream branch evidence cannot be read', async () => {
