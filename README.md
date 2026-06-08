@@ -140,15 +140,15 @@ loopx build <slug> [--no-deslop]
 loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx autopilot <slug> [--reviewer <name>]
+loopx finish-start [slug] [--source <path>] [--json]
+loopx finish-audit [slug] [--baseline <git-ref>] [--json]
+loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]
 loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
-loopx finish-start [slug] [--source <path>]
-loopx finish-audit
-loopx finish-record
 ```
 
 ## Governance
