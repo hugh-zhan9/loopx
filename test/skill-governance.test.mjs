@@ -136,6 +136,9 @@ describe('loopx skill governance', () => {
       'loopx build',
       'loopx review',
       'loopx autopilot',
+      'loopx finish-start',
+      'loopx finish-audit',
+      'loopx finish-record',
       'loopx render',
       'loopx status',
       'loopx setup-context',
@@ -159,6 +162,8 @@ describe('loopx skill governance', () => {
       '.loopx/memory/MEMORY.md',
       '.loopx/memory/index.jsonl',
       'docs/loopx/specs/',
+      'baseline..HEAD',
+      'change_window',
     ]) {
       assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
