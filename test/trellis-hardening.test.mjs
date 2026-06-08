@@ -27,6 +27,7 @@ import {
   parseManagedBlocks,
   writeTemplateBaseline,
 } from '../src/template-governance.mjs';
+import { finishAuditStage } from '../src/finish-runtime.mjs';
 import { generateBuildContextManifest, readContextManifest } from '../src/context-manifest.mjs';
 import {
   approveStage,
@@ -160,6 +161,25 @@ describe('trellis-inspired loopx hardening', () => {
       '',
     ].join('\n'));
     assert.equal((await classifyTemplateDrift(baseline.items[0], { sourcePath, targetPath })).status, 'conflict');
+  });
+
+  it('creates finish audit runtime artifacts with audit state and report', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish audit\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const result = await finishAuditStage(wd, 'finish-audit-flow');
+
+    assert.match(result.auditId, /^\d{8}T\d{6}Z-finish-audit-flow$/);
+    assert.equal(result.state.status, 'needs-agent-audit');
+    const stateText = await readFile(result.statePath, 'utf8');
+    assert.match(stateText, /"audit_id"/);
+    const reportText = await readFile(result.reportPath, 'utf8');
+    assert.match(reportText, /Finish Audit/);
   });
 
   it('generates context manifests, consumes them, and writes Chinese workspace journal', async () => {
