@@ -63,11 +63,13 @@ digraph process {
         "Mark task complete in update_plan" [shape=box];
     }
 
+    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" [shape=box];
     "Read plan, extract all tasks with full text, note context, create update_plan" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Use loopx:final-review for entire implementation" [shape=box];
     "Use loopx:finish" [shape=box style=filled fillcolor=lightgreen];
 
+    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Read plan, extract all tasks with full text, note context, create update_plan";
     "Read plan, extract all tasks with full text, note context, create update_plan" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
@@ -88,6 +90,16 @@ digraph process {
     "Use loopx:final-review for entire implementation" -> "Use loopx:finish";
 }
 ```
+
+### Step 0: Record Finish Baseline
+
+Before dispatching the first implementer, run:
+
+```bash
+loopx finish-start <slug> --source <plan-path>
+```
+
+Use the plan filename slug when no workflow slug is available. This preserves the starting `HEAD` so `finish-audit` can inspect `baseline..HEAD` even after implementers commit their work and the current `git diff` is empty.
 
 ## Model Selection
 
