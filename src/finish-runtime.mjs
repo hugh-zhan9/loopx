@@ -80,6 +80,14 @@ async function resolveFullHead(cwd) {
   return readGitField(cwd, ['rev-parse', 'HEAD']);
 }
 
+async function resolveRequiredHead(cwd) {
+  const head = await resolveCommitRef(cwd, 'HEAD');
+  if (!head) {
+    throw new Error('finish_start_no_valid_head');
+  }
+  return head;
+}
+
 function normalizeBranchRef(raw) {
   const value = String(raw || '').trim();
   if (!value) {
@@ -108,6 +116,7 @@ async function resolveGitEvidence(cwd) {
     return {
       branch: 'unknown',
       base_branch: 'unknown',
+      base_ref: 'unknown',
       head: 'unknown',
       worktree: 'unknown',
     };
@@ -115,18 +124,28 @@ async function resolveGitEvidence(cwd) {
 
   const branch = normalizeBranchRef(await readGitField(cwd, ['branch', '--show-current']));
   const head = await readGitField(cwd, ['rev-parse', '--short', 'HEAD']);
+  const remoteName = branch !== 'unknown'
+    ? await gitOutputOrUnknown(cwd, ['config', '--get', `branch.${branch}.remote`])
+    : 'unknown';
   const mergeTarget = branch !== 'unknown'
     ? normalizeBranchRef(await gitOutputOrUnknown(cwd, ['config', '--get', `branch.${branch}.merge`]))
     : 'unknown';
-  const upstreamRef = branch !== 'unknown'
-    ? normalizeUpstreamRef(await gitOutputOrUnknown(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']))
+  const rawUpstreamRef = branch !== 'unknown'
+    ? await gitOutputOrUnknown(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
     : 'unknown';
+  const upstreamRef = normalizeUpstreamRef(rawUpstreamRef);
   const baseBranch = mergeTarget !== 'unknown' ? mergeTarget : upstreamRef;
+  const configuredBaseRef = remoteName !== 'unknown' && mergeTarget !== 'unknown'
+    ? `${remoteName}/${mergeTarget}`
+    : rawUpstreamRef !== 'unknown'
+      ? rawUpstreamRef
+      : 'unknown';
   const worktree = await readGitField(cwd, ['rev-parse', '--show-toplevel']);
 
   return {
     branch,
     base_branch: baseBranch || 'unknown',
+    base_ref: configuredBaseRef,
     head,
     worktree,
   };
@@ -208,6 +227,68 @@ async function readJsonIfExists(path) {
   }
 }
 
+async function resolveCommitRef(cwd, ref) {
+  const value = String(ref || '').trim();
+  if (!value) {
+    return null;
+  }
+  try {
+    return await gitOutput(cwd, ['rev-parse', '--verify', '--end-of-options', `${value}^{commit}`]);
+  } catch {
+    return null;
+  }
+}
+
+async function validatedFinishBaseline(cwd, baseline, { slug = null, evidence = null } = {}) {
+  const state = plainObject(baseline);
+  if (!state) {
+    return null;
+  }
+
+  const normalizedBaselineSlug = normalizeSlug(state.slug);
+  if (!normalizedBaselineSlug || state.schema_version !== FINISH_SCHEMA_VERSION) {
+    return null;
+  }
+  if (slug !== null && normalizedBaselineSlug !== normalizeSlug(slug)) {
+    return null;
+  }
+  if (!nonEmptyText(state.created_at) || Number.isNaN(Date.parse(state.created_at))) {
+    return null;
+  }
+  if (evidence?.worktree && evidence.worktree !== 'unknown' && state.worktree !== evidence.worktree) {
+    return null;
+  }
+  if (evidence?.branch && state.branch !== evidence.branch) {
+    return null;
+  }
+  if (!nonEmptyText(state.branch) || !nonEmptyText(state.head) || !nonEmptyText(state.head_short)) {
+    return null;
+  }
+  if (state.source !== null && state.source !== undefined && typeof state.source !== 'string') {
+    return null;
+  }
+
+  const fullHead = await resolveCommitRef(cwd, state.head);
+  if (!fullHead) {
+    return null;
+  }
+
+  return {
+    schema_version: state.schema_version,
+    slug: normalizedBaselineSlug,
+    created_at: state.created_at,
+    worktree: state.worktree,
+    branch: state.branch,
+    head: fullHead,
+    head_short: state.head_short,
+    source: state.source ?? null,
+  };
+}
+
+async function readValidFinishBaseline(cwd, path, options) {
+  return validatedFinishBaseline(cwd, await readJsonIfExists(path), options);
+}
+
 function latestBaselineMatchesRequest(baseline, slug, evidence) {
   if (!plainObject(baseline)) {
     return false;
@@ -219,18 +300,27 @@ function latestBaselineMatchesRequest(baseline, slug, evidence) {
 
 async function readFinishBaseline(cwd, slug, evidence) {
   const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
-  const directBaseline = await readJsonIfExists(resolveFinishBaselinePath(cwd, normalizedSlug));
+  const slugWasOmitted = String(slug ?? '').trim() === '';
+  const latestBaseline = await readValidFinishBaseline(cwd, resolveLatestFinishBaselinePath(cwd), {
+    evidence,
+  });
+  if (slugWasOmitted && latestBaseline) {
+    return latestBaseline;
+  }
+
+  const directBaseline = await readValidFinishBaseline(cwd, resolveFinishBaselinePath(cwd, normalizedSlug), {
+    slug: normalizedSlug,
+    evidence,
+  });
   if (directBaseline) {
     return directBaseline;
   }
 
-  const latestBaseline = await readJsonIfExists(resolveLatestFinishBaselinePath(cwd));
   if (!latestBaseline) {
     return null;
   }
 
-  const slugWasOmitted = String(slug ?? '').trim() === '';
-  if (slugWasOmitted || latestBaselineMatchesRequest(latestBaseline, normalizedSlug, evidence)) {
+  if (latestBaselineMatchesRequest(latestBaseline, normalizedSlug, evidence)) {
     return latestBaseline;
   }
 
@@ -268,33 +358,110 @@ function parseStatusShort(text) {
   return String(text || '')
     .split('\n')
     .map((line) => line.trimEnd())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((line) => !isLoopxRuntimeStatusLine(line));
 }
 
-async function resolveMergeBaseRef(cwd, baseBranch) {
-  if (!baseBranch || baseBranch === 'unknown') {
-    return null;
-  }
-  const remoteRefs = await gitOutputAllowFailure(cwd, [
+function statusLinePath(line) {
+  const value = String(line || '').slice(3).trim();
+  const parts = value.split(' -> ');
+  return parts.at(-1) || value;
+}
+
+function isLoopxRuntimeStatusLine(line) {
+  const path = statusLinePath(line).replaceAll('\\', '/').replace(/^\.\//, '');
+  return path.split('/').includes('.loopx');
+}
+
+async function resolveMergeBaseRef(cwd, evidence) {
+  const normalizedBaseBranch = normalizeBranchRef(evidence.base_branch);
+  const namedBase = normalizedBaseBranch !== 'unknown' && normalizedBaseBranch !== evidence.branch
+    ? normalizedBaseBranch
+    : null;
+  const configuredRemoteBase = evidence.base_ref !== 'unknown' && normalizeUpstreamRef(evidence.base_ref) === namedBase
+    ? evidence.base_ref
+    : null;
+  const baseRemoteRefs = namedBase ? await gitOutputAllowFailure(cwd, [
     'branch',
     '-r',
     '--list',
-    `*/${baseBranch}`,
+    `*/${namedBase}`,
+    '--format=%(refname:short)',
+  ]) : '';
+  const originHead = await gitOutputAllowFailure(cwd, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
+  const mainRemoteRefs = await gitOutputAllowFailure(cwd, [
+    'branch',
+    '-r',
+    '--list',
+    '*/main',
     '--format=%(refname:short)',
   ]);
-  const candidates = [
-    baseBranch,
-    `origin/${baseBranch}`,
-    `refs/remotes/origin/${baseBranch}`,
-    ...remoteRefs.split('\n'),
+  const masterRemoteRefs = await gitOutputAllowFailure(cwd, [
+    'branch',
+    '-r',
+    '--list',
+    '*/master',
+    '--format=%(refname:short)',
+  ]);
+  const localConfiguredCandidates = [
+    namedBase,
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  const exactRemoteConfiguredCandidates = [
+    configuredRemoteBase,
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  const remoteConfiguredCandidates = [
+    namedBase ? `origin/${namedBase}` : null,
+    namedBase ? `refs/remotes/origin/${namedBase}` : null,
+    ...baseRemoteRefs.split('\n'),
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  const fallbackCandidates = [
+    originHead,
+    'main',
+    'master',
+    'origin/main',
+    'origin/master',
+    'refs/remotes/origin/main',
+    'refs/remotes/origin/master',
+    ...mainRemoteRefs.split('\n'),
+    ...masterRemoteRefs.split('\n'),
   ].map((item) => String(item || '').trim()).filter(Boolean);
   const fullHead = await resolveFullHead(cwd);
-  for (const candidate of [...new Set(candidates)]) {
-    const value = await gitOutputAllowFailure(cwd, ['merge-base', 'HEAD', candidate]);
-    if (!/^[0-9a-f]{7,40}$/.test(value) || value === fullHead) {
-      continue;
+  const tryCandidates = async (candidates) => {
+    for (const candidate of [...new Set(candidates)]) {
+      const resolvedCandidate = await resolveCommitRef(cwd, candidate);
+      if (!resolvedCandidate) {
+        continue;
+      }
+      const value = await gitOutputAllowFailure(cwd, ['merge-base', 'HEAD', candidate]);
+      if (!/^[0-9a-f]{7,40}$/.test(value)) {
+        return { value: null, terminal: true };
+      }
+      if (value === fullHead) {
+        return { value: null, terminal: true };
+      }
+      return { value, terminal: true };
     }
-    return value;
+    return { value: null, terminal: false };
+  };
+
+  const localConfiguredResult = await tryCandidates(localConfiguredCandidates);
+  if (localConfiguredResult.value || (namedBase && localConfiguredResult.terminal)) {
+    return localConfiguredResult.value;
+  }
+
+  const exactRemoteConfiguredResult = await tryCandidates(exactRemoteConfiguredCandidates);
+  if (exactRemoteConfiguredResult.value || (configuredRemoteBase && exactRemoteConfiguredResult.terminal)) {
+    return exactRemoteConfiguredResult.value;
+  }
+
+  const remoteConfiguredResult = await tryCandidates(remoteConfiguredCandidates);
+  if (remoteConfiguredResult.value || (namedBase && remoteConfiguredResult.terminal)) {
+    return remoteConfiguredResult.value;
+  }
+
+  const fallbackResult = await tryCandidates(fallbackCandidates);
+  if (fallbackResult.value || fallbackResult.terminal) {
+    return fallbackResult.value;
   }
   return null;
 }
@@ -317,10 +484,12 @@ async function resolveChangeWindow(cwd, slug, evidence, { baselineRef = null } =
   const baseline = manualBaselineHead
     ? { head: manualBaselineHead, head_short: manualBaselineHead.slice(0, 7), source: null }
     : await readFinishBaseline(rootCwd, slug, evidence);
-  const fallbackMergeBase = baseline ? null : await resolveMergeBaseRef(cwd, evidence.base_branch);
+  const fallbackMergeBase = baseline ? null : await resolveMergeBaseRef(cwd, evidence);
   const ref = baseline?.head || fallbackMergeBase;
   const source = baseline?.head ? 'baseline' : fallbackMergeBase ? 'merge-base' : 'none';
-  const statusText = await gitOutputAllowFailure(cwd, ['status', '--short']);
+  const statusText = evidence.worktree === 'unknown'
+    ? ''
+    : await gitOutputAllowFailure(cwd, ['status', '--short']);
   const uncommittedStatus = parseStatusShort(statusText);
 
   if (!ref || ref === 'unknown') {
@@ -547,15 +716,27 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
 
 async function resolveFinishAuditDir(cwd, auditIdOrPath) {
   const raw = String(auditIdOrPath || '').trim();
-  const idPath = resolveFinishAuditPath(cwd, raw);
-  const directPath = resolve(cwd, raw);
+  if (!raw) {
+    return null;
+  }
 
-  if (raw && await pathExists(join(directPath, 'finish-state.json'))) {
+  const directPath = resolve(cwd, raw);
+  if (await pathExists(join(directPath, 'finish-state.json'))) {
     return directPath;
   }
-  if (raw && await pathExists(join(idPath, 'finish-state.json'))) {
-    return idPath;
+
+  const evidence = await resolveGitEvidence(cwd);
+  const rootCwd = evidence.worktree === 'unknown' ? cwd : evidence.worktree;
+  const rootIdPath = resolveFinishAuditPath(rootCwd, raw);
+  if (await pathExists(join(rootIdPath, 'finish-state.json'))) {
+    return rootIdPath;
   }
+
+  const cwdIdPath = resolveFinishAuditPath(cwd, raw);
+  if (cwdIdPath !== rootIdPath && await pathExists(join(cwdIdPath, 'finish-state.json'))) {
+    return cwdIdPath;
+  }
+
   return null;
 }
 
@@ -692,9 +873,9 @@ function evidenceFromState(state, fallback = {}) {
 
 export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date(), baselineRef = null } = {}) {
   const auditDate = date instanceof Date ? date : new Date(date);
-  const { auditId, root } = await createFinishAuditDirectory(cwd, slug, auditDate);
-
   const evidence = await resolveGitEvidence(cwd);
+  const rootCwd = evidence.worktree === 'unknown' ? cwd : evidence.worktree;
+  const { auditId, root } = await createFinishAuditDirectory(rootCwd, slug, auditDate);
   const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
   const changeWindow = await resolveChangeWindow(cwd, slug, evidence, { baselineRef });
   const scannedInputs = [
@@ -761,9 +942,23 @@ export async function finishStartStage(cwd, slug, { source = null, date = new Da
   const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
 
   const evidence = await resolveGitEvidence(cwd);
+  if (evidence.worktree === 'unknown') {
+    throw new Error('finish_start_no_valid_head');
+  }
+  const fullHead = await resolveRequiredHead(cwd);
   const rootCwd = evidence.worktree === 'unknown' ? cwd : evidence.worktree;
   await mkdir(resolveFinishBaselineRoot(rootCwd), { recursive: true });
-  const fullHead = await resolveFullHead(cwd);
+  const path = resolveFinishBaselinePath(rootCwd, normalizedSlug);
+  const latestPath = resolveLatestFinishBaselinePath(rootCwd);
+  const existingState = await readValidFinishBaseline(rootCwd, path, {
+    slug: normalizedSlug,
+    evidence,
+  });
+  if (existingState) {
+    await writeFile(latestPath, `${JSON.stringify(existingState, null, 2)}\n`);
+    return { path, latestPath, state: existingState };
+  }
+
   const state = {
     schema_version: FINISH_SCHEMA_VERSION,
     slug: normalizedSlug,
@@ -775,8 +970,6 @@ export async function finishStartStage(cwd, slug, { source = null, date = new Da
     source: source ? String(source) : null,
   };
 
-  const path = resolveFinishBaselinePath(rootCwd, normalizedSlug);
-  const latestPath = resolveLatestFinishBaselinePath(rootCwd);
   await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
   await writeFile(latestPath, `${JSON.stringify(state, null, 2)}\n`);
   return { path, latestPath, state };
