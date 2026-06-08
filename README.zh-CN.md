@@ -63,8 +63,11 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 公开的 finish audit 命令：
 
+- `loopx finish-start`
 - `loopx finish-audit`
 - `loopx finish-record`
+
+`loopx finish-start` 会记录计划执行开始时的提交。`loopx finish-audit` 使用这个基线把已提交的 `baseline..HEAD` 证据、变更文件和未提交状态写入 `.loopx/finish/<audit-id>/finish-state.json` 的 `audit.change_window`，因此即使执行过程中已经 commit、当前工作区是 clean，finish 的记忆/spec 提取仍有稳定输入。
 
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
@@ -143,6 +146,7 @@ loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
+loopx finish-start [slug] [--source <path>]
 loopx finish-audit
 loopx finish-record
 ```
