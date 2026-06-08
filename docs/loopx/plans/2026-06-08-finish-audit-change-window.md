@@ -104,10 +104,14 @@ Baseline files live under:
 If no matching baseline exists, `finish-audit` falls back in this order:
 
 1. `--baseline <git-ref>`
-2. `.loopx/finish/baselines/<slug>.json`
-3. `.loopx/finish/baselines/latest.json` when the slug was omitted or the latest baseline slug matches the current branch/worktree
-4. `git merge-base HEAD <base_branch>` when it is older than `HEAD`
-5. no committed range, with only `git status --short` recorded
+2. valid `.loopx/finish/baselines/latest.json` for the current branch/worktree when the slug was omitted
+3. valid `.loopx/finish/baselines/<slug>.json` for the current branch/worktree
+4. valid `.loopx/finish/baselines/latest.json` when the latest baseline slug also matches the current branch/worktree
+5. local configured `git merge-base HEAD <base_branch>` when the configured base branch is known; if it resolves to `HEAD`, stop with no committed range
+6. the exact configured remote base, such as `upstream/<base_branch>`, only when the local configured base cannot resolve; if it resolves to `HEAD`, stop with no committed range
+7. other discovered same-name remote base refs only when neither local nor exact configured remote base resolved
+8. origin HEAD, local `main`/`master`, and origin `main`/`master` merge-base candidates when the configured base branch is missing, unknown, or the current branch itself
+9. no committed range, with only `git status --short` recorded
 
 ## Task 1: Baseline Command
 

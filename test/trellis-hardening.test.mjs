@@ -298,6 +298,32 @@ describe('trellis-inspired loopx hardening', () => {
     assert.deepEqual(JSON.parse(await readFile(result.path, 'utf8')), result.state);
   });
 
+  it('rejects finish-start outside a git worktree with a valid HEAD', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-start-no-head-'));
+
+    await assert.rejects(
+      () => finishStartStage(wd, 'finish-start-no-head'),
+      /finish_start_no_valid_head/,
+    );
+  });
+
+  it('stores finish audits at the git root when started from a subdirectory', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-subdir-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await mkdir(join(wd, 'packages', 'cli'), { recursive: true });
+    await writeFile(join(wd, 'README.md'), 'audit baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const result = await finishAuditStage(join(wd, 'packages', 'cli'), 'finish-audit-subdir-flow');
+
+    assert.match(result.root, new RegExp(`${result.state.audit.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/\\.loopx/finish/`));
+    assert.doesNotMatch(result.root, /packages\/cli\/\.loopx/);
+    assert.deepEqual(JSON.parse(await readFile(result.statePath, 'utf8')), result.state);
+  });
+
   it('finish audit includes committed change evidence when the worktree diff is empty', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-window-'));
     await execFileAsync('git', ['init'], { cwd: wd });
@@ -341,6 +367,303 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(reportText, /## Change Window/);
     assert.match(reportText, /feat: committed finish evidence/);
     assert.match(reportText, /feature\.txt/);
+  });
+
+  it('keeps the original finish baseline when finish-start is rerun for the same slug', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-start-idempotent-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const first = await finishStartStage(wd, 'finish-idempotent-flow', {
+      source: 'docs/loopx/plans/idempotent.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await writeFile(join(wd, 'README.md'), 'before\nafter\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: idempotent finish evidence'], { cwd: wd });
+    const second = await finishStartStage(wd, 'finish-idempotent-flow', {
+      source: 'docs/loopx/plans/idempotent-rerun.md',
+      date: new Date('2026-06-08T00:01:00.000Z'),
+    });
+    const persisted = JSON.parse(await readFile(first.path, 'utf8'));
+
+    assert.deepEqual(second.state, first.state);
+    assert.deepEqual(persisted, first.state);
+    assert.equal(persisted.source, 'docs/loopx/plans/idempotent.md');
+
+    const audit = await finishAuditStage(wd, 'finish-idempotent-flow');
+
+    assert.equal(audit.state.audit.change_window.source, 'baseline');
+    assert.equal(audit.state.audit.change_window.baseline_ref, first.state.head);
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.commits, [{
+      sha: audit.state.audit.change_window.commits[0].sha,
+      subject: 'feat: idempotent finish evidence',
+    }]);
+  });
+
+  it('prefers the latest baseline when finish audit slug is omitted', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-latest-omitted-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'initial\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await finishStartStage(wd, 'finish-audit', {
+      source: 'docs/loopx/plans/stale-default.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+    await writeFile(join(wd, 'README.md'), 'initial\nstale\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: stale default evidence'], { cwd: wd });
+    const latest = await finishStartStage(wd, 'named-finish-flow', {
+      source: 'docs/loopx/plans/named.md',
+      date: new Date('2026-06-08T00:01:00.000Z'),
+    });
+    await writeFile(join(wd, 'feature.txt'), 'latest omitted slug evidence\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: latest omitted evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd);
+
+    assert.equal(audit.state.slug, 'finish-audit');
+    assert.equal(audit.state.audit.change_window.source, 'baseline');
+    assert.equal(audit.state.audit.change_window.baseline_ref, latest.state.head);
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, ['docs/loopx/plans/named.md']);
+    assert.deepEqual(audit.state.audit.change_window.commits, [{
+      sha: audit.state.audit.change_window.commits[0].sha,
+      subject: 'feat: latest omitted evidence',
+    }]);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+  });
+
+  it('does not reuse a same-slug finish baseline from another branch', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-branch-start-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/one'], { cwd: wd });
+    const first = await finishStartStage(wd, 'shared-finish-flow', {
+      source: 'docs/loopx/plans/feature-one.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+    assert.equal(first.state.branch, 'feature/one');
+
+    await execFileAsync('git', ['checkout', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/two'], { cwd: wd });
+    const second = await finishStartStage(wd, 'shared-finish-flow', {
+      source: 'docs/loopx/plans/feature-two.md',
+      date: new Date('2026-06-08T00:01:00.000Z'),
+    });
+
+    assert.equal(second.state.branch, 'feature/two');
+    assert.equal(second.state.created_at, '2026-06-08T00:01:00.000Z');
+    assert.equal(second.state.source, 'docs/loopx/plans/feature-two.md');
+    assert.deepEqual(JSON.parse(await readFile(second.path, 'utf8')), second.state);
+  });
+
+  it('ignores direct finish baselines from another branch during audit', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-branch-direct-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/one'], { cwd: wd });
+    await finishStartStage(wd, 'branch-audit-flow', {
+      source: 'docs/loopx/plans/feature-one.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await execFileAsync('git', ['checkout', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/two'], { cwd: wd });
+    await writeFile(join(wd, 'feature-two.txt'), 'branch two evidence\n');
+    await execFileAsync('git', ['add', 'feature-two.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: branch two evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'branch-audit-flow');
+
+    assert.equal(audit.state.audit.branch, 'feature/two');
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature-two.txt' },
+    ]);
+  });
+
+  it('ignores latest finish baselines from another branch when audit slug is omitted', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-branch-latest-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/one'], { cwd: wd });
+    await finishStartStage(wd, 'latest-branch-flow', {
+      source: 'docs/loopx/plans/feature-one.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await execFileAsync('git', ['checkout', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/two'], { cwd: wd });
+    await writeFile(join(wd, 'feature-two.txt'), 'latest branch two evidence\n');
+    await execFileAsync('git', ['add', 'feature-two.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: latest branch two evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd);
+
+    assert.equal(audit.state.audit.branch, 'feature/two');
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature-two.txt' },
+    ]);
+  });
+
+  it('ignores named branch baselines while auditing detached HEAD', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-detached-baseline-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const { stdout: mainHeadStdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/one'], { cwd: wd });
+    await writeFile(join(wd, 'feature-one.txt'), 'feature one\n');
+    await execFileAsync('git', ['add', 'feature-one.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: feature one baseline'], { cwd: wd });
+    await finishStartStage(wd, 'detached-baseline-flow', {
+      source: 'docs/loopx/plans/feature-one.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+    await execFileAsync('git', ['checkout', '--detach', mainHeadStdout.trim()], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'detached-baseline-flow');
+
+    assert.equal(audit.state.audit.branch, 'unknown');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, []);
+  });
+
+  it('filters loopx runtime state from finish audit uncommitted status', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-window-runtime-state-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await finishStartStage(wd, 'finish-runtime-state-flow', {
+      source: 'docs/loopx/plans/runtime-state.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await writeFile(join(wd, 'feature.txt'), 'committed feature\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: committed feature'], { cwd: wd });
+    const { stdout: rawStatus } = await execFileAsync('git', ['status', '--short'], { cwd: wd });
+    assert.match(rawStatus, /\?\? \.loopx\//);
+
+    const audit = await finishAuditStage(wd, 'finish-runtime-state-flow');
+
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+    assert.deepEqual(audit.state.audit.change_window.uncommitted_status, []);
+    assert.match(audit.state.inputs.join?.('\n') ?? audit.state.inputs.scanned.join('\n'), /uncommitted_change_count=0/);
+  });
+
+  it('filters loopx runtime state from nested finish audit status paths', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-window-nested-runtime-state-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await mkdir(join(wd, 'packages', 'cli'), { recursive: true });
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const nestedCwd = join(wd, 'packages', 'cli');
+    await finishStartStage(nestedCwd, 'finish-nested-runtime-state-flow', {
+      source: 'docs/loopx/plans/nested-runtime-state.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await writeFile(join(wd, 'feature.txt'), 'committed feature\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: nested committed feature'], { cwd: wd });
+    const { stdout: rawStatus } = await execFileAsync('git', ['status', '--short'], { cwd: nestedCwd });
+    assert.match(rawStatus, /\?\? \.\.\/\.\.\/\.loopx\//);
+
+    const audit = await finishAuditStage(nestedCwd, 'finish-nested-runtime-state-flow');
+
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+    assert.deepEqual(audit.state.audit.change_window.uncommitted_status, []);
+    assert.match(audit.state.inputs.scanned.join('\n'), /uncommitted_change_count=0/);
+  });
+
+  it('filters stale nested loopx runtime directories from root finish audit status', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-window-stale-nested-runtime-state-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await mkdir(join(wd, 'packages', 'cli'), { recursive: true });
+    await writeFile(join(wd, 'packages', 'cli', 'README.md'), 'package\n');
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', 'README.md', 'packages/cli/README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await finishStartStage(wd, 'finish-stale-nested-runtime-state-flow', {
+      source: 'docs/loopx/plans/stale-nested-runtime-state.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+    await mkdir(join(wd, 'packages', 'cli', '.loopx', 'finish'), { recursive: true });
+    await writeFile(join(wd, 'packages', 'cli', '.loopx', 'finish', 'stale.json'), '{}\n');
+
+    await writeFile(join(wd, 'feature.txt'), 'committed feature\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: stale nested runtime evidence'], { cwd: wd });
+    const { stdout: rawStatus } = await execFileAsync('git', ['status', '--short'], { cwd: wd });
+    assert.match(rawStatus, /\?\? packages\/cli\/\.loopx\//);
+
+    const audit = await finishAuditStage(wd, 'finish-stale-nested-runtime-state-flow');
+
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+    assert.deepEqual(audit.state.audit.change_window.uncommitted_status, []);
+    assert.match(audit.state.inputs.scanned.join('\n'), /uncommitted_change_count=0/);
   });
 
   it('finish audit does not use an unrelated latest pointer as the baseline for slug latest', async () => {
@@ -442,6 +765,319 @@ describe('trellis-inspired loopx hardening', () => {
       { status: 'A', path: 'feature.txt' },
     ]);
     assert.match(await readFile(audit.reportPath, 'utf8'), /feat: remote-base finish evidence/);
+  });
+
+  it('falls back to local main merge-base when a feature branch has no upstream', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-local-main-fallback-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-upstream'], { cwd: wd });
+    await writeFile(join(wd, 'feature.txt'), 'local main fallback\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: local-main finish evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-local-main-fallback');
+
+    assert.equal(audit.state.audit.base_branch, 'unknown');
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+  });
+
+  it('falls back to origin main when a feature branch tracks itself', async () => {
+    const remote = await mkdtemp(join(tmpdir(), 'loopx-finish-self-upstream-origin-'));
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-self-upstream-work-'));
+    await execFileAsync('git', ['init', '--bare'], { cwd: remote });
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'origin', remote], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/self-upstream'], { cwd: wd });
+    await writeFile(join(wd, 'feature.txt'), 'self upstream fallback\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: self-upstream finish evidence'], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'feature/self-upstream'], { cwd: wd });
+    await execFileAsync('git', ['branch', '--delete', 'main'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-self-upstream-fallback');
+
+    assert.equal(audit.state.audit.base_branch, 'feature/self-upstream');
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+  });
+
+  it('does not fall back to main when a known configured base is already HEAD', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-known-base-at-head-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'release'], { cwd: wd });
+    await writeFile(join(wd, 'release.txt'), 'release baseline\n');
+    await execFileAsync('git', ['add', 'release.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: release baseline'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-extra'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/no-extra.merge', 'refs/heads/release'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-known-base-at-head');
+
+    assert.equal(audit.state.audit.base_branch, 'release');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.commits, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('does not use stale origin base when the configured local base is already HEAD', async () => {
+    const remote = await mkdtemp(join(tmpdir(), 'loopx-finish-stale-origin-base-'));
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-stale-origin-base-work-'));
+    await execFileAsync('git', ['init', '--bare'], { cwd: remote });
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'origin', remote], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'release'], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'release'], { cwd: wd });
+    await writeFile(join(wd, 'release.txt'), 'local release only\n');
+    await execFileAsync('git', ['add', 'release.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: local release only'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-extra'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/no-extra.merge', 'refs/heads/release'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-stale-origin-base');
+
+    assert.equal(audit.state.audit.base_branch, 'release');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.commits, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('prefers the configured remote base over stale origin refs', async () => {
+    const origin = await mkdtemp(join(tmpdir(), 'loopx-finish-origin-remote-'));
+    const upstream = await mkdtemp(join(tmpdir(), 'loopx-finish-upstream-remote-'));
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-upstream-base-work-'));
+    await execFileAsync('git', ['init', '--bare'], { cwd: origin });
+    await execFileAsync('git', ['init', '--bare'], { cwd: upstream });
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'origin', origin], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'upstream', upstream], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'release'], { cwd: wd });
+    await execFileAsync('git', ['push', 'origin', 'release'], { cwd: wd });
+    await writeFile(join(wd, 'release.txt'), 'upstream release only\n');
+    await execFileAsync('git', ['add', 'release.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: upstream release only'], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'upstream', 'release'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-extra'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/no-extra.remote', 'upstream'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/no-extra.merge', 'refs/heads/release'], { cwd: wd });
+    await execFileAsync('git', ['branch', '--delete', 'release'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-upstream-base');
+
+    assert.equal(audit.state.audit.base_branch, 'release');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('does not use stale same-name remote refs after origin base is already HEAD', async () => {
+    const origin = await mkdtemp(join(tmpdir(), 'loopx-finish-origin-same-name-'));
+    const upstream = await mkdtemp(join(tmpdir(), 'loopx-finish-upstream-same-name-'));
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-same-name-base-work-'));
+    await execFileAsync('git', ['init', '--bare'], { cwd: origin });
+    await execFileAsync('git', ['init', '--bare'], { cwd: upstream });
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'origin', origin], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'upstream', upstream], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'release'], { cwd: wd });
+    await execFileAsync('git', ['push', 'upstream', 'release'], { cwd: wd });
+    await writeFile(join(wd, 'release.txt'), 'origin release only\n');
+    await execFileAsync('git', ['add', 'release.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: origin release only'], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'release'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-extra'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/no-extra.merge', 'refs/heads/release'], { cwd: wd });
+    await execFileAsync('git', ['branch', '--delete', 'release'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-same-name-base');
+
+    assert.equal(audit.state.audit.base_branch, 'release');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('does not fall from generic main at HEAD to stale master fallback', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-generic-main-head-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'master'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'master\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, 'main.txt'), 'main only\n');
+    await execFileAsync('git', ['add', 'main.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: main only'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/no-extra'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-generic-main-head');
+
+    assert.equal(audit.state.audit.base_branch, 'unknown');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('does not fall back to main when a configured base exists without a common ancestor', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-unrelated-base-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await writeFile(join(wd, 'feature.txt'), 'feature work\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: feature work'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '--orphan', 'release'], { cwd: wd });
+    await execFileAsync('git', ['rm', '-rf', '.'], { cwd: wd });
+    await writeFile(join(wd, 'release.txt'), 'orphan release\n');
+    await execFileAsync('git', ['add', 'release.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'chore: orphan release'], { cwd: wd });
+    await execFileAsync('git', ['checkout', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/unrelated-base'], { cwd: wd });
+    await writeFile(join(wd, 'feature-branch.txt'), 'feature branch work\n');
+    await execFileAsync('git', ['add', 'feature-branch.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: feature branch work'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/unrelated-base.merge', 'refs/heads/release'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-unrelated-base');
+
+    assert.equal(audit.state.audit.base_branch, 'release');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+  });
+
+  it('keeps non-git finish audit status evidence empty instead of storing git fatal output', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-non-git-'));
+
+    const audit = await finishAuditStage(wd, 'finish-non-git');
+
+    assert.equal(audit.state.audit.worktree, 'unknown');
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.deepEqual(audit.state.audit.change_window.uncommitted_status, []);
+    assert.match(audit.state.inputs.scanned.join('\n'), /uncommitted_change_count=0/);
+  });
+
+  it('ignores malformed finish baseline objects and falls back to merge-base', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-malformed-baseline-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/malformed-baseline'], { cwd: wd });
+    await mkdir(join(wd, '.loopx', 'finish', 'baselines'), { recursive: true });
+    await writeFile(join(wd, '.loopx', 'finish', 'baselines', 'finish-malformed-baseline.json'), '{}\n');
+    await writeFile(join(wd, 'feature.txt'), 'malformed baseline fallback\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: malformed-baseline finish evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-malformed-baseline');
+
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+  });
+
+  it('ignores finish baselines whose head is not a valid commit', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-invalid-head-baseline-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/invalid-head-baseline'], { cwd: wd });
+    const { stdout: worktreeStdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], { cwd: wd });
+    await mkdir(join(wd, '.loopx', 'finish', 'baselines'), { recursive: true });
+    await writeFile(join(wd, '.loopx', 'finish', 'baselines', 'finish-invalid-head-baseline.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'finish-invalid-head-baseline',
+      created_at: '2026-06-08T00:00:00.000Z',
+      worktree: worktreeStdout.trim(),
+      branch: 'feature/invalid-head-baseline',
+      head: '0000000000000000000000000000000000000000',
+      head_short: '0000000',
+      source: 'docs/loopx/plans/invalid-head.md',
+    }, null, 2)}\n`);
+    await writeFile(join(wd, 'feature.txt'), 'invalid head fallback\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: invalid-head finish evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-invalid-head-baseline');
+
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
   });
 
   it('keeps same-second finish audit reruns isolated', async () => {
@@ -840,6 +1476,40 @@ describe('trellis-inspired loopx hardening', () => {
       }),
       /finish_record_audit_not_found/,
     );
+  });
+
+  it('records finish choices by audit id from a nested cwd after root-anchored audit creation', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-record-nested-id-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await mkdir(join(wd, 'packages', 'cli'), { recursive: true });
+    await writeFile(join(wd, 'README.md'), 'nested finish record\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const nestedCwd = join(wd, 'packages', 'cli');
+    const audit = await finishAuditStage(nestedCwd, 'finish-record-nested-id');
+    assert.doesNotMatch(audit.root, /packages\/cli\/\.loopx/);
+
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [{
+      id: 'candidate-nested-id',
+      summary: 'Nested audit id resolves at git root.',
+      evidence: ['README.md'],
+    }];
+    state.audit.no_candidates_reason = null;
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const recorded = await finishRecordStage(nestedCwd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Recorded from nested cwd by audit id.',
+    });
+
+    assert.equal(recorded.root, audit.root);
+    assert.equal(recorded.state.choice.status, 'done');
+    assert.equal(recorded.state.status, 'completed');
   });
 
   it('retains finish history for legacy choices that only have updated_at', async () => {
