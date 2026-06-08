@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
-import { finishAuditStage, finishRecordStage } from './finish-runtime.mjs';
+import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { installBundledSkills, installSkillsForTargets } from './install-discovery.mjs';
 import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
@@ -26,6 +26,7 @@ function usage() {
     '  loopx review <slug> [--reviewer <name>]',
     '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
+    '  loopx finish-start [slug] [--source <path>] [--json]',
     '  loopx finish-audit [slug] [--json]',
     '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
     '  loopx render [slug|--all]',
@@ -91,6 +92,17 @@ function parseArgs(argv) {
   }
 
   return { command, positionals, options };
+}
+
+function stringOption(options, name) {
+  const value = options.get(name);
+  if (value === undefined) {
+    return null;
+  }
+  if (value === true || String(value).trim() === '') {
+    throw new Error(`${name}_requires_value`);
+  }
+  return value;
 }
 
 function printHumanStatus(status) {
@@ -280,6 +292,26 @@ async function main() {
           reviewer: options.get('--reviewer') || 'autopilot-reviewer',
         });
         console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state, runPath: result.runPath }, null, 2));
+        return;
+      }
+      case 'finish-start': {
+        const result = await finishStartStage(process.cwd(), positionals[0], {
+          source: stringOption(options, '--source'),
+        });
+        if (options.get('--json')) {
+          console.log(JSON.stringify({
+            ok: true,
+            command,
+            path: result.path,
+            latestPath: result.latestPath,
+            state: result.state,
+          }, null, 2));
+        } else {
+          console.log(`finish baseline: ${result.state.slug}`);
+          console.log(`path: ${result.path}`);
+          console.log(`head: ${result.state.head_short}`);
+          console.log(`source: ${result.state.source ?? '(none)'}`);
+        }
         return;
       }
       case 'finish-audit': {

@@ -33,6 +33,20 @@ export function resolveFinishAuditPath(cwd, auditId) {
   return join(resolveFinishAuditRoot(cwd), auditId);
 }
 
+export function resolveFinishBaselineRoot(cwd) {
+  return join(resolveFinishAuditRoot(cwd), 'baselines');
+}
+
+export function resolveFinishBaselinePath(cwd, slug) {
+  const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
+  const filename = normalizedSlug === 'latest' ? 'latest-baseline' : normalizedSlug;
+  return join(resolveFinishBaselineRoot(cwd), `${filename}.json`);
+}
+
+export function resolveLatestFinishBaselinePath(cwd) {
+  return join(resolveFinishBaselineRoot(cwd), 'latest.json');
+}
+
 async function gitOutput(cwd, args) {
   const { stdout } = await execFileAsync('git', args, {
     cwd,
@@ -60,6 +74,10 @@ async function gitOutputOrUnknown(cwd, args) {
 
 async function readGitField(cwd, args) {
   return gitOutputOrUnknown(cwd, args);
+}
+
+async function resolveFullHead(cwd) {
+  return readGitField(cwd, ['rev-parse', 'HEAD']);
 }
 
 function normalizeBranchRef(raw) {
@@ -524,6 +542,32 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
     reportPath: join(root, 'finish-report.md'),
     statePath: join(root, 'finish-state.json'),
   };
+}
+
+export async function finishStartStage(cwd, slug, { source = null, date = new Date() } = {}) {
+  const baselineDate = date instanceof Date ? date : new Date(date);
+  const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
+
+  const evidence = await resolveGitEvidence(cwd);
+  const rootCwd = evidence.worktree === 'unknown' ? cwd : evidence.worktree;
+  await mkdir(resolveFinishBaselineRoot(rootCwd), { recursive: true });
+  const fullHead = await resolveFullHead(cwd);
+  const state = {
+    schema_version: FINISH_SCHEMA_VERSION,
+    slug: normalizedSlug,
+    created_at: baselineDate.toISOString(),
+    worktree: evidence.worktree,
+    branch: evidence.branch,
+    head: fullHead,
+    head_short: fullHead === 'unknown' ? evidence.head : fullHead.slice(0, 7),
+    source: source ? String(source) : null,
+  };
+
+  const path = resolveFinishBaselinePath(rootCwd, normalizedSlug);
+  const latestPath = resolveLatestFinishBaselinePath(rootCwd);
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  await writeFile(latestPath, `${JSON.stringify(state, null, 2)}\n`);
+  return { path, latestPath, state };
 }
 
 export async function finishRecordStage(cwd, auditIdOrPath, {

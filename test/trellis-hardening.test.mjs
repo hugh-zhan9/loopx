@@ -27,7 +27,7 @@ import {
   parseManagedBlocks,
   writeTemplateBaseline,
 } from '../src/template-governance.mjs';
-import { finishAuditStage, finishRecordStage } from '../src/finish-runtime.mjs';
+import { finishAuditStage, finishRecordStage, finishStartStage } from '../src/finish-runtime.mjs';
 import { generateBuildContextManifest, readContextManifest } from '../src/context-manifest.mjs';
 import {
   approveStage,
@@ -251,6 +251,48 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(reportText, /worktree=/);
   });
 
+  it('records a finish baseline before committed execution work begins', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-start-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const { stdout: headStdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: wd });
+    const head = headStdout.trim();
+
+    const result = await finishStartStage(wd, 'finish-baseline-flow', {
+      source: 'docs/loopx/plans/example.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    assert.equal(result.state.slug, 'finish-baseline-flow');
+    assert.equal(result.state.head, head);
+    assert.equal(result.state.head_short, head.slice(0, 7));
+    assert.equal(result.state.source, 'docs/loopx/plans/example.md');
+    assert.match(result.path, /\.loopx\/finish\/baselines\/finish-baseline-flow\.json$/);
+    assert.deepEqual(JSON.parse(await readFile(result.path, 'utf8')), result.state);
+    assert.deepEqual(JSON.parse(await readFile(result.latestPath, 'utf8')), result.state);
+  });
+
+  it('stores finish baselines at the git root when started from a subdirectory', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-start-subdir-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await mkdir(join(wd, 'packages', 'cli'), { recursive: true });
+    await writeFile(join(wd, 'README.md'), 'baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const result = await finishStartStage(join(wd, 'packages', 'cli'), 'finish-subdir-flow');
+
+    assert.match(result.path, new RegExp(`${result.state.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/\\.loopx/finish/baselines/finish-subdir-flow\\.json$`));
+    assert.doesNotMatch(result.path, /packages\/cli\/\.loopx/);
+    assert.deepEqual(JSON.parse(await readFile(result.path, 'utf8')), result.state);
+  });
+
   it('keeps same-second finish audit reruns isolated', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-collision-'));
     const date = new Date('2026-06-08T00:00:00.000Z');
@@ -392,6 +434,33 @@ describe('trellis-inspired loopx hardening', () => {
     await writeFile(join(wd, 'README.md'), 'finish cli\n');
     await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
     await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const startRun = await execFileAsync('node', [
+      cliPath,
+      'finish-start',
+      'finish-cli-flow',
+      '--source',
+      'docs/loopx/plans/finish-cli-flow.md',
+      '--json',
+    ], { cwd: wd });
+    const startJson = JSON.parse(startRun.stdout);
+    assert.equal(startJson.ok, true);
+    assert.equal(startJson.command, 'finish-start');
+    assert.equal(startJson.state.slug, 'finish-cli-flow');
+    assert.equal(startJson.state.source, 'docs/loopx/plans/finish-cli-flow.md');
+
+    let invalidStartRun;
+    try {
+      await execFileAsync('node', [cliPath, 'finish-start', 'finish-cli-flow', '--source'], { cwd: wd });
+      assert.fail('expected finish-start to fail when --source has no value');
+    } catch (error) {
+      invalidStartRun = error;
+    }
+    assert.notEqual(invalidStartRun.code ?? invalidStartRun.exitCode, 0);
+    const invalidStartJson = JSON.parse((invalidStartRun.stderr || '').trim());
+    assert.equal(invalidStartJson.ok, false);
+    assert.equal(invalidStartJson.command, 'finish-start');
+    assert.match(invalidStartJson.error, /--source_requires_value/);
 
     const humanAuditRun = await execFileAsync('node', [cliPath, 'finish-audit', 'finish-cli-human-flow'], { cwd: wd });
     assert.match(humanAuditRun.stdout, /finish audit:/);
