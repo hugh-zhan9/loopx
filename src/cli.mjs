@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
+import { finishAuditStage, finishRecordStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { installBundledSkills, installSkillsForTargets } from './install-discovery.mjs';
 import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
@@ -25,6 +26,8 @@ function usage() {
     '  loopx review <slug> [--reviewer <name>]',
     '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
+    '  loopx finish-audit [slug] [--json]',
+    '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
@@ -277,6 +280,47 @@ async function main() {
           reviewer: options.get('--reviewer') || 'autopilot-reviewer',
         });
         console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state, runPath: result.runPath }, null, 2));
+        return;
+      }
+      case 'finish-audit': {
+        const result = await finishAuditStage(process.cwd(), positionals[0]);
+        if (options.get('--json')) {
+          console.log(JSON.stringify({
+            ok: true,
+            command,
+            audit_id: result.auditId,
+            auditId: result.auditId,
+            root: result.root,
+            state: result.state,
+            reportPath: result.reportPath,
+            statePath: result.statePath,
+          }, null, 2));
+        } else {
+          console.log(`finish audit: ${result.auditId}`);
+          console.log(`root: ${result.root}`);
+          console.log(`report: ${result.reportPath}`);
+          console.log(`state: ${result.statePath}`);
+          console.log(`slug: ${result.state?.slug ?? positionals[0] ?? '(unknown)'}`);
+          console.log(`status: ${result.state?.status ?? '(unknown)'}`);
+        }
+        return;
+      }
+      case 'finish-record': {
+        const result = await finishRecordStage(process.cwd(), positionals[0], {
+          action: options.get('--action'),
+          status: options.get('--status'),
+          summary: options.get('--summary') || null,
+          url: options.get('--url') || null,
+        });
+        console.log(JSON.stringify({
+          ok: true,
+          command,
+          root: result.root,
+          state: result.state,
+          choice: result.state.choice,
+          reportPath: result.reportPath,
+          statePath: result.statePath,
+        }, null, 2));
         return;
       }
       case 'render': {

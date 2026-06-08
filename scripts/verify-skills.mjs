@@ -121,6 +121,8 @@ async function assertPublicDocsAligned() {
     'loopx doctor',
     'loopx migrate',
     'loopx repair-install',
+    'loopx finish-audit',
+    'loopx finish-record',
     'node scripts/verify-skills.mjs',
   ];
   for (const command of commands) {
@@ -129,6 +131,19 @@ async function assertPublicDocsAligned() {
   }
   assert.doesNotMatch(readme, /loopx archive/, 'README.md should not expose archive runtime command');
   assert.doesNotMatch(readmeZh, /loopx archive/, 'README.zh-CN.md should not expose archive runtime command');
+  assertContains(readme, 'local audit ledger', 'README.md');
+  assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
+  assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
+  assertContains(readme, 'docs/loopx/specs/', 'README.md');
+  assertContains(readme, 'loopx finish-audit', 'README.md');
+  assertContains(readme, 'loopx finish-record', 'README.md');
+
+  assertContains(readmeZh, '本地 audit ledger', 'README.zh-CN.md');
+  assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
+  assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
+  assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
+  assertContains(readmeZh, 'loopx finish-audit', 'README.zh-CN.md');
+  assertContains(readmeZh, 'loopx finish-record', 'README.zh-CN.md');
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)

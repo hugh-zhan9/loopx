@@ -188,6 +188,7 @@ describe('trellis-inspired loopx hardening', () => {
       'head',
       'no_candidates_reason',
       'rejected_candidates',
+      'report_candidates',
       'worktree',
     ]);
 
@@ -199,8 +200,29 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(String(persistedState.audit.head), /^[0-9a-f]{7,40}$/);
     assert.deepEqual(persistedState.audit.accepted_candidates, []);
     assert.deepEqual(persistedState.audit.rejected_candidates, []);
-    assert.equal(persistedState.audit.no_candidates_reason, null);
-    assert.deepEqual(Object.keys(persistedState.choice).sort(), ['accepted', 'rejected']);
+    assert.equal(typeof persistedState.audit.no_candidates_reason, 'string');
+    assert.equal(
+      persistedState.audit.no_candidates_reason,
+      'No accepted or rejected candidates were recorded at audit start.',
+    );
+    assert.deepEqual(persistedState.audit.report_candidates.accepted, [{
+      id: 'audit-evidence',
+      summary: 'Finish audit evidence collected from the current worktree.',
+    }]);
+    assert.deepEqual(Object.keys(persistedState.choice).sort(), [
+      'action',
+      'recorded_at',
+      'status',
+      'summary',
+      'updated_at',
+      'url',
+    ]);
+    assert.equal(persistedState.choice.action, null);
+    assert.equal(persistedState.choice.status, null);
+    assert.equal(persistedState.choice.summary, null);
+    assert.equal(persistedState.choice.url, null);
+    assert.equal(persistedState.choice.recorded_at, null);
+    assert.equal(persistedState.choice.updated_at, null);
     assert.deepEqual(persistedState.choice_history, []);
     assert.match(persistedState.updated_at, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(Array.isArray(persistedState.inputs.scanned), true);
@@ -218,12 +240,212 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(reportText, /## Scanned Inputs/);
     assert.match(reportText, /## Accepted Candidates/);
     assert.match(reportText, /## Rejected Candidates/);
+    assert.match(reportText, /## No Candidates Reason/);
+    assert.match(reportText, /No accepted or rejected candidates were recorded at audit start\./);
+    assert.doesNotMatch(reportText, /audit-evidence/);
     assert.match(reportText, /## Next Steps/);
     assert.match(reportText, new RegExp(`branch: ${branchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     assert.match(reportText, /base branch: release/);
     assert.match(reportText, new RegExp(`worktree: ${persistedState.audit.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     assert.match(reportText, /slug=finish-audit-flow/);
     assert.match(reportText, /worktree=/);
+  });
+
+  it('keeps same-second finish audit reruns isolated', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-collision-'));
+    const date = new Date('2026-06-08T00:00:00.000Z');
+    const first = await finishAuditStage(wd, 'finish-collision-flow', { date });
+    const firstState = JSON.parse(await readFile(first.statePath, 'utf8'));
+    firstState.choice.summary = 'first audit marker';
+    await writeFile(first.statePath, `${JSON.stringify(firstState, null, 2)}\n`);
+
+    const second = await finishAuditStage(wd, 'finish-collision-flow', { date });
+
+    assert.notEqual(first.auditId, second.auditId);
+    assert.equal(second.auditId, `${first.auditId}-2`);
+    assert.equal(JSON.parse(await readFile(first.statePath, 'utf8')).choice.summary, 'first audit marker');
+    assert.equal(JSON.parse(await readFile(second.statePath, 'utf8')).status, 'needs-agent-audit');
+  });
+
+  it('keeps finish audit explainable when no memory or spec candidates are accepted', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-none-'));
+    const audit = await finishAuditStage(wd, 'finish-none-flow');
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+
+    assert.equal(Array.isArray(state.inputs.scanned), true);
+    assert.equal(state.audit.accepted_candidates.length, 0);
+    assert.equal(Array.isArray(state.audit.rejected_candidates), true);
+    assert.equal(typeof state.audit.no_candidates_reason, 'string');
+    assert.match(state.audit.no_candidates_reason, /\S/);
+    const report = await readFile(audit.reportPath, 'utf8');
+    assert.match(report, /rejected candidates/i);
+    assert.match(report, new RegExp(state.audit.no_candidates_reason.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+    state.audit.rejected_candidates = [{
+      id: 'too-local-memory',
+      summary: 'Learning only applies to this run.',
+      rejection_reason: 'Too local for durable memory.',
+      evidence: ['finish-report.md'],
+    }];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+    const rejectedOnly = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'pending',
+      summary: 'Regenerated report after rejected candidate review.',
+    });
+
+    const rejectedReport = await readFile(rejectedOnly.reportPath, 'utf8');
+    assert.match(rejectedReport, /## Accepted Candidates\n\n- none/);
+    assert.match(rejectedReport, /## Rejected Candidates\n\n- too-local-memory: Learning only applies to this run\./);
+    assert.match(rejectedReport, /  - rejection_reason: Too local for durable memory\./);
+    assert.match(rejectedReport, /  - evidence: finish-report\.md/);
+  });
+
+  it('renders malformed finish candidates without leaving stale reports', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-malformed-candidate-'));
+    const audit = await finishAuditStage(wd, 'finish-malformed-candidate');
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    state.audit.accepted_candidates = [null];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'pending',
+      summary: 'Pending while audit candidate state is malformed.',
+    });
+
+    assert.equal(recorded.state.choice.summary, 'Pending while audit candidate state is malformed.');
+    const report = await readFile(recorded.reportPath, 'utf8');
+    assert.match(report, /## Accepted Candidates\n\n- candidate: null/);
+    assert.match(report, /Pending while audit candidate state is malformed\./);
+  });
+
+  it('refuses malformed finish audit state before recording choices', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-invalid-state-'));
+    const audit = await finishAuditStage(wd, 'finish-invalid-state');
+    const originalReport = await readFile(audit.reportPath, 'utf8');
+
+    await writeFile(audit.statePath, '{}\n');
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'pending',
+        summary: 'Should not mutate invalid empty state.',
+      }),
+      /finish_record_invalid_state/,
+    );
+    assert.deepEqual(JSON.parse(await readFile(audit.statePath, 'utf8')), {});
+    assert.equal(await readFile(audit.reportPath, 'utf8'), originalReport);
+
+    const state = JSON.parse(JSON.stringify(audit.state));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [];
+    state.audit.no_candidates_reason = 'No durable learning candidate.';
+    state.audit.rejected_candidates = {
+      id: 'bad-rejected-shape',
+      reason: 'Rejected candidates must remain an array.',
+    };
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should not drop malformed rejected candidates.',
+      }),
+      /finish_record_invalid_state/,
+    );
+    assert.deepEqual(JSON.parse(await readFile(audit.statePath, 'utf8')).audit.rejected_candidates, state.audit.rejected_candidates);
+    assert.equal(await readFile(audit.reportPath, 'utf8'), originalReport);
+
+    state.audit.rejected_candidates = [];
+    state.choice_history = [null];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'pending',
+        summary: 'Should not mutate invalid choice history.',
+      }),
+      /finish_record_invalid_state/,
+    );
+    assert.deepEqual(JSON.parse(await readFile(audit.statePath, 'utf8')).choice_history, [null]);
+    assert.equal(await readFile(audit.reportPath, 'utf8'), originalReport);
+
+    await writeFile(audit.statePath, '{bad json\n');
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'pending',
+        summary: 'Should not mutate invalid JSON state.',
+      }),
+      /finish_record_invalid_state/,
+    );
+    assert.equal(await readFile(audit.statePath, 'utf8'), '{bad json\n');
+    assert.equal(await readFile(audit.reportPath, 'utf8'), originalReport);
+  });
+
+  it('exposes finish audit and finish record through the CLI', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-cli-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish cli\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const humanAuditRun = await execFileAsync('node', [cliPath, 'finish-audit', 'finish-cli-human-flow'], { cwd: wd });
+    assert.match(humanAuditRun.stdout, /finish audit:/);
+    assert.doesNotMatch(humanAuditRun.stdout, /"ok": true/);
+
+    const auditRun = await execFileAsync('node', [cliPath, 'finish-audit', 'finish-cli-flow', '--json'], { cwd: wd });
+    const auditJson = JSON.parse(auditRun.stdout);
+    assert.equal(auditJson.ok, true);
+    assert.equal(auditJson.command, 'finish-audit');
+    assert.match(auditJson.auditId, /^\d{8}T\d{6}Z-finish-cli-flow$/);
+    assert.match(auditJson.reportPath, /finish-report\.md$/);
+    assert.match(auditJson.reportPath, /\.loopx\/finish\//);
+    assert.match(auditJson.statePath, /finish-state\.json$/);
+    assert.match(auditJson.reportPath, /finish-report\.md/);
+
+    const state = JSON.parse(await readFile(auditJson.statePath, 'utf8'));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [{
+      id: 'candidate-cli',
+      summary: 'CLI candidate.',
+      evidence: ['README.md'],
+    }];
+    await writeFile(auditJson.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const recordRun = await execFileAsync('node', [
+      cliPath,
+      'finish-record',
+      auditJson.auditId,
+      '--action',
+      'keep',
+      '--status',
+      'done',
+      '--summary',
+      'Recorded via CLI.',
+    ], { cwd: wd });
+    const recordJson = JSON.parse(recordRun.stdout);
+    assert.equal(recordJson.ok, true);
+    assert.equal(recordJson.command, 'finish-record');
+    assert.equal(recordJson.choice.action, 'keep');
+    assert.equal(recordJson.choice.status, 'done');
+    assert.match(recordJson.reportPath, /finish-report\.md$/);
+
+    let invalidRun;
+    try {
+      await execFileAsync('node', [cliPath, 'finish-record', 'missing-audit-id', '--action', 'keep', '--status', 'done'], { cwd: wd });
+      assert.fail('expected finish-record to fail for a missing audit');
+    } catch (error) {
+      invalidRun = error;
+    }
+    assert.notEqual(invalidRun.code ?? invalidRun.exitCode, 0);
+    const invalidJson = JSON.parse((invalidRun.stderr || '').trim());
+    assert.equal(invalidJson.ok, false);
+    assert.equal(invalidJson.command, 'finish-record');
+    assert.match(invalidJson.error, /finish_record_audit_not_found/);
   });
 
   it('records finish choices after an audited state becomes complete enough', async () => {
@@ -244,10 +466,29 @@ describe('trellis-inspired loopx hardening', () => {
 
     const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
     state.status = 'audited';
+
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, { action: 'keep', status: 'done', summary: 'Default reason is not enough.' }),
+      /finish_record_audit_incomplete/,
+    );
+
+    state.audit.accepted_candidates = [{
+      id: 'candidate-incomplete',
+      summary: 'Missing evidence.',
+    }];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, { action: 'keep', status: 'done', summary: 'Malformed accepted candidate.' }),
+      /finish_record_audit_incomplete/,
+    );
+
     state.audit.accepted_candidates = [{
       id: 'candidate-1',
       summary: 'Keep branch as-is.',
+      evidence: ['README.md'],
     }];
+    state.audit.no_candidates_reason = null;
     await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
 
     const completed = await finishRecordStage(wd, audit.auditId, {
@@ -256,11 +497,180 @@ describe('trellis-inspired loopx hardening', () => {
       summary: 'Kept branch as-is.',
     });
 
+    assert.deepEqual(Object.keys(completed.state.choice).sort(), [
+      'action',
+      'recorded_at',
+      'status',
+      'summary',
+      'updated_at',
+      'url',
+    ]);
     assert.equal(completed.state.choice.action, 'keep');
     assert.equal(completed.state.choice.status, 'done');
     assert.equal(completed.state.status, 'completed');
     assert.equal(completed.state.choice_history.length, 0);
     assert.match(await readFile(completed.reportPath, 'utf8'), /Kept branch as-is\./);
+
+    const doneUpdated = await finishRecordStage(wd, completed.root, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Kept branch as-is with URL.',
+      url: 'https://example.test/keep/done',
+    });
+
+    assert.equal(doneUpdated.state.choice.action, 'keep');
+    assert.equal(doneUpdated.state.choice.status, 'done');
+    assert.equal(doneUpdated.state.choice.url, 'https://example.test/keep/done');
+    assert.equal(doneUpdated.state.status, 'completed');
+    assert.equal(doneUpdated.state.choice_history.length, 0);
+
+    const sameActionUpdated = await finishRecordStage(wd, completed.root, {
+      action: 'keep',
+      status: 'failed',
+      summary: 'Keep path retried with updated details.',
+      url: 'https://example.test/keep/1',
+    });
+
+    assert.equal(sameActionUpdated.state.choice.action, 'keep');
+    assert.equal(sameActionUpdated.state.choice.status, 'failed');
+    assert.equal(sameActionUpdated.state.choice_history.length, 0);
+
+    const superseded = await finishRecordStage(wd, completed.root, {
+      action: 'pr',
+      status: 'failed',
+      summary: 'PR path failed.',
+      url: 'https://example.test/pr/1',
+    });
+
+    assert.equal(superseded.root, completed.root);
+    assert.equal(superseded.state.choice.action, 'pr');
+    assert.equal(superseded.state.choice.status, 'failed');
+    assert.equal(superseded.state.choice_history.length, 1);
+    assert.equal(superseded.state.choice_history[0].action, 'keep');
+    assert.equal(superseded.state.choice_history[0].status, 'failed');
+    assert.equal(superseded.state.choice_history[0].summary, 'Keep path retried with updated details.');
+    assert.match(await readFile(superseded.reportPath, 'utf8'), /PR path failed\./);
+    assert.match(await readFile(superseded.reportPath, 'utf8'), /recorded_at=/);
+    assert.match(await readFile(superseded.reportPath, 'utf8'), /superseded_at=/);
+
+    const noCandidates = await mkdtemp(join(tmpdir(), 'loopx-finish-record-none-'));
+    await execFileAsync('git', ['init'], { cwd: noCandidates });
+    const noneAudit = await finishAuditStage(noCandidates, 'finish-record-none');
+    const noneState = JSON.parse(await readFile(noneAudit.statePath, 'utf8'));
+    noneState.status = 'audited';
+    noneState.audit.accepted_candidates = [];
+    noneState.audit.no_candidates_reason = 'No stable durable learning candidate.';
+    noneState.audit.rejected_candidates = [{
+      id: 'short-lived-finding',
+      summary: 'Short-lived finding.',
+    }];
+    await writeFile(noneAudit.statePath, `${JSON.stringify(noneState, null, 2)}\n`);
+    await assert.rejects(
+      () => finishRecordStage(noCandidates, noneAudit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Rejected candidate has no reason.',
+      }),
+      /finish_record_audit_incomplete/,
+    );
+
+    noneState.audit.rejected_candidates[0].rejection_reason = 'Only applies to this run.';
+    await writeFile(noneAudit.statePath, `${JSON.stringify(noneState, null, 2)}\n`);
+    const noCandidatesDone = await finishRecordStage(noCandidates, noneAudit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Kept after none audit.',
+    });
+    assert.equal(noCandidatesDone.state.choice.status, 'done');
+    assert.equal(noCandidatesDone.state.status, 'completed');
+    const noCandidatesReport = await readFile(noCandidatesDone.reportPath, 'utf8');
+    assert.match(noCandidatesReport, /## No Candidates Reason/);
+    assert.match(noCandidatesReport, /No stable durable learning candidate\./);
+    assert.match(noCandidatesReport, /Only applies to this run\./);
+    assert.doesNotMatch(noCandidatesReport, /audit-evidence/);
+
+    await assert.rejects(
+      () => finishRecordStage(wd, 'missing-audit-id', {
+        action: 'keep',
+        status: 'done',
+      }),
+      /finish_record_audit_not_found/,
+    );
+  });
+
+  it('retains finish history for legacy choices that only have updated_at', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-record-legacy-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish record legacy\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-record-legacy');
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [{
+      id: 'candidate-legacy',
+      summary: 'Legacy candidate.',
+      evidence: ['README.md'],
+    }];
+    state.choice = {
+      action: 'keep',
+      status: 'done',
+      summary: 'Legacy keep.',
+      url: null,
+      updated_at: '2026-06-08T00:00:00.000Z',
+    };
+    delete state.choice.recorded_at;
+    state.choice_history = [];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const result = await finishRecordStage(wd, audit.auditId, {
+      action: 'pr',
+      status: 'failed',
+      summary: 'Legacy PR failed.',
+      url: 'https://example.test/legacy-pr',
+    });
+
+    assert.equal(result.state.choice_history.length, 1);
+    assert.equal(result.state.choice_history[0].action, 'keep');
+    assert.equal(result.state.choice_history[0].status, 'done');
+    assert.equal(result.state.choice_history[0].updated_at, '2026-06-08T00:00:00.000Z');
+    assert.match(await readFile(result.reportPath, 'utf8'), /Legacy PR failed\./);
+    assert.match(await readFile(result.reportPath, 'utf8'), /recorded_at=/);
+    assert.match(await readFile(result.reportPath, 'utf8'), /superseded_at=/);
+  });
+
+  it('records finish choices by audit path without replacing persisted git evidence', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-path-record-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'finish path record\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const audit = await finishAuditStage(wd, 'finish-path-record');
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    state.status = 'audited';
+    state.audit.accepted_candidates = [{
+      id: 'candidate-path',
+      summary: 'Path recording keeps original evidence.',
+      evidence: ['README.md'],
+    }];
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const outside = await mkdtemp(join(tmpdir(), 'loopx-finish-outside-'));
+    const recorded = await finishRecordStage(outside, audit.root, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Recorded from another cwd.',
+    });
+
+    const report = await readFile(recorded.reportPath, 'utf8');
+    assert.match(report, new RegExp(`worktree: ${state.audit.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(report, new RegExp(`branch: ${state.audit.branch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.doesNotMatch(report, /worktree: unknown/);
   });
 
   it('falls back to unknown when upstream branch evidence cannot be read', async () => {

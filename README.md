@@ -59,6 +59,13 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 
 `finish` may generate spec candidates in `docs/loopx/specs/` when completed work produces stable team rules. These candidates are repo-tracked and must remain visible in the git diff.
 
+`finish` also writes a local audit ledger under `.loopx/finish/<audit-id>/`. `none` means the work was audited, but it did not produce a durable learning candidate. Choice recording lives in that local finish audit directory, while repo-tracked spec candidates stay in `docs/loopx/specs/`.
+
+Public finish audit commands:
+
+- `loopx finish-audit`
+- `loopx finish-record`
+
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
@@ -136,6 +143,8 @@ loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
+loopx finish-audit
+loopx finish-record
 ```
 
 ## Governance
