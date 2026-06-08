@@ -1,10 +1,13 @@
 import { execFile } from 'node:child_process';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
+const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
+const MAX_AUDIT_ID_COLLISIONS = 1000;
+const FINISH_RECORD_STATE_STATUSES = ['needs-agent-audit', 'audited', 'choice-recorded', 'completed', 'failed'];
 
 function normalizeSlug(raw) {
   return String(raw || '')
@@ -123,6 +126,43 @@ function finishChoices() {
   };
 }
 
+async function createFinishAuditDirectory(cwd, slug, date) {
+  await mkdir(resolveFinishAuditRoot(cwd), { recursive: true });
+  const baseAuditId = finishAuditId(slug, date);
+  for (let attempt = 0; attempt < MAX_AUDIT_ID_COLLISIONS; attempt += 1) {
+    const auditId = attempt === 0 ? baseAuditId : `${baseAuditId}-${attempt + 1}`;
+    const root = resolveFinishAuditPath(cwd, auditId);
+    try {
+      await mkdir(root);
+      return { auditId, root };
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('finish_audit_id_collision');
+}
+
+function createChoiceRecord({
+  action = null,
+  status = null,
+  summary = null,
+  url = null,
+  recorded_at = null,
+  updated_at = null,
+} = {}) {
+  return {
+    action,
+    status,
+    summary,
+    url,
+    recorded_at,
+    updated_at,
+  };
+}
+
 async function pathExists(path) {
   try {
     await access(path);
@@ -132,21 +172,109 @@ async function pathExists(path) {
   }
 }
 
+function selectReportCandidates(primary) {
+  if (Array.isArray(primary) && primary.length > 0) {
+    return primary;
+  }
+  return [];
+}
+
+function singleLineText(value) {
+  return String(value ?? 'null').replace(/\s*\r?\n+\s*/g, ' ').trim() || 'null';
+}
+
+function nonEmptyText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function nonEmptyTextArray(value) {
+  return Array.isArray(value) && value.some((item) => nonEmptyText(item));
+}
+
+function plainObject(item) {
+  return item && typeof item === 'object' && !Array.isArray(item) ? item : null;
+}
+
+function candidateObject(item) {
+  return plainObject(item);
+}
+
+function candidateIdentifier(item) {
+  const candidate = candidateObject(item);
+  return candidate?.id ?? candidate?.kind ?? 'candidate';
+}
+
+function formatCandidateValue(value) {
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => singleLineText(item)).filter((item) => item !== 'null');
+    return parts.length > 0 ? parts.join('; ') : 'null';
+  }
+  return singleLineText(value);
+}
+
+function candidateDetailLine(item, key) {
+  const candidate = candidateObject(item);
+  if (!candidate || !Object.hasOwn(candidate, key)) {
+    return null;
+  }
+  const value = candidate[key];
+  const hasValue = Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined && String(value).trim() !== '';
+  return hasValue ? `  - ${key}: ${formatCandidateValue(value)}` : null;
+}
+
+function formatCandidate(item, detailKeys = []) {
+  const candidate = candidateObject(item);
+  const summary = candidate
+    ? candidate.summary ?? candidate.rejection_reason ?? candidate.reason ?? 'null'
+    : item;
+  const lines = [`- ${singleLineText(candidateIdentifier(item))}: ${singleLineText(summary)}`];
+  for (const key of detailKeys) {
+    const line = candidateDetailLine(item, key);
+    if (line) {
+      lines.push(line);
+    }
+  }
+  return lines.join('\n');
+}
+
+function formatChoiceHistoryEntry(item, index) {
+  const recordedAt = item.recorded_at ?? item.updated_at;
+  const parts = [
+    `- ${index + 1}. ${singleLineText(item.action)}`,
+    singleLineText(item.status),
+    singleLineText(item.summary),
+    `url=${singleLineText(item.url)}`,
+    `recorded_at=${singleLineText(recordedAt)}`,
+    `superseded_at=${singleLineText(item.superseded_at)}`,
+  ];
+  return parts.join(' / ');
+}
+
 function buildFinishReport({ state, evidence, scannedInputs }) {
   const auditId = state.audit_id;
   const slug = state.slug;
   const auditChoices = state.audit || {};
-  const accepted = Array.isArray(auditChoices.accepted_candidates) && auditChoices.accepted_candidates.length > 0
-    ? auditChoices.accepted_candidates.map((item) => `- ${item.id ?? 'candidate'}: ${item.summary ?? 'null'}`).join('\n')
+  const noCandidatesReason = auditChoices.no_candidates_reason ?? null;
+  const acceptedSource = selectReportCandidates(auditChoices.accepted_candidates);
+  const rejectedSource = selectReportCandidates(auditChoices.rejected_candidates);
+  const accepted = acceptedSource.length > 0
+    ? acceptedSource.map((item) => formatCandidate(item, ['evidence', 'target', 'confidence', 'status'])).join('\n')
     : '- none';
-  const rejected = Array.isArray(auditChoices.rejected_candidates) && auditChoices.rejected_candidates.length > 0
-    ? auditChoices.rejected_candidates.map((item) => `- ${item.id ?? 'candidate'}: ${item.summary ?? 'null'}`).join('\n')
+  const rejected = rejectedSource.length > 0
+    ? rejectedSource.map((item) => formatCandidate(item, ['rejection_reason', 'reason', 'evidence', 'target', 'confidence', 'status'])).join('\n')
     : '- none';
-  const choiceLine = state.choice?.action
-    ? `- action: ${state.choice.action}\n- status: ${state.choice.status}\n- summary: ${state.choice.summary ?? 'null'}\n- url: ${state.choice.url ?? 'null'}`
-    : '- action: null\n- status: null\n- summary: null\n- url: null';
+  const choice = state.choice || createChoiceRecord();
+  const choiceLine = [
+    `- action: ${singleLineText(choice.action)}`,
+    `- status: ${singleLineText(choice.status)}`,
+    `- summary: ${singleLineText(choice.summary)}`,
+    `- url: ${singleLineText(choice.url)}`,
+  ].join('\n');
+  const noCandidatesLine = noCandidatesReason
+    ? `- ${singleLineText(noCandidatesReason)}`
+    : '- none';
   const history = Array.isArray(state.choice_history) && state.choice_history.length > 0
-    ? state.choice_history.map((item, index) => `- ${index + 1}. ${item.action} / ${item.status} / ${item.summary ?? 'null'}`).join('\n')
+    ? state.choice_history.map((item, index) => formatChoiceHistoryEntry(item, index)).join('\n')
     : '- none';
   const scanned = scannedInputs.length > 0
     ? scannedInputs.map((item) => `- ${item}`).join('\n')
@@ -177,6 +305,10 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     '',
     rejected,
     '',
+    '## No Candidates Reason',
+    '',
+    noCandidatesLine,
+    '',
     '## Choice',
     '',
     choiceLine,
@@ -204,22 +336,119 @@ async function resolveFinishAuditDir(cwd, auditIdOrPath) {
   if (raw && await pathExists(join(idPath, 'finish-state.json'))) {
     return idPath;
   }
-  return idPath;
+  return null;
 }
 
 async function readFinishState(statePath) {
-  return JSON.parse(await readFile(statePath, 'utf8'));
+  try {
+    return JSON.parse(await readFile(statePath, 'utf8'));
+  } catch {
+    throw new Error('finish_record_invalid_state');
+  }
+}
+
+function throwInvalidFinishState() {
+  throw new Error('finish_record_invalid_state');
+}
+
+function stringArray(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function validChoiceHistory(value) {
+  return Array.isArray(value) && value.every((item) => Boolean(plainObject(item)));
+}
+
+function validateFinishRecordState(state, root) {
+  if (!plainObject(state)) {
+    throwInvalidFinishState();
+  }
+  if (state.schema_version !== FINISH_SCHEMA_VERSION) {
+    throwInvalidFinishState();
+  }
+  if (!nonEmptyText(state.audit_id) || !nonEmptyText(state.slug)) {
+    throwInvalidFinishState();
+  }
+  if (state.audit_id !== basename(root)) {
+    throwInvalidFinishState();
+  }
+  if (!FINISH_RECORD_STATE_STATUSES.includes(state.status)) {
+    throwInvalidFinishState();
+  }
+  if (!plainObject(state.inputs) || !stringArray(state.inputs.scanned)) {
+    throwInvalidFinishState();
+  }
+  if (!plainObject(state.audit)) {
+    throwInvalidFinishState();
+  }
+  for (const key of ['branch', 'base_branch', 'worktree', 'head']) {
+    if (typeof state.audit[key] !== 'string') {
+      throwInvalidFinishState();
+    }
+  }
+  if (!Array.isArray(state.audit.accepted_candidates) || !Array.isArray(state.audit.rejected_candidates)) {
+    throwInvalidFinishState();
+  }
+  if (state.audit.no_candidates_reason !== null && typeof state.audit.no_candidates_reason !== 'string') {
+    throwInvalidFinishState();
+  }
+  if (state.choice !== null && state.choice !== undefined && !plainObject(state.choice)) {
+    throwInvalidFinishState();
+  }
+  if (!validChoiceHistory(state.choice_history)) {
+    throwInvalidFinishState();
+  }
+}
+
+function hasSpecificNoCandidatesReason(reason) {
+  return nonEmptyText(reason) && reason.trim() !== DEFAULT_NO_CANDIDATES_REASON;
+}
+
+function acceptedCandidateIsComplete(candidate) {
+  return Boolean(candidate)
+    && nonEmptyText(candidate.summary)
+    && nonEmptyTextArray(candidate.evidence);
+}
+
+function rejectedCandidateIsComplete(candidate) {
+  return Boolean(candidate)
+    && (nonEmptyText(candidate.rejection_reason) || nonEmptyText(candidate.reason));
 }
 
 function isFinishAuditReadyForDone(state) {
-  return state?.status === 'audited'
-    && Array.isArray(state?.audit?.accepted_candidates)
-    && state.audit.accepted_candidates.length > 0;
+  if (!['audited', 'choice-recorded', 'completed', 'failed'].includes(state?.status)) {
+    return false;
+  }
+
+  const acceptedCandidates = Array.isArray(state?.audit?.accepted_candidates)
+    ? state.audit.accepted_candidates
+    : [];
+  const rejectedCandidates = Array.isArray(state?.audit?.rejected_candidates)
+    ? state.audit.rejected_candidates
+    : [];
+  if (rejectedCandidates.some((candidate) => !rejectedCandidateIsComplete(candidate))) {
+    return false;
+  }
+  if (acceptedCandidates.length > 0) {
+    return acceptedCandidates.every((candidate) => acceptedCandidateIsComplete(candidate));
+  }
+  return hasSpecificNoCandidatesReason(state?.audit?.no_candidates_reason);
+}
+
+function hasChoiceActionChange(previousChoice, nextChoice) {
+  if (!previousChoice || typeof previousChoice !== 'object') {
+    return false;
+  }
+  return (previousChoice.action ?? null) !== (nextChoice.action ?? null);
+}
+
+function isRecordedChoice(choice) {
+  return Boolean(choice && (choice.recorded_at || choice.updated_at));
 }
 
 function nextChoiceHistory(state, choice, updatedAt) {
   const history = Array.isArray(state.choice_history) ? state.choice_history.slice() : [];
-  if (state.choice?.action && state.choice.action !== choice.action) {
+  if (isRecordedChoice(state.choice) && hasChoiceActionChange(state.choice, choice)) {
     history.push({
       ...state.choice,
       superseded_at: updatedAt,
@@ -228,10 +457,19 @@ function nextChoiceHistory(state, choice, updatedAt) {
   return history;
 }
 
-export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
-  const auditId = finishAuditId(slug, new Date());
-  const root = resolveFinishAuditPath(cwd, auditId);
-  await mkdir(root, { recursive: true });
+function evidenceFromState(state, fallback = {}) {
+  const audit = state.audit || {};
+  return {
+    branch: audit.branch ?? fallback.branch ?? 'unknown',
+    base_branch: audit.base_branch ?? fallback.base_branch ?? 'unknown',
+    head: audit.head ?? fallback.head ?? 'unknown',
+    worktree: audit.worktree ?? fallback.worktree ?? 'unknown',
+  };
+}
+
+export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date() } = {}) {
+  const auditDate = date instanceof Date ? date : new Date(date);
+  const { auditId, root } = await createFinishAuditDirectory(cwd, slug, auditDate);
 
   const evidence = await resolveGitEvidence(cwd);
   const normalizedSlug = normalizeSlug(slug) || 'finish-audit';
@@ -250,7 +488,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
     audit_id: auditId,
     slug: normalizedSlug,
     status: 'needs-agent-audit',
-    updated_at: new Date().toISOString(),
+    updated_at: auditDate.toISOString(),
     inputs: {
       scanned: scannedInputs,
     },
@@ -261,18 +499,23 @@ export async function finishAuditStage(cwd, slug, { env = process.env } = {}) {
       head: evidence.head,
       accepted_candidates: [],
       rejected_candidates: [],
-      no_candidates_reason: null,
+      no_candidates_reason: DEFAULT_NO_CANDIDATES_REASON,
+      report_candidates: {
+        accepted: choices.accepted.map((item) => ({ ...item })),
+        rejected: choices.rejected.map((item) => ({ ...item })),
+      },
     },
-    choice: choices,
+    choice: createChoiceRecord(),
     choice_history: [],
   };
 
-  await writeFile(join(root, 'finish-state.json'), `${JSON.stringify(state, null, 2)}\n`);
-  await writeFile(join(root, 'finish-report.md'), buildFinishReport({
+  const reportText = buildFinishReport({
     state,
     evidence,
     scannedInputs,
-  }));
+  });
+  await writeFile(join(root, 'finish-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+  await writeFile(join(root, 'finish-report.md'), reportText);
 
   return {
     auditId,
@@ -301,19 +544,26 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   }
 
   const root = await resolveFinishAuditDir(cwd, auditIdOrPath);
+  if (!root) {
+    throw new Error('finish_record_audit_not_found');
+  }
   const statePath = join(root, 'finish-state.json');
   const state = await readFinishState(statePath);
+  validateFinishRecordState(state, root);
   if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
     throw new Error('finish_record_audit_incomplete');
   }
 
   const updatedAt = new Date().toISOString();
   const choice = {
-    action: normalizedAction,
-    status: normalizedStatus,
-    summary,
-    url,
-    updated_at: updatedAt,
+    ...createChoiceRecord({
+      action: normalizedAction,
+      status: normalizedStatus,
+      summary,
+      url,
+      recorded_at: updatedAt,
+      updated_at: updatedAt,
+    }),
   };
 
   state.choice_history = nextChoiceHistory(state, choice, updatedAt);
@@ -325,14 +575,16 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
       ? 'failed'
       : 'choice-recorded';
 
-  const evidence = await resolveGitEvidence(cwd);
+  const fallbackEvidence = await resolveGitEvidence(cwd);
+  const evidence = evidenceFromState(state, fallbackEvidence);
   const scannedInputs = Array.isArray(state.inputs?.scanned) ? state.inputs.scanned : [];
-  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
-  await writeFile(join(root, 'finish-report.md'), buildFinishReport({
+  const reportText = buildFinishReport({
     state,
     evidence,
     scannedInputs,
-  }));
+  });
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+  await writeFile(join(root, 'finish-report.md'), reportText);
 
   return {
     auditId: state.audit_id,

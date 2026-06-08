@@ -218,6 +218,16 @@ describe('loopx skill governance', () => {
     assert.match(finish, /curated active index/);
     assert.match(finish, /Spec candidates/);
     assert.match(finish, /Learning extraction priority/);
+    assert.match(finish, /Audit-First Learning Extraction/);
+    assert.match(finish, /finish-audit/);
+    assert.match(finish, /finish-record/);
+    assert.match(finish, /\.loopx\/finish\/<audit-id>\/finish-state\.json/);
+    assert.match(finish, /status` to `"audited"`/);
+    assert.match(finish, /accepted_candidates` with evidence/);
+    assert.match(finish, /no_candidates_reason/);
+    assert.match(finish, /rejected candidates/);
+    assert.match(finish, /choice recording/);
+    assert.match(finish, /none/);
     assert.match(finish, /Durable behavior, contracts, or constraints proven by the implementation/);
     assert.match(finish, /State, file, CLI, API, install, migration, compatibility, or test invariants/);
     assert.match(finish, /Documentation changes when they define, correct, or preserve one of the above/);

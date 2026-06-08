@@ -66,9 +66,9 @@ git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 
 Or ask: "This branch split from main - is that correct?"
 
-### Step 4: Learning Extraction
+### Step 4: Audit-First Learning Extraction
 
-Run learning extraction before presenting merge, PR, keep, or discard options.
+Run `finish-audit` before presenting merge, PR, keep, or discard options.
 
 Allowed inputs:
 - current git diff
@@ -78,6 +78,9 @@ Allowed inputs:
 - existing `.loopx/memory/MEMORY.md` and `.loopx/memory/index.jsonl`
 - existing `docs/loopx/specs/*.md`
 
+Read the audit state from `.loopx/finish/<audit-id>/finish-state.json` before deciding what to record.
+After learning extraction, update `finish-state.json` before any `done` record: set `status` to `"audited"` and write either valid `accepted_candidates` with evidence, or `rejected_candidates` with reasons plus a replaced `no_candidates_reason` for `none`.
+
 Learning extraction priority:
 1. Durable behavior, contracts, or constraints proven by the implementation
 2. State, file, CLI, API, install, migration, compatibility, or test invariants
@@ -86,6 +89,10 @@ Learning extraction priority:
 5. Documentation changes when they define, correct, or preserve one of the above
 
 Do not infer durable rules from agent intuition alone. Do not promote unverified implementation details.
+
+When the audit has no candidates, record `none` with the scanned inputs and a reason in `no_candidates_reason`.
+Accepted candidates require evidence from the audit state. rejected candidates require reasons.
+choice recording must persist the user's completion choice through `finish-record` before presenting the final completion outcome.
 
 #### Memory
 

@@ -59,6 +59,13 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 当完成的工作产生稳定团队规则时，`finish` 可以在 `docs/loopx/specs/` 生成 spec candidates。这些候选是 repo-tracked，必须保留在 git diff 中供审阅。
 
+`finish` 还会在 `.loopx/finish/<audit-id>/` 下写入本地 audit ledger。`none` 表示已经完成审计，但没有产生可持久化的 learning candidate。choice recording 也放在这个本地 finish audit 目录里，而 repo-tracked 的 spec candidates 仍然保留在 `docs/loopx/specs/`。
+
+公开的 finish audit 命令：
+
+- `loopx finish-audit`
+- `loopx finish-record`
+
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
@@ -136,6 +143,8 @@ loopx setup-context
 loopx doctor
 loopx migrate
 loopx repair-install
+loopx finish-audit
+loopx finish-record
 ```
 
 ## 治理
