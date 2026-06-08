@@ -185,6 +185,7 @@ describe('trellis-inspired loopx hardening', () => {
       'accepted_candidates',
       'base_branch',
       'branch',
+      'change_window',
       'head',
       'no_candidates_reason',
       'rejected_candidates',
@@ -200,6 +201,9 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(String(persistedState.audit.head), /^[0-9a-f]{7,40}$/);
     assert.deepEqual(persistedState.audit.accepted_candidates, []);
     assert.deepEqual(persistedState.audit.rejected_candidates, []);
+    assert.equal(persistedState.audit.change_window.source, 'none');
+    assert.deepEqual(persistedState.audit.change_window.commits, []);
+    assert.deepEqual(persistedState.audit.change_window.changed_files, []);
     assert.equal(typeof persistedState.audit.no_candidates_reason, 'string');
     assert.equal(
       persistedState.audit.no_candidates_reason,
@@ -238,6 +242,7 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(reportText, /# Finish Audit/);
     assert.match(reportText, /## Summary/);
     assert.match(reportText, /## Scanned Inputs/);
+    assert.match(reportText, /## Change Window/);
     assert.match(reportText, /## Accepted Candidates/);
     assert.match(reportText, /## Rejected Candidates/);
     assert.match(reportText, /## No Candidates Reason/);
@@ -291,6 +296,152 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(result.path, new RegExp(`${result.state.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/\\.loopx/finish/baselines/finish-subdir-flow\\.json$`));
     assert.doesNotMatch(result.path, /packages\/cli\/\.loopx/);
     assert.deepEqual(JSON.parse(await readFile(result.path, 'utf8')), result.state);
+  });
+
+  it('finish audit includes committed change evidence when the worktree diff is empty', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-window-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    const baseline = await finishStartStage(wd, 'finish-window-flow', {
+      source: 'docs/loopx/plans/window.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    await writeFile(join(wd, 'README.md'), 'before\nafter\n');
+    await writeFile(join(wd, 'feature.txt'), 'new committed file\n');
+    await execFileAsync('git', ['add', 'README.md', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: committed finish evidence'], { cwd: wd });
+    const { stdout: statusStdout } = await execFileAsync('git', ['status', '--short'], { cwd: wd });
+    assert.equal(statusStdout, '');
+
+    const audit = await finishAuditStage(wd, 'finish-window-flow');
+
+    assert.equal(audit.state.audit.change_window.source, 'baseline');
+    assert.equal(audit.state.audit.change_window.baseline_ref, baseline.state.head);
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.commits, [{
+      sha: audit.state.audit.change_window.commits[0].sha,
+      subject: 'feat: committed finish evidence',
+    }]);
+    assert.match(audit.state.audit.change_window.commits[0].sha, /^[0-9a-f]{7,40}$/);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'M', path: 'README.md' },
+      { status: 'A', path: 'feature.txt' },
+    ]);
+    assert.deepEqual(audit.state.audit.change_window.uncommitted_status, []);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, ['docs/loopx/plans/window.md']);
+    assert.match(audit.state.inputs.scanned.join('\n'), /change_range=/);
+    assert.match(audit.state.inputs.scanned.join('\n'), /committed_change_count=1/);
+    const reportText = await readFile(audit.reportPath, 'utf8');
+    assert.match(reportText, /## Change Window/);
+    assert.match(reportText, /feat: committed finish evidence/);
+    assert.match(reportText, /feature\.txt/);
+  });
+
+  it('finish audit does not use an unrelated latest pointer as the baseline for slug latest', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-latest-baseline-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'before\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    await finishStartStage(wd, 'unrelated-flow', {
+      source: 'docs/loopx/plans/unrelated.md',
+      date: new Date('2026-06-08T00:00:00.000Z'),
+    });
+    await writeFile(join(wd, 'README.md'), 'before\nafter\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: unrelated committed work'], { cwd: wd });
+
+    const latestPointerPath = join(wd, '.loopx', 'finish', 'baselines', 'latest.json');
+    assert.equal(JSON.parse(await readFile(latestPointerPath, 'utf8')).slug, 'unrelated-flow');
+    assert.equal(existsSync(join(wd, '.loopx', 'finish', 'baselines', 'latest-baseline.json')), false);
+
+    const audit = await finishAuditStage(wd, 'latest');
+
+    assert.equal(audit.state.audit.change_window.source, 'none');
+    assert.equal(audit.state.audit.change_window.baseline_ref, null);
+    assert.equal(audit.state.audit.change_window.commit_count, 0);
+    assert.deepEqual(audit.state.audit.change_window.commits, []);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, []);
+    assert.deepEqual(audit.state.audit.change_window.source_artifacts, []);
+  });
+
+  it('rejects invalid manual finish audit baseline refs', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-invalid-baseline-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'invalid baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    await assert.rejects(
+      () => finishAuditStage(wd, 'finish-invalid-baseline', { baselineRef: 'missing-ref' }),
+      /finish_audit_invalid_baseline_ref/,
+    );
+
+    let invalidAuditRun;
+    try {
+      await execFileAsync('node', [
+        cliPath,
+        'finish-audit',
+        'finish-invalid-baseline',
+        '--baseline',
+        'missing-ref',
+        '--json',
+      ], { cwd: wd });
+      assert.fail('expected finish-audit to fail for an invalid manual baseline');
+    } catch (error) {
+      invalidAuditRun = error;
+    }
+    assert.notEqual(invalidAuditRun.code ?? invalidAuditRun.exitCode, 0);
+    const invalidAuditJson = JSON.parse((invalidAuditRun.stderr || '').trim());
+    assert.equal(invalidAuditJson.ok, false);
+    assert.equal(invalidAuditJson.command, 'finish-audit');
+    assert.match(invalidAuditJson.error, /finish_audit_invalid_baseline_ref/);
+  });
+
+  it('falls back to origin remote merge-base when local base branch is missing', async () => {
+    const remote = await mkdtemp(join(tmpdir(), 'loopx-finish-remote-base-origin-'));
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-remote-base-work-'));
+    await execFileAsync('git', ['init', '--bare'], { cwd: remote });
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'main'], { cwd: wd });
+    await writeFile(join(wd, '.gitignore'), '.loopx/\n');
+    await writeFile(join(wd, 'README.md'), 'main\n');
+    await execFileAsync('git', ['add', '.gitignore', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await execFileAsync('git', ['remote', 'add', 'origin', remote], { cwd: wd });
+    await execFileAsync('git', ['push', '-u', 'origin', 'main'], { cwd: wd });
+    await execFileAsync('git', ['checkout', '-b', 'feature/finish-window'], { cwd: wd });
+    await execFileAsync('git', ['branch', '--delete', 'main'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/finish-window.remote', 'origin'], { cwd: wd });
+    await execFileAsync('git', ['config', 'branch.feature/finish-window.merge', 'refs/heads/main'], { cwd: wd });
+
+    await writeFile(join(wd, 'feature.txt'), 'remote base committed window\n');
+    await execFileAsync('git', ['add', 'feature.txt'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: remote-base finish evidence'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-remote-base');
+
+    assert.equal(audit.state.audit.base_branch, 'main');
+    assert.equal(audit.state.audit.change_window.source, 'merge-base');
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(audit.state.audit.change_window.changed_files, [
+      { status: 'A', path: 'feature.txt' },
+    ]);
+    assert.match(await readFile(audit.reportPath, 'utf8'), /feat: remote-base finish evidence/);
   });
 
   it('keeps same-second finish audit reruns isolated', async () => {
@@ -448,6 +599,7 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(startJson.command, 'finish-start');
     assert.equal(startJson.state.slug, 'finish-cli-flow');
     assert.equal(startJson.state.source, 'docs/loopx/plans/finish-cli-flow.md');
+    const manualBaselineRef = startJson.state.head;
 
     let invalidStartRun;
     try {
@@ -466,6 +618,10 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(humanAuditRun.stdout, /finish audit:/);
     assert.doesNotMatch(humanAuditRun.stdout, /"ok": true/);
 
+    await writeFile(join(wd, 'README.md'), 'finish cli\ncommitted cli window\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: cli finish window'], { cwd: wd });
+
     const auditRun = await execFileAsync('node', [cliPath, 'finish-audit', 'finish-cli-flow', '--json'], { cwd: wd });
     const auditJson = JSON.parse(auditRun.stdout);
     assert.equal(auditJson.ok, true);
@@ -475,6 +631,25 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(auditJson.reportPath, /\.loopx\/finish\//);
     assert.match(auditJson.statePath, /finish-state\.json$/);
     assert.match(auditJson.reportPath, /finish-report\.md/);
+    assert.equal(auditJson.state.audit.change_window.commit_count, 1);
+
+    const manualAuditRun = await execFileAsync('node', [
+      cliPath,
+      'finish-audit',
+      'finish-cli-manual-flow',
+      '--baseline',
+      manualBaselineRef,
+      '--json',
+    ], { cwd: wd });
+    const manualAuditJson = JSON.parse(manualAuditRun.stdout);
+    assert.equal(manualAuditJson.ok, true);
+    assert.equal(manualAuditJson.state.audit.change_window.source, 'baseline');
+    assert.equal(manualAuditJson.state.audit.change_window.baseline_ref, manualBaselineRef);
+    assert.equal(manualAuditJson.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(manualAuditJson.state.audit.change_window.commits, [{
+      sha: manualAuditJson.state.audit.change_window.commits[0].sha,
+      subject: 'feat: cli finish window',
+    }]);
 
     const state = JSON.parse(await readFile(auditJson.statePath, 'utf8'));
     state.status = 'audited';
@@ -692,6 +867,7 @@ describe('trellis-inspired loopx hardening', () => {
       updated_at: '2026-06-08T00:00:00.000Z',
     };
     delete state.choice.recorded_at;
+    delete state.audit.change_window;
     state.choice_history = [];
     await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
 

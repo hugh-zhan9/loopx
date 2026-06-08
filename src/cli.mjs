@@ -27,7 +27,7 @@ function usage() {
     '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
     '  loopx finish-start [slug] [--source <path>] [--json]',
-    '  loopx finish-audit [slug] [--json]',
+    '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
     '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
@@ -315,7 +315,9 @@ async function main() {
         return;
       }
       case 'finish-audit': {
-        const result = await finishAuditStage(process.cwd(), positionals[0]);
+        const result = await finishAuditStage(process.cwd(), positionals[0], {
+          baselineRef: stringOption(options, '--baseline'),
+        });
         if (options.get('--json')) {
           console.log(JSON.stringify({
             ok: true,
