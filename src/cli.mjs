@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
-import { inspectInstallTargets, installSkillsForTargets } from './install-discovery.mjs';
+import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
 import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
@@ -266,15 +266,20 @@ function countInstallSkipped(result) {
     .reduce((sum, target) => sum + (Array.isArray(target.skipped) ? target.skipped.length : 0), 0);
 }
 
+function installTargetArgument(result) {
+  const targets = installTargetNames(result);
+  return targets.length === 2 && targets.includes('codex') && targets.includes('claude') ? 'all' : targets[0];
+}
+
 function printHumanInstall(result, { dryRun = false } = {}) {
   if (dryRun) {
     console.log('loopx install-skills dry run');
     for (const target of installTargetNames(result)) {
       console.log(`target: ${target}`);
     }
-    console.log('skills: 16 bundled');
+    console.log(`skills: ${LOOPX_BUNDLED_SKILLS.length} bundled`);
     console.log('writes: none');
-    console.log(`next: loopx install-skills --target ${installTargetNames(result).join(',')} --yes`);
+    console.log(`next: loopx install-skills --target ${installTargetArgument(result)} --yes`);
     return;
   }
 
