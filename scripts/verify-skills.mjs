@@ -129,8 +129,8 @@ async function assertPublicDocsAligned() {
     assertContains(readme, command, 'README.md');
     assertContains(readmeZh, command, 'README.zh-CN.md');
   }
-  assert.doesNotMatch(readme, /loopx archive/, 'README.md should not expose archive runtime command');
-  assert.doesNotMatch(readmeZh, /loopx archive/, 'README.zh-CN.md should not expose archive runtime command');
+  assert.doesNotMatch(readme, /^loopx archive\b/m, 'README.md should not expose archive runtime command');
+  assert.doesNotMatch(readmeZh, /^loopx archive\b/m, 'README.zh-CN.md should not expose archive runtime command');
   assertContains(readme, 'local audit ledger', 'README.md');
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
@@ -144,6 +144,28 @@ async function assertPublicDocsAligned() {
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
   assertContains(readmeZh, 'loopx finish-audit', 'README.zh-CN.md');
   assertContains(readmeZh, 'loopx finish-record', 'README.zh-CN.md');
+  for (const required of [
+    'Quick start',
+    'Human output is the default',
+    'loopx install-skills --dry-run',
+    'LOOPX_SKIP_POSTINSTALL=1',
+    'LOOPX_POSTINSTALL=0',
+    'LOOPX_HOOKS=0',
+    'Archive compatibility',
+  ]) {
+    assertContains(readme, required, 'README.md');
+  }
+  for (const required of [
+    '快速开始',
+    '默认输出面向人类',
+    'loopx install-skills --dry-run',
+    'LOOPX_SKIP_POSTINSTALL=1',
+    'LOOPX_POSTINSTALL=0',
+    'LOOPX_HOOKS=0',
+    'Archive 兼容性',
+  ]) {
+    assertContains(readmeZh, required, 'README.zh-CN.md');
+  }
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)

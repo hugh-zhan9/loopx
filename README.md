@@ -18,6 +18,25 @@ Recommended v1 flow:
 clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
+## Quick start
+
+```bash
+loopx install-skills --target all --yes
+loopx init --slug my-feature
+loopx clarify my-feature
+loopx status my-feature
+```
+
+Human output is the default for first-use commands such as `loopx init`, `loopx doctor`, and `loopx install-skills`. Use `--json` when an agent or script needs the complete runtime payload:
+
+```bash
+loopx init --slug my-feature --json
+loopx doctor --json
+loopx install-skills --target all --json
+```
+
+The JSON flag also works on the default init path: `loopx init --json`.
+
 `spec` is conditional. Use it when API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. Skip it when the remaining work is local implementation choice.
 
 ## Skills
@@ -74,6 +93,10 @@ Public finish audit commands:
 
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
+### Archive compatibility
+
+archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command, but normal users should complete work through `finish` and the public finish audit commands above.
+
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
 Local agent memory lives under `.loopx/memory/`:
@@ -101,6 +124,34 @@ Postinstall installs user-level skills and hooks for Codex and Claude:
 - Claude skills: `~/.claude/skills/`
 - Codex hook: `~/.codex/hooks/codex-workflow-hook.mjs`
 - Claude hook: `~/.claude/hooks/loopx-workflow-hook.mjs`
+
+To inspect without writing files:
+
+```bash
+loopx install-skills --target all --dry-run
+```
+
+The default target dry-run can also be invoked as `loopx install-skills --dry-run`.
+
+To opt out during npm postinstall:
+
+```bash
+LOOPX_SKIP_POSTINSTALL=1 npm install -g @ai-content-space/loopx
+LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
+```
+
+To disable loopx hooks for one process:
+
+```bash
+LOOPX_HOOKS=0 codex
+```
+
+Repair an interrupted or conflicted install with:
+
+```bash
+loopx repair-install
+loopx doctor
+```
 
 Run the installer manually or choose targets interactively:
 
@@ -136,8 +187,8 @@ The CLI supports installation, diagnostics, rendering, and runtime maintenance:
 
 ```bash
 loopx --version
-loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]
-loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]
+loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
+loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
 loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--interactive] [--deliberate]
@@ -151,7 +202,7 @@ loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status
 loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx setup-context
-loopx doctor
+loopx doctor [--json]
 loopx migrate
 loopx repair-install
 ```
