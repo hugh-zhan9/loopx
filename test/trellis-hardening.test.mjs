@@ -2137,6 +2137,22 @@ describe('trellis-inspired loopx hardening', () => {
     const claudeHook = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${claudeWorkflowHookScript}"`], { cwd: wd });
     assert.doesNotMatch(claudeHook.stdout, /loopx archive|\$archive/);
     assert.match(claudeHook.stdout, /next: \$finish/);
+
+    const reviewWorkflowRoot = join(wd, '.loopx', 'workflows', 'stale-review-archive-flow');
+    await mkdir(reviewWorkflowRoot, { recursive: true });
+    await writeFile(join(reviewWorkflowRoot, 'state.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'stale-review-archive-flow',
+      current_stage: 'review',
+      stage_status: 'awaiting-approval',
+      review_verdict: 'approve',
+      recommended_next_action: 'Run loopx archive stale-review-archive-flow to sync specs.',
+    }, null, 2)}\n`);
+
+    const reviewInput = JSON.stringify({ cwd: wd, workflow: 'stale-review-archive-flow' }).replace(/'/g, "'\\''");
+    const claudeReviewHook = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${reviewInput}' | "${process.execPath}" "${claudeWorkflowHookScript}"`], { cwd: wd });
+    assert.doesNotMatch(claudeReviewHook.stdout, /loopx archive|\$archive/);
+    assert.match(claudeReviewHook.stdout, /next: loopx approve stale-review-archive-flow --from review --to done/);
   });
 
   it('workflow hook warns clarify-ready workflows to plan before implementation', async () => {
