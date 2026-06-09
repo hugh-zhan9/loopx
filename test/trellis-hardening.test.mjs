@@ -2104,7 +2104,9 @@ describe('trellis-inspired loopx hardening', () => {
     const reviewInput = JSON.stringify({ cwd: wd, workflow: 'hook-flow' }).replace(/'/g, "'\\''");
     const reviewHook = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${reviewInput}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
     assert.match(reviewHook.stdout, /stage: review/);
-    assert.match(reviewHook.stdout, /next: \$archive hook-flow/);
+    assert.match(reviewHook.stdout, /next: loopx approve hook-flow --from review --to done/);
+    assert.match(reviewHook.stdout, /next skill: \(none\)/);
+    assert.match(reviewHook.stdout, /next cli: loopx approve hook-flow --from review --to done/);
     assert.match(reviewHook.stdout, /blockers: \(none\)/);
 
     const disabled = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], {
