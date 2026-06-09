@@ -435,6 +435,24 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
   });
 
+  it('prints JSON when postinstall opt out is requested with --json', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-postinstall-skip-json-home-'));
+    const env = {
+      ...loopxEnv(home),
+      LOOPX_SKIP_POSTINSTALL: '1',
+    };
+
+    const { stdout } = await execFileAsync(process.execPath, [installScript, '--json'], { cwd: repoRoot, env });
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.skipped, true);
+    assert.equal(parsed.reason, 'postinstall_disabled');
+    assert.equal(parsed.env, 'LOOPX_SKIP_POSTINSTALL');
+    assert.equal(existsSync(join(home, '.agents', 'skills')), false);
+    assert.equal(existsSync(join(home, '.claude', 'skills')), false);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+  });
+
   it('install leaves legacy skill registry rows untouched', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-legacy-preserve-'));
     const env = loopxEnv(home);

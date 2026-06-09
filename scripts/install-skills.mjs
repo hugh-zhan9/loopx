@@ -6,6 +6,16 @@ function shouldSkipPostinstall(env = process.env) {
   return env.LOOPX_SKIP_POSTINSTALL === '1' || env.LOOPX_POSTINSTALL === '0';
 }
 
+function skipPostinstallEnv(env = process.env) {
+  if (env.LOOPX_SKIP_POSTINSTALL === '1') {
+    return 'LOOPX_SKIP_POSTINSTALL';
+  }
+  if (env.LOOPX_POSTINSTALL === '0') {
+    return 'LOOPX_POSTINSTALL';
+  }
+  return null;
+}
+
 function targetNames(result) {
   return Array.isArray(result.targets) && result.targets.length > 0 ? result.targets : Object.keys(result.results || {});
 }
@@ -30,13 +40,22 @@ function printSummary(result, { checkOnly = false } = {}) {
 }
 
 async function main() {
+  const json = process.argv.includes('--json');
   if (shouldSkipPostinstall()) {
-    console.log('loopx postinstall skipped: LOOPX_SKIP_POSTINSTALL=1 or LOOPX_POSTINSTALL=0');
+    if (json) {
+      console.log(JSON.stringify({
+        ok: true,
+        skipped: true,
+        reason: 'postinstall_disabled',
+        env: skipPostinstallEnv(),
+      }, null, 2));
+    } else {
+      console.log('loopx postinstall skipped: LOOPX_SKIP_POSTINSTALL=1 or LOOPX_POSTINSTALL=0');
+    }
     return;
   }
 
   const checkOnly = process.argv.includes('--check');
-  const json = process.argv.includes('--json');
   const result = checkOnly ? await verifyInstallTargets(process.env) : await installSkillsForTargets(process.env);
   const ok = checkOnly ? result.ok : result.ok !== false;
   const payload = checkOnly ? result : { ok, targets: result.targets, results: result.results };
