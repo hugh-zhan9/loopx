@@ -420,6 +420,28 @@ describe('loopx skill-first workflow contract', () => {
     assert.deepEqual(parsed.targets, ['codex']);
   });
 
+  it('prints all-target install dry-run summary without writing installer state', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-install-dry-run-all-home-'));
+    const env = loopxEnv(home);
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      cliPath,
+      'install-skills',
+      '--dry-run',
+    ], { cwd: repoRoot, env });
+
+    assert.match(stdout, /^loopx install-skills dry run$/m);
+    assert.match(stdout, /target: codex/);
+    assert.match(stdout, /target: claude/);
+    assert.match(stdout, /next: loopx install-skills --target all --yes/);
+    assert.equal(existsSync(join(home, '.agents', 'skills')), false);
+    assert.equal(existsSync(join(home, '.claude', 'skills')), false);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+    assert.equal(existsSync(join(home, '.agents', '.skill-lock.json')), false);
+    assert.equal(existsSync(join(home, '.loopx', 'template-hashes.json')), false);
+    assert.equal(existsSync(join(home, '.claude', 'settings.json')), false);
+  });
+
   it('lets postinstall opt out without writing user-level skills or hooks', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-postinstall-skip-home-'));
     const env = {
