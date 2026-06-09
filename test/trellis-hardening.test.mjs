@@ -44,6 +44,7 @@ const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
 const workflowHookScript = resolve(repoRoot, 'scripts/codex-workflow-hook.mjs');
+const claudeWorkflowHookScript = resolve(repoRoot, 'scripts/claude-workflow-hook.mjs');
 
 async function writeResolvedSpec(root, slug) {
   await writeFile(
@@ -2114,6 +2115,28 @@ describe('trellis-inspired loopx hardening', () => {
       env: { ...process.env, LOOPX_HOOKS: '0' },
     });
     assert.equal(disabled.stdout.trim(), '');
+  });
+
+  it('workflow hooks suppress stale archive recommendations from saved state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-hook-stale-archive-'));
+    const workflowRoot = join(wd, '.loopx', 'workflows', 'stale-archive-flow');
+    await mkdir(workflowRoot, { recursive: true });
+    await writeFile(join(workflowRoot, 'state.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'stale-archive-flow',
+      current_stage: 'done',
+      stage_status: 'complete',
+      recommended_next_action: 'Run loopx archive stale-archive-flow to sync specs.',
+    }, null, 2)}\n`);
+
+    const input = JSON.stringify({ cwd: wd, workflow: 'stale-archive-flow' }).replace(/'/g, "'\\''");
+    const codexHook = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
+    assert.doesNotMatch(codexHook.stdout, /loopx archive|\$archive/);
+    assert.match(codexHook.stdout, /next: \$finish/);
+
+    const claudeHook = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${claudeWorkflowHookScript}"`], { cwd: wd });
+    assert.doesNotMatch(claudeHook.stdout, /loopx archive|\$archive/);
+    assert.match(claudeHook.stdout, /next: \$finish/);
   });
 
   it('workflow hook warns clarify-ready workflows to plan before implementation', async () => {

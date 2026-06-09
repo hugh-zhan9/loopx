@@ -121,6 +121,29 @@ function nextCli(state) {
   return null;
 }
 
+function archiveNextActionReplacement(state) {
+  if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.slug) {
+    return `loopx approve ${state.slug} --from review --to done`;
+  }
+  if (state.current_stage === 'done' || state.current_stage === 'archive' || state.completion_confirmed === true) {
+    return '$finish';
+  }
+  return null;
+}
+
+function persistedNextAction(state) {
+  const action = typeof state?.recommended_next_action === 'string'
+    ? state.recommended_next_action.trim()
+    : '';
+  if (!action) {
+    return null;
+  }
+  if (/\bloopx\s+archive\b|\$archive\b/i.test(action)) {
+    return archiveNextActionReplacement(state);
+  }
+  return action;
+}
+
 function blockers(state) {
   const values = [
     ...(Array.isArray(state.plan_blockers) ? state.plan_blockers : []),
@@ -161,7 +184,7 @@ function nextActionLine(state, workflow) {
   if (isClarifyReadyForPlan(state) && state.approval?.plan !== 'approved') {
     return `approve clarify -> plan, then $plan ${state.slug || workflow}`;
   }
-  return nextSkill(state) || nextCli(state) || state.recommended_next_action || 'none';
+  return nextSkill(state) || nextCli(state) || persistedNextAction(state) || 'none';
 }
 
 function implementationGateLines(state) {

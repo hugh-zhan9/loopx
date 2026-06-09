@@ -52,6 +52,29 @@ function findNearestLoopxRuntimeRoot(startCwd) {
   }
 }
 
+function archiveNextActionReplacement(state) {
+  if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.slug) {
+    return `loopx approve ${state.slug} --from review --to done`;
+  }
+  if (state.current_stage === 'done' || state.current_stage === 'archive' || state.completion_confirmed === true) {
+    return '$finish';
+  }
+  return null;
+}
+
+function persistedNextAction(state) {
+  const action = typeof state?.recommended_next_action === 'string'
+    ? state.recommended_next_action.trim()
+    : '';
+  if (!action) {
+    return null;
+  }
+  if (/\bloopx\s+archive\b|\$archive\b/i.test(action)) {
+    return archiveNextActionReplacement(state);
+  }
+  return action;
+}
+
 function nextSkill(state) {
   if (!state?.slug) {
     return null;
@@ -68,7 +91,7 @@ function nextSkill(state) {
   if (state.current_stage === 'review') {
     return 'Legacy runtime review detected. New v1 code review should use loopx:review.';
   }
-  return state.recommended_next_action || null;
+  return persistedNextAction(state);
 }
 
 try {

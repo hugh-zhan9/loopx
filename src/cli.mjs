@@ -76,6 +76,14 @@ function installOptionsFromArgs(options) {
   };
 }
 
+function shouldPromptInstallOptions(options) {
+  return process.stdin.isTTY
+    && !options.get('--target')
+    && !options.get('--yes')
+    && !options.get('--json')
+    && !options.get('--dry-run');
+}
+
 function parseArgs(argv) {
   const [command, ...rest] = argv;
   const positionals = [];
@@ -339,11 +347,18 @@ async function main() {
         return;
       }
       case 'install-skills': {
-        const installOptions = process.stdin.isTTY && !options.get('--target') && !options.get('--yes')
+        const installOptions = shouldPromptInstallOptions(options)
           ? await promptInstallOptions()
           : installOptionsFromArgs(options);
         if (!installOptions) {
-          console.log(JSON.stringify({ ok: false, command, cancelled: true }, null, 2));
+          const payload = { ok: false, command, cancelled: true };
+          if (options.get('--json')) {
+            console.log(JSON.stringify(payload, null, 2));
+          } else {
+            console.log('loopx install-skills cancelled');
+            console.log('next: loopx install-skills --target all --yes');
+            console.log('details: loopx install-skills --json');
+          }
           return;
         }
         const env = {
