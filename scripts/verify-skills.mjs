@@ -244,6 +244,11 @@ async function assertSkill(skillName, resolverText) {
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
 assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
+assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
+assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
+for (const skillName of LOOPX_BUNDLED_SKILLS) {
+  assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
+}
 
 for (const relativePath of markdownPaths) {
   await assertMarkdownStructure(relativePath);

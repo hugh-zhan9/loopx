@@ -228,16 +228,19 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
   });
 
-  it('keeps deprecated local skills and plugin tests out of the npm package', async () => {
+  it('publishes only bundled root skills plus resolver', async () => {
     const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], { cwd: repoRoot });
     const [pack] = JSON.parse(stdout);
     const paths = pack.files.map((file) => file.path);
+    const packagedSkillDirs = [...new Set(
+      paths
+        .filter((path) => path.startsWith('skills/') && path.endsWith('/SKILL.md'))
+        .map((path) => path.split('/')[1]),
+    )].sort();
 
-    assert.equal(paths.some((path) => path.startsWith('skills/ralph/')), false);
-    assert.equal(paths.some((path) => path.startsWith('skills/ralplan/')), false);
-    assert.equal(paths.some((path) => path.startsWith('skills/deep-interview/')), false);
-    assert.equal(paths.some((path) => path.startsWith('skills/ai-slop-cleaner/')), false);
-    assert.equal(paths.some((path) => path.startsWith('skills/autoresearch/')), false);
+    assert.deepEqual(packagedSkillDirs, [...LOOPX_BUNDLED_SKILLS].sort());
+    assert.equal(paths.includes('skills/RESOLVER.md'), true);
+    assert.equal(paths.some((path) => path.startsWith('skills/deepsearch/')), false);
     assert.equal(paths.includes('plugins/loopx/scripts/plugin-install.test.mjs'), false);
   });
 
