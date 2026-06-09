@@ -825,6 +825,33 @@ async function mergeClaudeHookSettings(env = process.env, options = {}) {
   return { settingsPath, hookPath, command };
 }
 
+export async function inspectInstallTargets(env = process.env, options = {}) {
+  const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
+    ? options.targets
+    : ['codex', 'claude'];
+  const results = {};
+  for (const target of requestedTargets) {
+    if (target === 'codex') {
+      results.codex = await inspectInstallState(codexInstallEnv({
+        ...env,
+        LOOPX_INSTALL_CUSTOM_DIR: options.dir,
+      }));
+      continue;
+    }
+    if (target === 'claude') {
+      results.claude = await inspectInstallState(claudeInstallEnv(env, options));
+      continue;
+    }
+    throw new Error(`unknown_install_target:${target}`);
+  }
+  return {
+    ok: true,
+    dryRun: true,
+    targets: requestedTargets,
+    results,
+  };
+}
+
 export async function installSkillsForTargets(env = process.env, options = {}) {
   const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
     ? options.targets

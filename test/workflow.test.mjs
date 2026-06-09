@@ -386,6 +386,55 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(claudeSettings.hooks.Stop, undefined);
   });
 
+  it('prints install dry-run summary without writing skills or hooks', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-install-dry-run-home-'));
+    const env = loopxEnv(home);
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      cliPath,
+      'install-skills',
+      '--target',
+      'codex',
+      '--dry-run',
+    ], { cwd: repoRoot, env });
+
+    assert.match(stdout, /^loopx install-skills dry run$/m);
+    assert.match(stdout, /target: codex/);
+    assert.match(stdout, /writes: none/);
+    assert.match(stdout, /next: loopx install-skills --target codex --yes/);
+    assert.equal(existsSync(join(home, '.agents', 'skills')), false);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+
+    const { stdout: json } = await execFileAsync(process.execPath, [
+      cliPath,
+      'install-skills',
+      '--target',
+      'codex',
+      '--dry-run',
+      '--json',
+    ], { cwd: repoRoot, env });
+    const parsed = JSON.parse(json);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.command, 'install-skills');
+    assert.equal(parsed.dryRun, true);
+    assert.deepEqual(parsed.targets, ['codex']);
+  });
+
+  it('lets postinstall opt out without writing user-level skills or hooks', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-postinstall-skip-home-'));
+    const env = {
+      ...loopxEnv(home),
+      LOOPX_SKIP_POSTINSTALL: '1',
+    };
+
+    const { stdout } = await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
+    assert.match(stdout, /loopx postinstall skipped/);
+    assert.match(stdout, /LOOPX_SKIP_POSTINSTALL=1/);
+    assert.equal(existsSync(join(home, '.agents', 'skills')), false);
+    assert.equal(existsSync(join(home, '.claude', 'skills')), false);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+  });
+
   it('install leaves legacy skill registry rows untouched', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-legacy-preserve-'));
     const env = loopxEnv(home);
@@ -524,7 +573,7 @@ describe('loopx skill-first workflow contract', () => {
 
     let failed = false;
     try {
-      await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
+      await execFileAsync(process.execPath, [installScript, '--json'], { cwd: repoRoot, env });
     } catch (error) {
       failed = true;
       assert.match(String(error.stderr || error.stdout || error), /foreign_or_unowned_target/);
@@ -3940,8 +3989,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx status my-feature/);
     assert.match(help, /loopx repair-install/);
     assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
-    assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--json\]/);
-    assert.doesNotMatch(help, /--dry-run/);
+    assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--dry-run\] \[--json\]/);
     assert.doesNotMatch(help, /--direct/);
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
