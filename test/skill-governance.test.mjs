@@ -232,6 +232,10 @@ describe('loopx skill governance', () => {
     const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], { cwd: repoRoot });
     const [pack] = JSON.parse(stdout);
     const paths = pack.files.map((file) => file.path);
+    const allowedSkillPackagePaths = [
+      'skills/RESOLVER.md',
+      ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`),
+    ];
     const packagedSkillDirs = [...new Set(
       paths
         .filter((path) => path.startsWith('skills/') && path.endsWith('/SKILL.md'))
@@ -241,6 +245,13 @@ describe('loopx skill governance', () => {
     assert.deepEqual(packagedSkillDirs, [...LOOPX_BUNDLED_SKILLS].sort());
     assert.equal(paths.includes('skills/RESOLVER.md'), true);
     assert.equal(paths.some((path) => path.startsWith('skills/deepsearch/')), false);
+    for (const path of paths.filter((path) => path.startsWith('skills/'))) {
+      assert.equal(
+        path === 'skills/RESOLVER.md' || allowedSkillPackagePaths.some((allowedPath) => path.startsWith(allowedPath)),
+        true,
+        `${path} must be a bundled root skill path or skills/RESOLVER.md`,
+      );
+    }
     assert.equal(paths.includes('plugins/loopx/scripts/plugin-install.test.mjs'), false);
   });
 
