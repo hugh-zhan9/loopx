@@ -18,6 +18,25 @@
 clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
+## 快速开始
+
+```bash
+loopx install-skills --target all --yes
+loopx init --slug my-feature
+loopx clarify my-feature
+loopx status my-feature
+```
+
+默认输出面向人类，例如 `loopx init`、`loopx doctor` 和 `loopx install-skills`。当 agent 或脚本需要完整 runtime payload 时使用 `--json`：
+
+```bash
+loopx init --slug my-feature --json
+loopx doctor --json
+loopx install-skills --target all --json
+```
+
+默认 init 路径也可以使用 JSON 输出：`loopx init --json`。
+
 `spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan`。
 
 ## Skills
@@ -74,6 +93,10 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
+### Archive 兼容性
+
+archive 不属于公开 v1 finish 流程。旧 runtime state 仍可能包含 archive 字段，也可能通过隐藏的 `loopx archive <slug>` 兼容命令处理历史状态，但普通用户应通过 `finish` 和上面的公开 finish audit 命令完成工作。
+
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 
 本地 agent memory 放在 `.loopx/memory/`：
@@ -101,6 +124,34 @@ postinstall 默认安装 Codex 和 Claude 用户级 skills 与 hooks：
 - Claude skills：`~/.claude/skills/`
 - Codex hook：`~/.codex/hooks/codex-workflow-hook.mjs`
 - Claude hook：`~/.claude/hooks/loopx-workflow-hook.mjs`
+
+只检查、不写文件：
+
+```bash
+loopx install-skills --target all --dry-run
+```
+
+默认目标的 dry-run 也可写作 `loopx install-skills --dry-run`。
+
+npm postinstall 阶段跳过自动安装：
+
+```bash
+LOOPX_SKIP_POSTINSTALL=1 npm install -g @ai-content-space/loopx
+LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
+```
+
+只在当前进程禁用 loopx hooks：
+
+```bash
+LOOPX_HOOKS=0 codex
+```
+
+修复中断或冲突的安装：
+
+```bash
+loopx repair-install
+loopx doctor
+```
 
 也可以手动运行安装器或交互式选择目标：
 
@@ -136,8 +187,8 @@ CLI 用于安装、诊断、渲染和 runtime 维护：
 
 ```bash
 loopx --version
-loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]
-loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]
+loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
+loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
 loopx clarify <slug> [--standard|--deep]
 loopx approve <slug> --from <stage> --to <stage>
 loopx plan [slug] [--interactive] [--deliberate]
@@ -151,7 +202,7 @@ loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status
 loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx setup-context
-loopx doctor
+loopx doctor [--json]
 loopx migrate
 loopx repair-install
 ```

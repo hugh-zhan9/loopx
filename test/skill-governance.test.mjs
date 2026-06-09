@@ -168,6 +168,34 @@ describe('loopx skill governance', () => {
       assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
     }
+    for (const required of [
+      'Quick start',
+      'Human output is the default',
+      'loopx doctor --json',
+      'loopx init --json',
+      'loopx install-skills --dry-run',
+      'LOOPX_SKIP_POSTINSTALL=1',
+      'LOOPX_POSTINSTALL=0',
+      'LOOPX_HOOKS=0',
+      'Archive compatibility',
+      'archive is not part of the public v1 finish flow',
+    ]) {
+      assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
+    }
+    for (const required of [
+      '快速开始',
+      '默认输出面向人类',
+      'loopx doctor --json',
+      'loopx init --json',
+      'loopx install-skills --dry-run',
+      'LOOPX_SKIP_POSTINSTALL=1',
+      'LOOPX_POSTINSTALL=0',
+      'LOOPX_HOOKS=0',
+      'Archive 兼容性',
+      'archive 不属于公开 v1 finish 流程',
+    ]) {
+      assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
+    }
   });
 
   it('keeps deprecated local skills and plugin tests out of the npm package', async () => {
