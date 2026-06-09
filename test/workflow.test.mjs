@@ -440,6 +440,18 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(existsSync(join(home, '.agents', '.skill-lock.json')), false);
     assert.equal(existsSync(join(home, '.loopx', 'template-hashes.json')), false);
     assert.equal(existsSync(join(home, '.claude', 'settings.json')), false);
+
+    const { stdout: json } = await execFileAsync(process.execPath, [
+      cliPath,
+      'install-skills',
+      '--dry-run',
+      '--json',
+    ], { cwd: repoRoot, env });
+    const parsed = JSON.parse(json);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.command, 'install-skills');
+    assert.equal(parsed.dryRun, true);
+    assert.deepEqual(parsed.targets, ['codex', 'claude']);
   });
 
   it('lets postinstall opt out without writing user-level skills or hooks', async () => {
