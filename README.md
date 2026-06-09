@@ -55,7 +55,10 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
+- `docs/loopx/memory/`
 - `docs/loopx/specs/`
+
+`docs/loopx/memory/` stores git-tracked shared memory for lightweight project knowledge that should follow a user across machines but is not stable enough to become a spec.
 
 `finish` may generate spec candidates in `docs/loopx/specs/` when completed work produces stable team rules. These candidates are repo-tracked and must remain visible in the git diff.
 
@@ -81,6 +84,8 @@ Local agent memory lives under `.loopx/memory/`:
 - `.loopx/memory/archive/`
 
 `MEMORY.md` is a bounded curated project memory summary. `index.jsonl` is a curated active index for agent file-search, not an append-only log.
+
+Shared agent memory lives under `docs/loopx/memory/`. It is repo-tracked for multi-machine continuity and should stay concise, evidence-backed, and below spec-level stability.
 
 ## Installation
 

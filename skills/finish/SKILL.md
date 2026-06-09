@@ -80,6 +80,7 @@ Allowed inputs:
 - plan, spec, and review artifacts used in this task
 - explicit user decisions in the current conversation
 - existing `.loopx/memory/MEMORY.md` and `.loopx/memory/index.jsonl`
+- existing `docs/loopx/memory/*.md`
 - existing `docs/loopx/specs/*.md`
 
 An empty git diff does not mean there is no learning candidate. When `audit.change_window.commit_count > 0`, inspect the committed range before deciding memory/spec candidates. "Already committed" is not a rejection reason; reject only when the committed change window contains no durable behavior, contract, invariant, pitfall, or user decision worth preserving.
@@ -108,9 +109,12 @@ choice recording must persist the user's completion choice through `finish-recor
 
 #### Memory
 
-Memory is local, agent-queryable project context. It is not repo-tracked by default.
+Memory has two scopes:
 
-Use:
+- local memory: agent-queryable project context for one machine; not repo-tracked
+- shared memory: lightweight project knowledge that should follow a user across machines; repo-tracked
+
+Use local memory for machine-local facts, short-lived handoffs, and context that is useful only to the current agent environment:
 
 ```text
 .loopx/memory/MEMORY.md
@@ -123,7 +127,13 @@ Use:
 
 `index.jsonl` is a curated active index, not an append-only history. It should point only to active memory cards worth querying.
 
-Use memory only for facts that will help a future agent avoid rework, avoid mistakes, or preserve a decision. Do not record process negatives such as "no spec promotion".
+Use shared memory for concise, evidence-backed notes that are useful across machines but not stable enough for specs:
+
+```text
+docs/loopx/memory/
+```
+
+Use memory only for facts that will help a future agent avoid rework, avoid mistakes, or preserve a decision. Do not record process negatives such as "no spec promotion". Do not store secrets, raw conversation logs, or machine-local paths in shared memory.
 
 One finish run may write 0-3 active memory cards. If more learnings appear, consolidate, promote to spec, archive stale cards, or skip low-signal items.
 
@@ -141,6 +151,8 @@ Allowed memory `type` values:
 - `handoff`
 
 Finish may automatically update `.loopx/memory/MEMORY.md`, `.loopx/memory/index.jsonl`, and active memory cards. The final response must list the memory changes.
+
+When accepting an `audit.extraction_candidates[]` item with `kind: "memory"` and `scope: "shared"`, write the accepted note under `docs/loopx/memory/` so it is visible in the git diff. Promote shared memory to `docs/loopx/specs/` when it becomes a durable rule that planning or review should depend on.
 
 #### Spec Candidates
 
@@ -314,6 +326,7 @@ Use this shape:
 ```text
 Memory:
 - updated: .loopx/memory/MEMORY.md
+- shared: docs/loopx/memory/<file>.md
 - entries: <N> added, <N> archived
 - summary:
   - <high-signal memory change>
