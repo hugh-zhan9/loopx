@@ -75,9 +75,23 @@ function persistedNextAction(state) {
   return action;
 }
 
+function staleArchiveNextAction(state) {
+  const action = typeof state?.recommended_next_action === 'string'
+    ? state.recommended_next_action.trim()
+    : '';
+  if (!action || !/\bloopx\s+archive\b|\$archive\b/i.test(action)) {
+    return null;
+  }
+  return archiveNextActionReplacement(state);
+}
+
 function nextSkill(state) {
   if (!state?.slug) {
     return null;
+  }
+  const staleArchiveAction = staleArchiveNextAction(state);
+  if (staleArchiveAction) {
+    return staleArchiveAction;
   }
   if (state.current_stage === 'clarify') {
     return 'Use loopx:clarify until material questions are resolved, then route to loopx:spec or loopx:plan.';
