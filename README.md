@@ -131,7 +131,7 @@ To inspect without writing files:
 loopx install-skills --target all --dry-run
 ```
 
-The default target dry-run can also be invoked as `loopx install-skills --dry-run`.
+Use the explicit target form for dry-run checks so the command stays non-interactive.
 
 To opt out during npm postinstall:
 

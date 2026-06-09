@@ -131,7 +131,7 @@ postinstall 默认安装 Codex 和 Claude 用户级 skills 与 hooks：
 loopx install-skills --target all --dry-run
 ```
 
-默认目标的 dry-run 也可写作 `loopx install-skills --dry-run`。
+dry-run 检查使用显式 target，避免命令进入交互选择。
 
 npm postinstall 阶段跳过自动安装：
 

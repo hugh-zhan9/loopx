@@ -103,6 +103,16 @@ function assertContains(text, value, label) {
   assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
 }
 
+function publicArchiveCommandLines(text) {
+  return text
+    .split('\n')
+    .filter((line) => /^\s*(?:(?:[-*+]|\d+[.)])\s+)?`?loopx archive(?:\s|`|$)/.test(line));
+}
+
+function assertNoPublicArchiveCommandExposure(text, label) {
+  assert.deepEqual(publicArchiveCommandLines(text), [], `${label} should not expose archive runtime command`);
+}
+
 async function assertPublicDocsAligned() {
   const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
   const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
@@ -129,8 +139,24 @@ async function assertPublicDocsAligned() {
     assertContains(readme, command, 'README.md');
     assertContains(readmeZh, command, 'README.zh-CN.md');
   }
-  assert.doesNotMatch(readme, /^loopx archive\b/m, 'README.md should not expose archive runtime command');
-  assert.doesNotMatch(readmeZh, /^loopx archive\b/m, 'README.zh-CN.md should not expose archive runtime command');
+  assert.deepEqual(
+    publicArchiveCommandLines([
+      'loopx archive <slug>',
+      '- loopx archive <slug>',
+      '- `loopx archive <slug>`',
+      '1. loopx archive <slug>',
+      'archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command.',
+    ].join('\n')),
+    [
+      'loopx archive <slug>',
+      '- loopx archive <slug>',
+      '- `loopx archive <slug>`',
+      '1. loopx archive <slug>',
+    ],
+    'archive command exposure guard should catch public command lines without rejecting prose compatibility notes',
+  );
+  assertNoPublicArchiveCommandExposure(readme, 'README.md');
+  assertNoPublicArchiveCommandExposure(readmeZh, 'README.zh-CN.md');
   assertContains(readme, 'local audit ledger', 'README.md');
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
@@ -147,7 +173,7 @@ async function assertPublicDocsAligned() {
   for (const required of [
     'Quick start',
     'Human output is the default',
-    'loopx install-skills --dry-run',
+    'loopx install-skills --target all --dry-run',
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
@@ -158,7 +184,7 @@ async function assertPublicDocsAligned() {
   for (const required of [
     '快速开始',
     '默认输出面向人类',
-    'loopx install-skills --dry-run',
+    'loopx install-skills --target all --dry-run',
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
@@ -166,6 +192,8 @@ async function assertPublicDocsAligned() {
   ]) {
     assertContains(readmeZh, required, 'README.zh-CN.md');
   }
+  assert.doesNotMatch(readme, /`loopx install-skills --dry-run`/, 'README.md should use explicit dry-run target');
+  assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)

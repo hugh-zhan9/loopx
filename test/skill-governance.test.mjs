@@ -58,6 +58,16 @@ async function recursiveFiles(root) {
   return files.sort();
 }
 
+function publicArchiveCommandLines(text) {
+  return text
+    .split('\n')
+    .filter((line) => /^\s*(?:(?:[-*+]|\d+[.)])\s+)?`?loopx archive(?:\s|`|$)/.test(line));
+}
+
+function assertNoPublicArchiveCommandExposure(text, label) {
+  assert.deepEqual(publicArchiveCommandLines(text), [], `${label} should not expose archive runtime command`);
+}
+
 describe('loopx skill governance', () => {
   it('keeps a resolver and deterministic verifier for bundled skills', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -128,6 +138,24 @@ describe('loopx skill governance', () => {
 
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    assert.deepEqual(
+      publicArchiveCommandLines([
+        'loopx archive <slug>',
+        '- loopx archive <slug>',
+        '- `loopx archive <slug>`',
+        '1. loopx archive <slug>',
+        'archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command.',
+      ].join('\n')),
+      [
+        'loopx archive <slug>',
+        '- loopx archive <slug>',
+        '- `loopx archive <slug>`',
+        '1. loopx archive <slug>',
+      ],
+      'archive command exposure guard should catch public command lines without rejecting prose compatibility notes',
+    );
+    assertNoPublicArchiveCommandExposure(readme, 'README.md');
+    assertNoPublicArchiveCommandExposure(readmeZh, 'README.zh-CN.md');
     for (const command of [
       'loopx init',
       'loopx clarify',
@@ -173,7 +201,7 @@ describe('loopx skill governance', () => {
       'Human output is the default',
       'loopx doctor --json',
       'loopx init --json',
-      'loopx install-skills --dry-run',
+      'loopx install-skills --target all --dry-run',
       'LOOPX_SKIP_POSTINSTALL=1',
       'LOOPX_POSTINSTALL=0',
       'LOOPX_HOOKS=0',
@@ -187,7 +215,7 @@ describe('loopx skill governance', () => {
       '默认输出面向人类',
       'loopx doctor --json',
       'loopx init --json',
-      'loopx install-skills --dry-run',
+      'loopx install-skills --target all --dry-run',
       'LOOPX_SKIP_POSTINSTALL=1',
       'LOOPX_POSTINSTALL=0',
       'LOOPX_HOOKS=0',
@@ -196,6 +224,8 @@ describe('loopx skill governance', () => {
     ]) {
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
     }
+    assert.doesNotMatch(readme, /`loopx install-skills --dry-run`/, 'README.md should use explicit dry-run target');
+    assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
   });
 
   it('keeps deprecated local skills and plugin tests out of the npm package', async () => {
