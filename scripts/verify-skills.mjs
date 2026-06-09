@@ -249,6 +249,11 @@ assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm packag
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }
+assert.deepEqual(
+  packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
+  ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
+  'npm package skills/ surface must exactly match bundled skills plus resolver',
+);
 
 for (const relativePath of markdownPaths) {
   await assertMarkdownStructure(relativePath);
