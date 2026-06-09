@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
-import { installBundledSkills, installSkillsForTargets } from './install-discovery.mjs';
+import { inspectInstallTargets, installSkillsForTargets } from './install-discovery.mjs';
 import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
@@ -37,7 +37,7 @@ function usage() {
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
-    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--json]',
+    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]',
     '  loopx doctor [--json]',
     '  loopx migrate',
     '  loopx repair-install',
@@ -252,6 +252,53 @@ function printHumanDoctor(result) {
   console.log('details: loopx doctor --json');
 }
 
+function installTargetNames(result) {
+  return Array.isArray(result.targets) && result.targets.length > 0 ? result.targets : Object.keys(result.results || {});
+}
+
+function countInstalledSkills(result) {
+  return Object.values(result.results || {})
+    .reduce((sum, target) => sum + (Array.isArray(target.installed) ? target.installed.length : 0), 0);
+}
+
+function countInstallSkipped(result) {
+  return Object.values(result.results || {})
+    .reduce((sum, target) => sum + (Array.isArray(target.skipped) ? target.skipped.length : 0), 0);
+}
+
+function printHumanInstall(result, { dryRun = false } = {}) {
+  if (dryRun) {
+    console.log('loopx install-skills dry run');
+    for (const target of installTargetNames(result)) {
+      console.log(`target: ${target}`);
+    }
+    console.log('skills: 16 bundled');
+    console.log('writes: none');
+    console.log(`next: loopx install-skills --target ${installTargetNames(result).join(',')} --yes`);
+    return;
+  }
+
+  console.log(`loopx install-skills: ${result.ok === false ? 'attention needed' : 'ok'}`);
+  console.log(`targets: ${installTargetNames(result).join(', ')}`);
+  console.log(`installed skills: ${countInstalledSkills(result)}`);
+  const conflicts = countInstallConflicts({ installCheck: result });
+  console.log(`conflicts: ${conflicts}`);
+  const skipped = countInstallSkipped(result);
+  if (skipped > 0) {
+    console.log(`skipped user-modified: ${skipped}`);
+  }
+  console.log('paths:');
+  for (const target of installTargetNames(result)) {
+    const inspection = result.results?.[target]?.inspection || result.results?.[target];
+    if (inspection?.installedSkillsRoot) {
+      console.log(`  ${target} skills: ${inspection.installedSkillsRoot}`);
+    }
+  }
+  console.log('repair: loopx repair-install');
+  console.log('disable hooks for one process: LOOPX_HOOKS=0');
+  console.log('details: loopx install-skills --json');
+}
+
 async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
   if (command === 'version' || command === '--version' || command === '-v') {
@@ -294,11 +341,19 @@ async function main() {
           console.log(JSON.stringify({ ok: false, command, cancelled: true }, null, 2));
           return;
         }
-        const result = await installSkillsForTargets({
+        const env = {
           ...process.env,
           LOOPX_INSTALL_CWD: process.cwd(),
-        }, installOptions);
-        console.log(JSON.stringify({ ok: result.ok, command, ...result }, null, 2));
+        };
+        const result = options.get('--dry-run')
+          ? await inspectInstallTargets(env, installOptions)
+          : await installSkillsForTargets(env, installOptions);
+        const payload = { ok: result.ok, command, ...result };
+        if (options.get('--json')) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          printHumanInstall(payload, { dryRun: Boolean(options.get('--dry-run')) });
+        }
         return;
       }
       case 'clarify': {
