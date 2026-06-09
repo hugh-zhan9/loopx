@@ -2167,7 +2167,7 @@ describe('trellis-inspired loopx hardening', () => {
       items: [],
     });
 
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'doctor'], {
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'doctor', '--json'], {
       cwd: wd,
       env: {
         ...process.env,
