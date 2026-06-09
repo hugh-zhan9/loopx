@@ -225,12 +225,23 @@ function createExtractionCandidates(changeWindow) {
   const candidates = [];
   if (changeWindowTouchesDurableSurface(changeWindow)) {
     candidates.push({
-      id: 'memory-review-change-window',
+      id: 'memory-local-review-change-window',
       kind: 'memory',
+      scope: 'local',
       status: 'pending-review',
       target: '.loopx/memory/entries/',
       summary: 'Review the committed finish change window for local agent memory worth preserving.',
       reason: 'Committed code, docs, tests, or workflow files may encode a reusable decision, constraint, pitfall, or handoff that future agents should know.',
+      evidence,
+    });
+    candidates.push({
+      id: 'memory-shared-review-change-window',
+      kind: 'memory',
+      scope: 'shared',
+      status: 'pending-review',
+      target: 'docs/loopx/memory/',
+      summary: 'Review the committed finish change window for git-tracked shared memory worth preserving across machines.',
+      reason: 'A user may need lightweight project memory across multiple machines before it becomes stable enough to promote to a spec.',
       evidence,
     });
   }
@@ -697,7 +708,7 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     ? rejectedSource.map((item) => formatCandidate(item, ['rejection_reason', 'reason', 'evidence', 'target', 'confidence', 'status'])).join('\n')
     : '- none';
   const extraction = extractionSource.length > 0
-    ? extractionSource.map((item) => formatCandidate(item, ['kind', 'status', 'target', 'reason', 'evidence'])).join('\n')
+    ? extractionSource.map((item) => formatCandidate(item, ['kind', 'scope', 'status', 'target', 'reason', 'evidence'])).join('\n')
     : '- none';
   const choice = state.choice || createChoiceRecord();
   const choiceLine = [

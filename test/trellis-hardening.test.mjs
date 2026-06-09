@@ -1155,11 +1155,18 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(audit.state.audit.change_window.commit_count, 1);
     assert.deepEqual(
       audit.state.audit.extraction_candidates.map((candidate) => candidate.target).sort(),
-      ['.loopx/memory/entries/', 'docs/loopx/specs/inbox.md'],
+      ['.loopx/memory/entries/', 'docs/loopx/memory/', 'docs/loopx/specs/inbox.md'],
     );
     assert.deepEqual(
       audit.state.audit.extraction_candidates.map((candidate) => candidate.kind).sort(),
-      ['memory', 'spec'],
+      ['memory', 'memory', 'spec'],
+    );
+    assert.deepEqual(
+      audit.state.audit.extraction_candidates
+        .filter((candidate) => candidate.kind === 'memory')
+        .map((candidate) => candidate.scope)
+        .sort(),
+      ['local', 'shared'],
     );
     for (const candidate of audit.state.audit.extraction_candidates) {
       assert.match(candidate.summary, /\S/);
@@ -1170,7 +1177,8 @@ describe('trellis-inspired loopx hardening', () => {
     }
     const report = await readFile(audit.reportPath, 'utf8');
     assert.match(report, /## Extraction Candidates/);
-    assert.match(report, /memory-review-change-window/);
+    assert.match(report, /memory-local-review-change-window/);
+    assert.match(report, /memory-shared-review-change-window/);
     assert.match(report, /spec-review-change-window/);
   });
 

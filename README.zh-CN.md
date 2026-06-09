@@ -55,7 +55,10 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 - `docs/loopx/plans/`
 - `docs/loopx/reviews/`
 - `docs/loopx/refactors/`
+- `docs/loopx/memory/`
 - `docs/loopx/specs/`
+
+`docs/loopx/memory/` 用于保存纳入 git 的 shared memory，适合需要跟随用户跨机器同步、但还没有稳定到 spec 级别的轻量项目知识。
 
 当完成的工作产生稳定团队规则时，`finish` 可以在 `docs/loopx/specs/` 生成 spec candidates。这些候选是 repo-tracked，必须保留在 git diff 中供审阅。
 
@@ -81,6 +84,8 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 - `.loopx/memory/archive/`
 
 `MEMORY.md` 是有上限的 curated project memory summary。`index.jsonl` 是用于 agent 文件检索的 curated active index，不是 append-only log。
+
+shared agent memory 放在 `docs/loopx/memory/`。它会纳入 repo，用于多机器连续性；内容应简短、有证据，并且还没有稳定到 spec 级别。
 
 ## 安装
 
