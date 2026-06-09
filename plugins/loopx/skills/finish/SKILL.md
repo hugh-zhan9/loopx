@@ -70,10 +70,11 @@ Or ask: "This branch split from main - is that correct?"
 
 Run `finish-audit` before presenting merge, PR, keep, or discard options.
 
-`loopx:exec` and `loopx:subagent-exec` should have run `finish-start` before implementation. `finish-audit` uses that baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean.
+`loopx:exec` and `loopx:subagent-exec` should have run `finish-start` before implementation. `finish-audit` uses that baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean. It may also generate `audit.extraction_candidates` as draft memory/spec review prompts. These drafts are not automatically written to memory or specs.
 
 Allowed inputs:
 - `finish-state.json` `audit.change_window`, especially `baseline..HEAD` commits and changed files
+- `finish-state.json` `audit.extraction_candidates`
 - current uncommitted git diff and `git status --short`
 - executed verification output
 - plan, spec, and review artifacts used in this task
@@ -84,7 +85,12 @@ Allowed inputs:
 An empty git diff does not mean there is no learning candidate. When `audit.change_window.commit_count > 0`, inspect the committed range before deciding memory/spec candidates. "Already committed" is not a rejection reason; reject only when the committed change window contains no durable behavior, contract, invariant, pitfall, or user decision worth preserving.
 
 Read the audit state from `.loopx/finish/<audit-id>/finish-state.json` before deciding what to record.
-After learning extraction, update `finish-state.json` before any `done` record: set `status` to `"audited"` and write either valid `accepted_candidates` with evidence, or `rejected_candidates` with reasons plus a replaced `no_candidates_reason` for `none`.
+After learning extraction, update `finish-state.json` before any `done` record:
+- set `status` to `"audited"`
+- for every `audit.extraction_candidates[]` item, add either a matching `accepted_candidates` with evidence or a matching `rejected_candidates[]` item with `rejection_reason`
+- when no extraction candidates exist and no candidate is accepted, replace `no_candidates_reason` with a specific reason
+
+`finish-record --status done` will reject an audit while generated extraction candidates remain unreviewed.
 
 Learning extraction priority:
 1. Durable behavior, contracts, or constraints proven by the implementation
@@ -96,7 +102,8 @@ Learning extraction priority:
 Do not infer durable rules from agent intuition alone. Do not promote unverified implementation details.
 
 When the audit has no candidates, record `none` with the scanned inputs and a reason in `no_candidates_reason`.
-Accepted candidates require evidence from the audit state. rejected candidates require reasons.
+Keep rejected candidates explicit when draft candidates are not accepted.
+Accepted candidates require evidence from the audit state. Rejected candidates require reasons.
 choice recording must persist the user's completion choice through `finish-record` before presenting the final completion outcome.
 
 #### Memory

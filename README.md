@@ -67,7 +67,7 @@ Public finish audit commands:
 - `loopx finish-audit`
 - `loopx finish-record`
 
-`loopx finish-start` records the starting commit for plan execution. `loopx finish-audit` uses that baseline to include committed `baseline..HEAD` evidence, changed files, and uncommitted status in `.loopx/finish/<audit-id>/finish-state.json` as `audit.change_window`, so finish learning/spec extraction still has input after the worktree is clean.
+`loopx finish-start` records the starting commit for plan execution. `loopx finish-audit` uses that baseline to include committed `baseline..HEAD` evidence, changed files, and uncommitted status in `.loopx/finish/<audit-id>/finish-state.json` as `audit.change_window`, so finish learning/spec extraction still has input after the worktree is clean. It also writes draft `audit.extraction_candidates` for memory/spec review; agents must accept or reject those drafts before recording a done finish choice.
 
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
