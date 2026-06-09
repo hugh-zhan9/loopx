@@ -3687,6 +3687,11 @@ describe('loopx skill-first workflow contract', () => {
 
     const done = await approveStage(wd, 'no-archive-cli-next', { from: 'review', to: 'done' });
     const payload = withNextSkill({ ok: true }, done.state);
+    const evidenceText = JSON.stringify(done.state.current_evidence_chain);
+    assert.doesNotMatch(evidenceText, /Archive can consume/);
+    assert.doesNotMatch(evidenceText, /loopx archive/);
+    assert.match(evidenceText, /review -> done/);
+    assert.match(evidenceText, /\$finish/);
     assert.equal(payload.next_skill_command, '$finish');
     assert.equal(payload.next_skill_hint, 'Next skill: $finish');
     assert.equal(payload.next_cli_command, null);

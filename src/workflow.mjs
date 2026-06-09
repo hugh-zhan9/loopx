@@ -3028,7 +3028,7 @@ function buildCurrentEvidenceChain(state, readiness = buildReadiness(state), aut
     evidence.push(evidenceEntry(
       'review_approved',
       'Review verdict is approve.',
-      authorization.done.authorized ? 'Archive can consume the approved review -> done transition before syncing specs.' : 'Completion still requires explicit review -> done authorization.',
+      authorization.done.authorized ? 'Approved review can proceed with explicit review -> done authorization before $finish records branch disposition and learning audit.' : 'Completion still requires explicit review -> done authorization before $finish.',
     ));
   }
   if (state.archive_status === 'archived' && state.spec_sync_status === 'synced') {
