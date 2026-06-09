@@ -186,6 +186,7 @@ describe('trellis-inspired loopx hardening', () => {
       'base_branch',
       'branch',
       'change_window',
+      'extraction_candidates',
       'head',
       'no_candidates_reason',
       'rejected_candidates',
@@ -1130,6 +1131,96 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(rejectedReport, /  - evidence: finish-report\.md/);
   });
 
+  it('generates extraction candidates from a committed finish change window', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-extraction-candidates-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+
+    await finishStartStage(wd, 'finish-extraction-flow', {
+      source: 'docs/loopx/plans/extraction.md',
+    });
+    await mkdir(join(wd, 'src'), { recursive: true });
+    await mkdir(join(wd, 'test'), { recursive: true });
+    await writeFile(join(wd, 'src', 'finish-runtime.mjs'), 'export const finish = true;\n');
+    await writeFile(join(wd, 'test', 'finish-runtime.test.mjs'), 'import "node:test";\n');
+    await execFileAsync('git', ['add', 'src/finish-runtime.mjs', 'test/finish-runtime.test.mjs'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'feat: improve finish extraction'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-extraction-flow');
+
+    assert.equal(audit.state.audit.change_window.commit_count, 1);
+    assert.deepEqual(
+      audit.state.audit.extraction_candidates.map((candidate) => candidate.target).sort(),
+      ['.loopx/memory/entries/', 'docs/loopx/specs/inbox.md'],
+    );
+    assert.deepEqual(
+      audit.state.audit.extraction_candidates.map((candidate) => candidate.kind).sort(),
+      ['memory', 'spec'],
+    );
+    for (const candidate of audit.state.audit.extraction_candidates) {
+      assert.match(candidate.summary, /\S/);
+      assert.equal(candidate.status, 'pending-review');
+      assert.equal(candidate.evidence.includes('change_window.range=' + audit.state.audit.change_window.range), true);
+      assert.equal(candidate.evidence.includes('commit: feat: improve finish extraction'), true);
+      assert.equal(candidate.evidence.includes('file: src/finish-runtime.mjs'), true);
+    }
+    const report = await readFile(audit.reportPath, 'utf8');
+    assert.match(report, /## Extraction Candidates/);
+    assert.match(report, /memory-review-change-window/);
+    assert.match(report, /spec-review-change-window/);
+  });
+
+  it('requires generated extraction candidates to be reviewed before done recording', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-extraction-gate-'));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+    await writeFile(join(wd, 'README.md'), 'baseline\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await finishStartStage(wd, 'finish-extraction-gate');
+    await mkdir(join(wd, 'skills', 'finish'), { recursive: true });
+    await writeFile(join(wd, 'skills', 'finish', 'SKILL.md'), '# Finish\n\nNew extraction rule.\n');
+    await execFileAsync('git', ['add', 'skills/finish/SKILL.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'docs: explain finish extraction'], { cwd: wd });
+
+    const audit = await finishAuditStage(wd, 'finish-extraction-gate');
+    const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+    assert.equal(state.audit.extraction_candidates.length > 0, true);
+    state.status = 'audited';
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should wait for extraction review.',
+      }),
+      /finish_record_audit_incomplete/,
+    );
+
+    state.audit.rejected_candidates = state.audit.extraction_candidates.map((candidate) => ({
+      id: candidate.id,
+      summary: candidate.summary,
+      evidence: candidate.evidence,
+      rejection_reason: 'Reviewed and not durable enough to write as memory or spec.',
+    }));
+    await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+    const completed = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Completed after extraction review.',
+    });
+
+    assert.equal(completed.state.status, 'completed');
+    assert.equal(completed.state.audit.rejected_candidates.length, state.audit.extraction_candidates.length);
+  });
+
   it('renders malformed finish candidates without leaving stale reports', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-malformed-candidate-'));
     const audit = await finishAuditStage(wd, 'finish-malformed-candidate');
@@ -1289,11 +1380,12 @@ describe('trellis-inspired loopx hardening', () => {
 
     const state = JSON.parse(await readFile(auditJson.statePath, 'utf8'));
     state.status = 'audited';
-    state.audit.accepted_candidates = [{
-      id: 'candidate-cli',
-      summary: 'CLI candidate.',
-      evidence: ['README.md'],
-    }];
+    state.audit.accepted_candidates = state.audit.extraction_candidates.map((candidate) => ({
+      id: candidate.id,
+      summary: `Accepted ${candidate.kind} candidate.`,
+      target: candidate.target,
+      evidence: [...candidate.evidence, 'README.md'],
+    }));
     await writeFile(auditJson.statePath, `${JSON.stringify(state, null, 2)}\n`);
 
     const recordRun = await execFileAsync('node', [

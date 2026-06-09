@@ -8,6 +8,17 @@ const FINISH_SCHEMA_VERSION = 1;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
 const MAX_AUDIT_ID_COLLISIONS = 1000;
 const FINISH_RECORD_STATE_STATUSES = ['needs-agent-audit', 'audited', 'choice-recorded', 'completed', 'failed'];
+const EXTRACTION_SURFACE_PREFIXES = [
+  'src',
+  'skills',
+  'plugins/loopx/skills',
+  'scripts',
+  'templates',
+  'docs',
+  'test',
+  'README.md',
+  'README.zh-CN.md',
+];
 
 function normalizeSlug(raw) {
   return String(raw || '')
@@ -161,6 +172,80 @@ function finishChoices() {
     ],
     rejected: [],
   };
+}
+
+function changedPathStartsWith(path, prefixes) {
+  const normalizedPath = String(path || '').replaceAll('\\', '/');
+  return prefixes.some((prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`));
+}
+
+function summarizeChangedPaths(changedFiles, limit = 5) {
+  return changedFiles
+    .map((item) => item.path)
+    .filter(Boolean)
+    .slice(0, limit)
+    .map((path) => `file: ${path}`);
+}
+
+function summarizeCommitSubjects(commits, limit = 5) {
+  return commits
+    .map((item) => item.subject)
+    .filter(Boolean)
+    .slice(0, limit)
+    .map((subject) => `commit: ${subject}`);
+}
+
+function extractionEvidenceForChangeWindow(changeWindow) {
+  const evidence = [
+    `change_window.source=${changeWindow.source}`,
+    `change_window.range=${changeWindow.range ?? 'none'}`,
+    `change_window.commit_count=${changeWindow.commit_count}`,
+    ...summarizeCommitSubjects(changeWindow.commits || []),
+    ...summarizeChangedPaths(changeWindow.changed_files || []),
+  ];
+  return evidence.filter((item) => nonEmptyText(item));
+}
+
+function changeWindowTouchesDurableSurface(changeWindow) {
+  const changedFiles = Array.isArray(changeWindow.changed_files) ? changeWindow.changed_files : [];
+  return changedFiles.some((item) => changedPathStartsWith(item.path, EXTRACTION_SURFACE_PREFIXES));
+}
+
+function changeWindowTouchesTeamRuleSurface(changeWindow) {
+  const changedFiles = Array.isArray(changeWindow.changed_files) ? changeWindow.changed_files : [];
+  return changedFiles.some((item) => changedPathStartsWith(item.path, EXTRACTION_SURFACE_PREFIXES));
+}
+
+function createExtractionCandidates(changeWindow) {
+  if (!plainObject(changeWindow) || Number(changeWindow.commit_count || 0) <= 0) {
+    return [];
+  }
+
+  const evidence = extractionEvidenceForChangeWindow(changeWindow);
+  const candidates = [];
+  if (changeWindowTouchesDurableSurface(changeWindow)) {
+    candidates.push({
+      id: 'memory-review-change-window',
+      kind: 'memory',
+      status: 'pending-review',
+      target: '.loopx/memory/entries/',
+      summary: 'Review the committed finish change window for local agent memory worth preserving.',
+      reason: 'Committed code, docs, tests, or workflow files may encode a reusable decision, constraint, pitfall, or handoff that future agents should know.',
+      evidence,
+    });
+  }
+  if (changeWindowTouchesTeamRuleSurface(changeWindow)) {
+    candidates.push({
+      id: 'spec-review-change-window',
+      kind: 'spec',
+      status: 'pending-review',
+      target: 'docs/loopx/specs/inbox.md',
+      summary: 'Review the committed finish change window for a repo-tracked spec candidate.',
+      reason: 'Committed workflow, skill, runtime, documentation, or test changes may define a stable team rule that belongs in specs.',
+      evidence,
+    });
+  }
+  return candidates;
 }
 
 async function createFinishAuditDirectory(cwd, slug, date) {
@@ -604,11 +689,15 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
   const noCandidatesReason = auditChoices.no_candidates_reason ?? null;
   const acceptedSource = selectReportCandidates(auditChoices.accepted_candidates);
   const rejectedSource = selectReportCandidates(auditChoices.rejected_candidates);
+  const extractionSource = selectReportCandidates(auditChoices.extraction_candidates);
   const accepted = acceptedSource.length > 0
     ? acceptedSource.map((item) => formatCandidate(item, ['evidence', 'target', 'confidence', 'status'])).join('\n')
     : '- none';
   const rejected = rejectedSource.length > 0
     ? rejectedSource.map((item) => formatCandidate(item, ['rejection_reason', 'reason', 'evidence', 'target', 'confidence', 'status'])).join('\n')
+    : '- none';
+  const extraction = extractionSource.length > 0
+    ? extractionSource.map((item) => formatCandidate(item, ['kind', 'status', 'target', 'reason', 'evidence'])).join('\n')
     : '- none';
   const choice = state.choice || createChoiceRecord();
   const choiceLine = [
@@ -685,6 +774,10 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     '### Diff Stat',
     '',
     diffStat,
+    '',
+    '## Extraction Candidates',
+    '',
+    extraction,
     '',
     '## Accepted Candidates',
     '',
@@ -790,6 +883,9 @@ function validateFinishRecordState(state, root) {
   if (!Array.isArray(state.audit.accepted_candidates) || !Array.isArray(state.audit.rejected_candidates)) {
     throwInvalidFinishState();
   }
+  if (state.audit.extraction_candidates !== undefined && !Array.isArray(state.audit.extraction_candidates)) {
+    throwInvalidFinishState();
+  }
   if (state.audit.change_window !== undefined && !plainObject(state.audit.change_window)) {
     throwInvalidFinishState();
   }
@@ -819,6 +915,30 @@ function rejectedCandidateIsComplete(candidate) {
     && (nonEmptyText(candidate.rejection_reason) || nonEmptyText(candidate.reason));
 }
 
+function candidateIdSet(candidates) {
+  return new Set(
+    (Array.isArray(candidates) ? candidates : [])
+      .map((candidate) => candidateObject(candidate)?.id)
+      .filter((id) => nonEmptyText(id)),
+  );
+}
+
+function extractionCandidatesAreReviewed(state) {
+  const extractionCandidates = Array.isArray(state?.audit?.extraction_candidates)
+    ? state.audit.extraction_candidates
+    : [];
+  if (extractionCandidates.length === 0) {
+    return true;
+  }
+
+  const acceptedIds = candidateIdSet(state?.audit?.accepted_candidates);
+  const rejectedIds = candidateIdSet(state?.audit?.rejected_candidates);
+  return extractionCandidates.every((candidate) => {
+    const id = candidateObject(candidate)?.id;
+    return nonEmptyText(id) && (acceptedIds.has(id) || rejectedIds.has(id));
+  });
+}
+
 function isFinishAuditReadyForDone(state) {
   if (!['audited', 'choice-recorded', 'completed', 'failed'].includes(state?.status)) {
     return false;
@@ -833,8 +953,14 @@ function isFinishAuditReadyForDone(state) {
   if (rejectedCandidates.some((candidate) => !rejectedCandidateIsComplete(candidate))) {
     return false;
   }
+  if (!extractionCandidatesAreReviewed(state)) {
+    return false;
+  }
   if (acceptedCandidates.length > 0) {
     return acceptedCandidates.every((candidate) => acceptedCandidateIsComplete(candidate));
+  }
+  if (Array.isArray(state?.audit?.extraction_candidates) && state.audit.extraction_candidates.length > 0) {
+    return true;
   }
   return hasSpecificNoCandidatesReason(state?.audit?.no_candidates_reason);
 }
@@ -893,6 +1019,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
     `env.LOOPX_DEVELOPER=${String(env.LOOPX_DEVELOPER || 'unknown')}`,
   ];
   const choices = finishChoices();
+  const extractionCandidates = createExtractionCandidates(changeWindow);
   const state = {
     schema_version: FINISH_SCHEMA_VERSION,
     audit_id: auditId,
@@ -909,6 +1036,7 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
       head: evidence.head,
       accepted_candidates: [],
       rejected_candidates: [],
+      extraction_candidates: extractionCandidates,
       no_candidates_reason: DEFAULT_NO_CANDIDATES_REASON,
       change_window: changeWindow,
       report_candidates: {
