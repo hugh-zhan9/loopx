@@ -768,6 +768,20 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(blocked.pending_user_decision, 'clarify->plan');
   });
 
+  it('initializes workspace metadata without archive in the preferred product flow', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-init-no-archive-'));
+    await initWorkspace(wd);
+
+    const workspaceRoot = resolveWorkspaceRoot(wd);
+    const config = JSON.parse(await readFile(join(workspaceRoot, 'config.json'), 'utf8'));
+    assert.deepEqual(config.default_flow, ['clarify', 'plan', 'build', 'review', 'done']);
+    assert.deepEqual(config.preferred_surface, ['clarify', 'plan', 'build', 'review', 'autopilot']);
+
+    const readme = await readFile(join(workspaceRoot, 'README.md'), 'utf8');
+    assert.match(readme, /clarify -> plan -> build -> review -> done/);
+    assert.doesNotMatch(readme, /loopx archive/);
+  });
+
   it('runs the clarify -> plan -> build -> review flow without team', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-flow-'));
     const clarified = await clarifyStage(wd, 'flow');
@@ -842,9 +856,10 @@ describe('loopx skill-first workflow contract', () => {
     });
     assert.equal(review.verdict, 'APPROVE');
     assert.match(review.reviewMessageZh, /Review 结果：flow 通过。/);
-    assert.match(review.reviewMessageZh, /下一步：直接归档/);
-    assert.match(review.reviewMessageZh, /\$archive flow/);
-    assert.equal(nextSkillCommand(review.state), '$archive flow');
+    assert.match(review.reviewMessageZh, /下一步：批准 review -> done，然后执行 finish 完成分支处置和学习审计。/);
+    assert.match(review.reviewMessageZh, /loopx approve flow --from review --to done/);
+    assert.match(review.reviewMessageZh, /\$finish/);
+    assert.equal(nextSkillCommand(review.state), null);
     const reportText = await readFile(join(review.root, 'review-report.md'), 'utf8');
     const report = parseFrontmatter(reportText);
     assert.equal(report.reviewed_run_id, 'flow-build-run-1');
@@ -3649,30 +3664,33 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.next_cli_hint, null);
   });
 
-  it('CLI payload adds the archive skill command after done approval', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-archive-cli-next-'));
-    const clarified = await clarifyStage(wd, 'archive-cli-next');
-    await writeResolvedSpec(clarified.root, 'archive-cli-next');
-    await approveStage(wd, 'archive-cli-next', { from: 'clarify', to: 'plan' });
-    await planStage(wd, 'archive-cli-next', { adapter: createScriptedPlanAdapter() });
-    await approveStage(wd, 'archive-cli-next', { from: 'plan', to: 'build' });
-    await buildStage(wd, 'archive-cli-next', {
+  it('does not recommend archive after approved review or done approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-no-archive-cli-next-'));
+    const clarified = await clarifyStage(wd, 'no-archive-cli-next');
+    await writeResolvedSpec(clarified.root, 'no-archive-cli-next');
+    await approveStage(wd, 'no-archive-cli-next', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'no-archive-cli-next', { adapter: createScriptedPlanAdapter() });
+    await approveStage(wd, 'no-archive-cli-next', { from: 'plan', to: 'build' });
+    await buildStage(wd, 'no-archive-cli-next', {
       adapter: createScriptedBuildAdapter(),
     });
-    await approveStage(wd, 'archive-cli-next', { from: 'build', to: 'review' });
-    await reviewStage(wd, 'archive-cli-next', {
-      reviewer: 'qa-1',
-      adapter: createScriptedReviewAdapter(),
+    await approveStage(wd, 'no-archive-cli-next', { from: 'build', to: 'review' });
+    await reviewStage(wd, 'no-archive-cli-next', {
+      adapter: createScriptedReviewAdapter({ verdict: 'approve' }),
     });
-    const reviewed = await readState(wd, 'archive-cli-next');
-    const reviewPayload = withNextSkill({ ok: true, command: 'review', root: clarified.root, state: reviewed }, reviewed);
-    assert.equal(reviewPayload.next_skill_command, '$archive archive-cli-next');
-    assert.equal(reviewPayload.next_skill_hint, 'Next skill: $archive archive-cli-next');
-    const done = await approveStage(wd, 'archive-cli-next', { from: 'review', to: 'done' });
+    const reviewed = await readState(wd, 'no-archive-cli-next');
+    const reviewPayload = withNextSkill({ ok: true }, reviewed);
+    assert.equal(reviewPayload.next_skill_command, null);
+    assert.equal(reviewPayload.next_skill_hint, null);
+    assert.equal(reviewPayload.next_cli_command, 'loopx approve no-archive-cli-next --from review --to done');
+    assert.equal(reviewPayload.next_cli_hint, 'Next CLI: loopx approve no-archive-cli-next --from review --to done');
 
-    const payload = withNextSkill({ ok: true, command: 'approve', root: done.root, state: done.state }, done.state);
-    assert.equal(payload.next_skill_command, '$archive archive-cli-next');
-    assert.equal(payload.next_skill_hint, 'Next skill: $archive archive-cli-next');
+    const done = await approveStage(wd, 'no-archive-cli-next', { from: 'review', to: 'done' });
+    const payload = withNextSkill({ ok: true }, done.state);
+    assert.equal(payload.next_skill_command, '$finish');
+    assert.equal(payload.next_skill_hint, 'Next skill: $finish');
+    assert.equal(payload.next_cli_command, null);
+    assert.equal(payload.next_cli_hint, null);
   });
 
   it('does not infer review next command from empty build blockers alone', () => {

@@ -35,16 +35,8 @@ function nextSkill(state) {
     return `$plan ${state.slug}`;
   }
   if (state.current_stage === 'done'
-    && state.completion_confirmed === true
-    && state.archive_status !== 'archived') {
-    return `$archive ${state.slug}`;
-  }
-  if (state.current_stage === 'review'
-    && state.review_verdict === 'approve'
-    && state.pending_user_decision === 'review->done'
-    && ['requested', 'approved'].includes(state.approval?.complete)
-    && state.archive_status !== 'archived') {
-    return `$archive ${state.slug}`;
+    && state.completion_confirmed === true) {
+    return '$finish';
   }
   if (state.stage_status === 'awaiting-approval'
     && state.current_stage === 'plan'
@@ -102,6 +94,12 @@ function nextCli(state) {
     && Array.isArray(state.plan_blockers)
     && state.plan_blockers.length === 0) {
     return `loopx build .loopx/plans/requirements-snapshot-${state.slug}.md`;
+  }
+  if (state.current_stage === 'review'
+    && state.review_verdict === 'approve'
+    && state.pending_user_decision === 'review->done'
+    && ['requested', 'approved'].includes(state.approval?.complete)) {
+    return `loopx approve ${state.slug} --from review --to done`;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'

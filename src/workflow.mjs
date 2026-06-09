@@ -533,7 +533,6 @@ function buildWorkspaceReadme() {
     '- `loopx plan <slug>`',
     '- `loopx build <slug>`',
     '- `loopx review <slug> [--reviewer <name>]`',
-    '- `loopx archive <slug>`',
     '- `loopx autopilot <slug> [--reviewer <name>]`',
     '- `loopx render [slug|--all]`',
     '- `loopx status [slug] [--json]`',
@@ -3152,7 +3151,9 @@ function recommendedAction(state, legacy = false) {
         : 'Approve build -> review when execution-record.md is complete.';
     case STAGES.REVIEW:
       if (state.review_verdict === 'approve') {
-        return 'Run loopx archive; archive consumes the pending review -> done completion transition before syncing specs.';
+        return state.approval.complete === APPROVAL_STATES.APPROVED
+          ? 'Run $finish to complete branch disposition and learning audit.'
+          : 'Approve review -> done, then run $finish to complete branch disposition and learning audit.';
       }
       if (state.review_verdict === 'request-changes') {
         if (state.requested_transition === TRANSITIONS.REVIEW_TO_BUILD && state.approval.build === APPROVAL_STATES.APPROVED) {
@@ -3177,10 +3178,7 @@ function recommendedAction(state, legacy = false) {
       if (state.autopilot_current_phase && state.autopilot_current_phase !== 'none' && state.autopilot_completed) {
         return 'Autopilot run is complete.';
       }
-      if (state.archive_status !== 'archived') {
-        return 'Run loopx archive to sync the approved change delta into long-lived specs.';
-      }
-      return 'Workflow is complete.';
+      return 'Workflow is complete. Run $finish if branch disposition and learning audit have not been recorded.';
     default:
       return 'Run loopx clarify to start a workflow.';
   }
@@ -3353,11 +3351,8 @@ function nextCommandForRollbackTarget(slug, target) {
   if (target === 'none') {
     return [
       'Next:',
-      `$archive ${slug}`,
-      '',
-      'CLI-only equivalent:',
       `loopx approve ${slug} --from review --to done`,
-      `loopx archive ${slug}`,
+      '$finish',
     ].join('\n');
   }
   return [
@@ -3370,7 +3365,7 @@ function nextCommandForRollbackTarget(slug, target) {
 function reviewUserMessageZh({ slug, verdict, rollbackTarget, findings }) {
   const label = reviewVerdictLabel(verdict);
   const next = verdict === 'APPROVE'
-    ? `下一步：直接归档；archive 会先消费 pending 的 review -> done 完成态。\n${nextCommandForRollbackTarget(slug, 'none')}`
+    ? `下一步：批准 review -> done，然后执行 finish 完成分支处置和学习审计。\n${nextCommandForRollbackTarget(slug, 'none')}`
     : `下一步：按审查发现处理，并${rollbackTargetLabel(rollbackTarget)}。\n${nextCommandForRollbackTarget(slug, rollbackTarget)}`;
   const findingText = Array.isArray(findings) && findings.length > 0 ? findings.join('；') : '无额外发现。';
   return `Review 结果：${slug} ${label}。审查发现：${findingText} ${next}`;
@@ -3530,8 +3525,8 @@ export async function initWorkspace(cwd, { slug, agentDelegation = {} } = {}) {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'skill-first-v1',
-    default_flow: ['clarify', 'plan', 'build', 'review', 'done', 'archive'],
-    preferred_surface: ['clarify', 'plan', 'build', 'review', 'archive', 'autopilot'],
+    default_flow: ['clarify', 'plan', 'build', 'review', 'done'],
+    preferred_surface: ['clarify', 'plan', 'build', 'review', 'autopilot'],
     source_of_truth_policy: projectConventions.source_of_truth_policy,
     project_conventions: {
       existing_ai_rules: projectConventions.existing_ai_rules,
@@ -4736,7 +4731,7 @@ export async function reviewStage(cwd, slug, { reviewer = 'independent-reviewer'
         verdict: reviewInput.verdict,
         reviewMessageZh: reviewMessage,
         evidenceManifest: reviewInput.evidenceManifest,
-        followUps: ['执行 $archive；archive 会消费 pending 的 review -> done 完成态。'],
+        followUps: ['批准 review -> done，然后执行 $finish 完成分支处置和学习审计。'],
       });
     } catch (error) {
       journalWarning = error instanceof Error ? error.message : String(error);
