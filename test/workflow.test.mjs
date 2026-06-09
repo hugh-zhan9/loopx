@@ -3910,11 +3910,17 @@ describe('loopx skill-first workflow contract', () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 
     const { stdout: help } = await execFileAsync(process.execPath, [cliPath, '--help'], { cwd: repoRoot, env });
+    assert.match(help, /^Quick start:\n/m);
+    assert.match(help, /loopx install-skills --target all --yes/);
+    assert.match(help, /loopx init --slug my-feature/);
+    assert.match(help, /loopx clarify my-feature/);
+    assert.match(help, /loopx status my-feature/);
     assert.match(help, /loopx repair-install/);
     assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
     assert.doesNotMatch(help, /--direct/);
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
+    assert.doesNotMatch(help, /loopx archive <slug>/);
     assert.doesNotMatch(help, /loopx team/);
 
     const { stdout: version } = await execFileAsync(process.execPath, [cliPath, '--version'], { cwd: repoRoot, env });
@@ -3924,12 +3930,41 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(shortVersion.trim(), packageJson.version);
 
     const { stdout: doctor } = await execFileAsync(process.execPath, [cliPath, 'doctor'], { cwd: repoRoot, env });
-    const parsedDoctor = JSON.parse(doctor);
+    assert.match(doctor, /^loopx doctor: attention needed$/m);
+    assert.match(doctor, /install: failed/);
+    assert.match(doctor, /fix:/);
+    assert.match(doctor, /loopx repair-install/);
+    assert.match(doctor, /details: loopx doctor --json/);
+    assert.throws(() => JSON.parse(doctor));
+
+    const { stdout: doctorJson } = await execFileAsync(process.execPath, [cliPath, 'doctor', '--json'], { cwd: repoRoot, env });
+    const parsedDoctor = JSON.parse(doctorJson);
     assert.equal(parsedDoctor.command, 'doctor');
 
     await execFileAsync(process.execPath, [cliPath, 'repair-install'], { cwd: repoRoot, env });
-    const { stdout: afterDoctor } = await execFileAsync(process.execPath, [cliPath, 'doctor'], { cwd: repoRoot, env });
+    const { stdout: afterDoctor } = await execFileAsync(process.execPath, [cliPath, 'doctor', '--json'], { cwd: repoRoot, env });
     const parsedAfterDoctor = JSON.parse(afterDoctor);
     assert.equal(parsedAfterDoctor.installCheck.ok, true);
+  });
+
+  it('prints human init output by default and full init state with --json', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-cli-init-human-'));
+    const home = await mkdtemp(join(tmpdir(), 'loopx-cli-init-home-'));
+    const env = loopxEnv(home);
+
+    const { stdout: human } = await execFileAsync(process.execPath, [cliPath, 'init', '--slug', 'demo-flow'], { cwd: wd, env });
+    assert.match(human, /^loopx workspace initialized$/m);
+    assert.match(human, /workflow: demo-flow/);
+    assert.match(human, /stage: clarify/);
+    assert.match(human, /next: loopx clarify demo-flow/);
+    assert.match(human, /details: loopx init --slug demo-flow --json/);
+    assert.throws(() => JSON.parse(human));
+
+    const { stdout: json } = await execFileAsync(process.execPath, [cliPath, 'init', '--slug', 'json-flow', '--json'], { cwd: wd, env });
+    const parsed = JSON.parse(json);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.command, 'init');
+    assert.equal(parsed.workflow.slug, 'json-flow');
+    assert.equal(parsed.workflow.current_stage, 'clarify');
   });
 });

@@ -15,16 +15,21 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 
 function usage() {
   return [
+    'Quick start:',
+    '  loopx install-skills --target all --yes',
+    '  loopx init --slug my-feature',
+    '  loopx clarify my-feature',
+    '  loopx status my-feature',
+    '',
     'Usage:',
     '  loopx --version',
-    '  loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>]',
+    '  loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]',
     '  loopx clarify <slug> [--standard|--deep]',
     '  loopx approve <slug> --from <stage> --to <stage>',
     '  loopx plan [slug] [--interactive] [--deliberate]',
     '  loopx build <slug> [--no-deslop]',
     '  loopx build --from-review <review-report-path> [--no-deslop]',
     '  loopx review <slug> [--reviewer <name>]',
-    '  loopx archive <slug>',
     '  loopx autopilot <slug> [--reviewer <name>]',
     '  loopx finish-start [slug] [--source <path>] [--json]',
     '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
@@ -32,8 +37,8 @@ function usage() {
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
-    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes]',
-    '  loopx doctor',
+    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]',
+    '  loopx doctor [--json]',
     '  loopx migrate',
     '  loopx repair-install',
   ].join('\n');
@@ -200,6 +205,53 @@ function printHumanStatus(status) {
   console.log(`next: ${status.next_action}`);
 }
 
+function printHumanInit(result, options = new Map()) {
+  const workflow = result.workflow?.state ?? null;
+  console.log('loopx workspace initialized');
+  console.log(`workspace: ${result.workspaceRoot}`);
+  if (!workflow) {
+    console.log('workflow: (none)');
+    console.log('next: loopx clarify <slug>');
+    console.log('details: loopx init --json');
+    return;
+  }
+  console.log(`workflow: ${workflow.slug}`);
+  console.log(`stage: ${workflow.current_stage ?? '(none)'}`);
+  console.log(`next: loopx clarify ${workflow.slug}`);
+  const slug = options.get('--slug') || workflow.slug;
+  console.log(`details: loopx init --slug ${slug} --json`);
+}
+
+function countInstallConflicts(result) {
+  return Object.values(result.installCheck?.results || {})
+    .reduce((sum, target) => sum + (Array.isArray(target.conflicts) ? target.conflicts.length : 0), 0);
+}
+
+function printHumanDoctor(result) {
+  const ok = !result.mixedRuntimeRoots && result.installCheck?.ok === true;
+  console.log(`loopx doctor: ${ok ? 'ok' : 'attention needed'}`);
+  console.log(`workspace: ${result.loopxRoot ?? result.workspaceRoot ?? '(unknown)'}`);
+  if (result.mixedRuntimeRoots) {
+    console.log('runtime roots: mixed .loopx and .LoopX detected');
+  } else {
+    console.log('runtime roots: ok');
+  }
+  console.log(`install: ${result.installCheck?.ok === true ? 'ok' : 'failed'}`);
+  const conflicts = countInstallConflicts(result);
+  if (conflicts > 0) {
+    console.log(`conflicts: ${conflicts}`);
+  }
+  if (result.hook) {
+    console.log(`hooks: ${result.hook.enabled ? 'enabled' : 'disabled'}`);
+  }
+  if (!ok) {
+    console.log('fix:');
+    console.log('  loopx repair-install');
+    console.log('  LOOPX_HOOKS=0 disables loopx hooks for the current process');
+  }
+  console.log('details: loopx doctor --json');
+}
+
 async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
   if (command === 'version' || command === '--version' || command === '-v') {
@@ -222,7 +274,11 @@ async function main() {
             threshold: options.get('--agent-delegation-threshold'),
           },
         });
-        console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
+        if (options.get('--json')) {
+          console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
+        } else {
+          printHumanInit(result, options);
+        }
         return;
       }
       case 'setup-context': {
@@ -376,7 +432,12 @@ async function main() {
       }
       case 'doctor': {
         const result = await doctorRuntime(process.cwd(), process.env);
-        console.log(JSON.stringify({ ok: !result.mixedRuntimeRoots && result.installCheck.ok, command, ...result }, null, 2));
+        const payload = { ok: !result.mixedRuntimeRoots && result.installCheck.ok, command, ...result };
+        if (options.get('--json')) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          printHumanDoctor(payload);
+        }
         return;
       }
       case 'migrate': {
