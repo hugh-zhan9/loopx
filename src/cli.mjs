@@ -37,7 +37,7 @@ function usage() {
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
     '  loopx setup-context',
-    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]',
+    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--json]',
     '  loopx doctor [--json]',
     '  loopx migrate',
     '  loopx repair-install',

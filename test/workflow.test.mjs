@@ -3917,6 +3917,8 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx status my-feature/);
     assert.match(help, /loopx repair-install/);
     assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
+    assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--json\]/);
+    assert.doesNotMatch(help, /--dry-run/);
     assert.doesNotMatch(help, /--direct/);
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
@@ -3942,6 +3944,9 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(parsedDoctor.command, 'doctor');
 
     await execFileAsync(process.execPath, [cliPath, 'repair-install'], { cwd: repoRoot, env });
+    const { stdout: afterDoctorHuman } = await execFileAsync(process.execPath, [cliPath, 'doctor'], { cwd: repoRoot, env });
+    assert.match(afterDoctorHuman, /^loopx doctor: ok$/m);
+
     const { stdout: afterDoctor } = await execFileAsync(process.execPath, [cliPath, 'doctor', '--json'], { cwd: repoRoot, env });
     const parsedAfterDoctor = JSON.parse(afterDoctor);
     assert.equal(parsedAfterDoctor.installCheck.ok, true);
