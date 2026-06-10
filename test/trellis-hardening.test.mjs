@@ -2039,7 +2039,7 @@ describe('trellis-inspired loopx hardening', () => {
     );
   });
 
-  it('build CLI accepts requirements snapshot path and status exposes manifest state', async () => {
+  it('build CLI accepts requirements snapshot path and status JSON exposes manifest state', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-prd-build-'));
     const clarified = await clarifyStage(wd, 'prd-path-flow');
     await writeResolvedSpec(clarified.root, 'prd-path-flow');
@@ -2053,7 +2053,11 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(built.state.context_manifest_status, 'hit');
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'prd-path-flow'], { cwd: wd });
-    assert.match(stdout, /context_manifest_status: hit/);
+    assert.doesNotMatch(stdout, /context_manifest_status:/);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'status', 'prd-path-flow', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.equal(payload.state.context_manifest_status, 'hit');
   });
 
   it('workflow hook emits advisory context and silently disables with LOOPX_HOOKS=0', async () => {

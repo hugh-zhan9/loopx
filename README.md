@@ -27,6 +27,12 @@ loopx clarify my-feature
 loopx status my-feature
 ```
 
+For the shortest next-step prompt after a workflow exists, run:
+
+```bash
+loopx next my-feature
+```
+
 Human output is the default for first-use commands such as `loopx init`, `loopx doctor`, and `loopx install-skills`. Use `--json` when an agent or script needs the complete runtime payload:
 
 ```bash
@@ -83,19 +89,13 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 
 `finish` also writes a local audit ledger under `.loopx/finish/<audit-id>/`. `none` means the work was audited, but it did not produce a durable learning candidate. Choice recording lives in that local finish audit directory, while repo-tracked spec candidates stay in `docs/loopx/specs/`.
 
-Public finish audit commands:
-
-- `loopx finish-start`
-- `loopx finish-audit`
-- `loopx finish-record`
-
-`loopx finish-start` records the starting commit for plan execution. `loopx finish-audit` uses that baseline to include committed `baseline..HEAD` evidence, changed files, and uncommitted status in `.loopx/finish/<audit-id>/finish-state.json` as `audit.change_window`, so finish learning/spec extraction still has input after the worktree is clean. It also writes draft `audit.extraction_candidates` for memory/spec review; agents must accept or reject those drafts before recording a done finish choice.
+Finish runtime commands are advanced agent/runtime plumbing, not the normal user path. `finish-start` records the starting commit for plan execution, and `finish-audit` uses that baseline to include committed `baseline..HEAD` evidence, changed files, and uncommitted status in `.loopx/finish/<audit-id>/finish-state.json` as `audit.change_window`, so finish learning/spec extraction still has input after the worktree is clean. It also writes draft `audit.extraction_candidates` for memory/spec review; agents must accept or reject those drafts before recording a done finish choice.
 
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
 ### Archive compatibility
 
-archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command, but normal users should complete work through `finish` and the public finish audit commands above.
+archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command, but normal users should complete work through `finish`.
 
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
@@ -133,6 +133,8 @@ loopx install-skills --target all --dry-run
 
 Use the explicit target form for dry-run checks so the command stays non-interactive.
 
+Successful install output lists the targets and installed skill roots. `loopx install-skills --json` includes the full inspection payload for scripts and support cases.
+
 To opt out during npm postinstall:
 
 ```bash
@@ -151,6 +153,14 @@ Repair an interrupted or conflicted install with:
 ```bash
 loopx repair-install
 loopx doctor
+```
+
+Undo installed files when you want to remove loopx-managed user-level artifacts:
+
+```bash
+rm -rf ~/.agents/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.claude/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 
 Run the installer manually or choose targets interactively:
@@ -196,16 +206,38 @@ loopx build <slug> [--no-deslop]
 loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx autopilot <slug> [--reviewer <name>]
-loopx finish-start [slug] [--source <path>] [--json]
-loopx finish-audit [slug] [--baseline <git-ref>] [--json]
-loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]
 loopx render [slug|--all]
 loopx status [slug] [--json]
+loopx next <slug> [--json]
 loopx setup-context
 loopx doctor [--json]
 loopx migrate
 loopx repair-install
 ```
+
+Advanced runtime commands:
+
+```bash
+loopx help advanced
+```
+
+These commands are kept for skills, hooks, and compatibility paths. Normal users should follow `loopx status`, `loopx next`, and `$finish`.
+
+## Golden path
+
+This is the smallest complete first-run loop:
+
+```bash
+loopx install-skills --target all --dry-run
+loopx install-skills --target all --yes
+loopx doctor
+loopx init --slug my-feature
+loopx clarify my-feature
+loopx status my-feature
+loopx next my-feature
+```
+
+After `clarify`, hand control to the suggested skill command, usually `$plan <slug>`. Continue following `loopx status <slug>` or `loopx next <slug>` until `final-review` and `$finish` complete the work.
 
 ## Governance
 

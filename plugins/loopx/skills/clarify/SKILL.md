@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.2.4"
+  version: "0.2.5"
 ---
 
 # loopx Clarify

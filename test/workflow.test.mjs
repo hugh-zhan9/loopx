@@ -3132,7 +3132,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(rerun.state.plan_critic_verdict, 'approve');
   });
 
-  it('CLI status exposes plan consensus progression', async () => {
+  it('CLI status summarizes plan next steps without leaking internal runtime fields', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-status-'));
     const clarified = await clarifyStage(wd, 'status-flow');
     await writeResolvedSpec(clarified.root, 'status-flow');
@@ -3142,12 +3142,19 @@ describe('loopx skill-first workflow contract', () => {
     });
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'status-flow'], { cwd: wd });
-    assert.match(stdout, /plan_iteration: 2\/5/);
-    assert.match(stdout, /plan_architect_review_status: complete/);
-    assert.match(stdout, /plan_critic_verdict: approve/);
-    assert.match(stdout, /plan_artifact_status: complete/);
-    assert.match(stdout, /readiness_build: true/);
-    assert.match(stdout, /authorization_build: false/);
+    assert.match(stdout, /workflow: status-flow/);
+    assert.match(stdout, /stage: plan/);
+    assert.match(stdout, /blocked: no/);
+    assert.match(stdout, /missing artifacts: execution-record\.md, review-report\.md/);
+    assert.match(stdout, /next skill: \$subagent-exec \.loopx\/plans\/requirements-snapshot-status-flow\.md/);
+    assert.match(stdout, /next cli: loopx build \.loopx\/plans\/requirements-snapshot-status-flow\.md/);
+    assert.match(stdout, /details: loopx status status-flow --json/);
+    assert.doesNotMatch(stdout, /plan_iteration:/);
+    assert.doesNotMatch(stdout, /plan_architect_review_status:/);
+    assert.doesNotMatch(stdout, /plan_critic_verdict:/);
+    assert.doesNotMatch(stdout, /readiness_/);
+    assert.doesNotMatch(stdout, /authorization_/);
+    assert.doesNotMatch(stdout, /archive_status:/);
   });
 
   it('status separates readiness from authorization and exposes current evidence chain', async () => {
@@ -3761,7 +3768,7 @@ describe('loopx skill-first workflow contract', () => {
     );
   });
 
-  it('CLI status exposes build progression and blockers', async () => {
+  it('CLI status summarizes build blockers and next action without expert fields', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-build-status-'));
     const clarified = await clarifyStage(wd, 'build-status');
     await writeResolvedSpec(clarified.root, 'build-status');
@@ -3776,12 +3783,17 @@ describe('loopx skill-first workflow contract', () => {
     });
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'build-status'], { cwd: wd });
-    assert.match(stdout, /build_iteration: 2\/2/);
-    assert.match(stdout, /build_parallel_mode: true/);
-    assert.match(stdout, /build_architect_verification_status: approve/);
-    assert.match(stdout, /build_regression_status: complete/);
-    assert.match(stdout, /pending_user_decision: build->review/);
+    assert.match(stdout, /workflow: build-status/);
+    assert.match(stdout, /stage: build/);
+    assert.match(stdout, /blocked: no/);
+    assert.match(stdout, /missing artifacts: review-report\.md/);
+    assert.match(stdout, /next skill: \$review \.loopx\/workflows\/build-status\/execution-record\.md/);
     assert.match(stdout, /next: Approve build -> review when execution-record\.md is complete\./);
+    assert.match(stdout, /details: loopx status build-status --json/);
+    assert.doesNotMatch(stdout, /build_iteration:/);
+    assert.doesNotMatch(stdout, /build_parallel_mode:/);
+    assert.doesNotMatch(stdout, /pending_user_decision:/);
+    assert.doesNotMatch(stdout, /archive_status:/);
   });
 
   it('CLI clarify defaults to standard and accepts --deep', async () => {
@@ -3952,6 +3964,44 @@ describe('loopx skill-first workflow contract', () => {
     assert.doesNotMatch(stdout, /next cli:/);
   });
 
+  it('CLI status hides archive compatibility fields in human output but preserves them in JSON', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-status-archive-hidden-'));
+    const clarified = await clarifyStage(wd, 'archive-hidden');
+    await writeResolvedSpec(clarified.root, 'archive-hidden');
+    await approveStage(wd, 'archive-hidden', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'archive-hidden', { adapter: createScriptedPlanAdapter() });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'archive-hidden'], { cwd: wd });
+    assert.doesNotMatch(stdout, /archive_status:/);
+    assert.doesNotMatch(stdout, /readiness_archive:/);
+    assert.doesNotMatch(stdout, /authorization_archive:/);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'status', 'archive-hidden', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.equal(payload.state.archive_status, 'pending');
+    assert.equal(payload.state.readiness.archive.ready, false);
+  });
+
+  it('CLI next prints only the next action command and supports JSON', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-next-command-'));
+    const clarified = await clarifyStage(wd, 'next-command');
+    await writeResolvedSpec(clarified.root, 'next-command');
+    await approveStage(wd, 'next-command', { from: 'clarify', to: 'plan' });
+    await planStage(wd, 'next-command', { adapter: createScriptedPlanAdapter() });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-command'], { cwd: wd });
+    assert.match(stdout, /^next skill: \$subagent-exec \.loopx\/plans\/requirements-snapshot-next-command\.md$/m);
+    assert.match(stdout, /^next cli: loopx build \.loopx\/plans\/requirements-snapshot-next-command\.md$/m);
+    assert.match(stdout, /^details: loopx status next-command --json$/m);
+    assert.doesNotMatch(stdout, /archive_status:/);
+    assert.doesNotMatch(stdout, /plan_iteration:/);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-command', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.equal(payload.next_skill_command, '$subagent-exec .loopx/plans/requirements-snapshot-next-command.md');
+    assert.equal(payload.next_cli_command, 'loopx build .loopx/plans/requirements-snapshot-next-command.md');
+  });
+
   it('CLI render writes derived HTML views without replacing canonical artifacts', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-html-render-'));
     const clarified = await clarifyStage(wd, 'html-render');
@@ -4119,7 +4169,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(migrated.state.approval.build, 'not-requested');
   });
 
-  it('CLI exposes loopx runtime/debug commands and no public team command', async () => {
+  it('CLI exposes the user-facing command surface and keeps runtime internals out of default help', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-cli-home-'));
     const env = loopxEnv(home);
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -4133,11 +4183,23 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx repair-install/);
     assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
     assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--dry-run\] \[--json\]/);
+    assert.match(help, /loopx next <slug> \[--json\]/);
     assert.doesNotMatch(help, /--direct/);
     assert.match(help, /loopx build <slug> \[--no-deslop\]/);
     assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
+    assert.match(help, /Advanced runtime commands: loopx help advanced/);
     assert.doesNotMatch(help, /loopx archive <slug>/);
+    assert.doesNotMatch(help, /loopx finish-start/);
+    assert.doesNotMatch(help, /loopx finish-audit/);
+    assert.doesNotMatch(help, /loopx finish-record/);
     assert.doesNotMatch(help, /loopx team/);
+
+    const { stdout: advancedHelp } = await execFileAsync(process.execPath, [cliPath, 'help', 'advanced'], { cwd: repoRoot, env });
+    assert.match(advancedHelp, /Advanced runtime commands:/);
+    assert.match(advancedHelp, /loopx finish-start \[slug\] \[--source <path>\] \[--json\]/);
+    assert.match(advancedHelp, /loopx finish-audit \[slug\] \[--baseline <git-ref>\] \[--json\]/);
+    assert.match(advancedHelp, /loopx finish-record <audit-id-or-path>/);
+    assert.doesNotMatch(advancedHelp, /loopx archive <slug>/);
 
     const { stdout: version } = await execFileAsync(process.execPath, [cliPath, '--version'], { cwd: repoRoot, env });
     assert.equal(version.trim(), packageJson.version);

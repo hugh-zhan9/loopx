@@ -3,7 +3,7 @@ name: kratos
 description: "Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone."
 when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
 metadata:
-  version: "0.2.4"
+  version: "0.2.5"
 ---
 
 # Kratos

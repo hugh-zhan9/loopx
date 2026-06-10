@@ -27,6 +27,12 @@ loopx clarify my-feature
 loopx status my-feature
 ```
 
+工作流存在后，如果只想看下一步命令：
+
+```bash
+loopx next my-feature
+```
+
 默认输出面向人类，例如 `loopx init`、`loopx doctor` 和 `loopx install-skills`。当 agent 或脚本需要完整 runtime payload 时使用 `--json`：
 
 ```bash
@@ -83,19 +89,13 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 `finish` 还会在 `.loopx/finish/<audit-id>/` 下写入本地 audit ledger。`none` 表示已经完成审计，但没有产生可持久化的 learning candidate。choice recording 也放在这个本地 finish audit 目录里，而 repo-tracked 的 spec candidates 仍然保留在 `docs/loopx/specs/`。
 
-公开的 finish audit 命令：
-
-- `loopx finish-start`
-- `loopx finish-audit`
-- `loopx finish-record`
-
-`loopx finish-start` 会记录计划执行开始时的提交。`loopx finish-audit` 使用这个基线把已提交的 `baseline..HEAD` 证据、变更文件和未提交状态写入 `.loopx/finish/<audit-id>/finish-state.json` 的 `audit.change_window`，因此即使执行过程中已经 commit、当前工作区是 clean，finish 的记忆/spec 提取仍有稳定输入。它还会写入用于记忆/spec 审核的草稿 `audit.extraction_candidates`；agent 必须接受或拒绝这些草稿后，才能把 finish choice 记录为 done。
+Finish runtime 命令是给 agent、hooks 和兼容路径使用的高级 plumbing，不是普通用户主路径。`finish-start` 会记录计划执行开始时的提交，`finish-audit` 使用这个基线把已提交的 `baseline..HEAD` 证据、变更文件和未提交状态写入 `.loopx/finish/<audit-id>/finish-state.json` 的 `audit.change_window`，因此即使执行过程中已经 commit、当前工作区是 clean，finish 的记忆/spec 提取仍有稳定输入。它还会写入用于记忆/spec 审核的草稿 `audit.extraction_candidates`；agent 必须接受或拒绝这些草稿后，才能把 finish choice 记录为 done。
 
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
 ### Archive 兼容性
 
-archive 不属于公开 v1 finish 流程。旧 runtime state 仍可能包含 archive 字段，也可能通过隐藏的 `loopx archive <slug>` 兼容命令处理历史状态，但普通用户应通过 `finish` 和上面的公开 finish audit 命令完成工作。
+archive 不属于公开 v1 finish 流程。旧 runtime state 仍可能包含 archive 字段，也可能通过隐藏的 `loopx archive <slug>` 兼容命令处理历史状态，但普通用户应通过 `finish` 完成工作。
 
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 
@@ -133,6 +133,8 @@ loopx install-skills --target all --dry-run
 
 dry-run 检查使用显式 target，避免命令进入交互选择。
 
+安装成功后的输出会列出 targets 和安装到的 skill roots。`loopx install-skills --json` 会输出完整 inspection payload，供脚本和排查使用。
+
 npm postinstall 阶段跳过自动安装：
 
 ```bash
@@ -151,6 +153,14 @@ LOOPX_HOOKS=0 codex
 ```bash
 loopx repair-install
 loopx doctor
+```
+
+撤销已安装文件，移除 loopx 管理的用户级 artifacts：
+
+```bash
+rm -rf ~/.agents/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.claude/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 
 也可以手动运行安装器或交互式选择目标：
@@ -196,16 +206,38 @@ loopx build <slug> [--no-deslop]
 loopx build --from-review <review-report-path> [--no-deslop]
 loopx review <slug> [--reviewer <name>]
 loopx autopilot <slug> [--reviewer <name>]
-loopx finish-start [slug] [--source <path>] [--json]
-loopx finish-audit [slug] [--baseline <git-ref>] [--json]
-loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]
 loopx render [slug|--all]
 loopx status [slug] [--json]
+loopx next <slug> [--json]
 loopx setup-context
 loopx doctor [--json]
 loopx migrate
 loopx repair-install
 ```
+
+高级 runtime 命令：
+
+```bash
+loopx help advanced
+```
+
+这些命令保留给 skills、hooks 和兼容路径。普通用户应跟随 `loopx status`、`loopx next` 和 `$finish`。
+
+## 黄金路径
+
+最小完整首次使用路径：
+
+```bash
+loopx install-skills --target all --dry-run
+loopx install-skills --target all --yes
+loopx doctor
+loopx init --slug my-feature
+loopx clarify my-feature
+loopx status my-feature
+loopx next my-feature
+```
+
+`clarify` 之后，把控制权交给提示的 skill 命令，通常是 `$plan <slug>`。后续继续跟随 `loopx status <slug>` 或 `loopx next <slug>`，直到 `final-review` 和 `$finish` 完成收尾。
 
 ## 治理
 

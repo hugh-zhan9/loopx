@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.2.4"
+  version: "0.2.5"
 ---
 
 # Go Style

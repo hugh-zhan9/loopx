@@ -127,12 +127,11 @@ async function assertPublicDocsAligned() {
     'loopx autopilot',
     'loopx render',
     'loopx status',
+    'loopx next',
     'loopx setup-context',
     'loopx doctor',
     'loopx migrate',
     'loopx repair-install',
-    'loopx finish-audit',
-    'loopx finish-record',
     'node scripts/verify-skills.mjs',
   ];
   for (const command of commands) {
@@ -161,15 +160,19 @@ async function assertPublicDocsAligned() {
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
-  assertContains(readme, 'loopx finish-audit', 'README.md');
-  assertContains(readme, 'loopx finish-record', 'README.md');
+  assertContains(readme, 'Advanced runtime commands', 'README.md');
+  assertContains(readme, 'loopx help advanced', 'README.md');
+  assertContains(readme, 'Undo installed files', 'README.md');
+  assertContains(readme, 'Golden path', 'README.md');
 
   assertContains(readmeZh, '本地 audit ledger', 'README.zh-CN.md');
   assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
   assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
-  assertContains(readmeZh, 'loopx finish-audit', 'README.zh-CN.md');
-  assertContains(readmeZh, 'loopx finish-record', 'README.zh-CN.md');
+  assertContains(readmeZh, '高级 runtime 命令', 'README.zh-CN.md');
+  assertContains(readmeZh, 'loopx help advanced', 'README.zh-CN.md');
+  assertContains(readmeZh, '撤销已安装文件', 'README.zh-CN.md');
+  assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
   for (const required of [
     'Quick start',
     'Human output is the default',
@@ -194,6 +197,8 @@ async function assertPublicDocsAligned() {
   }
   assert.doesNotMatch(readme, /`loopx install-skills --dry-run`/, 'README.md should use explicit dry-run target');
   assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
+  assert.doesNotMatch(readme, /Public finish audit commands:/, 'README.md should not promote finish runtime commands as public primary flow');
+  assert.doesNotMatch(readmeZh, /公开的 finish audit 命令：/, 'README.zh-CN.md should not promote finish runtime commands as public primary flow');
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)

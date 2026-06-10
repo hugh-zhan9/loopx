@@ -31,16 +31,25 @@ function usage() {
     '  loopx build --from-review <review-report-path> [--no-deslop]',
     '  loopx review <slug> [--reviewer <name>]',
     '  loopx autopilot <slug> [--reviewer <name>]',
-    '  loopx finish-start [slug] [--source <path>] [--json]',
-    '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
-    '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
+    '  loopx next <slug> [--json]',
     '  loopx setup-context',
     '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]',
     '  loopx doctor [--json]',
     '  loopx migrate',
     '  loopx repair-install',
+    '',
+    'Advanced runtime commands: loopx help advanced',
+  ].join('\n');
+}
+
+function advancedUsage() {
+  return [
+    'Advanced runtime commands:',
+    '  loopx finish-start [slug] [--source <path>] [--json]',
+    '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
+    '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
   ].join('\n');
 }
 
@@ -118,6 +127,48 @@ function stringOption(options, name) {
   return value;
 }
 
+function blockersForStatus(state) {
+  if (!state) {
+    return [];
+  }
+  const blockers = [];
+  for (const key of ['plan_blockers', 'build_blockers', 'autopilot_blockers']) {
+    if (Array.isArray(state[key])) {
+      blockers.push(...state[key]);
+    }
+  }
+  if (state.current_stage === 'review' && state.review_verdict === 'request-changes') {
+    blockers.push('review_request_changes');
+  }
+  return [...new Set(blockers)];
+}
+
+function nextPayloadFromStatus(status) {
+  const state = status.state || null;
+  const nextSkill = nextSkillCommand(state);
+  const nextCli = nextCliCommand(state);
+  return {
+    next_skill_command: nextSkill,
+    next_cli_command: nextCli,
+    next_action: status.next_action,
+  };
+}
+
+function printNext(status) {
+  const payload = nextPayloadFromStatus(status);
+  if (payload.next_skill_command) {
+    console.log(`next skill: ${payload.next_skill_command}`);
+  }
+  if (payload.next_cli_command) {
+    console.log(`next cli: ${payload.next_cli_command}`);
+  }
+  if (!payload.next_skill_command && !payload.next_cli_command) {
+    console.log(`next: ${payload.next_action}`);
+  }
+  const detailsSlug = status.slug ? ` ${status.slug}` : '';
+  console.log(`details: loopx status${detailsSlug} --json`);
+}
+
 function printHumanStatus(status) {
   if (!status.initialized) {
     console.log('loopx workspace is not initialized.');
@@ -137,79 +188,15 @@ function printHumanStatus(status) {
 
   console.log(`workflow: ${status.slug}`);
   console.log(`contract: ${status.contract}`);
-  console.log(`schema_version: ${status.schema_version}`);
   console.log(`stage: ${status.state?.current_stage ?? '(none)'}`);
-  if (status.state?.current_stage === 'clarify') {
-    console.log(`clarify_round: ${status.state.clarify_current_round}/${status.state.clarify_max_rounds}`);
-    console.log(`clarify_ambiguity_score: ${status.state.clarify_ambiguity_score}`);
-    console.log(`clarify_target_ambiguity_threshold: ${status.state.clarify_target_ambiguity_threshold}`);
-    console.log(`clarify_gates: non_goals=${status.state.clarify_non_goals_resolved} decision_boundaries=${status.state.clarify_decision_boundaries_resolved} pressure_pass=${status.state.clarify_pressure_pass_complete}`);
-  }
-  if (status.state?.current_stage === 'plan') {
-    console.log(`plan_iteration: ${status.state.plan_current_iteration}/${status.state.plan_max_iterations}`);
-    console.log(`plan_consensus_mode: ${status.state.plan_consensus_mode}`);
-    console.log(`plan_deliberate_mode: ${status.state.plan_deliberate_mode}`);
-    console.log(`plan_architect_review_status: ${status.state.plan_architect_review_status}`);
-    console.log(`plan_critic_verdict: ${status.state.plan_critic_verdict}`);
-    console.log(`plan_artifact_status: ${status.state.plan_docs_status}`);
-    console.log(`plan_delegation_mode: ${status.state.plan_delegation_mode ?? 'unknown'}`);
-    console.log(`plan_delegation_recommended_mode: ${status.state.plan_delegation_recommended_mode ?? status.state.plan_delegation_mode ?? 'unknown'}`);
-    console.log(`plan_delegation_actual_mode: ${status.state.plan_delegation_actual_mode ?? 'unknown'}`);
-    console.log(`plan_delegation_authorization_status: ${status.state.plan_delegation_authorization_status ?? 'unknown'}`);
-    console.log(`plan_delegation_decision_path: ${status.state.plan_delegation_decision_path ?? '(none)'}`);
-    console.log(`source_requirements_status: ${status.state.source_requirements_status ?? 'unknown'}`);
-    console.log(`requirement_traceability_path: ${status.state.requirement_traceability_path ?? '(none)'}`);
-    console.log(`plan_blockers: ${Array.isArray(status.state.plan_blockers) && status.state.plan_blockers.length > 0 ? status.state.plan_blockers.join(', ') : '(none)'}`);
-  }
-  if (status.state?.current_stage === 'build') {
-    console.log(`build_iteration: ${status.state.build_current_iteration}/${status.state.build_max_iterations}`);
-    console.log(`build_parallel_mode: ${status.state.build_parallel_mode}`);
-    console.log(`build_verification_status: ${status.state.build_verification_status}`);
-    console.log(`build_architect_verification_status: ${status.state.build_architect_verification_status}`);
-    console.log(`build_deslop_status: ${status.state.build_deslop_status}`);
-    console.log(`build_regression_status: ${status.state.build_regression_status}`);
-    console.log(`context_manifest_status: ${status.state.context_manifest_status ?? 'unknown'}`);
-    console.log(`build_blockers: ${Array.isArray(status.state.build_blockers) && status.state.build_blockers.length > 0 ? status.state.build_blockers.join(', ') : '(none)'}`);
-  }
-  if (status.state?.workspace_journal_path) {
-    console.log(`workspace_journal_path: ${status.state.workspace_journal_path}`);
-  }
-  if (status.state?.change_artifacts_status) {
-    console.log(`change_artifacts_status: ${status.state.change_artifacts_status}`);
-    console.log(`spec_delta_status: ${status.state.spec_delta_status ?? 'unknown'}`);
-    console.log(`spec_sync_status: ${status.state.spec_sync_status ?? 'unknown'}`);
-    console.log(`archive_status: ${status.state.archive_status ?? 'unknown'}`);
-  }
-  if (status.state?.readiness && status.state?.authorization) {
-    for (const key of ['plan', 'build', 'review', 'done', 'archive']) {
-      if (status.state.readiness[key]) {
-        console.log(`readiness_${key}: ${status.state.readiness[key].ready}`);
-      }
-      if (status.state.authorization[key]) {
-        console.log(`authorization_${key}: ${status.state.authorization[key].authorized}`);
-      }
-    }
-  }
+  const blockers = blockersForStatus(status.state);
+  console.log(`blocked: ${blockers.length > 0 ? 'yes' : 'no'}`);
+  console.log(`blockers: ${blockers.length > 0 ? blockers.join(', ') : '(none)'}`);
   if (status.hook) {
     console.log(`hook_enabled: ${status.hook.enabled}`);
   }
-  if (status.state?.autopilot_current_phase && status.state.autopilot_current_phase !== 'none') {
-    console.log(`autopilot_current_phase: ${status.state.autopilot_current_phase}`);
-    console.log(`autopilot_completed: ${status.state.autopilot_completed}`);
-    console.log(`autopilot_blockers: ${Array.isArray(status.state.autopilot_blockers) && status.state.autopilot_blockers.length > 0 ? status.state.autopilot_blockers.join(', ') : '(none)'}`);
-  }
-  console.log(`requested_transition: ${status.state?.requested_transition ?? 'none'}`);
-  console.log(`last_confirmed_transition: ${status.state?.last_confirmed_transition ?? 'none'}`);
-  console.log(`pending_user_decision: ${status.state?.pending_user_decision ?? 'none'}`);
   console.log(`missing artifacts: ${status.missing_artifacts.length > 0 ? status.missing_artifacts.join(', ') : '(none)'}`);
-  const nextSkill = nextSkillCommand(status.state);
-  if (nextSkill) {
-    console.log(`next skill: ${nextSkill}`);
-  }
-  const nextCli = nextCliCommand(status.state);
-  if (nextCli) {
-    console.log(`next cli: ${nextCli}`);
-  }
+  printNext(status);
   console.log(`next: ${status.next_action}`);
 }
 
@@ -316,6 +303,10 @@ async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
   if (command === 'version' || command === '--version' || command === '-v') {
     console.log(packageJson.version);
+    return;
+  }
+  if (command === 'help' && positionals[0] === 'advanced') {
+    console.log(advancedUsage());
     return;
   }
   if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -505,6 +496,16 @@ async function main() {
           console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
         } else {
           printHumanStatus(result);
+        }
+        return;
+      }
+      case 'next': {
+        const result = await statusSummary(process.cwd(), positionals[0]);
+        const payload = { ok: true, command, slug: result.slug ?? null, ...nextPayloadFromStatus(result) };
+        if (options.get('--json')) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          printNext(result);
         }
         return;
       }
