@@ -164,11 +164,9 @@ describe('loopx skill governance', () => {
       'loopx build',
       'loopx review',
       'loopx autopilot',
-      'loopx finish-start',
-      'loopx finish-audit',
-      'loopx finish-record',
       'loopx render',
       'loopx status',
+      'loopx next',
       'loopx setup-context',
       'loopx doctor',
       'loopx migrate',
@@ -207,6 +205,9 @@ describe('loopx skill governance', () => {
       'LOOPX_HOOKS=0',
       'Archive compatibility',
       'archive is not part of the public v1 finish flow',
+      'Advanced runtime commands',
+      'Undo installed files',
+      'Golden path',
     ]) {
       assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
     }
@@ -221,9 +222,14 @@ describe('loopx skill governance', () => {
       'LOOPX_HOOKS=0',
       'Archive 兼容性',
       'archive 不属于公开 v1 finish 流程',
+      '高级 runtime 命令',
+      '撤销已安装文件',
+      '黄金路径',
     ]) {
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
     }
+    assert.doesNotMatch(readme, /Public finish audit commands:/, 'README.md should not promote finish runtime commands as public primary flow');
+    assert.doesNotMatch(readmeZh, /公开的 finish audit 命令：/, 'README.zh-CN.md should not promote finish runtime commands as public primary flow');
     assert.doesNotMatch(readme, /`loopx install-skills --dry-run`/, 'README.md should use explicit dry-run target');
     assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
   });

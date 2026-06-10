@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by presenting merge, PR, keep, or discard options. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.2.4"
+  version: "0.2.5"
 ---
 
 # Finish
