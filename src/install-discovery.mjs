@@ -825,10 +825,18 @@ async function mergeClaudeHookSettings(env = process.env, options = {}) {
   return { settingsPath, hookPath, command };
 }
 
+function assertInstallTargetOptions(requestedTargets, options = {}) {
+  const targets = new Set(requestedTargets);
+  if (options.dir && targets.has('codex') && targets.has('claude')) {
+    throw new Error('install_custom_dir_requires_single_target');
+  }
+}
+
 export async function inspectInstallTargets(env = process.env, options = {}) {
   const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
     ? options.targets
     : ['codex', 'claude'];
+  assertInstallTargetOptions(requestedTargets, options);
   const results = {};
   for (const target of requestedTargets) {
     if (target === 'codex') {
@@ -856,6 +864,7 @@ export async function installSkillsForTargets(env = process.env, options = {}) {
   const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
     ? options.targets
     : ['codex', 'claude'];
+  assertInstallTargetOptions(requestedTargets, options);
   const results = {};
   for (const target of requestedTargets) {
     if (target === 'codex') {
@@ -894,6 +903,7 @@ export async function verifyInstallTargets(env = process.env, options = {}) {
   const requestedTargets = Array.isArray(options.targets) && options.targets.length > 0
     ? options.targets
     : ['codex', 'claude'];
+  assertInstallTargetOptions(requestedTargets, options);
   const results = {};
   for (const target of requestedTargets) {
     if (target === 'codex') {

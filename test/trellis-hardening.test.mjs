@@ -2155,6 +2155,25 @@ describe('trellis-inspired loopx hardening', () => {
     assert.match(claudeReviewHook.stdout, /next: loopx approve stale-review-archive-flow --from review --to done/);
   });
 
+  it('claude workflow hook guides approved review states to done approval', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-claude-hook-approved-review-'));
+    const workflowRoot = join(wd, '.loopx', 'workflows', 'approved-review-flow');
+    await mkdir(workflowRoot, { recursive: true });
+    await writeFile(join(workflowRoot, 'state.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'approved-review-flow',
+      current_stage: 'review',
+      stage_status: 'awaiting-approval',
+      review_verdict: 'approve',
+    }, null, 2)}\n`);
+
+    const input = JSON.stringify({ cwd: wd, workflow: 'approved-review-flow' }).replace(/'/g, "'\\''");
+    const { stdout } = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${claudeWorkflowHookScript}"`], { cwd: wd });
+
+    assert.match(stdout, /next: loopx approve approved-review-flow --from review --to done/);
+    assert.doesNotMatch(stdout, /Legacy runtime review detected/);
+  });
+
   it('workflow hook warns clarify-ready workflows to plan before implementation', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-hook-clarify-plan-'));
     const clarified = await clarifyStage(wd, 'clarify-plan-flow');

@@ -374,6 +374,9 @@ async function main() {
         } else {
           printHumanInstall(payload, { dryRun: Boolean(options.get('--dry-run')) });
         }
+        if (payload.ok === false) {
+          process.exitCode = 1;
+        }
         return;
       }
       case 'clarify': {

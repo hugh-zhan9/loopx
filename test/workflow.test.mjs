@@ -386,6 +386,38 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(claudeSettings.hooks.Stop, undefined);
   });
 
+  it('rejects all-target custom install dir before writing files', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-all-target-custom-dir-'));
+    const customDir = join(home, 'shared-skills');
+    const env = loopxEnv(home);
+
+    let failed = false;
+    try {
+      await execFileAsync(process.execPath, [
+        cliPath,
+        'install-skills',
+        '--target',
+        'all',
+        '--dir',
+        customDir,
+        '--yes',
+        '--json',
+      ], { cwd: repoRoot, env });
+    } catch (error) {
+      failed = true;
+      assert.notEqual(error.code ?? error.exitCode, 0);
+      const payload = JSON.parse(error.stderr);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.command, 'install-skills');
+      assert.match(payload.error, /install_custom_dir_requires_single_target/);
+    }
+    assert.equal(failed, true);
+    assert.equal(existsSync(customDir), false);
+    assert.equal(existsSync(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
+    assert.equal(existsSync(join(home, '.claude', 'settings.json')), false);
+    assert.equal(existsSync(join(home, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), false);
+  });
+
   it('prints install dry-run summary without writing skills or hooks', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-install-dry-run-home-'));
     const env = loopxEnv(home);
@@ -631,6 +663,65 @@ describe('loopx skill-first workflow contract', () => {
       assert.match(String(error.stderr || error.stdout || error), /foreign_or_unowned_target/);
     }
     assert.equal(failed, true);
+  });
+
+  it('install-skills exits nonzero when conflict output is not ok', async () => {
+    async function writeForeignClarify(home) {
+      const foreignSkillDir = join(home, '.agents', 'skills', 'clarify');
+      const lockPath = join(home, '.agents', '.skill-lock.json');
+      await mkdir(foreignSkillDir, { recursive: true });
+      await writeFile(join(foreignSkillDir, 'FOREIGN.txt'), 'foreign skill\n');
+      await writeFile(lockPath, `${JSON.stringify({
+        version: 3,
+        skills: {
+          clarify: {
+            source: 'ForeignVendor',
+            sourceType: 'github',
+            sourceUrl: 'https://example.com/foreign.git',
+            skillPath: 'skills/clarify/SKILL.md',
+            installedPath: foreignSkillDir,
+            installMethod: 'copy',
+            installedAt: '2026-04-29T00:00:00.000Z',
+            updatedAt: '2026-04-29T00:00:00.000Z',
+            skillFolderHash: 'foreign-hash',
+          },
+        },
+      }, null, 2)}\n`);
+    }
+
+    const jsonHome = await mkdtemp(join(tmpdir(), 'loopx-install-cli-json-conflict-'));
+    await writeForeignClarify(jsonHome);
+    let jsonFailed = false;
+    try {
+      await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'codex', '--yes', '--json'], {
+        cwd: repoRoot,
+        env: loopxEnv(jsonHome),
+      });
+    } catch (error) {
+      jsonFailed = true;
+      assert.notEqual(error.code ?? error.exitCode, 0);
+      const payload = JSON.parse(error.stdout);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.command, 'install-skills');
+      assert.equal(payload.results.codex.conflicts.length > 0, true);
+    }
+    assert.equal(jsonFailed, true);
+
+    const humanHome = await mkdtemp(join(tmpdir(), 'loopx-install-cli-human-conflict-'));
+    await writeForeignClarify(humanHome);
+    let humanFailed = false;
+    try {
+      await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'codex', '--yes'], {
+        cwd: repoRoot,
+        env: loopxEnv(humanHome),
+      });
+    } catch (error) {
+      humanFailed = true;
+      assert.notEqual(error.code ?? error.exitCode, 0);
+      assert.match(error.stdout, /^loopx install-skills: attention needed$/m);
+      assert.match(error.stdout, /conflicts: [1-9]/);
+    }
+    assert.equal(humanFailed, true);
   });
 
   it('repair-install does not overwrite foreign same-name skill ownership', async () => {
