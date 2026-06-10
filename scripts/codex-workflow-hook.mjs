@@ -182,7 +182,7 @@ function nextActionLine(state, workflow) {
     return `loopx migrate, then $plan ${state.slug || workflow}`;
   }
   if (isClarifyReadyForPlan(state) && state.approval?.plan !== 'approved') {
-    return `approve clarify -> plan, then $plan ${state.slug || workflow}`;
+    return `finish clarification, then $plan ${state.slug || workflow}`;
   }
   return nextSkill(state) || nextCli(state) || persistedNextAction(state) || 'none';
 }

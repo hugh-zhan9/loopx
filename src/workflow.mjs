@@ -523,23 +523,21 @@ function buildWorkspaceReadme() {
     '',
     '## Default Flow',
     '',
-    '`clarify -> plan -> build -> review -> done`',
+    '`clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish`',
     '',
-    '## Runtime Commands',
+    '## User Commands',
     '',
     '- `loopx init [--slug <slug>]`',
-    '- `loopx clarify <slug>`',
-    '- `loopx approve <slug> --from <stage> --to <stage>`',
-    '- `loopx plan <slug>`',
-    '- `loopx build <slug>`',
-    '- `loopx review <slug> [--reviewer <name>]`',
-    '- `loopx autopilot <slug> [--reviewer <name>]`',
+    '- `loopx clarify <slug> [--standard|--deep] [--json]`',
     '- `loopx render [slug|--all]`',
     '- `loopx status [slug] [--json]`',
+    '- `loopx next <slug> [--json]`',
     '- `loopx setup-context`',
     '- `loopx doctor`',
     '- `loopx migrate`',
     '- `loopx repair-install`',
+    '',
+    'Advanced runtime commands are hidden from the normal path. Use `loopx help advanced` only when debugging runtime compatibility paths.',
     '',
     '## Document Boundaries',
     '',
@@ -548,7 +546,7 @@ function buildWorkspaceReadme() {
     '- `workflows/<slug>/spec.md`',
     '- `workflows/<slug>/plan.md`, `architecture.md`, `development-plan.md`, and `test-plan.md`',
     '- `workflows/<slug>/execution-record.md` and `review-report.md`',
-    '- `views/index.html` and `workflows/<slug>/view/index.html` after `loopx plan` or `loopx render`',
+    '- `views/index.html` and `workflows/<slug>/view/index.html` after planning or `loopx render`',
     '',
     'Documents users may read and edit as workflow fact sources:',
     '',
@@ -3133,8 +3131,8 @@ function recommendedAction(state, legacy = false) {
   switch (state.current_stage) {
     case STAGES.CLARIFY:
       return state.approval.plan === APPROVAL_STATES.APPROVED
-        ? 'Run loopx plan to consume the approved clarify -> plan transition.'
-        : `Resolve ambiguity in ${state.clarify_profile ?? 'standard'} clarify mode and approve clarify -> plan.`;
+        ? `Follow $plan ${state.slug}.`
+        : 'Finish clarification, then follow $plan when ready.';
     case STAGES.PLAN:
       if (Array.isArray(state.plan_blockers) && state.plan_blockers.length > 0) {
         return 'Run loopx plan to continue the planning review loop until architect, critic, and planning artifact blockers are cleared.';
@@ -3525,8 +3523,8 @@ export async function initWorkspace(cwd, { slug, agentDelegation = {} } = {}) {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'skill-first-v1',
-    default_flow: ['clarify', 'plan', 'build', 'review', 'done'],
-    preferred_surface: ['clarify', 'plan', 'build', 'review', 'autopilot'],
+    default_flow: ['clarify', 'plan', 'subagent-exec', 'final-review', 'finish'],
+    preferred_surface: ['clarify', 'plan', 'subagent-exec', 'review', 'final-review', 'fix-review', 'finish'],
     source_of_truth_policy: projectConventions.source_of_truth_policy,
     project_conventions: {
       existing_ai_rules: projectConventions.existing_ai_rules,

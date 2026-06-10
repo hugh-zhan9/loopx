@@ -3,7 +3,7 @@ name: fix-review
 description: "Handles received code review feedback with verification, technical evaluation, pushback, and one-item-at-a-time fixes. Not for requesting a new review or implementing unrelated changes."
 when_to_use: "fix-review, received code review feedback, review comments, reviewer suggestions, requested changes, 处理评审意见"
 metadata:
-  version: "0.2.6"
+  version: "0.2.7"
 ---
 
 # Fix Review

@@ -966,11 +966,16 @@ describe('loopx skill-first workflow contract', () => {
 
     const workspaceRoot = resolveWorkspaceRoot(wd);
     const config = JSON.parse(await readFile(join(workspaceRoot, 'config.json'), 'utf8'));
-    assert.deepEqual(config.default_flow, ['clarify', 'plan', 'build', 'review', 'done']);
-    assert.deepEqual(config.preferred_surface, ['clarify', 'plan', 'build', 'review', 'autopilot']);
+    assert.deepEqual(config.default_flow, ['clarify', 'plan', 'subagent-exec', 'final-review', 'finish']);
+    assert.deepEqual(config.preferred_surface, ['clarify', 'plan', 'subagent-exec', 'review', 'final-review', 'fix-review', 'finish']);
 
     const readme = await readFile(join(workspaceRoot, 'README.md'), 'utf8');
-    assert.match(readme, /clarify -> plan -> build -> review -> done/);
+    assert.match(readme, /clarify -> spec\? -> plan -> \(subagent-exec \| exec\) -> final-review -> fix-review\? -> finish/);
+    assert.doesNotMatch(readme, /loopx plan/);
+    assert.doesNotMatch(readme, /loopx review/);
+    assert.doesNotMatch(readme, /loopx approve/);
+    assert.doesNotMatch(readme, /loopx build/);
+    assert.doesNotMatch(readme, /loopx autopilot/);
     assert.doesNotMatch(readme, /loopx archive/);
   });
 
@@ -3147,7 +3152,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /blocked: no/);
     assert.match(stdout, /missing artifacts: execution-record\.md, review-report\.md/);
     assert.match(stdout, /next skill: \$subagent-exec \.loopx\/plans\/requirements-snapshot-status-flow\.md/);
-    assert.match(stdout, /next cli: loopx build \.loopx\/plans\/requirements-snapshot-status-flow\.md/);
+    assert.doesNotMatch(stdout, /next cli: loopx build \.loopx\/plans\/requirements-snapshot-status-flow\.md/);
     assert.match(stdout, /details: loopx status status-flow --json/);
     assert.doesNotMatch(stdout, /plan_iteration:/);
     assert.doesNotMatch(stdout, /plan_architect_review_status:/);
@@ -3788,7 +3793,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /blocked: no/);
     assert.match(stdout, /missing artifacts: review-report\.md/);
     assert.match(stdout, /next skill: \$review \.loopx\/workflows\/build-status\/execution-record\.md/);
-    assert.match(stdout, /next: Approve build -> review when execution-record\.md is complete\./);
+    assert.match(stdout, /next: Follow \$review \.loopx\/workflows\/build-status\/execution-record\.md\./);
     assert.match(stdout, /details: loopx status build-status --json/);
     assert.doesNotMatch(stdout, /build_iteration:/);
     assert.doesNotMatch(stdout, /build_parallel_mode:/);
@@ -3800,13 +3805,13 @@ describe('loopx skill-first workflow contract', () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-clarify-cli-'));
     const env = loopxEnv(home);
 
-    const { stdout: standardOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'cli-standard'], { cwd: repoRoot, env });
+    const { stdout: standardOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'cli-standard', '--json'], { cwd: repoRoot, env });
     const standard = JSON.parse(standardOut);
     assert.equal(standard.state.clarify_profile, 'standard');
     assert.equal(standard.state.clarify_max_rounds, 15);
     assert.equal(standard.next_skill_command, null);
 
-    const { stdout: deepOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'cli-deep', '--deep'], { cwd: repoRoot, env });
+    const { stdout: deepOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'cli-deep', '--deep', '--json'], { cwd: repoRoot, env });
     const deep = JSON.parse(deepOut);
     assert.equal(deep.state.clarify_profile, 'deep');
     assert.equal(deep.state.clarify_target_ambiguity_threshold, 0.1);
@@ -3964,6 +3969,36 @@ describe('loopx skill-first workflow contract', () => {
     assert.doesNotMatch(stdout, /next cli:/);
   });
 
+  it('CLI clarify prints a human summary by default and preserves JSON detail on request', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-human-'));
+    await initWorkspace(wd, { slug: 'clarify-human' });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'clarify-human'], { cwd: wd });
+    assert.match(stdout, /^workflow: clarify-human$/m);
+    assert.match(stdout, /^stage: clarify$/m);
+    assert.match(stdout, /^blocked: yes$/m);
+    assert.match(stdout, /^open questions: 1$/m);
+    assert.match(stdout, /^first question: What specific task should loopx execute in this workflow\?$/m);
+    assert.match(stdout, /^round: 0\/15$/m);
+    assert.match(stdout, /^intake: \.loopx\/intake\/clarify-clarify-human-/m);
+    assert.match(stdout, /^next skill: \$clarify clarify-human$/m);
+    assert.doesNotMatch(stdout, /^next cli: loopx clarify clarify-human$/m);
+    assert.match(stdout, /^details: loopx clarify clarify-human --json$/m);
+    assert.doesNotMatch(stdout, /"state":/);
+    assert.doesNotMatch(stdout, /archive_status/);
+    assert.doesNotMatch(stdout, /readiness/);
+    assert.doesNotMatch(stdout, /build_/);
+    assert.doesNotMatch(stdout, /autopilot_/);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'clarify-human', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.equal(payload.state.slug, 'clarify-human');
+    assert.equal(payload.state.archive_status, 'pending');
+    assert.equal(payload.state.readiness.plan.ready, false);
+    assert.equal(payload.state.build_verification_status, 'pending');
+    assert.equal(payload.state.autopilot_current_phase, 'none');
+  });
+
   it('CLI status reports blocked clarify readiness and prints fallback next once', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-status-blocked-'));
     await initWorkspace(wd, { slug: 'clarify-blocked' });
@@ -3971,12 +4006,25 @@ describe('loopx skill-first workflow contract', () => {
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-blocked'], { cwd: wd });
     assert.match(stdout, /stage: clarify/);
     assert.match(stdout, /blocked: yes/);
-    assert.match(stdout, /blockers: .*unresolved_ambiguity/);
-    assert.match(stdout, /blockers: .*clarify_current_round_required/);
+    assert.match(stdout, /blockers: .*Resolve open clarification questions/);
+    assert.match(stdout, /blockers: .*Run clarify at least once/);
+    assert.doesNotMatch(stdout, /unresolved_ambiguity/);
+    assert.doesNotMatch(stdout, /clarify_current_round_required/);
+    assert.match(stdout, /missing artifacts: \(none for current stage\)/);
     assert.match(stdout, /next skill: \$clarify clarify-blocked/);
-    assert.match(stdout, /next cli: loopx clarify clarify-blocked/);
+    assert.doesNotMatch(stdout, /next cli: loopx clarify clarify-blocked/);
     assert.equal((stdout.match(/^next:/gm) || []).length, 1);
+    assert.match(stdout, /^next: Finish clarification, then follow \$plan when ready\.$/m);
+    assert.doesNotMatch(stdout, /approve clarify -> plan/);
     assert.doesNotMatch(stdout, /readiness_plan:/);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-blocked', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.match(payload.missing_artifacts.join(', '), /plan\.md/);
+    assert.deepEqual(payload.state.readiness.plan.blockers.slice(0, 2), [
+      'unresolved_ambiguity',
+      'clarify_current_round_required',
+    ]);
   });
 
   it('CLI status hides archive compatibility fields in human output but preserves them in JSON', async () => {
@@ -3997,7 +4045,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(payload.state.readiness.archive.ready, false);
   });
 
-  it('CLI next prints only the next action command and supports JSON', async () => {
+  it('CLI next hides runtime CLI fallbacks in human output but preserves JSON', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-next-command-'));
     const clarified = await clarifyStage(wd, 'next-command');
     await writeResolvedSpec(clarified.root, 'next-command');
@@ -4006,7 +4054,7 @@ describe('loopx skill-first workflow contract', () => {
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-command'], { cwd: wd });
     assert.match(stdout, /^next skill: \$subagent-exec \.loopx\/plans\/requirements-snapshot-next-command\.md$/m);
-    assert.match(stdout, /^next cli: loopx build \.loopx\/plans\/requirements-snapshot-next-command\.md$/m);
+    assert.doesNotMatch(stdout, /^next cli: loopx build \.loopx\/plans\/requirements-snapshot-next-command\.md$/m);
     assert.match(stdout, /^details: loopx status next-command --json$/m);
     assert.doesNotMatch(stdout, /archive_status:/);
     assert.doesNotMatch(stdout, /plan_iteration:/);
@@ -4023,7 +4071,7 @@ describe('loopx skill-first workflow contract', () => {
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-clarify'], { cwd: wd });
     assert.match(stdout, /^next skill: \$clarify next-clarify$/m);
-    assert.match(stdout, /^next cli: loopx clarify next-clarify$/m);
+    assert.doesNotMatch(stdout, /^next cli: loopx clarify next-clarify$/m);
     assert.match(stdout, /^details: loopx status next-clarify --json$/m);
     assert.doesNotMatch(stdout, /^next: Resolve ambiguity/m);
 
@@ -4212,12 +4260,15 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx clarify my-feature/);
     assert.match(help, /loopx status my-feature/);
     assert.match(help, /loopx repair-install/);
-    assert.match(help, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
+    assert.doesNotMatch(help, /loopx plan \[slug\]/);
     assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--dry-run\] \[--json\]/);
     assert.match(help, /loopx next <slug> \[--json\]/);
     assert.doesNotMatch(help, /--direct/);
-    assert.match(help, /loopx build <slug> \[--no-deslop\]/);
-    assert.match(help, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
+    assert.doesNotMatch(help, /loopx approve <slug>/);
+    assert.doesNotMatch(help, /loopx build <slug>/);
+    assert.doesNotMatch(help, /loopx build --from-review/);
+    assert.doesNotMatch(help, /loopx review <slug>/);
+    assert.doesNotMatch(help, /loopx autopilot <slug>/);
     assert.match(help, /Advanced runtime commands: loopx help advanced/);
     assert.doesNotMatch(help, /loopx archive <slug>/);
     assert.doesNotMatch(help, /loopx finish-start/);
@@ -4230,6 +4281,12 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(advancedHelp, /loopx finish-start \[slug\] \[--source <path>\] \[--json\]/);
     assert.match(advancedHelp, /loopx finish-audit \[slug\] \[--baseline <git-ref>\] \[--json\]/);
     assert.match(advancedHelp, /loopx finish-record <audit-id-or-path>/);
+    assert.match(advancedHelp, /loopx approve <slug> --from <stage> --to <stage>/);
+    assert.match(advancedHelp, /loopx plan \[slug\] \[--interactive\] \[--deliberate\]/);
+    assert.match(advancedHelp, /loopx build <slug> \[--no-deslop\]/);
+    assert.match(advancedHelp, /loopx build --from-review <review-report-path> \[--no-deslop\]/);
+    assert.match(advancedHelp, /loopx review <slug> \[--reviewer <name>\]/);
+    assert.match(advancedHelp, /loopx autopilot <slug> \[--reviewer <name>\]/);
     assert.doesNotMatch(advancedHelp, /loopx archive <slug>/);
 
     const { stdout: version } = await execFileAsync(process.execPath, [cliPath, '--version'], { cwd: repoRoot, env });
