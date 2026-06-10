@@ -53,11 +53,19 @@ function findNearestLoopxRuntimeRoot(startCwd) {
 }
 
 function archiveNextActionReplacement(state) {
-  if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.slug) {
-    return `loopx approve ${state.slug} --from review --to done`;
+  const approvedReviewAction = approvedReviewNextAction(state);
+  if (approvedReviewAction) {
+    return approvedReviewAction;
   }
   if (state.current_stage === 'done' || state.current_stage === 'archive' || state.completion_confirmed === true) {
     return '$finish';
+  }
+  return null;
+}
+
+function approvedReviewNextAction(state) {
+  if (state.current_stage === 'review' && state.review_verdict === 'approve' && state.slug) {
+    return `loopx approve ${state.slug} --from review --to done`;
   }
   return null;
 }
@@ -92,6 +100,10 @@ function nextSkill(state) {
   const staleArchiveAction = staleArchiveNextAction(state);
   if (staleArchiveAction) {
     return staleArchiveAction;
+  }
+  const approvedReviewAction = approvedReviewNextAction(state);
+  if (approvedReviewAction) {
+    return approvedReviewAction;
   }
   if (state.current_stage === 'clarify') {
     return 'Use loopx:clarify until material questions are resolved, then route to loopx:spec or loopx:plan.';
