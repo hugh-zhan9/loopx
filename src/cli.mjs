@@ -132,6 +132,16 @@ function blockersForStatus(state) {
     return [];
   }
   const blockers = [];
+  const readinessKey = {
+    clarify: 'plan',
+    plan: 'build',
+    build: 'review',
+    review: 'done',
+  }[state.current_stage];
+  const readinessBlockers = readinessKey ? state.readiness?.[readinessKey]?.blockers : null;
+  if (Array.isArray(readinessBlockers)) {
+    blockers.push(...readinessBlockers);
+  }
   for (const key of ['plan_blockers', 'build_blockers', 'autopilot_blockers']) {
     if (Array.isArray(state[key])) {
       blockers.push(...state[key]);
@@ -140,13 +150,20 @@ function blockersForStatus(state) {
   if (state.current_stage === 'review' && state.review_verdict === 'request-changes') {
     blockers.push('review_request_changes');
   }
+  if (state.stage_status === 'blocked' && blockers.length === 0) {
+    blockers.push('stage_status_blocked');
+  }
   return [...new Set(blockers)];
 }
 
 function nextPayloadFromStatus(status) {
   const state = status.state || null;
-  const nextSkill = nextSkillCommand(state);
-  const nextCli = nextCliCommand(state);
+  let nextSkill = nextSkillCommand(state);
+  let nextCli = nextCliCommand(state);
+  if (!nextSkill && !nextCli && state?.current_stage === 'clarify' && blockersForStatus(state).length > 0) {
+    nextSkill = `$clarify ${state.slug}`;
+    nextCli = `loopx clarify ${state.slug}`;
+  }
   return {
     next_skill_command: nextSkill,
     next_cli_command: nextCli,
@@ -154,7 +171,7 @@ function nextPayloadFromStatus(status) {
   };
 }
 
-function printNext(status) {
+function printNext(status, { fallback = true } = {}) {
   const payload = nextPayloadFromStatus(status);
   if (payload.next_skill_command) {
     console.log(`next skill: ${payload.next_skill_command}`);
@@ -162,7 +179,7 @@ function printNext(status) {
   if (payload.next_cli_command) {
     console.log(`next cli: ${payload.next_cli_command}`);
   }
-  if (!payload.next_skill_command && !payload.next_cli_command) {
+  if (fallback && !payload.next_skill_command && !payload.next_cli_command) {
     console.log(`next: ${payload.next_action}`);
   }
   const detailsSlug = status.slug ? ` ${status.slug}` : '';
@@ -196,7 +213,7 @@ function printHumanStatus(status) {
     console.log(`hook_enabled: ${status.hook.enabled}`);
   }
   console.log(`missing artifacts: ${status.missing_artifacts.length > 0 ? status.missing_artifacts.join(', ') : '(none)'}`);
-  printNext(status);
+  printNext(status, { fallback: false });
   console.log(`next: ${status.next_action}`);
 }
 

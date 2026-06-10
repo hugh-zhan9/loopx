@@ -3964,6 +3964,21 @@ describe('loopx skill-first workflow contract', () => {
     assert.doesNotMatch(stdout, /next cli:/);
   });
 
+  it('CLI status reports blocked clarify readiness and prints fallback next once', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-status-blocked-'));
+    await initWorkspace(wd, { slug: 'clarify-blocked' });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-blocked'], { cwd: wd });
+    assert.match(stdout, /stage: clarify/);
+    assert.match(stdout, /blocked: yes/);
+    assert.match(stdout, /blockers: .*unresolved_ambiguity/);
+    assert.match(stdout, /blockers: .*clarify_current_round_required/);
+    assert.match(stdout, /next skill: \$clarify clarify-blocked/);
+    assert.match(stdout, /next cli: loopx clarify clarify-blocked/);
+    assert.equal((stdout.match(/^next:/gm) || []).length, 1);
+    assert.doesNotMatch(stdout, /readiness_plan:/);
+  });
+
   it('CLI status hides archive compatibility fields in human output but preserves them in JSON', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-status-archive-hidden-'));
     const clarified = await clarifyStage(wd, 'archive-hidden');
@@ -4000,6 +4015,22 @@ describe('loopx skill-first workflow contract', () => {
     const payload = JSON.parse(jsonOut);
     assert.equal(payload.next_skill_command, '$subagent-exec .loopx/plans/requirements-snapshot-next-command.md');
     assert.equal(payload.next_cli_command, 'loopx build .loopx/plans/requirements-snapshot-next-command.md');
+  });
+
+  it('CLI next prioritizes executable commands for blocked clarify workflows', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-next-clarify-blocked-'));
+    await initWorkspace(wd, { slug: 'next-clarify' });
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-clarify'], { cwd: wd });
+    assert.match(stdout, /^next skill: \$clarify next-clarify$/m);
+    assert.match(stdout, /^next cli: loopx clarify next-clarify$/m);
+    assert.match(stdout, /^details: loopx status next-clarify --json$/m);
+    assert.doesNotMatch(stdout, /^next: Resolve ambiguity/m);
+
+    const { stdout: jsonOut } = await execFileAsync(process.execPath, [cliPath, 'next', 'next-clarify', '--json'], { cwd: wd });
+    const payload = JSON.parse(jsonOut);
+    assert.equal(payload.next_skill_command, '$clarify next-clarify');
+    assert.equal(payload.next_cli_command, 'loopx clarify next-clarify');
   });
 
   it('CLI render writes derived HTML views without replacing canonical artifacts', async () => {
