@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review after implementation and staged task review. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, 最终评审"
 metadata:
-  version: "0.2.6"
+  version: "0.2.7"
 ---
 
 # Final Review

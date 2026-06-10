@@ -33,10 +33,11 @@ For the shortest next-step prompt after a workflow exists, run:
 loopx next my-feature
 ```
 
-Human output is the default for first-use commands such as `loopx init`, `loopx doctor`, and `loopx install-skills`. Use `--json` when an agent or script needs the complete runtime payload:
+Human output is the default for first-use commands such as `loopx init`, `loopx clarify`, `loopx status`, `loopx doctor`, and `loopx install-skills`. Use `--json` when an agent or script needs the complete runtime payload:
 
 ```bash
 loopx init --slug my-feature --json
+loopx clarify my-feature --json
 loopx doctor --json
 loopx install-skills --target all --json
 ```
@@ -199,13 +200,7 @@ The CLI supports installation, diagnostics, rendering, and runtime maintenance:
 loopx --version
 loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
-loopx clarify <slug> [--standard|--deep]
-loopx approve <slug> --from <stage> --to <stage>
-loopx plan [slug] [--interactive] [--deliberate]
-loopx build <slug> [--no-deslop]
-loopx build --from-review <review-report-path> [--no-deslop]
-loopx review <slug> [--reviewer <name>]
-loopx autopilot <slug> [--reviewer <name>]
+loopx clarify <slug> [--standard|--deep] [--json]
 loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx next <slug> [--json]
@@ -221,7 +216,7 @@ Advanced runtime commands:
 loopx help advanced
 ```
 
-These commands are kept for skills, hooks, and compatibility paths. Normal users should follow `loopx status`, `loopx next`, and `$finish`.
+These commands are kept for skills, hooks, and compatibility paths. Normal users should follow `loopx status`, `loopx next`, and the suggested skill commands.
 
 ## Golden path
 

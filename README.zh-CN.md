@@ -33,10 +33,11 @@ loopx status my-feature
 loopx next my-feature
 ```
 
-默认输出面向人类，例如 `loopx init`、`loopx doctor` 和 `loopx install-skills`。当 agent 或脚本需要完整 runtime payload 时使用 `--json`：
+默认输出面向人类，例如 `loopx init`、`loopx clarify`、`loopx status`、`loopx doctor` 和 `loopx install-skills`。当 agent 或脚本需要完整 runtime payload 时使用 `--json`：
 
 ```bash
 loopx init --slug my-feature --json
+loopx clarify my-feature --json
 loopx doctor --json
 loopx install-skills --target all --json
 ```
@@ -199,13 +200,7 @@ CLI 用于安装、诊断、渲染和 runtime 维护：
 loopx --version
 loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
-loopx clarify <slug> [--standard|--deep]
-loopx approve <slug> --from <stage> --to <stage>
-loopx plan [slug] [--interactive] [--deliberate]
-loopx build <slug> [--no-deslop]
-loopx build --from-review <review-report-path> [--no-deslop]
-loopx review <slug> [--reviewer <name>]
-loopx autopilot <slug> [--reviewer <name>]
+loopx clarify <slug> [--standard|--deep] [--json]
 loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx next <slug> [--json]
@@ -221,7 +216,7 @@ loopx repair-install
 loopx help advanced
 ```
 
-这些命令保留给 skills、hooks 和兼容路径。普通用户应跟随 `loopx status`、`loopx next` 和 `$finish`。
+这些命令保留给 skills、hooks 和兼容路径。普通用户应跟随 `loopx status`、`loopx next` 和提示的 skill 命令。
 
 ## 黄金路径
 
