@@ -9,7 +9,7 @@ export function nextSkillCommand(state) {
     && state.clarify_decision_boundaries_resolved === true
     && state.clarify_pressure_pass_complete === true
   ) {
-    return `$plan ${state.slug}`;
+    return `$plan-to-exec ${state.slug}`;
   }
   if (state.current_stage === 'done'
     && state.completion_confirmed === true) {
@@ -51,7 +51,7 @@ export function nextSkillCommand(state) {
     && state.review_verdict === 'request-changes'
     && state.requested_transition === 'review->plan'
     && state.approval?.rollback === 'approved') {
-    return `$plan ${state.slug}`;
+    return `$plan-to-exec ${state.slug}`;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'

@@ -3131,8 +3131,8 @@ function recommendedAction(state, legacy = false) {
   switch (state.current_stage) {
     case STAGES.CLARIFY:
       return state.approval.plan === APPROVAL_STATES.APPROVED
-        ? `Follow $plan ${state.slug}.`
-        : 'Finish clarification, then follow $plan when ready.';
+        ? `Follow $plan-to-exec ${state.slug}.`
+        : 'Finish clarification, then follow $plan-to-exec when ready.';
     case STAGES.PLAN:
       if (Array.isArray(state.plan_blockers) && state.plan_blockers.length > 0) {
         return 'Run loopx plan to continue the planning review loop until architect, critic, and planning artifact blockers are cleared.';
@@ -3356,7 +3356,7 @@ function nextCommandForRollbackTarget(slug, target) {
   return [
     'Next:',
     `loopx approve ${slug} --from review --to plan`,
-    `$plan ${slug}`,
+    `$plan-to-exec ${slug}`,
   ].join('\n');
 }
 
@@ -3936,7 +3936,7 @@ export async function planStage(cwd, slug, options = {}) {
     && state.approval.plan === APPROVAL_STATES.APPROVED;
   if (!options.directSpecPath) {
     if (consumesReviewPlan || resumesConsumedReviewPlan || resumesClarifyPlan) {
-      // A no-go review or a blocked planning run may route back to plan; the printed Next command is $plan.
+      // A no-go review or a blocked planning run may route back to plan; the printed Next command is $plan-to-exec.
     } else {
       ensureApprovedTransition(state, TRANSITIONS.CLARIFY_TO_PLAN, 'plan');
     }

@@ -106,10 +106,10 @@ function nextSkill(state) {
     return approvedReviewAction;
   }
   if (state.current_stage === 'clarify') {
-    return 'Use loopx:clarify until material questions are resolved, then route to loopx:spec or loopx:plan.';
+    return 'Use loopx:clarify until material questions are resolved, then route to loopx:spec or loopx:plan-to-exec.';
   }
   if (state.current_stage === 'plan') {
-    return 'For new v1 skill-suite work, prefer loopx:plan writing docs/loopx/plans/*.md.';
+    return 'For new v1 skill-suite work, prefer loopx:plan-to-exec writing docs/loopx/plans/*.md.';
   }
   if (state.current_stage === 'build') {
     return 'Legacy runtime build detected. New v1 execution should use loopx:subagent-exec or loopx:exec from a docs/loopx/plans/*.md plan.';

@@ -15,7 +15,7 @@
 推荐 v1 流程：
 
 ```text
-clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
 ## 快速开始
@@ -44,7 +44,7 @@ loopx install-skills --target all --json
 
 默认 init 路径也可以使用 JSON 输出：`loopx init --json`。
 
-`spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan`。
+`spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan-to-exec`。
 
 ## Skills
 
@@ -54,7 +54,7 @@ loopx install-skills --target all --json
 
 - `clarify`：持续追问直到范围、非目标、约束和决策边界清楚。
 - `spec`：在需要设计决策时写设计文档或轻量 design note。
-- `plan`：按 superpowers `writing-plans` 风格写小步实施计划。
+- `plan-to-exec`：按 superpowers `writing-plans` 风格写小步实施计划。
 - `subagent-exec`：用 fresh subagents 和 staged review 执行已批准计划。
 - `exec`：没有 subagent 或用户选择 inline 时顺序执行计划。
 - `review`：基于 git range 和计划/需求发起独立代码评审。
@@ -159,8 +159,8 @@ loopx doctor
 撤销已安装文件，移除 loopx 管理的用户级 artifacts：
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
-rm -rf ~/.claude/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 
@@ -232,7 +232,7 @@ loopx status my-feature
 loopx next my-feature
 ```
 
-`clarify` 之后，把控制权交给提示的 skill 命令，通常是 `$plan <slug>`。后续继续跟随 `loopx status <slug>` 或 `loopx next <slug>`，直到 `final-review` 和 `$finish` 完成收尾。
+`clarify` 之后，把控制权交给提示的 skill 命令，通常是 `$plan-to-exec <slug>`。后续继续跟随 `loopx status <slug>` 或 `loopx next <slug>`，直到 `final-review` 和 `$finish` 完成收尾。
 
 ## 治理
 

@@ -63,14 +63,14 @@ The Markdown spec must include these sections:
 - `十、排期与规划`
 - `十一、QA`
 
-The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan` may decide without re-opening design and what must return to `clarify` or `spec`.
+The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan-to-exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
 ## Handoff
 
 After the spec is complete, recommend:
 
 ```text
-$plan docs/loopx/design/<需求名>需求设计文档.md
+$plan-to-exec docs/loopx/design/<需求名>需求设计文档.md
 ```
 
-Use `plan` only after the design document is internally consistent and all material requirements questions are resolved.
+Use `plan-to-exec` only after the design document is internally consistent and all material requirements questions are resolved.

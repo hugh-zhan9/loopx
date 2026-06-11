@@ -2188,7 +2188,7 @@ describe('trellis-inspired loopx hardening', () => {
     const { stdout } = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
 
     assert.match(stdout, /stage: clarify/);
-    assert.match(stdout, /next: \$plan clarify-plan-flow/);
+    assert.match(stdout, /next: \$plan-to-exec clarify-plan-flow/);
     assert.match(stdout, /implementation gate: blocked until plan is approved/);
     assert.match(stdout, /do not start build, TDD, or code edits from clarify/);
   });
@@ -2215,7 +2215,7 @@ describe('trellis-inspired loopx hardening', () => {
     const { stdout } = await execFileAsync('/bin/sh', ['-c', `printf '%s' '${input}' | "${process.execPath}" "${workflowHookScript}"`], { cwd: wd });
 
     assert.match(stdout, /stage: legacy-clarify \(blocked\)/);
-    assert.match(stdout, /next: loopx migrate, then \$plan legacy-clarify-flow/);
+    assert.match(stdout, /next: loopx migrate, then \$plan-to-exec legacy-clarify-flow/);
     assert.match(stdout, /implementation gate: blocked until plan is approved/);
     assert.match(stdout, /do not start build, TDD, or code edits from clarify/);
   });

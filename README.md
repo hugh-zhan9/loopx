@@ -15,7 +15,7 @@
 Recommended v1 flow:
 
 ```text
-clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
 ## Quick start
@@ -54,7 +54,7 @@ Core workflow skills:
 
 - `clarify`: interview until scope, non-goals, constraints, and decision boundaries are clear.
 - `spec`: write a design document or lightweight design note when design decisions are required.
-- `plan`: write a bite-sized implementation plan in the superpowers `writing-plans` style.
+- `plan-to-exec`: write a bite-sized implementation plan in the superpowers `writing-plans` style.
 - `subagent-exec`: execute an approved plan with fresh subagents and staged review.
 - `exec`: execute an approved plan inline when subagents are unavailable or not desired.
 - `review`: request independent code review against a git range and plan or requirements.
@@ -159,8 +159,8 @@ loopx doctor
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
-rm -rf ~/.claude/skills/{clarify,spec,plan,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 
@@ -232,7 +232,7 @@ loopx status my-feature
 loopx next my-feature
 ```
 
-After `clarify`, hand control to the suggested skill command, usually `$plan <slug>`. Continue following `loopx status <slug>` or `loopx next <slug>` until `final-review` and `$finish` complete the work.
+After `clarify`, hand control to the suggested skill command, usually `$plan-to-exec <slug>`. Continue following `loopx status <slug>` or `loopx next <slug>` until `final-review` and `$finish` complete the work.
 
 ## Governance
 

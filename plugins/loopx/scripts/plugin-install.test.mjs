@@ -61,9 +61,9 @@ describe('loopx plugin shell', () => {
     }
   });
 
-  it('locks plan as the canonical implementation-planning contract', async () => {
-    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
-    const pluginPlanSkill = await readFile(join(PLUGIN_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
+  it('locks plan-to-exec as the canonical implementation-planning contract', async () => {
+    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const pluginPlanSkill = await readFile(join(PLUGIN_SKILLS_DIR, 'plan-to-exec', 'SKILL.md'), 'utf8');
 
     assert.match(planSkill, /Bite-Sized Task Granularity/);
     assert.match(planSkill, /No Placeholders/);

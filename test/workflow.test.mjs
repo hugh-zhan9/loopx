@@ -355,7 +355,7 @@ describe('loopx skill-first workflow contract', () => {
       cwd: join(home, 'hook-workspace'),
       env,
     });
-    assert.match(hookRun.stdout, /next: \$plan installed-hook-flow/);
+    assert.match(hookRun.stdout, /next: \$plan-to-exec installed-hook-flow/);
     assert.match(hookRun.stdout, /implementation gate: blocked until plan is approved/);
   });
 
@@ -367,8 +367,8 @@ describe('loopx skill-first workflow contract', () => {
       cwd: repoRoot,
       env: codexEnv,
     });
-    assert.equal(existsSync(join(codexCustomDir, 'plan', 'SKILL.md')), true);
-    assert.equal(existsSync(join(codexHome, '.agents', 'skills', 'plan', 'SKILL.md')), false);
+    assert.equal(existsSync(join(codexCustomDir, 'plan-to-exec', 'SKILL.md')), true);
+    assert.equal(existsSync(join(codexHome, '.agents', 'skills', 'plan-to-exec', 'SKILL.md')), false);
     assert.equal(existsSync(join(codexHome, '.codex', 'hooks', 'codex-workflow-hook.mjs')), true);
     assert.equal(existsSync(join(codexHome, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), false);
 
@@ -378,7 +378,7 @@ describe('loopx skill-first workflow contract', () => {
       cwd: repoRoot,
       env: claudeEnv,
     });
-    assert.equal(existsSync(join(claudeHome, '.claude', 'skills', 'plan', 'SKILL.md')), true);
+    assert.equal(existsSync(join(claudeHome, '.claude', 'skills', 'plan-to-exec', 'SKILL.md')), true);
     assert.equal(existsSync(join(claudeHome, '.claude', 'hooks', 'loopx-workflow-hook.mjs')), true);
     assert.equal(existsSync(join(claudeHome, '.codex', 'hooks', 'codex-workflow-hook.mjs')), false);
     const claudeSettings = JSON.parse(await readFile(join(claudeHome, '.claude', 'settings.json'), 'utf8'));
@@ -579,8 +579,8 @@ describe('loopx skill-first workflow contract', () => {
     await execFileAsync(process.execPath, [installScript], { cwd: repoRoot, env });
 
     await writeFile(join(sourceRoot, 'clarify', 'SKILL.md'), 'clarify v2\n');
-    await writeFile(join(sourceRoot, 'plan', 'SKILL.md'), 'plan v2\n');
-    await writeFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'plan user edit\n');
+    await writeFile(join(sourceRoot, 'plan-to-exec', 'SKILL.md'), 'plan v2\n');
+    await writeFile(join(home, '.agents', 'skills', 'plan-to-exec', 'SKILL.md'), 'plan user edit\n');
     await writeFile(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs'), 'user hook edit\n');
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'repair-install'], { cwd: repoRoot, env });
@@ -588,16 +588,16 @@ describe('loopx skill-first workflow contract', () => {
 
     assert.equal(payload.ok, true);
     assert.equal(payload.skipped.some((item) => item.skillName === 'codex-workflow-hook' && item.reason === 'user-modified'), true);
-    assert.equal(payload.skipped.some((item) => item.skillName === 'plan' && item.reason === 'conflict'), true);
+    assert.equal(payload.skipped.some((item) => item.skillName === 'plan-to-exec' && item.reason === 'conflict'), true);
     assert.equal(payload.templateGovernance.summary['conflict'], 1);
     assert.equal(payload.templateGovernance.summary['user-modified'], 1);
     assert.equal(await readFile(join(home, '.agents', 'skills', 'clarify', 'SKILL.md'), 'utf8'), 'clarify v2\n');
-    assert.equal(await readFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'utf8'), 'plan user edit\n');
+    assert.equal(await readFile(join(home, '.agents', 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8'), 'plan user edit\n');
     assert.equal(await readFile(join(home, '.codex', 'hooks', 'codex-workflow-hook.mjs'), 'utf8'), 'user hook edit\n');
 
     const baseline = JSON.parse(await readFile(join(home, '.loopx', 'template-hashes.json'), 'utf8'));
     const clarifyItem = baseline.items.find((item) => item.path === '.agents/skills/clarify/SKILL.md');
-    const planItem = baseline.items.find((item) => item.path === '.agents/skills/plan/SKILL.md');
+    const planItem = baseline.items.find((item) => item.path === '.agents/skills/plan-to-exec/SKILL.md');
     assert.equal(clarifyItem.registry_hash, clarifyItem.hash);
     assert.notEqual(planItem.registry_hash, planItem.hash);
   });
@@ -1410,11 +1410,11 @@ describe('loopx skill-first workflow contract', () => {
     });
     assert.equal(planReview.rollbackTarget, 'plan');
     assert.equal(planReview.state.pending_user_decision, 'review->plan');
-    assert.match(planReview.reviewMessageZh, /\$plan review-targets/);
+    assert.match(planReview.reviewMessageZh, /\$plan-to-exec review-targets/);
     await approveStage(wd, 'review-targets', { from: 'review', to: 'plan' });
     const approvedPlanRollback = await readState(wd, 'review-targets');
     assert.equal(approvedPlanRollback.requested_transition, 'review->plan');
-    assert.equal(nextSkillCommand(approvedPlanRollback), '$plan review-targets');
+    assert.equal(nextSkillCommand(approvedPlanRollback), '$plan-to-exec review-targets');
     const replanned = await planStage(wd, 'review-targets', { adapter: createScriptedPlanAdapter() });
     assert.equal(replanned.state.current_stage, 'plan');
     assert.equal(replanned.state.pending_user_decision, 'plan->build');
@@ -3828,8 +3828,8 @@ describe('loopx skill-first workflow contract', () => {
 
     const payload = withNextSkill({ ok: true, command: 'clarify', root: clarified.root, state }, state);
     assert.equal(payload.command, 'clarify');
-    assert.equal(payload.next_skill_command, '$plan clarify-cli-next');
-    assert.equal(payload.next_skill_hint, 'Next skill: $plan clarify-cli-next');
+    assert.equal(payload.next_skill_command, '$plan-to-exec clarify-cli-next');
+    assert.equal(payload.next_skill_hint, 'Next skill: $plan-to-exec clarify-cli-next');
     assert.equal(payload.next_cli_command, null);
     assert.equal(payload.next_cli_hint, null);
   });
@@ -3965,7 +3965,7 @@ describe('loopx skill-first workflow contract', () => {
     await writeResolvedSpec(clarified.root, 'clarify-status-next');
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'clarify-status-next'], { cwd: wd });
-    assert.match(stdout, /next skill: \$plan clarify-status-next/);
+    assert.match(stdout, /next skill: \$plan-to-exec clarify-status-next/);
     assert.doesNotMatch(stdout, /next cli:/);
   });
 
@@ -4014,7 +4014,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(stdout, /next skill: \$clarify clarify-blocked/);
     assert.doesNotMatch(stdout, /next cli: loopx clarify clarify-blocked/);
     assert.equal((stdout.match(/^next:/gm) || []).length, 1);
-    assert.match(stdout, /^next: Finish clarification, then follow \$plan when ready\.$/m);
+    assert.match(stdout, /^next: Finish clarification, then follow \$plan-to-exec when ready\.$/m);
     assert.doesNotMatch(stdout, /approve clarify -> plan/);
     assert.doesNotMatch(stdout, /readiness_plan:/);
 

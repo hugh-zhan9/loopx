@@ -10,7 +10,7 @@ The v1 product surface is the installed and governed bundled skill suite:
 
 - `clarify`
 - `spec`
-- `plan`
+- `plan-to-exec`
 - `subagent-exec`
 - `exec`
 - `review`
@@ -33,12 +33,12 @@ The repository may retain auxiliary or compatibility skill source directories fo
 Recommended flow:
 
 ```text
-clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
 ```
 
-`spec` is a conditional design gate. `clarify` may route directly to `plan` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
+`spec` is a conditional design gate. `clarify` may route directly to `plan-to-exec` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
 
-`plan` is the superpowers `writing-plans` workflow under the loopx name. It writes executable plans and offers two execution options: `subagent-exec` recommended, or `exec` inline.
+`plan-to-exec` is the superpowers `writing-plans` workflow under the loopx name. It writes executable plans and offers two execution options: `subagent-exec` recommended, or `exec` inline.
 
 `review` is the task or checkpoint code review workflow inside `subagent-exec` or `exec`. `final-review` is the top-level whole-feature runtime, integration, and test-gap review before completion. `fix-review` handles feedback from either review layer.
 

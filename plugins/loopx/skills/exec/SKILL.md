@@ -80,7 +80,7 @@ After all tasks complete and verified:
 ## Integration
 
 **Required workflow skills:**
-- **loopx:plan** - Creates the plan this skill executes
+- **loopx:plan-to-exec** - Creates the plan this skill executes
 - **loopx:final-review** - Final whole-feature runtime and integration risk review
 - **loopx:fix-review** - Handles final-review feedback before finish
 - **loopx:finish** - Complete development after all tasks
