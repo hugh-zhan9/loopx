@@ -175,7 +175,7 @@ describe('loopx skill governance', () => {
     }
     for (const required of [
       'final-review',
-      'clarify -> spec? -> plan -> (subagent-exec | exec) -> final-review -> fix-review? -> finish',
+      'clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish',
     ]) {
       assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
@@ -266,7 +266,7 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(clarify, /Recommended invocation: `\$spec/);
     assert.doesNotMatch(clarify, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
 
-    const plan = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const plan = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     assert.match(plan, /Bite-Sized Task Granularity/);
     assert.match(plan, /No Placeholders/);
     assert.match(plan, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
@@ -278,8 +278,8 @@ describe('loopx skill governance', () => {
 
     const spec = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
     assert.match(spec, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
-    assert.match(spec, /\$plan docs\/loopx\/design\/<需求名>需求设计文档\.md/);
-    assert.doesNotMatch(spec, /\$plan --direct/);
+    assert.match(spec, /\$plan-to-exec docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    assert.doesNotMatch(spec, /\$plan-to-exec --direct/);
 
     const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     assert.match(review, /Dispatch a code reviewer subagent/);
@@ -338,7 +338,7 @@ describe('loopx skill governance', () => {
     }
 
     const subagentDriven = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
-    for (const skillName of ['plan', 'review', 'final-review', 'finish', 'tdd', 'exec']) {
+    for (const skillName of ['plan-to-exec', 'review', 'final-review', 'finish', 'tdd', 'exec']) {
       assert.match(subagentDriven, new RegExp(`loopx:${skillName}`), `subagent-exec must reference loopx:${skillName}`);
       assert.doesNotMatch(subagentDriven, new RegExp(`superpowers:${skillName}`), `subagent-exec still references superpowers:${skillName}`);
     }

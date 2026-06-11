@@ -22,7 +22,7 @@
 
 - [ ] Rename canonical superpowers-derived skills to v1 names.
 - [ ] Remove old runtime workflow skills from the bundled install list.
-- [ ] Keep `plan` as the canonical implementation-planning skill.
+- [ ] Keep `plan-to-exec` as the canonical implementation-planning skill.
 - [ ] Mirror all bundled v1 canonical skill files into `plugins/loopx/skills/`.
 - [ ] Update internal references from old names to new `loopx:` names.
 - [ ] Keep auxiliary or compatibility skill sources outside the bundled install list unless explicitly promoted into the v1 product surface.

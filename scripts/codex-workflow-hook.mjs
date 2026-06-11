@@ -32,7 +32,7 @@ function nextSkill(state) {
     return null;
   }
   if (isClarifyReadyForPlan(state)) {
-    return `$plan ${state.slug}`;
+    return `$plan-to-exec ${state.slug}`;
   }
   if (state.current_stage === 'done'
     && state.completion_confirmed === true) {
@@ -74,7 +74,7 @@ function nextSkill(state) {
     && state.review_verdict === 'request-changes'
     && state.requested_transition === 'review->plan'
     && state.approval?.rollback === 'approved') {
-    return `$plan ${state.slug}`;
+    return `$plan-to-exec ${state.slug}`;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'
@@ -179,10 +179,10 @@ function isLegacyClarifyState(state) {
 
 function nextActionLine(state, workflow) {
   if (isLegacyClarifyState(state) && isClarifyReadyForPlan(state)) {
-    return `loopx migrate, then $plan ${state.slug || workflow}`;
+    return `loopx migrate, then $plan-to-exec ${state.slug || workflow}`;
   }
   if (isClarifyReadyForPlan(state) && state.approval?.plan !== 'approved') {
-    return `finish clarification, then $plan ${state.slug || workflow}`;
+    return `finish clarification, then $plan-to-exec ${state.slug || workflow}`;
   }
   return nextSkill(state) || nextCli(state) || persistedNextAction(state) || 'none';
 }

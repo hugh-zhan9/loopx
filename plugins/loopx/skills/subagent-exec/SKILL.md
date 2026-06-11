@@ -283,7 +283,7 @@ Done!
 
 **Required workflow skills:**
 
-- **loopx:plan** - Creates the plan this skill executes
+- **loopx:plan-to-exec** - Creates the plan this skill executes
 - **loopx:review** - Code review template for reviewer subagents
 - **loopx:final-review** - Final whole-feature runtime and integration risk review
 - **loopx:finish** - Complete development after all tasks

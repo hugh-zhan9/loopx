@@ -687,7 +687,7 @@ erDiagram
 - 推荐下一步：
 
 ```text
-$plan docs/loopx/design/finish学习审计需求设计文档.md
+$plan-to-exec docs/loopx/design/finish学习审计需求设计文档.md
 ```
 
 ## 十一、QA

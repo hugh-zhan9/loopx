@@ -63,10 +63,10 @@ For `needs_spec`, immediately use the `spec` skill with the clarification contex
 Then stop before implementation planning and report:
 
 ```text
-$plan docs/loopx/design/<需求名>需求设计文档.md
+$plan-to-exec docs/loopx/design/<需求名>需求设计文档.md
 ```
 
-For `direct_to_plan`, hand off to the `plan` skill with the clarification context bundle as the source. `plan` writes:
+For `direct_to_plan`, hand off to the `plan-to-exec` skill with the clarification context bundle as the source. `plan-to-exec` writes:
 
 - `docs/loopx/plans/YYYY-MM-DD-<feature-name>.md`
 

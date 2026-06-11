@@ -272,10 +272,10 @@ function humanMissingArtifactsText(status) {
 function humanNextAction(status) {
   const state = status.state || null;
   if (state?.current_stage === 'clarify') {
-    if (nextSkillCommand(state)?.startsWith('$plan ')) {
-      return `Follow $plan ${state.slug}.`;
+    if (nextSkillCommand(state)?.startsWith('$plan-to-exec ')) {
+      return `Follow $plan-to-exec ${state.slug}.`;
     }
-    return 'Finish clarification, then follow $plan when ready.';
+    return 'Finish clarification, then follow $plan-to-exec when ready.';
   }
   const payload = nextPayloadFromStatus(status, { human: true });
   if (payload.next_skill_command) {

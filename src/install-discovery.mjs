@@ -17,7 +17,7 @@ const PROJECT_ROOT = resolve(MODULE_DIR, '..');
 const LOOPX_SKILLS = [
   'clarify',
   'spec',
-  'plan',
+  'plan-to-exec',
   'subagent-exec',
   'exec',
   'review',

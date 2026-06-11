@@ -1,13 +1,13 @@
 ---
-name: plan
+name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
-when_to_use: "plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
+when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
   version: "0.2.7"
 argument-hint: "<design spec path or feature name>"
 ---
 
-# loopx Plan
+# loopx Plan-To-Exec
 
 ## Overview
 
@@ -23,7 +23,7 @@ Use this skill after requirements are clear. The source may be:
 
 Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
 
-**Announce at start:** "I'm using the plan skill to create the implementation plan."
+**Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
 **Save plans to:** `docs/loopx/plans/YYYY-MM-DD-<feature-name>.md`
 
