@@ -176,6 +176,8 @@ describe('loopx skill governance', () => {
     for (const required of [
       'final-review',
       'clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish',
+      '--add-agent-guidance',
+      'Repo Specs And Memory',
     ]) {
       assert.match(readme, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.md`);
       assert.match(readmeZh, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} missing from README.zh-CN.md`);
@@ -184,6 +186,8 @@ describe('loopx skill governance', () => {
       '.loopx/memory/MEMORY.md',
       '.loopx/memory/index.jsonl',
       'docs/loopx/specs/',
+      'docs/loopx/specs/ is binding long-lived repo context',
+      '.loopx/memory/MEMORY.md is advisory curated memory',
       'baseline..HEAD',
       'change_window',
     ]) {
@@ -280,6 +284,18 @@ describe('loopx skill governance', () => {
     assert.match(spec, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
     assert.match(spec, /\$plan-to-exec docs\/loopx\/design\/<需求名>需求设计文档\.md/);
     assert.doesNotMatch(spec, /\$plan-to-exec --direct/);
+
+    for (const [skillName, text] of [
+      ['clarify', clarify],
+      ['spec', spec],
+      ['plan', plan],
+    ]) {
+      assert.match(text, /Repo Specs And Memory Context/, `${skillName} missing repo context rule`);
+      assert.match(text, /docs\/loopx\/specs\//, `${skillName} missing loopx specs guidance`);
+      assert.match(text, /\.loopx\/memory\/MEMORY\.md/, `${skillName} missing memory summary guidance`);
+      assert.match(text, /Memory is advisory/, `${skillName} missing memory priority guidance`);
+      assert.doesNotMatch(text, /must read every file under `docs\/loopx\/specs\/`/i);
+    }
 
     const review = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     assert.match(review, /Dispatch a code reviewer subagent/);

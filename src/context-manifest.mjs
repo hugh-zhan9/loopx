@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 
+import { discoverLoopxContextArtifacts } from './loopx-context-artifacts.mjs';
 import { inspectWorkspaceContext, resolveWorkspaceContextPaths } from './workspace-context.mjs';
 
 export const CONTEXT_MANIFEST_SCHEMA_VERSION = 1;
@@ -62,6 +63,53 @@ function stableRows(rows) {
       || left.path.localeCompare(right.path)
     ))
     .slice(0, MAX_MANIFEST_ROWS);
+}
+
+async function loopxRepoContextRows(cwd, stage, priorityStart) {
+  const artifacts = await discoverLoopxContextArtifacts(cwd);
+  const rows = [];
+  let priority = priorityStart;
+  if (artifacts.specsRoot) {
+    rows.push(row(cwd, {
+      stage,
+      kind: 'repo-specs',
+      path: artifacts.specsRoot,
+      reason: 'long_lived_loopx_specs_directory',
+      priority: priority++,
+      required: false,
+    }));
+  }
+  for (const spec of artifacts.specFiles) {
+    rows.push(row(cwd, {
+      stage,
+      kind: 'repo-spec',
+      path: spec.path,
+      reason: 'long_lived_loopx_spec',
+      priority: priority++,
+      required: false,
+    }));
+  }
+  if (artifacts.memorySummary) {
+    rows.push(row(cwd, {
+      stage,
+      kind: 'memory-summary',
+      path: artifacts.memorySummary.path,
+      reason: 'curated_loopx_project_memory',
+      priority: priority++,
+      required: false,
+    }));
+  }
+  if (artifacts.memoryIndex) {
+    rows.push(row(cwd, {
+      stage,
+      kind: 'memory-index',
+      path: artifacts.memoryIndex.path,
+      reason: 'curated_loopx_memory_retrieval_index',
+      priority: priority++,
+      required: false,
+    }));
+  }
+  return rows;
 }
 
 export async function writeContextManifest(path, rows) {
@@ -141,6 +189,7 @@ export async function generateBuildContextManifest({ cwd, root, state, slug }) {
     row(cwd, { stage: 'build', kind: 'domain-context', path: contextPaths.domainGlossary, reason: 'domain_vocabulary', priority: 34, required: contextSetup.status !== 'missing' }),
     row(cwd, { stage: 'build', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 35, required: false }),
     row(cwd, { stage: 'build', kind: 'workspace-config', path: join(cwd, '.loopx', 'config.json'), reason: 'project_rules_spec_sources_and_verification_commands', priority: 36, required: false }),
+    ...await loopxRepoContextRows(cwd, 'build', 37),
   ];
   const manifestPath = buildContextManifestPath(root);
   await writeContextManifest(manifestPath, rows);
@@ -163,7 +212,8 @@ export async function generateReviewContextManifest({ cwd, root, state, slug }) 
     row(cwd, { stage: 'review', kind: 'build-support', path: join(root, 'build-support'), reason: 'build_gate_evidence', priority: 30, required: false }),
     row(cwd, { stage: 'review', kind: 'agent-domain', path: contextPaths.agentDomain, reason: 'agent_context_rules', priority: 31, required: false }),
     row(cwd, { stage: 'review', kind: 'workspace-config', path: join(cwd, '.loopx', 'config.json'), reason: 'project_rules_spec_sources_and_verification_commands', priority: 32, required: false }),
-    row(cwd, { stage: 'review', kind: 'state', path: join(root, 'state.json'), reason: 'workflow_state', priority: 40 }),
+    ...await loopxRepoContextRows(cwd, 'review', 33),
+    row(cwd, { stage: 'review', kind: 'state', path: join(root, 'state.json'), reason: 'workflow_state', priority: 60 }),
   ];
   const manifestPath = reviewContextManifestPath(root);
   await writeContextManifest(manifestPath, rows);

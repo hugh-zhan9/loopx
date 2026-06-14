@@ -49,6 +49,18 @@ const LOOPX_MANAGED_SCRIPT_ITEMS = [
     targetRelativePath: '.claude/hooks/loopx-workflow-hook.mjs',
   },
 ];
+const LOOPX_AGENT_GUIDANCE_BLOCK_ID = 'specs-and-memory-context';
+const LOOPX_AGENT_GUIDANCE_HEADING = '## loopx Specs And Memory';
+const LOOPX_AGENT_GUIDANCE_CONTENT = [
+  LOOPX_AGENT_GUIDANCE_HEADING,
+  '',
+  'When working in a repository that uses loopx:',
+  '',
+  '- If `docs/loopx/specs/` exists, inspect relevant specs before clarify, spec, plan, implementation, or review. Use `docs/loopx/specs/index.md` as a map when present, but do not require it.',
+  '- If `.loopx/memory/MEMORY.md` exists, read it as curated project memory.',
+  '- If `.loopx/memory/index.jsonl` exists, use it only to find relevant active memory cards.',
+  '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
+].join('\n');
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
   {
     name: 'loopx-plugin-manifest',
@@ -126,6 +138,19 @@ export function getClaudeSkillsRoot(env = process.env) {
 export function getClaudeSettingsPath(env = process.env) {
   const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
   return resolve(env.LOOPX_CLAUDE_SETTINGS_PATH || join(home, '.claude', 'settings.json'));
+}
+
+export function getCodexAgentsPath(env = process.env) {
+  const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+  return resolve(env.LOOPX_CODEX_AGENTS_PATH || join(home, '.codex', 'AGENTS.md'));
+}
+
+export function getClaudeAgentsPath(env = process.env, options = {}) {
+  if (options.project === true) {
+    return resolve(env.LOOPX_INSTALL_CWD || process.cwd(), 'CLAUDE.md');
+  }
+  const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
+  return resolve(env.LOOPX_CLAUDE_AGENTS_PATH || join(home, '.claude', 'CLAUDE.md'));
 }
 
 export function getSkillLockPath(env = process.env) {
@@ -454,6 +479,85 @@ async function removeInstalledFile(path) {
   await rm(path, { force: true });
 }
 
+function managedBlockMarkers(id) {
+  return {
+    start: `<!-- loopx:managed:block ${id} -->`,
+    end: `<!-- /loopx:managed:block ${id} -->`,
+  };
+}
+
+function renderManagedBlock(id, content) {
+  const markers = managedBlockMarkers(id);
+  return `${markers.start}\n${content.trim()}\n${markers.end}`;
+}
+
+function managedBlockPattern(id) {
+  const escaped = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`<!--\\s*loopx:managed:block\\s+${escaped}\\s*-->[\\s\\S]*?<!--\\s*\\/loopx:managed:block\\s+${escaped}\\s*-->`);
+}
+
+function upsertManagedBlock(existing, id, content) {
+  const nextBlock = renderManagedBlock(id, content);
+  const pattern = managedBlockPattern(id);
+  if (pattern.test(existing)) {
+    const nextContent = existing.replace(pattern, nextBlock);
+    return {
+      content: nextContent,
+      changed: nextContent !== existing,
+      existed: true,
+    };
+  }
+  const trimmed = existing.trimEnd();
+  const contentWithBlock = trimmed
+    ? `${trimmed}\n\n${nextBlock}\n`
+    : `${nextBlock}\n`;
+  return {
+    content: contentWithBlock,
+    changed: true,
+    existed: false,
+  };
+}
+
+export async function installAgentGuidanceFile(path, options = {}) {
+  const content = options.content || LOOPX_AGENT_GUIDANCE_CONTENT;
+  const id = options.id || LOOPX_AGENT_GUIDANCE_BLOCK_ID;
+  const existing = existsSync(path) ? await readFile(path, 'utf8') : '';
+  const existed = existsSync(path);
+  const next = upsertManagedBlock(existing, id, content);
+  if (!next.changed) {
+    return { status: 'already-current', path };
+  }
+  await ensureDir(dirname(path));
+  await writeFile(path, `${next.content.replace(/\s+$/, '')}\n`);
+  return {
+    status: next.existed ? 'updated' : (existed ? 'installed' : 'created'),
+    path,
+  };
+}
+
+function agentGuidanceEnabled(options = {}) {
+  return Boolean(options.agentGuidance || options.codexAgentsGuidance);
+}
+
+export async function installAgentGuidance(env = process.env, options = {}) {
+  const target = options.target || env.LOOPX_INSTALL_TARGET || 'codex';
+  const enabled = agentGuidanceEnabled(options);
+  const result = {};
+  if (target === 'codex' || target === 'all') {
+    const path = getCodexAgentsPath(env);
+    result.codex = enabled
+      ? await installAgentGuidanceFile(path)
+      : { status: 'recommended', path };
+  }
+  if (target === 'claude' || target === 'all') {
+    const path = getClaudeAgentsPath(env, options);
+    result.claude = enabled
+      ? await installAgentGuidanceFile(path)
+      : { status: 'recommended', path };
+  }
+  return result;
+}
+
 async function canonicalTargetOwnership(skillName, env = process.env, options = {}) {
   const targetDir = installedSkillDir(skillName, env);
   const sourceDir = skillSourceDir(skillName, env, options.skillSourceRoot);
@@ -736,11 +840,16 @@ export async function installBundledSkills(env = process.env, options = {}) {
     items: nextTemplateItems,
   });
   const templateGovernance = await inspectTemplateGovernance(baselinePath);
+  const agentGuidance = await installAgentGuidance(env, {
+    ...options,
+    target: options.target || env.LOOPX_INSTALL_TARGET || 'codex',
+  });
   return {
     ok: conflicts.length === 0,
     installed,
     conflicts,
     skipped,
+    agentGuidance,
     templateGovernance,
     inspection: await inspectInstallState(env),
   };

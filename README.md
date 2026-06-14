@@ -86,6 +86,16 @@ For the v1 skill-suite workflow, human-maintained artifacts live under `docs/loo
 
 `docs/loopx/memory/` stores git-tracked shared memory for lightweight project knowledge that should follow a user across machines but is not stable enough to become a spec.
 
+### Repo Specs And Memory
+
+`docs/loopx/specs/` is binding long-lived repo context. Workflow skills read relevant specs before clarification, design, planning, build, and review work. Specs define durable repo rules and constraints; they are stronger than local memory and should be updated through reviewed workflow changes.
+
+Summary: docs/loopx/specs/ is binding long-lived repo context; .loopx/memory/MEMORY.md is advisory curated memory.
+
+`docs/loopx/specs/index.md` is optional. When present, agents use it only as a map for retrieval and prioritization; the directory remains valid without an index.
+
+`.loopx/memory/MEMORY.md` is advisory curated memory. It summarizes useful project knowledge, but must not override current user instructions, approved source documents, or binding specs. `.loopx/memory/index.jsonl` is optional and retrieval-only: it helps agents find relevant active memory cards and is not an append-only log.
+
 `finish` may generate spec candidates in `docs/loopx/specs/` when completed work produces stable team rules. These candidates are repo-tracked and must remain visible in the git diff.
 
 `finish` also writes a local audit ledger under `.loopx/finish/<audit-id>/`. `none` means the work was audited, but it did not produce a durable learning candidate. Choice recording lives in that local finish audit directory, while repo-tracked spec candidates stay in `docs/loopx/specs/`.
@@ -100,7 +110,7 @@ archive is not part of the public v1 finish flow. Older runtime state may still 
 
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
-Local agent memory lives under `.loopx/memory/`:
+Local advisory agent memory lives under `.loopx/memory/`:
 
 - `.loopx/memory/MEMORY.md`
 - `.loopx/memory/index.jsonl`
@@ -171,10 +181,13 @@ loopx install-skills
 loopx install-skills --target codex
 loopx install-skills --target claude
 loopx install-skills --target claude --project
+loopx install-skills --target all --add-agent-guidance
 loopx install-skills --target all --yes
 ```
 
-Claude project install writes to the current repository's `.claude/skills/` and `.claude/settings.json`.
+Agent guidance is opt-in. `--add-agent-guidance` writes a loopx managed block that tells agents to read Repo Specs And Memory context. For Codex user installs it writes to `~/.codex/AGENTS.md`; for Claude user installs it writes to `~/.claude/CLAUDE.md`; for Claude project installs it writes to the current repo's `CLAUDE.md`. User content outside the managed block is preserved.
+
+Claude project install writes skills and settings to the current repository's `.claude/skills/` and `.claude/settings.json`.
 
 ## Codex Plugin
 
@@ -198,7 +211,7 @@ The CLI supports installation, diagnostics, rendering, and runtime maintenance:
 
 ```bash
 loopx --version
-loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
+loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
 loopx clarify <slug> [--standard|--deep] [--json]
 loopx render [slug|--all]

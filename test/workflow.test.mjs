@@ -386,6 +386,85 @@ describe('loopx skill-first workflow contract', () => {
     assert.equal(claudeSettings.hooks.Stop, undefined);
   });
 
+  it('installs optional user agent guidance without overwriting user content', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-agent-guidance-'));
+    const env = loopxEnv(home);
+    const codexAgentsPath = join(home, '.codex', 'AGENTS.md');
+    const claudeAgentsPath = join(home, '.claude', 'CLAUDE.md');
+
+    await mkdir(join(home, '.codex'), { recursive: true });
+    await writeFile(codexAgentsPath, '# User Codex Guidance\n\nKeep my notes.\n');
+
+    const withoutOptIn = await installBundledSkills(env, { target: 'codex' });
+    assert.equal(withoutOptIn.agentGuidance.codex.status, 'recommended');
+    assert.equal(await readFile(codexAgentsPath, 'utf8'), '# User Codex Guidance\n\nKeep my notes.\n');
+
+    const withCodexGuidance = await installBundledSkills(env, { target: 'codex', agentGuidance: true });
+    assert.equal(withCodexGuidance.agentGuidance.codex.status, 'installed');
+    const codexGuidance = await readFile(codexAgentsPath, 'utf8');
+    assert.match(codexGuidance, /# User Codex Guidance/);
+    assert.match(codexGuidance, /Keep my notes\./);
+    assert.match(codexGuidance, /<!-- loopx:managed:block specs-and-memory-context -->/);
+    assert.match(codexGuidance, /## loopx Specs And Memory/);
+    assert.match(codexGuidance, /docs\/loopx\/specs\//);
+    assert.match(codexGuidance, /\.loopx\/memory\/MEMORY\.md/);
+    assert.match(codexGuidance, /memory as advisory context/);
+    assert.doesNotMatch(codexGuidance, /docs\/loopx\/plans\//);
+
+    const withCodexGuidanceAgain = await installBundledSkills(env, { target: 'codex', agentGuidance: true });
+    assert.equal(withCodexGuidanceAgain.agentGuidance.codex.status, 'already-current');
+    const codexGuidanceAgain = await readFile(codexAgentsPath, 'utf8');
+    assert.equal(codexGuidanceAgain, codexGuidance);
+    assert.equal(codexGuidanceAgain.match(/## loopx Specs And Memory/g).length, 1);
+
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(claudeAgentsPath, '# User Claude Guidance\n\nKeep Claude notes.\n');
+    const withClaudeGuidance = await installBundledSkills(env, { target: 'claude', agentGuidance: true });
+    assert.equal(withClaudeGuidance.agentGuidance.claude.status, 'installed');
+    const claudeGuidance = await readFile(claudeAgentsPath, 'utf8');
+    assert.match(claudeGuidance, /# User Claude Guidance/);
+    assert.match(claudeGuidance, /Keep Claude notes\./);
+    assert.match(claudeGuidance, /<!-- loopx:managed:block specs-and-memory-context -->/);
+    assert.match(claudeGuidance, /## loopx Specs And Memory/);
+    assert.match(claudeGuidance, /docs\/loopx\/specs\//);
+    assert.match(claudeGuidance, /\.loopx\/memory\/MEMORY\.md/);
+
+    const cliHome = await mkdtemp(join(tmpdir(), 'loopx-agent-guidance-cli-'));
+    const cliEnv = loopxEnv(cliHome);
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'install-skills', '--target', 'all', '--yes', '--add-agent-guidance', '--json'], {
+      cwd: repoRoot,
+      env: cliEnv,
+    });
+    const payload = JSON.parse(stdout);
+    assert.equal(payload.results.codex.agentGuidance.codex.status, 'created');
+    assert.equal(payload.results.claude.agentGuidance.claude.status, 'created');
+    assert.equal(existsSync(join(cliHome, '.codex', 'AGENTS.md')), true);
+    assert.equal(existsSync(join(cliHome, '.claude', 'CLAUDE.md')), true);
+    assert.match(await readFile(join(cliHome, '.codex', 'AGENTS.md'), 'utf8'), /<!-- loopx:managed:block specs-and-memory-context -->/);
+    assert.match(await readFile(join(cliHome, '.claude', 'CLAUDE.md'), 'utf8'), /<!-- loopx:managed:block specs-and-memory-context -->/);
+
+    const projectHome = await mkdtemp(join(tmpdir(), 'loopx-agent-guidance-project-home-'));
+    const projectRoot = await mkdtemp(join(tmpdir(), 'loopx-agent-guidance-project-root-'));
+    const projectEnv = loopxEnv(projectHome);
+    const { stdout: projectStdout } = await execFileAsync(process.execPath, [
+      cliPath,
+      'install-skills',
+      '--target',
+      'claude',
+      '--project',
+      '--yes',
+      '--add-agent-guidance',
+      '--json',
+    ], {
+      cwd: projectRoot,
+      env: projectEnv,
+    });
+    const projectPayload = JSON.parse(projectStdout);
+    assert.equal(projectPayload.results.claude.agentGuidance.claude.status, 'created');
+    assert.equal(existsSync(join(projectRoot, 'CLAUDE.md')), true);
+    assert.match(await readFile(join(projectRoot, 'CLAUDE.md'), 'utf8'), /<!-- loopx:managed:block specs-and-memory-context -->/);
+  });
+
   it('rejects all-target custom install dir before writing files', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-all-target-custom-dir-'));
     const customDir = join(home, 'shared-skills');
@@ -895,6 +974,8 @@ describe('loopx skill-first workflow contract', () => {
     await mkdir(join(wd, '.github'), { recursive: true });
     await writeFile(join(wd, '.github', 'copilot-instructions.md'), '# Copilot rules\n');
     await mkdir(join(wd, 'docs', 'changes'), { recursive: true });
+    await mkdir(join(wd, 'docs', 'loopx', 'specs'), { recursive: true });
+    await writeFile(join(wd, 'docs', 'loopx', 'specs', 'workflow.md'), '# Workflow spec\n');
     await writeFile(join(wd, 'package.json'), `${JSON.stringify({
       scripts: {
         test: 'node --test test/*.test.mjs',
@@ -921,7 +1002,7 @@ describe('loopx skill-first workflow contract', () => {
     );
     assert.deepEqual(
       config.project_conventions.existing_spec_sources.map((item) => item.path),
-      ['docs/changes'],
+      ['docs/changes', 'docs/loopx/specs'],
     );
     assert.equal(config.source_of_truth_policy, 'preserve-existing-project-rules-and-use-loopx-artifacts-only-after-init');
     assert.equal(config.verification_commands.install, 'npm ci');
@@ -4261,7 +4342,7 @@ describe('loopx skill-first workflow contract', () => {
     assert.match(help, /loopx status my-feature/);
     assert.match(help, /loopx repair-install/);
     assert.doesNotMatch(help, /loopx plan \[slug\]/);
-    assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--yes\] \[--dry-run\] \[--json\]/);
+    assert.match(help, /loopx install-skills \[--target <codex\|claude\|all>\] \[--project\] \[--mode <copy\|symlink>\] \[--dir <path>\] \[--add-agent-guidance\] \[--yes\] \[--dry-run\] \[--json\]/);
     assert.match(help, /loopx next <slug> \[--json\]/);
     assert.doesNotMatch(help, /--direct/);
     assert.doesNotMatch(help, /loopx approve <slug>/);

@@ -20,6 +20,7 @@ import { inspectProjectConventions } from './project-discovery.mjs';
 import { createDefaultReviewAdapter } from './review-runtime.mjs';
 import { appendWorkspaceJournal } from './workspace-memory.mjs';
 import { inspectWorkspaceContext, setupWorkspaceContext } from './workspace-context.mjs';
+import { discoverLoopxContextArtifacts } from './loopx-context-artifacts.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_SCHEMA_VERSION = 1;
@@ -325,9 +326,6 @@ function compactPlanningText(text, { html = false } = {}) {
 async function readPlanSourceText(cwd, state, sourceSpecPath) {
   const sourceText = await readFile(sourceSpecPath, 'utf8');
   const sourceDocumentPaths = sourceDocumentPathsFromSpecAndState(sourceSpecPath, sourceText, state);
-  if (sourceDocumentPaths.length === 0) {
-    return { sourceText, sourceDocumentPaths: [] };
-  }
 
   const parts = [sourceText.trimEnd()];
   const loaded = [];
@@ -350,10 +348,56 @@ async function readPlanSourceText(cwd, state, sourceSpecPath) {
       break;
     }
   }
+  const repoContext = await readLoopxRepoContextText(cwd, sourceSpecPath);
+  if (repoContext.text) {
+    parts.push(repoContext.text);
+    loaded.push(...repoContext.paths);
+  }
 
   return {
     sourceText: parts.join('\n\n').slice(0, MAX_PLAN_SOURCE_BUNDLE_CHARS),
     sourceDocumentPaths: loaded,
+  };
+}
+
+async function readLoopxRepoContextText(cwd, sourceSpecPath) {
+  const artifacts = await discoverLoopxContextArtifacts(cwd, {
+    changedFiles: [relative(cwd, sourceSpecPath)],
+  });
+  const paths = [
+    ...artifacts.specFiles.map((item) => item.path),
+    artifacts.memorySummary?.path,
+  ].filter(Boolean);
+  if (paths.length === 0) {
+    return { text: '', paths: [] };
+  }
+  const sections = [];
+  const loaded = [];
+  for (const display of paths) {
+    const absolute = resolve(cwd, display);
+    if (!existsSync(absolute)) {
+      continue;
+    }
+    const raw = await readFile(absolute, 'utf8');
+    loaded.push(absolute);
+    sections.push([
+      `# loopx context: ${display}`,
+      '',
+      compactPlanningText(raw),
+    ].join('\n'));
+  }
+  if (sections.length === 0) {
+    return { text: '', paths: [] };
+  }
+  return {
+    text: [
+      '# loopx Repo Specs And Memory Context',
+      '',
+      'Current task instructions and named source documents have priority. Repo specs are binding long-lived rules. Memory is advisory.',
+      '',
+      ...sections,
+    ].join('\n\n'),
+    paths: loaded,
   };
 }
 

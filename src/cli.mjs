@@ -30,7 +30,7 @@ function usage() {
     '  loopx status [slug] [--json]',
     '  loopx next <slug> [--json]',
     '  loopx setup-context',
-    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]',
+    '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]',
     '  loopx doctor [--json]',
     '  loopx migrate',
     '  loopx repair-install',
@@ -60,6 +60,7 @@ async function promptInstallOptions() {
     const targetAnswer = (await rl.question('Install targets (codex, claude, all) [all]: ')).trim().toLowerCase();
     const projectAnswer = (await rl.question('Install Claude project skills instead of user skills? [y/N]: ')).trim().toLowerCase();
     const modeAnswer = (await rl.question('Install mode (copy, symlink) [copy]: ')).trim().toLowerCase();
+    const guidanceAnswer = (await rl.question('Add loopx guidance to Codex AGENTS.md / Claude CLAUDE.md? [y/N]: ')).trim().toLowerCase();
     const proceedAnswer = (await rl.question('Proceed? [y/N]: ')).trim().toLowerCase();
     if (proceedAnswer !== 'y' && proceedAnswer !== 'yes') {
       return null;
@@ -69,6 +70,7 @@ async function promptInstallOptions() {
       targets: target === 'all' ? ['codex', 'claude'] : [target],
       project: projectAnswer === 'y' || projectAnswer === 'yes',
       installMethod: modeAnswer === 'symlink' ? 'symlink' : 'copy',
+      agentGuidance: guidanceAnswer === 'y' || guidanceAnswer === 'yes',
     };
   } finally {
     rl.close();
@@ -83,6 +85,7 @@ function installOptionsFromArgs(options) {
     project: Boolean(options.get('--project')),
     installMethod: options.get('--mode') === 'symlink' ? 'symlink' : 'copy',
     dir: options.get('--dir'),
+    agentGuidance: Boolean(options.get('--add-agent-guidance') || options.get('--add-codex-agents-guidance')),
   };
 }
 
