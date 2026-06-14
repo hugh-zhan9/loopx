@@ -3,7 +3,7 @@ name: doc-readability
 description: "Use when evaluating, rewriting, or editing documents for human readability, unclear viewpoints, AI-like prose, bloated specs, PRDs, requirements docs, meeting notes, strategy docs, or internal knowledge-base articles. Not for code review, implementation planning, or file-format conversion."
 when_to_use: "document readability, PRD assessment, requirements gaps, AI-like prose, unclear viewpoint, rewrite docs, editing docs, 文档可读性, 去AI味, 需求文档评估"
 metadata:
-  version: "0.2.8"
+  version: "0.2.9"
 ---
 
 # Doc Readability
