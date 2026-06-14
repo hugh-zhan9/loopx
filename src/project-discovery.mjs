@@ -67,6 +67,7 @@ async function discoverSpecSources(cwd) {
     candidate(join(cwd, 'specs'), 'specs'),
     candidate(join(cwd, 'docs', 'changes'), 'docs/changes'),
     candidate(join(cwd, 'docs', 'specs'), 'docs/specs'),
+    candidate(join(cwd, 'docs', 'loopx', 'specs'), 'docs/loopx/specs'),
     candidate(join(cwd, 'docs', 'adr'), 'docs/adr'),
     candidate(join(cwd, 'docs', 'rfcs'), 'docs/rfcs'),
   ]);

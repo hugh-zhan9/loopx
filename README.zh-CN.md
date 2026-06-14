@@ -86,6 +86,16 @@ v1 skill-suite 工作流的人工维护长期产物放在 `docs/loopx/`：
 
 `docs/loopx/memory/` 用于保存纳入 git 的 shared memory，适合需要跟随用户跨机器同步、但还没有稳定到 spec 级别的轻量项目知识。
 
+### Repo Specs And Memory
+
+`docs/loopx/specs/` 是 binding long-lived repo context。工作流 skills 会在澄清、设计、计划、构建和评审前读取相关 specs。Specs 定义持久 repo rules 和 constraints；它们优先于本地 memory，并应通过经过评审的工作流变更来更新。
+
+Summary: docs/loopx/specs/ is binding long-lived repo context; .loopx/memory/MEMORY.md is advisory curated memory.
+
+`docs/loopx/specs/index.md` 是可选的。存在时，agent 只把它当作 retrieval 和 prioritization map；即使没有 index，这个目录仍然有效。
+
+`.loopx/memory/MEMORY.md` 是 advisory curated memory。它总结有用的项目知识，但不能覆盖当前用户指令、已批准的 source documents 或 binding specs。`.loopx/memory/index.jsonl` 也是可选且 retrieval-only：它帮助 agent 找到相关 active memory cards，不是 append-only log。
+
 当完成的工作产生稳定团队规则时，`finish` 可以在 `docs/loopx/specs/` 生成 spec candidates。这些候选是 repo-tracked，必须保留在 git diff 中供审阅。
 
 `finish` 还会在 `.loopx/finish/<audit-id>/` 下写入本地 audit ledger。`none` 表示已经完成审计，但没有产生可持久化的 learning candidate。choice recording 也放在这个本地 finish audit 目录里，而 repo-tracked 的 spec candidates 仍然保留在 `docs/loopx/specs/`。
@@ -100,7 +110,7 @@ archive 不属于公开 v1 finish 流程。旧 runtime state 仍可能包含 arc
 
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 
-本地 agent memory 放在 `.loopx/memory/`：
+本地 advisory agent memory 放在 `.loopx/memory/`：
 
 - `.loopx/memory/MEMORY.md`
 - `.loopx/memory/index.jsonl`
@@ -171,10 +181,13 @@ loopx install-skills
 loopx install-skills --target codex
 loopx install-skills --target claude
 loopx install-skills --target claude --project
+loopx install-skills --target all --add-agent-guidance
 loopx install-skills --target all --yes
 ```
 
-Claude project install 会写入当前仓库的 `.claude/skills/` 和 `.claude/settings.json`。
+Agent guidance 是 opt-in。`--add-agent-guidance` 会写入 loopx managed block，提示 agent 读取 Repo Specs And Memory context。Codex user install 写入 `~/.codex/AGENTS.md`；Claude user install 写入 `~/.claude/CLAUDE.md`；Claude project install 写入当前 repo 的 `CLAUDE.md`。Managed block 之外的用户内容会保留。
+
+Claude project install 会把 skills 和 settings 写入当前仓库的 `.claude/skills/` 和 `.claude/settings.json`。
 
 ## Codex Plugin
 
@@ -198,7 +211,7 @@ CLI 用于安装、诊断、渲染和 runtime 维护：
 
 ```bash
 loopx --version
-loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--yes] [--dry-run] [--json]
+loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]
 loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
 loopx clarify <slug> [--standard|--deep] [--json]
 loopx render [slug|--all]

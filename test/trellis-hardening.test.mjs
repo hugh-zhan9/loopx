@@ -29,6 +29,7 @@ import {
 } from '../src/template-governance.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from '../src/finish-runtime.mjs';
 import { generateBuildContextManifest, readContextManifest } from '../src/context-manifest.mjs';
+import { discoverLoopxContextArtifacts } from '../src/loopx-context-artifacts.mjs';
 import {
   approveStage,
   buildStage,
@@ -1723,6 +1724,19 @@ describe('trellis-inspired loopx hardening', () => {
     const clarified = await clarifyStage(wd, 'context-flow');
     await writeResolvedSpec(clarified.root, 'context-flow');
     await approveStage(wd, 'context-flow', { from: 'clarify', to: 'plan' });
+    await mkdir(join(wd, 'docs', 'loopx', 'specs'), { recursive: true });
+    await mkdir(join(wd, '.loopx', 'memory'), { recursive: true });
+    await writeFile(join(wd, 'docs', 'loopx', 'specs', 'workflow-runtime.md'), [
+      '---',
+      'applies_to:',
+      '  - src/workflow.mjs',
+      '---',
+      '# Workflow Runtime Spec',
+      '',
+      '- Build and review must use context manifests.',
+    ].join('\n'));
+    await writeFile(join(wd, '.loopx', 'memory', 'MEMORY.md'), '# Memory\n\n- Review should preserve terminology.\n');
+    await writeFile(join(wd, '.loopx', 'memory', 'index.jsonl'), '{"id":"terminology","path":"entries/terminology.md"}\n');
 
     const planned = await planStage(wd, 'context-flow', { adapter: createScriptedPlanAdapter() });
     const buildManifestPath = join(planned.root, 'build-context.jsonl');
@@ -1734,6 +1748,9 @@ describe('trellis-inspired loopx hardening', () => {
     );
     assert.equal(buildRows.some((row) => row.kind === 'requirements-snapshot' && row.reason.includes('requirements')), true);
     assert.equal(buildRows.some((row) => row.kind === 'test-spec'), true);
+    assert.equal(buildRows.some((row) => row.kind === 'repo-spec' && row.path === 'docs/loopx/specs/workflow-runtime.md'), true);
+    assert.equal(buildRows.some((row) => row.kind === 'memory-summary' && row.path === '.loopx/memory/MEMORY.md'), true);
+    assert.equal(buildRows.some((row) => row.kind === 'memory-index' && row.path === '.loopx/memory/index.jsonl'), true);
 
     await approveStage(wd, 'context-flow', { from: 'plan', to: 'build' });
     const built = await buildStage(wd, 'context-flow', { adapter: createScriptedBuildAdapter() });
@@ -1743,6 +1760,8 @@ describe('trellis-inspired loopx hardening', () => {
     assert.equal(reviewRows.some((row) => row.kind === 'execution-record'), true);
     assert.equal(reviewRows.some((row) => row.kind === 'changed-files' && row.reason.includes('changed_file_evidence') && row.required === false), true);
     assert.equal(reviewRows.some((row) => row.kind === 'residual-risks' && row.reason.includes('residual_risk_reference') && row.required === false), true);
+    assert.equal(reviewRows.some((row) => row.kind === 'repo-spec' && row.path === 'docs/loopx/specs/workflow-runtime.md'), true);
+    assert.equal(reviewRows.some((row) => row.kind === 'memory-summary' && row.path === '.loopx/memory/MEMORY.md'), true);
 
     await approveStage(wd, 'context-flow', { from: 'build', to: 'review' });
     const review = await reviewStage(wd, 'context-flow', {
@@ -1777,6 +1796,73 @@ describe('trellis-inspired loopx hardening', () => {
     });
     assert.match(secondJournal.journalPath, /journal-2\.md$/);
     assert.equal(existsSync(secondJournal.journalPath), true);
+  });
+
+  it('adds loopx specs and memory to plan source context', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-plan-repo-context-'));
+    const clarified = await clarifyStage(wd, 'plan-repo-context');
+    await writeResolvedSpec(clarified.root, 'plan-repo-context');
+    await mkdir(join(wd, 'docs', 'loopx', 'specs'), { recursive: true });
+    await mkdir(join(wd, '.loopx', 'memory'), { recursive: true });
+    await writeFile(join(wd, 'docs', 'loopx', 'specs', 'workflow-runtime.md'), [
+      '---',
+      'applies_to:',
+      '  - .loopx/workflows/plan-repo-context/spec.md',
+      '---',
+      '# Workflow Runtime Spec',
+      '',
+      '- Plans must preserve explicit approvals.',
+    ].join('\n'));
+    await writeFile(join(wd, '.loopx', 'memory', 'MEMORY.md'), '# Memory\n\n- Prioritize manifest evidence.\n');
+    await approveStage(wd, 'plan-repo-context', { from: 'clarify', to: 'plan' });
+
+    const scripted = createScriptedPlanAdapter();
+    let plannerSourceText = '';
+    const planned = await planStage(wd, 'plan-repo-context', {
+      adapter: {
+        async planner(context) {
+          plannerSourceText = context.sourceText;
+          return scripted.planner(context);
+        },
+        architect: scripted.architect,
+        critic: scripted.critic,
+      },
+    });
+
+    assert.equal(planned.state.plan_source_document_paths.includes(join(wd, 'docs', 'loopx', 'specs', 'workflow-runtime.md')), true);
+    assert.equal(planned.state.plan_source_document_paths.includes(join(wd, '.loopx', 'memory', 'MEMORY.md')), true);
+    assert.match(plannerSourceText, /loopx Repo Specs And Memory Context/);
+    assert.match(plannerSourceText, /Plans must preserve explicit approvals/);
+    assert.match(plannerSourceText, /Prioritize manifest evidence/);
+  });
+
+  it('discovers loopx repo specs and curated memory without requiring an index file', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-context-artifacts-'));
+    await mkdir(join(wd, 'docs', 'loopx', 'specs'), { recursive: true });
+    await mkdir(join(wd, '.loopx', 'memory', 'entries'), { recursive: true });
+    await writeFile(join(wd, 'docs', 'loopx', 'specs', 'workflow-runtime.md'), [
+      '---',
+      'applies_to:',
+      '  - src/workflow.mjs',
+      '---',
+      '# Workflow Runtime Spec',
+      '',
+      '- Build and review must consume manifests.',
+    ].join('\n'));
+    await writeFile(join(wd, 'docs', 'loopx', 'specs', 'skills.md'), '# Skills Spec\n');
+    await writeFile(join(wd, '.loopx', 'memory', 'MEMORY.md'), '# Memory\n\n- Prefer manifest evidence.\n');
+    await writeFile(join(wd, '.loopx', 'memory', 'index.jsonl'), `${JSON.stringify({
+      id: 'runtime-manifest',
+      path: 'entries/runtime-manifest.md',
+      tags: ['workflow'],
+    })}\n`);
+
+    const context = await discoverLoopxContextArtifacts(wd, { changedFiles: ['src/workflow.mjs'] });
+
+    assert.equal(context.specsRoot, 'docs/loopx/specs');
+    assert.deepEqual(context.specFiles.map((item) => item.path), ['docs/loopx/specs/workflow-runtime.md']);
+    assert.equal(context.memorySummary?.path, '.loopx/memory/MEMORY.md');
+    assert.equal(context.memoryIndex?.path, '.loopx/memory/index.jsonl');
   });
 
   it('marks required context manifest rows missing instead of dropping them', async () => {
