@@ -29,8 +29,13 @@ const LOOPX_SKILLS = [
   'tdd',
   'verify',
   'doc-readability',
+  'requirement-analyzer',
   'go-style',
   'kratos',
+  'api-designer',
+  'architecture-designer',
+  'sql-style',
+  'cli-developer',
 ];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [

@@ -176,7 +176,6 @@ async function assertPublicDocsAligned() {
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
-    'Archive compatibility',
   ]) {
     assertContains(readme, required, 'README.md');
   }
@@ -187,7 +186,6 @@ async function assertPublicDocsAligned() {
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
-    'Archive 兼容性',
   ]) {
     assertContains(readmeZh, required, 'README.zh-CN.md');
   }

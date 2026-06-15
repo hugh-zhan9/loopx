@@ -69,6 +69,34 @@ function assertNoPublicArchiveCommandExposure(text, label) {
 }
 
 describe('loopx skill governance', () => {
+  it('bundles and documents the support lens skill surface', async () => {
+    const supportLensSkills = [
+      'doc-readability',
+      'requirement-analyzer',
+      'go-style',
+      'kratos',
+      'api-designer',
+      'architecture-designer',
+      'sql-style',
+      'cli-developer',
+    ];
+    const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+    const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    const design = await readFile(join(repoRoot, 'docs', 'loopx', 'design', 'loopx-skill-suite-v1-design.md'), 'utf8');
+
+    for (const skillName of supportLensSkills) {
+      assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, `${skillName} missing from bundled install list`);
+      assert.match(readme, new RegExp(`- \`${skillName}\``), `${skillName} missing from README support list`);
+      assert.match(readmeZh, new RegExp(`- \`${skillName}\``), `${skillName} missing from Chinese README support list`);
+      assert.match(design, new RegExp(`- \`${skillName}\``), `${skillName} missing from v1 design product surface`);
+    }
+
+    for (const text of [readme, readmeZh, design]) {
+      assert.match(text, /Support skills are lenses|辅助 skills 是 lens|Support skills are installed and governed/);
+      assert.match(text, /workflow states|workflow state/);
+    }
+  });
+
   it('keeps a resolver and deterministic verifier for bundled skills', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 
@@ -203,8 +231,6 @@ describe('loopx skill governance', () => {
       'LOOPX_SKIP_POSTINSTALL=1',
       'LOOPX_POSTINSTALL=0',
       'LOOPX_HOOKS=0',
-      'Archive compatibility',
-      'archive is not part of the public v1 finish flow',
       'Advanced runtime commands',
       'Undo installed files',
       'Golden path',
@@ -220,8 +246,6 @@ describe('loopx skill governance', () => {
       'LOOPX_SKIP_POSTINSTALL=1',
       'LOOPX_POSTINSTALL=0',
       'LOOPX_HOOKS=0',
-      'Archive 兼容性',
-      'archive 不属于公开 v1 finish 流程',
       '高级 runtime 命令',
       '撤销已安装文件',
       '黄金路径',
