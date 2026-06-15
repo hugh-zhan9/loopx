@@ -70,8 +70,16 @@ Support skills:
 - `tdd`
 - `debug`
 - `verify`
+- `doc-readability`
+- `requirement-analyzer`
 - `go-style`
 - `kratos`
+- `api-designer`
+- `architecture-designer`
+- `sql-style`
+- `cli-developer`
+
+Support skills are lenses, not workflow states. They can be invoked directly by users, or applied by workflow skills when relevant. `requirement-analyzer` and `doc-readability` assess source documents; `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, `go-style`, and `kratos` add domain discipline during design, execution, and review without changing the core flow.
 
 ## Artifacts
 
@@ -165,8 +173,8 @@ loopx doctor
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
-rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
+rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 

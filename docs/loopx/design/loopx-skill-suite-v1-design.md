@@ -21,8 +21,14 @@ The v1 product surface is the installed and governed bundled skill suite:
 - `tdd`
 - `debug`
 - `verify`
+- `doc-readability`
+- `requirement-analyzer`
 - `go-style`
 - `kratos`
+- `api-designer`
+- `architecture-designer`
+- `sql-style`
+- `cli-developer`
 
 Runtime-only skills are not installed as Codex or Claude skills in v1.
 
@@ -43,6 +49,12 @@ clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fi
 `review` is the task or checkpoint code review workflow inside `subagent-exec` or `exec`. `final-review` is the top-level whole-feature runtime, integration, and test-gap review before completion. `fix-review` handles feedback from either review layer.
 
 `finish` verifies completion, extracts local memory, proposes repo-tracked spec candidates when stable team rules emerged, then presents merge, PR, keep, or discard options. It is the terminal completion step for one implementation decision; rerun it only after keep-as-is, PR iteration, interruption before choice execution, or new changes after review feedback. Do not rerun it after merge or discard.
+
+## Support Skills
+
+Support skills are installed and governed, but they do not create workflow states. `requirement-analyzer` behaves like `doc-readability`: it can analyze source documents and produce reports without advancing workflow state. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` behave like `go-style`: they are discipline lenses applied directly or from workflow skills during design, execution, and review.
+
+`sql-style` is the shared bundled SQL/database lens. It fuses selected SQL optimization, schema, migration, index, and dialect guidance with loopx workflow discipline. Related skills should call `sql-style` when SQL/database discipline is relevant; do not delete useful SQL guidance from those skills merely because `sql-style` exists.
 
 ## Artifacts
 

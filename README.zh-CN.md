@@ -70,8 +70,16 @@ loopx install-skills --target all --json
 - `tdd`
 - `debug`
 - `verify`
+- `doc-readability`
+- `requirement-analyzer`
 - `go-style`
 - `kratos`
+- `api-designer`
+- `architecture-designer`
+- `sql-style`
+- `cli-developer`
+
+辅助 skills 是 lens，不是 workflow state。用户可以直接调用它们，workflow skills 也可以在相关场景套用它们。`requirement-analyzer` 和 `doc-readability` 用于评估源文档；`api-designer`、`architecture-designer`、`sql-style`、`cli-developer`、`go-style` 和 `kratos` 在设计、执行、评审阶段提供领域纪律，但不改变核心流程。
 
 ## 产物
 
@@ -165,8 +173,8 @@ loopx doctor
 撤销已安装文件，移除 loopx 管理的用户级 artifacts：
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
-rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,go-style,kratos}
+rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
+rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 ```
 

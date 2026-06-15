@@ -3,7 +3,7 @@ name: kratos
 description: "Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone."
 when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
 metadata:
-  version: "0.2.9"
+  version: "0.2.10"
 ---
 
 # Kratos
@@ -61,6 +61,7 @@ Use only the reference file needed for the current task:
 - MySQL `CREATE TABLE` statements must include a table-level `COMMENT`.
 - MySQL column definitions in `CREATE TABLE` or `ALTER TABLE ... ADD COLUMN` statements must include column-level `COMMENT`.
 - When using Ent schema for MySQL tables, add `.Comment(...)` to fields that are persisted as columns.
+- Use `sql-style` for broader SQL/database discipline: schema semantics, migrations, indexes, dialect behavior, query plans, and performance-sensitive data access.
 
 ## Integration With Other loopx Skills
 
