@@ -104,10 +104,6 @@ Finish runtime commands are advanced agent/runtime plumbing, not the normal user
 
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
-### Archive compatibility
-
-archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command, but normal users should complete work through `finish`.
-
 Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
 
 Local advisory agent memory lives under `.loopx/memory/`:
