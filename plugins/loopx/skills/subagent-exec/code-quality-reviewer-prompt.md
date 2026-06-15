@@ -6,14 +6,23 @@ Use this template when dispatching a code quality reviewer subagent.
 
 **Only dispatch after spec compliance review passes.**
 
+This reviewer is the `loopx:review` Stage 2 code quality review running inside
+the `subagent-exec` workflow. The source of truth for review standards and
+output format is `review/code-reviewer.md`.
+
+Do not re-run spec compliance here unless a code quality issue clearly reveals a
+spec mismatch. If that happens, send the task back to spec compliance review.
+
 ```
 Native Codex subagent:
-  Use template at review/code-reviewer.md
+  Use Stage 2 of loopx:review with template at review/code-reviewer.md
 
-  DESCRIPTION: [task summary, from implementer's report]
-  PLAN_OR_REQUIREMENTS: Task N from [plan-file]
+  DESCRIPTION: [task summary, from implementer's report plus spec review outcome]
+  PLAN_OR_REQUIREMENTS: [FULL TEXT of Task N, or exact task requirements pasted inline]
   BASE_SHA: [commit before task]
   HEAD_SHA: [current commit]
+  SPEC_REVIEW_RESULT: [approved spec compliance result, or latest fixed issues]
+  VERIFICATION_EVIDENCE: [commands run, exit codes, and summaries]
 ```
 
 **In addition to standard code quality concerns, the reviewer should check:**
@@ -22,4 +31,4 @@ Native Codex subagent:
 - Is the implementation following the file structure from the plan?
 - Did this implementation create new files that are already large, or significantly grow existing files? (Don't flag pre-existing file sizes — focus on what this change contributed.)
 
-**Code reviewer returns:** Strengths, Issues (Critical/Important/Minor), Assessment
+**Code reviewer returns:** Strengths, Issues (Critical/Important/Minor), Recommendations, Assessment

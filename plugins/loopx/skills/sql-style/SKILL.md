@@ -4,7 +4,7 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.2.10"
+  version: "0.3.0"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---

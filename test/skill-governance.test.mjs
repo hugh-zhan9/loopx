@@ -144,6 +144,19 @@ describe('loopx skill governance', () => {
     assert.match(specTemplate, /## 十一、QA/);
   });
 
+  it('keeps requirement-analyzer scoring subordinate to readiness routing', async () => {
+    const requirementAnalyzer = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'SKILL.md'), 'utf8');
+    const readinessRubric = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'references', 'readiness-rubric.md'), 'utf8');
+    const qualityRubric = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'references', 'quality-attributes-rubric.md'), 'utf8');
+
+    assert.match(requirementAnalyzer, /readiness recommendation is authoritative/i);
+    assert.match(requirementAnalyzer, /standard.*targeted/i);
+    assert.match(readinessRubric, /business semantics.*clarify/i);
+    assert.match(readinessRubric, /implementation approach.*spec/i);
+    assert.match(readinessRubric, /Score ranges do not route work by themselves/i);
+    assert.match(qualityRubric, /Do not let scoring dominate/i);
+  });
+
   it('keeps public docs structurally valid and bilingual release docs aligned', async () => {
     for (const relativePath of ['README.md', 'README.zh-CN.md']) {
       const text = await readFile(join(repoRoot, relativePath), 'utf8');
@@ -444,6 +457,32 @@ describe('loopx skill governance', () => {
       true,
       'plugin final-review/final-reviewer.md missing',
     );
+  });
+
+  it('keeps exec, review, and final-review workflow gates aligned with their prompts', async () => {
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const specReviewer = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'spec-reviewer-prompt.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const finalReviewer = await readFile(join(repoRoot, 'skills', 'final-review', 'final-reviewer.md'), 'utf8');
+
+    assert.match(execSkill, /\*\*Code review trigger\*\*.*request review before continuing/s);
+    assert.match(execSkill, /Only mark the task complete and update the checkpoint after all triggered review issues/);
+    assert.match(execSkill, /reviewed-and-rejected task recorded as completed/);
+
+    assert.match(reviewSkill, /When to degrade:/);
+    assert.match(reviewSkill, /Intent Check/);
+    assert.match(specReviewer, /Review Mode/);
+    assert.match(specReviewer, /INTENT_CHECK/);
+    assert.match(specReviewer, /Missing requirements or intent gaps/);
+
+    assert.match(finalReviewSkill, /### Phase 3: Regression Checklist/);
+    assert.match(finalReviewSkill, /### Phase 4: Dispatch Code Reviewer/);
+    assert.match(finalReviewSkill, /regression checklist results from Phase 3/);
+    assert.match(finalReviewSkill, /\[from Phase 4 — reviewer output\]/);
+    assert.match(finalReviewSkill, /\[from Phase 3\]/);
+    assert.match(finalReviewer, /## Regression Assessment/);
+    assert.match(finalReviewer, /## Runtime Validation Results/);
   });
 
   it('keeps loopx skill and CLI handoff names separated', async () => {

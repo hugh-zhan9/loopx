@@ -1,16 +1,16 @@
 ---
 name: exec
-description: "Executes a written loopx implementation plan sequentially with review checkpoints. Not for unclear plans, missing requirements, or subagent-first execution."
-when_to_use: "written implementation plan, inline execution, sequential plan execution, review checkpoints, no subagent lane"
+description: "Executes a written loopx implementation plan sequentially with spec verification, periodic code review, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
+when_to_use: "written implementation plan, inline execution, sequential plan execution, periodic review, no subagent lane"
 metadata:
-  version: "0.2.10"
+  version: "0.3.0"
 ---
 
 # Exec
 
 ## Overview
 
-Load plan, review critically, execute all tasks, report when complete.
+Load plan, review critically, execute all tasks with spec verification and periodic code review, report when complete.
 
 **Announce at start:** "I'm using the exec skill to implement this plan."
 
@@ -19,6 +19,7 @@ Load plan, review critically, execute all tasks, report when complete.
 ## The Process
 
 ### Step 1: Load and Review Plan
+
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
@@ -37,10 +38,30 @@ Use the plan filename slug when no workflow slug is available. This preserves th
 ### Step 2: Execute Tasks
 
 For each task:
+
 1. Mark as in_progress
 2. Follow each step exactly (plan has bite-sized steps)
 3. Run verifications as specified
-4. Mark as completed
+4. **Spec check** — verify the implementation matches the task description (see Spec Verification below)
+5. **Code review trigger** — if this task hits a review trigger (see below), request review before continuing
+6. Mark as completed
+7. **Checkpoint** — record progress (see Checkpoint/Resume below)
+
+### Review Triggers
+
+Request a `loopx:review` (Stage 1 + Stage 2) between tasks when any of these conditions are met:
+
+- The completed task changes a public interface, exported type, or shared utility
+- The completed task touches 5+ files
+- The completed task involves security-sensitive code (auth, permissions, crypto, user input)
+- You have completed 3 consecutive tasks without a review
+- The plan explicitly marks a task as a review checkpoint
+
+When no trigger fires, spec self-check (Step 4) is sufficient — you don't need a full review after every task.
+
+**After review:** If review finds Critical or Important issues, fix them (use `loopx:fix-review`) before continuing to the next task.
+
+Only mark the task complete and update the checkpoint after all triggered review issues for that task are resolved.
 
 ### Step 3: Complete Development
 
@@ -52,13 +73,151 @@ After all tasks complete and verified:
 - **REQUIRED SUB-SKILL:** Use loopx:finish
 - Follow finish to verify tests, present options, execute choice
 
+## Spec Verification
+
+After each task completes, perform a lightweight spec compliance check before proceeding to the next task. This prevents drift accumulation.
+
+**Self-check questions:**
+
+1. Did I implement everything the task description requested? (nothing missing)
+2. Did I implement anything NOT requested by the task? (nothing extra)
+3. Does my implementation match the plan's intent, not just the literal words?
+4. If I deviated from the plan, is it a justified improvement or an accidental departure?
+5. Do the outputs of this task match what the next task expects as input?
+
+**When spec check fails:**
+
+- If missing: implement the missing piece before marking complete
+- If extra: remove or flag for plan update discussion
+- If deviation: document why, continue if improvement, revert if accidental
+
+**Verification depth by task type:**
+
+| Task Type | Spec Check |
+|-----------|-----------|
+| Mechanical (isolated file, clear spec) | Quick self-check (30 seconds) |
+| Integration (multi-file, cross-module) | Careful comparison against plan + downstream task inputs |
+| Architecture (design decisions, patterns) | Full plan re-read for this section, check consistency with other tasks |
+
+## Checkpoint/Resume
+
+Track execution progress so that if the session is interrupted (context exhaustion, crash, user pause), work can resume from the last completed task.
+
+### Checkpoint file location
+
+Store the checkpoint in a sibling file next to the plan:
+
+```
+docs/loopx/plans/<slug>-checkpoint.md
+```
+
+If the plan is at `docs/loopx/plans/feature-plan.md`, the checkpoint is at `docs/loopx/plans/feature-plan-checkpoint.md`.
+
+### Checkpoint format
+
+After each task is marked complete, write or update the checkpoint file:
+
+```markdown
+# Execution Checkpoint
+
+- Plan: docs/loopx/plans/<slug>.md
+- Baseline SHA: <finish-start SHA>
+- Current SHA: <latest commit>
+- Last updated: <timestamp>
+
+## Progress
+
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| 1 | completed | abc1234 | |
+| 2 | completed | def5678 | review requested after this task |
+| 3 | in_progress | - | blocked: missing API key config |
+| 4 | pending | - | |
+| 5 | pending | - | |
+
+## Context for Resume
+
+- Last completed task produced: [key outputs, new files, changed interfaces]
+- Next task depends on: [any context from prior tasks]
+- Open issues: [any unresolved review feedback or known concerns]
+```
+
+### How to resume
+
+When resuming an interrupted execution:
+
+1. Read the plan file and checkpoint file
+2. Verify completed tasks are still committed and passing tests
+3. Read the "Context for Resume" section to establish state
+4. Continue from the next uncompleted task
+5. Do NOT re-execute completed tasks unless tests are failing
+
+### When to update the checkpoint
+
+- After each task completion
+- After fixing a review issue
+- When status changes (e.g., task becomes blocked)
+- Before any risky operation (migration, large refactor)
+
+If a triggered review sends a task back for fixes, update the checkpoint to reflect that the task is still `in_progress` or `blocked`. Do not leave a reviewed-and-rejected task recorded as completed.
+
+## Blocker Escalation
+
+When execution is blocked, classify the blocker and take the appropriate action:
+
+### Blocker Levels
+
+| Level | Signal | Action |
+|-------|--------|--------|
+| **Context gap** | Need information not in the plan (file path, config value, API detail) | Search codebase, check docs. If still unclear: ask human with specific question |
+| **Plan defect** | Plan step is wrong, contradictory, or impossible given current codebase state | Stop. Report what's wrong and what you expected. Propose fix. Wait for plan update |
+| **Dependency missing** | Requires something that doesn't exist yet (another task's output, external service, package) | Check if it's a task ordering issue (can re-order). If not: report dependency and block |
+| **Test failure** | Verification fails despite correct implementation | Investigate root cause. If test is wrong: fix test. If implementation is wrong: fix implementation. If unclear: ask with diagnosis |
+| **Environment issue** | Build fails, dependency can't install, tool unavailable | Report exact error. Do not retry blindly. Ask if environment fix is needed |
+
+### Escalation format
+
+When stopping to ask for help:
+
+```markdown
+## Blocked: [task number and name]
+
+**Blocker type:** [context gap / plan defect / dependency / test failure / environment]
+
+**What happened:** [specific error or confusion]
+
+**What I tried:** [what you investigated before asking]
+
+**What I need:** [specific question or decision]
+
+**Impact:** [what downstream tasks are affected]
+```
+
+### Do NOT:
+
+- Retry the same failing approach hoping it works
+- Guess at unclear requirements and hope you're right
+- Skip a blocked task and continue with dependent tasks
+- Spend more than 5 minutes investigating before asking
+
+## Cross-Task Context
+
+When starting a new task, briefly review:
+
+1. What the previous task produced (new files, changed interfaces, new exports)
+2. Whether the current task references anything from previous tasks
+3. Whether any review feedback from previous tasks affects this task
+
+If a previous task's review changed a public interface that this task uses, adapt before implementing.
+
 ## When to Stop and Ask for Help
 
 **STOP executing immediately when:**
-- Hit a blocker (missing dependency, test fails, instruction unclear)
+- Hit a blocker (use escalation format above)
 - Plan has critical gaps preventing starting
 - You don't understand an instruction
-- Verification fails repeatedly
+- Verification fails repeatedly (>2 attempts)
+- A review issue suggests the plan itself is wrong
 
 **Ask for clarification rather than guessing.**
 
@@ -67,15 +226,20 @@ After all tasks complete and verified:
 **Return to Review (Step 1) when:**
 - Partner updates the plan based on your feedback
 - Fundamental approach needs rethinking
+- Blocker reveals plan is structurally wrong
 
 **Don't force through blockers** - stop and ask.
 
 ## Remember
+
 - Review plan critically first
 - Follow plan steps exactly
+- Spec-check after every task
+- Checkpoint after every task
 - Don't skip verifications
 - Reference skills when plan says to
 - Stop when blocked, don't guess
+- Classify blockers, don't just say "stuck"
 
 ## Integration
 
