@@ -104,10 +104,6 @@ Finish runtime 命令是给 agent、hooks 和兼容路径使用的高级 plumbin
 
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
-### Archive 兼容性
-
-archive 不属于公开 v1 finish 流程。旧 runtime state 仍可能包含 archive 字段，也可能通过隐藏的 `loopx archive <slug>` 兼容命令处理历史状态，但普通用户应通过 `finish` 完成工作。
-
 生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
 
 本地 advisory agent memory 放在 `.loopx/memory/`：
