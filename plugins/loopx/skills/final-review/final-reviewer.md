@@ -2,7 +2,7 @@
 
 Use this template when dispatching a final-review subagent.
 
-**Purpose:** Review the complete feature for integration and runtime risk after task-level implementation and review are already done.
+**Purpose:** Review the complete feature for integration and runtime risk after task-level implementation and review are already done. Verify requirements coverage and regression safety using evidence provided by the orchestrator.
 
 ```
 Native subagent:
@@ -20,6 +20,37 @@ Native subagent:
     ## Requirements / Plan / Spec
 
     {REQUIREMENTS}
+
+    ## Requirements Coverage Matrix
+
+    {COVERAGE_MATRIX}
+
+    The orchestrator built this matrix mapping each requirement to its
+    implementation location and test. Your job: verify the matrix is accurate.
+    Spot-check that claimed implementations actually fulfill the requirement,
+    and that claimed tests actually verify the behavior. Flag any row you
+    disagree with.
+
+    ## Runtime Validation Results
+
+    {RUNTIME_VALIDATION}
+
+    If runtime validation was performed, review the results for:
+    - Scenarios that passed but shouldn't have (false positive)
+    - Missing scenarios that should have been tested
+    - Unexpected behavior noted during validation
+
+    If runtime validation was NOT performed, increase your scrutiny on test
+    quality and integration paths.
+
+    ## Regression Assessment
+
+    {REGRESSION_CHECKLIST}
+
+    The orchestrator checked public interfaces, config, schema, and behavioral
+    changes. Your job: verify the assessment is complete and accurate. Flag
+    any changed interface, config, or schema that was missed or incorrectly
+    marked as backward compatible.
 
     ## Verification Evidence
 
@@ -44,11 +75,13 @@ Native subagent:
     Review in this exact priority order:
 
     1. Runtime bugs, data loss, broken CLI behavior, state corruption
-    2. Cross-task integration bugs
-    3. Missing edge cases not covered by tests
-    4. Test quality problems
-    5. Architecture and maintainability issues
-    6. Documentation defects that can mislead users or maintainers, omit
+    2. Requirements not covered (disagree with coverage matrix)
+    3. Cross-task integration bugs
+    4. Regression issues (disagree with regression assessment)
+    5. Missing edge cases not covered by tests
+    6. Test quality problems (tests that prove too little)
+    7. Architecture and maintainability issues
+    8. Documentation defects that can mislead users or maintainers, omit
        required operational facts, or contradict actual behavior
 
     Do not report pure documentation polish, style preferences, or wording
@@ -57,6 +90,11 @@ Native subagent:
     or false claims.
 
     ## What to Check
+
+    **Requirements coverage audit:**
+    - Does each "✅ covered" row in the coverage matrix hold up under inspection?
+    - Are "⚠️ partial" rows acceptable, or do they hide real gaps?
+    - Did any requirement get implemented differently than specified?
 
     **Runtime and state risk:**
     - Can any command crash, hang, silently no-op, or report success incorrectly?
@@ -69,6 +107,11 @@ Native subagent:
     - Do CLI flags, exported functions, filenames, state keys, and schemas align?
     - Does the feature work as a complete workflow, not just as isolated pieces?
     - Are old data, missing files, and partially completed states handled?
+
+    **Regression audit:**
+    - Are all public interface changes listed in the regression checklist?
+    - Are backward-compatibility claims accurate?
+    - Could any schema/config change break existing deployments?
 
     **Tests:**
     - Do tests execute real behavior rather than only mocks or snapshots?
@@ -87,15 +130,26 @@ Native subagent:
 
     ## Output Format
 
+    ### Coverage Matrix Audit
+
+    [Note any rows you disagree with — implementation doesn't match, test is
+    insufficient, or status should be different]
+
+    ### Regression Audit
+
+    [Note any missed interface changes, incorrect compatibility claims, or
+    missing migration paths]
+
     ### Findings
 
     #### Critical
     [Must fix before finish: data loss, state corruption, broken workflow,
-    security issue, or reliable runtime failure]
+    security issue, reliable runtime failure, or requirement not met]
 
     #### Important
     [Should fix before finish: integration bug, untested edge case, weak test
-    proving too little, misleading docs that affect usage or maintenance]
+    proving too little, misleading docs that affect usage or maintenance,
+    regression risk]
 
     #### Minor
     [Low-risk maintainability or clarity issues. No pure polish.]
@@ -113,12 +167,17 @@ Native subagent:
 
     **Ready for finish?** [Yes | No | With fixes]
 
+    **Coverage:** X/Y requirements verified as covered
+    **Regression:** [Clean / Issues found]
+
     **Reasoning:** [1-2 sentence risk-based assessment]
 
     ## Critical Rules
 
     **DO:**
     - Read the actual diff, not only reports
+    - Audit the coverage matrix (don't trust it blindly)
+    - Audit the regression checklist (verify completeness)
     - Focus on complete workflow behavior
     - Treat tests as evidence to audit, not proof to trust blindly
     - Report documentation defects that can mislead or omit required facts
@@ -128,8 +187,20 @@ Native subagent:
     - Repeat task-level nits unless they create whole-feature risk
     - Report pure documentation polish
     - Assume per-task reviews caught integration bugs
+    - Assume the coverage matrix is correct without spot-checking
     - Give a vague "looks good"
     - Avoid a clear verdict
 ```
 
-**Reviewer returns:** Findings by severity, Coverage Notes, Assessment.
+**Placeholders:**
+- `{DESCRIPTION}` - concise summary of the completed feature
+- `{REQUIREMENTS}` - source requirements or plan/spec excerpts
+- `{COVERAGE_MATRIX}` - requirements coverage matrix from Phase 1 (or "not available" if orchestrator skipped)
+- `{RUNTIME_VALIDATION}` - runtime validation results from Phase 2 (or "not performed: [reason]")
+- `{REGRESSION_CHECKLIST}` - regression checklist from Phase 4 (or "not available")
+- `{VERIFICATION}` - test commands and results
+- `{PER_TASK_REVIEWS}` - review artifacts or "not available"
+- `{BASE_SHA}` - commit before implementation began
+- `{HEAD_SHA}` - current commit
+
+**Reviewer returns:** Coverage Matrix Audit, Regression Audit, Findings by severity, Coverage Notes, Assessment.

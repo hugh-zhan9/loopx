@@ -1,16 +1,16 @@
 ---
 name: final-review
-description: "Performs whole-feature review after implementation and staged task review. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
-when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, 最终评审"
+description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
+when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.2.10"
+  version: "0.3.0"
 ---
 
 # Final Review
 
 Run the final whole-feature review after implementation is complete and before `finish`.
 
-**Core principle:** Per-task review catches local issues. Final review hunts integration and runtime risk across the complete feature.
+**Core principle:** Per-task review catches local issues. Final review hunts integration and runtime risk across the complete feature, verifies all requirements are met, and validates real behavior.
 
 **Announce at start:** "I'm using the final-review skill to review the completed feature."
 
@@ -38,30 +38,135 @@ Before dispatching the reviewer, collect:
 
 If the git range or requirements are unclear, stop and ask. A final review without a concrete scope is not useful.
 
-## Review Priority
+## The Final Review Process
 
-The reviewer must prioritize findings in this order:
+Final review is more than just another code review. It has four phases:
 
-1. Runtime bugs, data loss, broken CLI behavior, state corruption
-2. Cross-task integration bugs
-3. Missing edge cases not covered by tests
-4. Test quality problems
-5. Architecture and maintainability issues
-6. Documentation defects that can mislead users or maintainers, omit required operational facts, or contradict actual behavior
+### Phase 1: Requirements Coverage Matrix
 
-Do not report pure documentation polish, style preferences, or wording tweaks. Do report documentation problems that create wrong usage, wrong maintenance decisions, missing required commands, missing migration notes, or false claims.
+Before dispatching the code reviewer, build a requirements coverage matrix to verify nothing was missed or misimplemented.
 
-## Dispatch
+```markdown
+## Requirements Coverage
+
+| # | Requirement / Acceptance Criteria | Implemented In | Test Coverage | Status |
+|---|----------------------------------|----------------|---------------|--------|
+| R1 | [requirement text] | [file:function] | [test file:test name] | ✅ covered / ⚠️ partial / ❌ missing |
+```
+
+**How to build:**
+
+1. Extract all requirements/acceptance criteria from the source spec or plan
+2. For each requirement, find the implementation location
+3. For each requirement, find the test that verifies it
+4. Mark status:
+   - ✅ **covered** — implemented + tested + verified
+   - ⚠️ **partial** — implemented but test is weak or missing edge cases
+   - ❌ **missing** — not implemented, or implemented but not tested
+
+**If any requirement is ❌ missing:** This is a Critical finding. Do not proceed to finish.
+
+**If any requirement is ⚠️ partial:** This is an Important finding. Assess whether partial coverage is acceptable or must be fixed.
+
+### Phase 2: Runtime Validation
+
+When the feature is runnable (has a dev server, CLI, or testable interface), perform runtime validation beyond just tests passing.
+
+**Runtime validation checklist:**
+
+```markdown
+## Runtime Validation
+
+### Can the feature be exercised?
+- [ ] Dev server starts without errors
+- [ ] Feature is accessible (UI route, CLI command, API endpoint)
+- [ ] Golden path works end-to-end (not just unit tests)
+
+### Edge cases to try:
+- [ ] Empty/missing input
+- [ ] Invalid input (wrong type, too large, special characters)
+- [ ] Concurrent access (if applicable)
+- [ ] Interrupted operation (cancel mid-flow)
+- [ ] Repeated operation (idempotency)
+
+### Results:
+| Scenario | Expected | Actual | Pass? |
+|----------|----------|--------|-------|
+```
+
+**When runtime validation is not possible:**
+- State explicitly: "Runtime validation not performed because [reason]"
+- Increase scrutiny on test quality in Phase 3
+- This is acceptable for library code, internal utilities, or CI-only changes
+
+### Phase 3: Regression Checklist
+
+Check whether the implementation introduced unintended changes to existing behavior.
+
+```markdown
+## Regression Checklist
+
+### Public Interface Changes
+| Interface | Change | Callers | Backward Compatible? |
+|-----------|--------|---------|---------------------|
+
+### Configuration Changes
+| Config Key | Change | Default Preserved? | Migration Needed? |
+|-----------|--------|--------------------|--------------------|
+
+### Schema / Data Changes
+| Entity | Change | Migration | Rollback Safe? |
+|--------|--------|-----------|----------------|
+
+### Behavioral Changes
+| Existing Behavior | Changed To | Intentional? | Documented? |
+|-------------------|-----------|--------------|-------------|
+
+### Dependency Changes
+| Package | Change | Breaking? | Justification |
+|---------|--------|-----------|---------------|
+```
+
+**Skip sections that don't apply.** A pure frontend feature doesn't need schema checks. A pure backend change doesn't need UI regression checks.
+
+**Regression red flags:**
+- Public function signature changed without updating all callers
+- Config default changed (breaks existing deployments)
+- Schema migration is destructive (no rollback path)
+- Existing test assertions changed to make new code pass (test was right, code is wrong?)
+- Package major version bump without changelog review
+
+### Phase 4: Dispatch Code Reviewer
 
 Use the platform's native subagent mechanism when available and fill template at `final-reviewer.md`.
 
 **Placeholders:**
 - `{DESCRIPTION}` - concise summary of the completed feature
 - `{REQUIREMENTS}` - source requirements or plan/spec excerpts
-- `{VERIFICATION}` - test commands and results
+- `{VERIFICATION}` - test commands and results + runtime validation results
 - `{PER_TASK_REVIEWS}` - review artifacts or "not available"
 - `{BASE_SHA}` - commit before implementation began
 - `{HEAD_SHA}` - current commit
+
+**Additional context to include:**
+- The requirements coverage matrix from Phase 1
+- Any runtime validation findings from Phase 2
+- The regression checklist results from Phase 3
+
+## Review Priority
+
+The reviewer must prioritize findings in this order:
+
+1. Runtime bugs, data loss, broken CLI behavior, state corruption
+2. Requirements not met (from coverage matrix)
+3. Cross-task integration bugs
+4. Regression issues (from regression checklist)
+5. Missing edge cases not covered by tests
+6. Test quality problems
+7. Architecture and maintainability issues
+8. Documentation defects that can mislead users or maintainers, omit required operational facts, or contradict actual behavior
+
+Do not report pure documentation polish, style preferences, or wording tweaks. Do report documentation problems that create wrong usage, wrong maintenance decisions, missing required commands, missing migration notes, or false claims.
 
 ## Handle Feedback
 
@@ -70,11 +175,49 @@ Use the platform's native subagent mechanism when available and fill template at
 - Push back only with code, test, or requirement evidence
 - After fixes, run verification again and repeat final review if the fix changed integration behavior
 
+## Final Review Output
+
+The complete final review output should include:
+
+```markdown
+# Final Review Report
+
+## Requirements Coverage Matrix
+[from Phase 1]
+
+## Runtime Validation Results
+[from Phase 2]
+
+## Code Review Findings
+[from Phase 4 — reviewer output]
+
+## Regression Assessment
+[from Phase 3]
+
+## Overall Assessment
+
+**Ready for finish?** [Yes | No | With fixes]
+
+**Coverage:** X/Y requirements fully covered
+**Runtime:** [Validated / Not validated + reason]
+**Regression:** [Clean / Issues found]
+
+**Blocking issues:** [list or "none"]
+```
+
 ## Common Mistakes
 
 **Running normal review again**
 - Problem: reviewer repeats per-task or documentation comments
 - Fix: use `final-reviewer.md`, which focuses on whole-feature runtime risk
+
+**Skipping requirements coverage matrix**
+- Problem: a requirement was never implemented but nobody checked
+- Fix: always build the matrix from source requirements before dispatching reviewer
+
+**Skipping runtime validation when it's possible**
+- Problem: tests pass but feature doesn't actually work (mocking, environment differences)
+- Fix: if it can run, run it. Type checking and tests verify code correctness, not feature correctness
 
 **Letting docs hide real risk**
 - Problem: "docs only" findings are ignored even when users would be misled
@@ -87,3 +230,7 @@ Use the platform's native subagent mechanism when available and fill template at
 **Skipping verification evidence**
 - Problem: reviewer cannot judge whether tests prove real behavior
 - Fix: include exact commands and pass/fail output summary
+
+**Skipping regression checklist for "safe" changes**
+- Problem: "I only changed internal code" but actually broke a public export
+- Fix: always check public interfaces, even for "internal" changes

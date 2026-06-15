@@ -32,7 +32,7 @@ Native subagent:
 
     ## What to Check
 
-    **Plan alignment:**
+    **Plan alignment (skip if Stage 1 spec compliance already passed):**
     - Does the implementation match the plan / requirements?
     - Are deviations justified improvements, or problematic departures?
     - Is all planned functionality present?
