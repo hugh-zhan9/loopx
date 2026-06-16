@@ -103,14 +103,10 @@ function assertContains(text, value, label) {
   assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
 }
 
-function publicArchiveCommandLines(text) {
-  return text
-    .split('\n')
-    .filter((line) => /^\s*(?:(?:[-*+]|\d+[.)])\s+)?`?loopx archive(?:\s|`|$)/.test(line));
-}
+const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
 
-function assertNoPublicArchiveCommandExposure(text, label) {
-  assert.deepEqual(publicArchiveCommandLines(text), [], `${label} should not expose archive runtime command`);
+function assertNoRemovedRuntimeCommandExposure(text, label) {
+  assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
 }
 
 async function assertPublicDocsAligned() {
@@ -123,10 +119,8 @@ async function assertPublicDocsAligned() {
     'loopx render',
     'loopx status',
     'loopx next',
-    'loopx help advanced',
     'loopx setup-context',
     'loopx doctor',
-    'loopx migrate',
     'loopx repair-install',
     'node scripts/verify-skills.mjs',
   ];
@@ -134,30 +128,12 @@ async function assertPublicDocsAligned() {
     assertContains(readme, command, 'README.md');
     assertContains(readmeZh, command, 'README.zh-CN.md');
   }
-  assert.deepEqual(
-    publicArchiveCommandLines([
-      'loopx archive <slug>',
-      '- loopx archive <slug>',
-      '- `loopx archive <slug>`',
-      '1. loopx archive <slug>',
-      'archive is not part of the public v1 finish flow. Older runtime state may still contain archive fields or a hidden `loopx archive <slug>` compatibility command.',
-    ].join('\n')),
-    [
-      'loopx archive <slug>',
-      '- loopx archive <slug>',
-      '- `loopx archive <slug>`',
-      '1. loopx archive <slug>',
-    ],
-    'archive command exposure guard should catch public command lines without rejecting prose compatibility notes',
-  );
-  assertNoPublicArchiveCommandExposure(readme, 'README.md');
-  assertNoPublicArchiveCommandExposure(readmeZh, 'README.zh-CN.md');
+  assertNoRemovedRuntimeCommandExposure(readme, 'README.md');
+  assertNoRemovedRuntimeCommandExposure(readmeZh, 'README.zh-CN.md');
   assertContains(readme, 'local audit ledger', 'README.md');
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
-  assertContains(readme, 'Advanced runtime commands', 'README.md');
-  assertContains(readme, 'loopx help advanced', 'README.md');
   assertContains(readme, 'Undo installed files', 'README.md');
   assertContains(readme, 'Golden path', 'README.md');
 
@@ -165,8 +141,6 @@ async function assertPublicDocsAligned() {
   assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
   assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
-  assertContains(readmeZh, '高级 runtime 命令', 'README.zh-CN.md');
-  assertContains(readmeZh, 'loopx help advanced', 'README.zh-CN.md');
   assertContains(readmeZh, '撤销已安装文件', 'README.zh-CN.md');
   assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
   for (const required of [

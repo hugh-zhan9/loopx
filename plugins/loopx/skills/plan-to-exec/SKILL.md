@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -28,11 +28,13 @@ Before using this skill in a repository, inspect loopx long-lived context when i
 - If `docs/loopx/specs/` exists, inspect the directory names and filenames. If `docs/loopx/specs/index.md` exists, use it as a map, but do not require it. Read only specs relevant to the requested domain, affected files, workflow behavior, or named source document.
 - If `.loopx/memory/MEMORY.md` exists, read it as curated project memory before deciding what is already known.
 - If `.loopx/memory/index.jsonl` exists, use it only as a retrieval index for relevant active memory cards; do not treat it as an append-only log.
-- Treat current user instructions and the named source document as highest priority, `docs/loopx/specs/` as binding long-lived repo rules, and `.loopx/memory/` as advisory context. Memory is advisory and must not override current task instructions, approved source docs, or repo specs.
+- Treat current user instructions and the named source document as highest priority, `docs/loopx/specs/` as binding long-lived repo rules, and `.loopx/memory/` as advisory context. Priority order: current user instruction, source document, repo specs, memory. Memory is advisory and must not override current task instructions, approved source docs, or repo specs.
 
 Do not read every file under `docs/loopx/specs/` by default. Prefer relevant specs selected by filename, title, frontmatter such as `applies_to`, or the files/domains involved in the task.
 
 Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
+
+The plan must preserve and cover generated requirement anchors from `clarify` output or `spec` source documents. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
 
 **Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
@@ -54,6 +56,50 @@ Before defining tasks, map out which files will be created or modified and what 
 - In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure. If a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
+
+## High-Risk Change Planning
+
+Use this section for any plan that removes, replaces, narrows, migrates, or changes compatibility for an existing behavior or public surface. This is not project-specific; it applies to CLI commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
+
+For these plans, add an explicit **Surface Inventory** before the task list:
+
+```markdown
+## Surface Inventory
+
+- Public commands/API/routes/events/config:
+- Exported functions/types/modules:
+- Runtime/generated artifacts and templates:
+- Installer/package/deployment surface:
+- Hooks/background jobs/automation:
+- Current product docs:
+- Tests/governance checks:
+- Compatibility/migration paths:
+```
+
+For every item that might be kept, moved, or deleted, include a **Caller Proof** command and a decision rule:
+
+```bash
+rg "symbolOrFilename|old-command|old-field" src scripts test package.json README.md docs
+```
+
+Decision rule:
+
+- retained caller exists in current source/runtime code -> keep it and name the caller in the plan
+- only historical docs, release notes, old plans, or frozen external content reference it -> do not count that as a retained caller
+- no retained caller -> delete it or remove it from current governance/package/docs
+
+For removal or compatibility-ending work, add **Negative Assertions** with exact commands and expected output. Examples:
+
+```bash
+test ! -e path/to/deleted-file
+! rg "removedSymbol|removedCommand|removedField" src scripts test package.json
+! rg "removed public text" README.md docs/current-product-specs
+npm pack --dry-run
+```
+
+State which paths are strict current product surface and which paths are historical context. Historical paths may mention removed behavior; strict paths must not unless the new behavior explicitly requires it.
+
+If a plan rewrites or deletes tests, include a task that proves the new tests still guard against old behavior returning. A passing happy-path test is not enough for removal work.
 
 ## Bite-Sized Task Granularity
 
@@ -146,6 +192,7 @@ Every step must contain the actual content an engineer needs. These are plan fai
 - Exact commands with expected output
 - DRY, YAGNI, TDD, frequent commits
 - The approved design spec is binding; do not expand scope
+- Preserve anchor coverage for every generated requirement anchor
 
 ## Self-Review
 
@@ -155,6 +202,8 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 2. **Placeholder scan:** Search your plan for red flags from the "No Placeholders" section. Fix them.
 3. **Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks?
 4. **Design drift:** Did you introduce a new architecture, API, data model, or business behavior not present in the design spec? If yes, return to `spec`.
+5. **Anchor coverage:** Does each generated requirement anchor map to a task, verification step, or deferred-with-rationale row? If not, fix the plan before handoff.
+6. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 

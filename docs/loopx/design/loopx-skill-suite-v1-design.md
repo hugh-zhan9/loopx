@@ -39,7 +39,7 @@ The repository may retain auxiliary or compatibility skill source directories fo
 Recommended flow:
 
 ```text
-clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
 `spec` is a conditional design gate. `clarify` may route directly to `plan-to-exec` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
@@ -66,7 +66,7 @@ Human-maintained v1 skill-suite artifacts use `docs/loopx/`:
 - `docs/loopx/refactors/`
 - `docs/loopx/specs/`
 
-Runtime state, hook diagnostics, installer metadata, manifests, generated HTML views, and runtime JSON use `.loopx/`.
+Runtime state, hook diagnostics, installer metadata, generated HTML views, and runtime JSON use `.loopx/`.
 
 Local agent memory uses `.loopx/memory/`. `.loopx/memory/MEMORY.md` is bounded curated project memory. `.loopx/memory/index.jsonl` is a curated active index for agent file-search. Stable shared rules belong in `docs/loopx/specs/<domain>.md`, with `docs/loopx/specs/inbox.md` as the fallback domain.
 

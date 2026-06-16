@@ -86,9 +86,19 @@ async function specRecord(cwd, path, changedFiles) {
   const appliesToMatch = appliesTo.some((pattern) => changedFiles.some((file) => appliesToChangedFile(pattern, file)));
   const isIndex = /(^|\/)index\.md$/i.test(path);
   const isInbox = /(^|\/)inbox\.md$/i.test(path);
+  const reason = isIndex
+    ? 'index_included'
+    : isInbox
+      ? 'inbox_included'
+      : filenameMatch
+        ? 'filename_match'
+        : appliesToMatch
+          ? 'applies_to_match'
+          : changedFiles.length === 0 ? 'no_changed_files_fallback' : 'not_selected';
   return {
     path: displayPath(cwd, path),
     appliesTo,
+    reason,
     relevant: isIndex || isInbox || filenameMatch || appliesToMatch || changedFiles.length === 0,
   };
 }

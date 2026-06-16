@@ -15,7 +15,7 @@
 推荐 v1 流程：
 
 ```text
-clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
 ## 快速开始
@@ -45,6 +45,8 @@ loopx install-skills --target all --json
 默认 init 路径也可以使用 JSON 输出：`loopx init --json`。
 
 `spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过，直接进入 `plan-to-exec`。
+
+clarify 输出和 `spec` 设计文档都是 anchor sources。plan-to-exec 必须保留 anchor coverage，把这些来源转换成可执行任务时不能丢失需求覆盖关系。
 
 ## Skills
 
@@ -112,7 +114,9 @@ Finish runtime 命令是给 agent、hooks 和兼容路径使用的高级 plumbin
 
 `finish` 是一次 implementation decision 的终端完成步骤。只有在上次选择保留、PR 迭代、执行选择前中断，或 review feedback 后出现新变更时才重新执行；merge 或 discard 后不要重复执行。
 
-生成的支撑状态、hook 诊断、安装元数据、HTML views、manifests 和 runtime JSON 仍放在 `.loopx/` 下。
+生成的支撑状态、hook 诊断、安装元数据、HTML views 和 runtime JSON 仍放在 `.loopx/` 下。
+
+优先级顺序：当前用户指令、source document、repo specs、memory。当前用户指令始终高于 source docs，source docs 高于 repo specs 或 memory。
 
 本地 advisory agent memory 放在 `.loopx/memory/`：
 
@@ -223,17 +227,8 @@ loopx status [slug] [--json]
 loopx next <slug> [--json]
 loopx setup-context
 loopx doctor [--json]
-loopx migrate
 loopx repair-install
 ```
-
-高级 runtime 命令：
-
-```bash
-loopx help advanced
-```
-
-这些命令保留给 skills、hooks 和兼容路径。普通用户应跟随 `loopx status`、`loopx next` 和提示的 skill 命令。
 
 ## 黄金路径
 

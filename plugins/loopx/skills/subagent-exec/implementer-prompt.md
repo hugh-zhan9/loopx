@@ -16,6 +16,21 @@ Native Codex subagent:
 
     [Scene-setting: where this fits, dependencies, architectural context]
 
+    ## ANCHOR_CONTEXT
+
+    [Relevant anchor ids, original anchor text summary, coverage rows relevant to this
+    task, and source requirement path. If no anchor applies, include one classification:
+    infrastructure, test-only, docs-only, or refactor-only, with rationale.]
+
+    ## SURFACE_CHANGE_CONTEXT
+
+    [Include this section for tasks that remove, replace, narrow, migrate, or change
+    compatibility for existing behavior or public surface. Paste the surface being
+    changed, strict current product paths to scan, historical/frozen paths that may
+    mention old behavior, caller proof commands, negative assertion commands, and
+    package/deploy/governance checks required. If this task is not a surface change,
+    write: not_applicable.]
+
     ## Before You Begin
 
     If you have questions about:
@@ -95,6 +110,14 @@ Native Codex subagent:
     - Did I follow TDD if required?
     - Are tests comprehensive?
 
+    **Surface changes:**
+    - If I removed, replaced, narrowed, migrated, or changed compatibility, did I run
+      the required caller proof and negative assertion commands?
+    - Did I verify strict current product paths are clean while allowing only
+      historical/frozen paths to mention old behavior?
+    - Did I verify package, deploy, installer, governance, docs, and test surfaces
+      match the new behavior?
+
     If you find issues during self-review, fix them now before reporting.
 
     ## Report Format
@@ -106,6 +129,46 @@ Native Codex subagent:
     - Files changed
     - Self-review findings (if any)
     - Any issues or concerns
+
+    Include this required block:
+
+    ```yaml
+    anchor_coverage:
+      REQ-001: implemented
+      REQ-002: tested
+    implemented_anchor_ids:
+      - REQ-001
+    tests_for_anchor_ids:
+      - REQ-002
+    extra_behavior: none
+    missing_context: none
+    ```
+
+    Allowed anchor statuses: implemented, tested, not_applicable, blocked,
+    needs_context. Use `missing_context` when ANCHOR_CONTEXT is absent or insufficient.
+    Use `extra_behavior` for any product, API, data, or permission behavior not tied to
+    an anchor or explicit plan rationale.
+
+    For surface-changing tasks, also include this required block:
+
+    ```yaml
+    surface_change:
+      removed_or_changed:
+        - <command/api/module/file/doc claim>
+      retained_with_caller_proof:
+        - item: <item>
+          caller: <current-source caller or none>
+      negative_assertions:
+        - command: <command>
+          result: <expected absence confirmed>
+      package_or_governance_checks:
+        - command: <command>
+          result: <pass/fail>
+    ```
+
+    If the task is surface-changing but SURFACE_CHANGE_CONTEXT is absent or lacks
+    caller proof, negative assertions, strict current product paths, or package/
+    governance checks, report NEEDS_CONTEXT before editing.
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need

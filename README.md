@@ -15,7 +15,7 @@
 Recommended v1 flow:
 
 ```text
-clarify -> spec? -> plan-to-exec -> (subagent-exec | exec) -> final-review -> fix-review? -> finish
+clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
 ## Quick start
@@ -45,6 +45,8 @@ loopx install-skills --target all --json
 The JSON flag also works on the default init path: `loopx init --json`.
 
 `spec` is conditional. Use it when API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. Skip it when the remaining work is local implementation choice.
+
+clarify outputs and `spec` design documents are anchor sources. plan-to-exec must preserve anchor coverage when it turns those sources into executable tasks.
 
 ## Skills
 
@@ -112,7 +114,9 @@ Finish runtime commands are advanced agent/runtime plumbing, not the normal user
 
 `finish` is the terminal completion step for one implementation decision. Rerun it only after keep-as-is, PR iteration, interruption before executing a choice, or new changes after review feedback. Do not rerun it after merge or discard.
 
-Generated support state, hook diagnostics, installer metadata, HTML views, manifests, and runtime JSON remain under `.loopx/`.
+Generated support state, hook diagnostics, installer metadata, HTML views, and runtime JSON remain under `.loopx/`.
+
+Priority order: current user instruction, source document, repo specs, memory. Current user instructions remain higher priority than source docs, and source docs remain higher priority than repo specs or memory.
 
 Local advisory agent memory lives under `.loopx/memory/`:
 
@@ -223,17 +227,8 @@ loopx status [slug] [--json]
 loopx next <slug> [--json]
 loopx setup-context
 loopx doctor [--json]
-loopx migrate
 loopx repair-install
 ```
-
-Advanced runtime commands:
-
-```bash
-loopx help advanced
-```
-
-These commands are kept for skills, hooks, and compatibility paths. Normal users should follow `loopx status`, `loopx next`, and the suggested skill commands.
 
 ## Golden path
 
