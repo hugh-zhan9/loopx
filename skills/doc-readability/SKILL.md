@@ -12,6 +12,8 @@ metadata:
 
 Readable documents help a specific reader make a decision, execute work, or verify a claim with minimal reconstruction. Do not confuse readability with shortness or smooth prose. Preserve factual meaning, domain vocabulary, and useful specificity while removing noise.
 
+AI-generated prose is a specific readability threat: it adds volume without adding information. Filler, hedging, symmetric treatment, and throat-clearing all increase word count while reducing signal density. A readable document sounds like a competent human wrote it — with judgment, economy, and the willingness to say what matters first.
+
 ## First Move
 
 Read the actual document before judging it. If the document is a URL, cloud doc, wiki page, local file, PDF, or exported artifact, fetch or read the content with the appropriate available tool. If only an excerpt is provided, state that the assessment is based on the excerpt.
@@ -142,14 +144,32 @@ For an already rewritten or structured document, use this severity split instead
 
 Treat these as signals to tighten or restructure:
 
+**Structure smells:**
+
 - Broad openings like "This document is used to..." without a decision.
 - Repeated section patterns that say the same thing for every case.
 - Tables whose cells are long paragraphs.
 - Grammatically parallel bullets that are not intellectually prioritized.
-- Generic terms like `support`, `process`, `optimize`, `capability`, `workflow`, `closed loop`, `improve`, `ensure`.
 - Every section ending with "notes" that restate prior content.
 - Long chains of "need to / can / generate / receive / process" without owner, timing, or output.
 - Balanced summaries that avoid saying "do this", "do not do this", or "this is the rule".
+
+**Filler and padding:**
+
+- Filler words that add no meaning: just, really, basically, actually, simply, essentially, fundamentally, importantly, significantly, effectively, generally, overall, arguably. Remove unless they carry real emphasis.
+- Hedging that hides behind fake uncertainty: likely, probably, it seems, it appears, it could be argued, it should be noted, it is worth mentioning, it is important to note. Keep hedging only when the uncertainty is real, named, and the reader needs to know it.
+- Throat-clearing openers: "In this document, we will...", "As mentioned above...", "It goes without saying...", "Before we begin...", "Let's take a look at...". Start with the content.
+- Meta-descriptions of what a section contains instead of the content itself: "The following section describes the architecture." — just describe the architecture.
+
+**Inflated language:**
+
+- Generic verbs that mean nothing without context: `support`, `process`, `optimize`, `capability`, `workflow`, `closed loop`, `improve`, `ensure`, `leverage`, `utilize`, `facilitate`, `streamline`, `empower`, `enable`, `drive`. Replace with the specific action, or delete.
+- Inflated phrases where shorter words work: "implement a solution for" → fix, "in order to" → to, "due to the fact that" → because, "at this point in time" → now, "a large number of" → many, "in the event that" → if, "prior to" → before, "with regard to" → about, "for the purpose of" → to, "has the ability to" → can, "it is necessary to" → must.
+
+**Symmetric AI pattern:**
+
+- Every option or feature described with equal weight, same sentence structure, and no recommendation. Human writers rank, choose, and say which matters more.
+- Sections that all follow the same template without adapting to what is actually different about each item.
 
 Do not remove domain terms merely because they are technical. Remove vagueness, not expertise.
 
@@ -201,15 +221,28 @@ Rewrite control:
 
 ## Editing Rules
 
+**Structure:**
+
 - Lead with conclusions and rules before explanation.
 - Prefer prose over a table when table cells become paragraphs.
 - Split source-of-truth rules from implementation details.
 - Make negative rules explicit: "do not auto-post cash", "do not rewrite historical trades", "do not send Plan before confirmation".
 - Replace repeated prose with one shared rule plus event-specific exceptions.
+
+**Precision:**
+
 - Keep strong domain nouns, exact dates, fields, statuses, and enumerations.
 - Preserve real uncertainty, but name what is unknown and who resolves it.
-- Remove performative transitions unless they add structure.
-- Do not make formal documents chatty. Human writing means judgment and economy, not casual tone.
+- Choose the shorter word when meaning is preserved: use not utilize, build not implement, help not facilitate, about not with regard to, because not due to the fact that, can not has the ability to.
+
+**Anti-AI-prose:**
+
+- Default: every sentence should change what the reader knows or can do. If removing a sentence loses nothing, remove it. Exception: deliberate emphasis on safety or compliance points, reader-orientation sentences in long documents, and pacing breaks after dense sections may stay even when they do not add new information.
+- Do not open sections with meta-descriptions of what the section contains. "This section describes X" — just describe X.
+- Remove performative transitions: "Now let's turn to...", "Having discussed X, we can now...", "With that in mind...". The heading already signals the topic change.
+- Do not pad with synonyms: "clear and concise", "robust and reliable", "efficient and effective". Pick the one that matters.
+- When listing options or alternatives, rank them. Say which one is recommended and why. Do not give every option equal treatment unless they are genuinely equal.
+- Do not make formal documents chatty. Human writing means judgment and economy, not casual tone. The goal is a document that sounds like a competent person wrote it — not a friendly AI, not a bureaucrat.
 
 ## Final Check
 
@@ -220,3 +253,4 @@ Before claiming the document is improved, verify:
 - Repeated content has been collapsed or justified.
 - Boundaries and non-goals are not buried.
 - Any removed text was redundant, not a lost requirement.
+- Read the first paragraph of each section aloud. If it sounds like AI wrote it — filler, hedging, throat-clearing, symmetric padding — tighten it. A human would not write "It is important to note that we need to ensure that the system is robust and reliable." A human would write "The system must not lose data."
