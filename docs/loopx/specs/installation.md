@@ -2,20 +2,18 @@
 
 This file records stable loopx product-surface rules for first-use CLI output, installer behavior, hook guidance, and packaged skill scope.
 
-## Human And JSON Output
+## Public CLI Surface
 
 - `loopx --help` must start with a short quickstart path: install skills, init, clarify, status.
+- Public commands are install, init, clarify, render, status, next, setup-context, doctor, repair-install, and finish audit commands.
+- Removed early runtime commands must not appear in current public docs, default help, next-step helpers, workflow hooks, or installer guidance.
+- `loopx next` returns a skill handoff, not a runtime command handoff.
+
+## Human And JSON Output
+
 - `loopx init`, `loopx doctor`, and `loopx install-skills` default to concise human output.
 - Full runtime payloads require explicit `--json`.
 - Commands in `--json` mode must not print interactive prompt text into stdout.
-
-## Archive Compatibility
-
-- `archive` is hidden compatibility, not part of the public v1 product flow.
-- Default help, README public command lists, next-step helpers, and workflow hooks must not recommend `loopx archive` or `$archive`.
-- If old persisted runtime state contains archive recommendations, hooks must replace them:
-  - done/archive/completed state -> `$finish`
-  - approved review state -> `loopx approve <slug> --from review --to done`
 
 ## Installer Behavior
 

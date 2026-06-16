@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, periodic code review, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, periodic review, no subagent lane"
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Exec
@@ -22,8 +22,10 @@ Load plan, review critically, execute all tasks with spec verification and perio
 
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
-3. If concerns: Raise them with your human partner before starting
-4. If no concerns: create update_plan and proceed
+3. If the plan removes, replaces, narrows, migrates, or changes compatibility for existing behavior or public surface, verify that it includes a Surface Inventory, caller proof commands, negative assertion commands, strict current product paths, historical/frozen paths, and package/deploy/governance checks
+4. If surface-change evidence is missing: stop before editing, classify this as a plan defect, and ask for a plan update
+5. If other concerns exist: Raise them with your human partner before starting
+6. If no concerns: create update_plan and proceed
 
 ### Step 1.5: Record Finish Baseline
 
@@ -52,6 +54,10 @@ For each task:
 Request a `loopx:review` (Stage 1 + Stage 2) between tasks when any of these conditions are met:
 
 - The completed task changes a public interface, exported type, or shared utility
+- The completed task removes, replaces, narrows, migrates, or changes compatibility for existing behavior
+- The completed task deletes modules, generated artifacts, templates, hooks, package entries, migrations, or installer/governance rules
+- The completed task rewrites or deletes tests for existing behavior
+- The completed task changes current public docs that describe product behavior
 - The completed task touches 5+ files
 - The completed task involves security-sensitive code (auth, permissions, crypto, user input)
 - You have completed 3 consecutive tasks without a review
@@ -62,6 +68,19 @@ When no trigger fires, spec self-check (Step 4) is sufficient — you don't need
 **After review:** If review finds Critical or Important issues, fix them (use `loopx:fix-review`) before continuing to the next task.
 
 Only mark the task complete and update the checkpoint after all triggered review issues for that task are resolved.
+
+### Checkpoint Review Questions
+
+For triggered reviews, include the task text, changed files, test results, and the exact evidence commands you ran. For removal, replacement, compatibility, migration, package, installer, template, hook, or public-surface changes, the review must explicitly answer:
+
+1. **Plan coverage:** Did this task implement every requested removal/addition/update and nothing extra?
+2. **Negative surface:** Do removed commands, APIs, exports, fields, files, templates, docs claims, or package entries still exist in current product paths?
+3. **Caller proof:** For every kept helper/module/template/migration path that the plan marked conditional, is there a retained current-source caller? Historical docs, release notes, old plans, and frozen external content do not count.
+4. **Orphan scan:** Did the task leave source modules, tests, templates, generated artifacts, or docs that claim behavior no retained path produces?
+5. **Governance/package/deploy:** Do package manifests, installer governance, generated file lists, hooks, CI, and release checks match the new surface?
+6. **Current docs:** Do README/current specs/templates describe the new behavior without preserving stale instructions?
+
+If any answer is unknown because evidence was not collected, collect the evidence before proceeding. Do not mark the task complete based only on passing happy-path tests.
 
 ### Step 3: Complete Development
 
@@ -84,6 +103,8 @@ After each task completes, perform a lightweight spec compliance check before pr
 3. Does my implementation match the plan's intent, not just the literal words?
 4. If I deviated from the plan, is it a justified improvement or an accidental departure?
 5. Do the outputs of this task match what the next task expects as input?
+6. If this task removed or narrowed behavior, did I prove the old surface is absent with negative assertions?
+7. If this task kept a conditional helper/module/template, did I prove a retained caller still consumes it?
 
 **When spec check fails:**
 

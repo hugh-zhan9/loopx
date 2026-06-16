@@ -23,6 +23,7 @@ Native Codex subagent:
   HEAD_SHA: [current commit]
   SPEC_REVIEW_RESULT: [approved spec compliance result, or latest fixed issues]
   VERIFICATION_EVIDENCE: [commands run, exit codes, and summaries]
+  SURFACE_CHANGE_CONTEXT: [surface context and implementer `surface_change` block, or not_applicable]
 ```
 
 **In addition to standard code quality concerns, the reviewer should check:**
@@ -30,5 +31,10 @@ Native Codex subagent:
 - Are units decomposed so they can be understood and tested independently?
 - Is the implementation following the file structure from the plan?
 - Did this implementation create new files that are already large, or significantly grow existing files? (Don't flag pre-existing file sizes — focus on what this change contributed.)
+- For surface-changing tasks, did the implementation leave orphaned helpers, tests,
+  templates, generated artifacts, docs claims, package entries, or governance rules
+  that no retained current product path uses?
+- For surface-changing tasks, are caller proof, negative assertions, and package/
+  governance checks practical to rerun and specific enough to catch regressions?
 
 **Code reviewer returns:** Strengths, Issues (Critical/Important/Minor), Recommendations, Assessment

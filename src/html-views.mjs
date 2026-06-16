@@ -6,27 +6,10 @@ import { statusSummary } from './workflow.mjs';
 
 const WORKFLOW_ARTIFACTS = [
   { id: 'spec', name: 'spec.md', label: '需求工作副本', page: 'intake.html' },
-  { id: 'plan', name: 'plan.md', label: '计划', page: 'plan.html' },
-  { id: 'architecture', name: 'architecture.md', label: '架构', page: 'plan.html' },
-  { id: 'development-plan', name: 'development-plan.md', label: '开发计划', page: 'plan.html' },
-  { id: 'test-plan', name: 'test-plan.md', label: '测试计划', page: 'plan.html' },
-  { id: 'requirement-traceability', name: 'requirement-traceability.md', label: '需求覆盖矩阵', page: 'plan.html' },
-  { id: 'plan-delegation-decision', name: 'plan-delegation-decision.md', label: '委派决策', page: 'plan.html' },
-  { id: 'change-proposal', name: 'proposal.md', label: '变更提案', page: 'change.html', changeKey: 'proposal' },
-  { id: 'change-spec-delta', name: 'spec-delta.md', label: '规格增量', page: 'change.html', changeKey: 'specDelta' },
-  { id: 'change-design', name: 'design.md', label: '设计方案', page: 'change.html', changeKey: 'design' },
-  { id: 'change-tasks', name: 'tasks.md', label: '任务拆解', page: 'change.html', changeKey: 'tasks' },
-  { id: 'change-slices', name: 'slices.json', label: '垂直切片', page: 'change.html', changeKey: 'slices' },
-  { id: 'execution-record', name: 'execution-record.md', label: '执行记录', page: 'build.html' },
-  { id: 'review-report', name: 'review-report.md', label: '评审报告', page: 'review.html' },
 ];
 
 const PAGE_GROUPS = [
   { file: 'intake.html', title: '需求澄清', artifacts: ['spec'] },
-  { file: 'plan.html', title: '计划与架构', artifacts: ['plan', 'architecture', 'development-plan', 'test-plan', 'requirement-traceability'] },
-  { file: 'change.html', title: '变更设计方案', artifacts: ['change-proposal', 'change-spec-delta', 'change-design', 'change-tasks', 'change-slices'] },
-  { file: 'build.html', title: '执行与验证', artifacts: ['execution-record'] },
-  { file: 'review.html', title: '评审结论', artifacts: ['review-report'] },
 ];
 
 function escapeHtml(value) {
@@ -433,7 +416,7 @@ function displayTextForArtifact(artifact, text) {
     if (/\$build\s+/.test(line) || /\.loopx\//.test(line)) {
       continue;
     }
-    if (/^\s*-\s*(iteration|Architect review|Critic verdict|plan package|execution approved)\s*:/i.test(line)) {
+    if (/^\s*-\s*(iteration|Architect review|Critic verdict|execution approved)\s*:/i.test(line)) {
       continue;
     }
     kept.push(line);

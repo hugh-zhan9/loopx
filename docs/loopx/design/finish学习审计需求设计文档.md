@@ -168,7 +168,7 @@
   - 解析 slug；若未传 slug，优先从 `.loopx/workflows` 中最近活动 workflow 或 git branch 推断，无法推断时报错要求显式传入。
   - 创建 `.loopx/finish/<YYYYMMDDTHHMMSSZ>-<slug>/`。
   - 采集 git branch、base branch、worktree 类型、dirty diff 摘要、untracked 文件摘要。
-  - 读取 workflow state、plan/spec/review/execution-record/final-review 等可用 artifacts。
+  - 读取 workflow state、spec、review/final-review、finish audit 等可用 artifacts。
   - 检查 `.loopx/memory/` 和 `docs/loopx/specs/` 是否存在。
   - 写入 `finish-state.json` 和 `finish-report.md`。
 - 状态流转：

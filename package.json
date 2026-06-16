@@ -1,7 +1,7 @@
 {
   "name": "@ai-content-space/loopx",
   "type": "module",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Skill-first workflow suite for agentic coding assistants",
   "repository": {
     "type": "git",
@@ -26,7 +26,6 @@
     "scripts/install-skills.mjs",
     "scripts/verify-skills.mjs",
     "scripts/claude-workflow-hook.mjs",
-    "scripts/codex-stop-hook.mjs",
     "scripts/codex-workflow-hook.mjs",
     "assets/logo.svg",
     "src/",
@@ -52,7 +51,7 @@
     "skills/subagent-exec/",
     "skills/tdd/",
     "skills/verify/",
-    "templates/",
+    "templates/spec.md",
     "plugins/loopx/",
     "!plugins/loopx/scripts/plugin-install.test.mjs"
   ],

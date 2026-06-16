@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and staged review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, staged spec review, code quality review, parallel-capable execution"
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Subagent Exec
@@ -100,6 +100,75 @@ loopx finish-start <slug> --source <plan-path>
 ```
 
 Use the plan filename slug when no workflow slug is available. This preserves the starting `HEAD` so `finish-audit` can inspect `baseline..HEAD` even after implementers commit their work and the current `git diff` is empty.
+
+### Anchor Context Contract
+
+Before dispatching an implementer, provide an `ANCHOR_CONTEXT` block:
+
+```text
+ANCHOR_CONTEXT:
+- anchor ids relevant to this task
+- original anchor text summary
+- coverage rows relevant to this task
+- source requirement path
+```
+
+If a task has no direct anchor, classify it as exactly one of:
+
+```text
+infrastructure
+test-only
+docs-only
+refactor-only
+```
+
+and explain why it is not directly tied to a product requirement. Implementer and reviewer reports must preserve these fields:
+
+```yaml
+anchor_coverage:
+  REQ-001: implemented
+implemented_anchor_ids:
+  - REQ-001
+extra_behavior: none
+missing_context: none
+```
+
+### Surface Change Contract
+
+Use this contract for any task that removes, replaces, narrows, migrates, or changes compatibility for existing behavior or public surface. This includes commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
+
+Before dispatching an implementer, provide a `SURFACE_CHANGE_CONTEXT` block:
+
+```text
+SURFACE_CHANGE_CONTEXT:
+- surface being changed:
+- strict current product paths to scan:
+- historical/frozen paths that may mention old behavior:
+- caller proof commands from the plan:
+- negative assertion commands from the plan:
+- package/deploy/governance checks required:
+```
+
+If the plan omits caller proof or negative assertions for a surface-changing task, stop and treat it as a plan defect. Do not let implementers infer deletion scope from prose.
+
+Implementer reports for surface-changing tasks must include:
+
+```yaml
+surface_change:
+  removed_or_changed:
+    - <command/api/module/file/doc claim>
+  retained_with_caller_proof:
+    - item: <item>
+      caller: <current-source caller or none>
+  negative_assertions:
+    - command: <command>
+      result: <expected absence confirmed>
+  package_or_governance_checks:
+    - command: <command>
+      result: <pass/fail>
+```
+
+Spec and code quality reviewers must explicitly check that removed behavior is absent from strict current product paths, conditional kept items have retained callers, and package/governance/docs/tests match the new surface. Historical docs, release notes, old plans, and frozen external content do not count as retained callers.
 
 ## Model Selection
 
@@ -242,6 +311,7 @@ Done!
 - Review loops ensure fixes actually work
 - Spec compliance prevents over/under-building
 - Code quality ensures implementation is well-built
+- Surface-changing tasks require caller proof, negative assertions, and governance/package/doc checks before approval
 
 **Cost:**
 - More subagent invocations (implementer + 2 reviewers per task)

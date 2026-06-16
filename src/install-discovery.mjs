@@ -78,39 +78,9 @@ const LOOPX_GOVERNED_SOURCE_ITEMS = [
     sourceRelativePath: 'plugins/loopx/scripts/plugin-install.mjs',
   },
   {
-    name: 'workflow-template-architecture',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/architecture.md',
-  },
-  {
-    name: 'workflow-template-development-plan',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/development-plan.md',
-  },
-  {
-    name: 'workflow-template-execution-record',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/execution-record.md',
-  },
-  {
-    name: 'workflow-template-plan',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/plan.md',
-  },
-  {
-    name: 'workflow-template-review-report',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/review-report.md',
-  },
-  {
     name: 'workflow-template-spec',
     kind: 'workflow-template',
     sourceRelativePath: 'templates/spec.md',
-  },
-  {
-    name: 'workflow-template-test-plan',
-    kind: 'workflow-template',
-    sourceRelativePath: 'templates/test-plan.md',
   },
 ];
 

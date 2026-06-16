@@ -31,6 +31,19 @@ Native Codex subagent:
     [Where this task fits, dependencies, architectural context, prior task outputs,
     and any repo-specific constraints the implementer must honor]
 
+    ## Anchor Context
+
+    [Relevant anchor IDs, original anchor text, requirement coverage rows, source
+    requirement path, and the implementer's `anchor_coverage`,
+    `implemented_anchor_ids`, `extra_behavior`, and `missing_context` report block.]
+
+    ## Surface Change Context
+
+    [For surface-changing tasks, paste SURFACE_CHANGE_CONTEXT plus the implementer's
+    `surface_change` report block. Include strict current product paths, historical/
+    frozen paths, caller proof commands, negative assertion commands, and package/
+    deploy/governance checks. For non-surface-changing tasks, write: not_applicable.]
+
     ## Task Boundaries And Expected Outputs
 
     [Expected files, interfaces, commands, output format, explicit non-goals,
@@ -83,6 +96,16 @@ Native Codex subagent:
 
     Read the implementation code and verify:
 
+    **Anchor traceability:**
+    - Compare anchors, coverage, diff, and task text before approving.
+    - Check relevant anchor IDs and original anchor text against changed files, tests,
+      and execution evidence.
+    - Verify each `anchor_coverage` status is supported by actual diff or test evidence.
+    - Verify `implemented_anchor_ids` and `tests_for_anchor_ids` match the task and
+      coverage row expectations.
+    - Treat `extra_behavior` and `missing_context` as first-class review inputs, not
+      optional commentary.
+
     **Missing requirements / intent:**
     - In SPEC_COMPLIANCE mode: did they implement everything that was requested?
     - In INTENT_CHECK mode: does the change actually do what it claims?
@@ -103,6 +126,17 @@ Native Codex subagent:
     - In SPEC_COMPLIANCE mode: do names, paths, signatures, flags, schemas, and formats match the task?
     - Do the produced files or interfaces match what later tasks or existing callers depend on?
     - Did they change an existing contract in a way the task or stated intent did not authorize?
+
+    **Surface-change compliance:**
+    - If this task removes, replaces, narrows, migrates, or changes compatibility,
+      verify removed behavior is absent from strict current product paths.
+    - Verify every conditional retained helper/module/template/migration has a
+      current-source caller; historical docs, release notes, old plans, and frozen
+      external content do not count.
+    - Verify negative assertions, caller proof commands, and package/deploy/
+      governance checks were run and support the claim.
+    - Verify current docs, templates, generated artifacts, tests, and package
+      manifests no longer claim behavior that no retained path produces.
 
     **Verification discipline:**
     - Do the tests/commands actually prove the requested behavior?
@@ -127,6 +161,22 @@ Native Codex subagent:
     - the changed surface is much broader than the task and you cannot isolate why
     - the task text and actual code appear to contradict each other in a way only
       the controller can resolve
+    - required anchor context, coverage rows, `anchor_coverage`,
+      `implemented_anchor_ids`, `extra_behavior`, or `missing_context` are absent
+    - a surface-changing task lacks SURFACE_CHANGE_CONTEXT, `surface_change` report
+      data, caller proof evidence, negative assertion evidence, strict current
+      product paths, or package/deploy/governance evidence
+
+    Do not approve when:
+    - an anchor is marked implemented but no diff or test evidence supports it
+    - implementation adds product/API/data/permission behavior with no anchor or
+      explicit plan rationale
+    - required anchor context is missing
+    - removed behavior still exists in strict current product paths
+    - a retained item is justified only by historical/frozen references
+    - package, deploy, installer, governance, docs, templates, or tests still expose
+      the old surface without an explicit compatibility requirement
+    - review is based only on the local task text
 
     ## Report Format
 
@@ -138,6 +188,8 @@ Native Codex subagent:
     - Extra/unrequested work: [or "none"]
     - Misunderstandings / contract mismatches: [or "none"]
     - Downstream contract risks: [or "none"]
+    - Anchor coverage findings: [or "none"]
+    - Surface change findings: [or "none" or "not_applicable"]
     - Evidence: file:line references for every issue
     - Recommendation: approve | fix and re-review | send more context
 

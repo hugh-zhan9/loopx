@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
-import { archiveStage, autopilotStage, approveStage, buildStage, clarifyStage, initWorkspace, planStage, reviewStage, statusSummary } from './workflow.mjs';
+import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
-import { nextCliCommand, nextSkillCommand, withNextSkill } from './next-skill.mjs';
-import { doctorRuntime, migrateLegacyRuntime } from './runtime-maintenance.mjs';
+import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
+import { doctorRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -24,7 +24,7 @@ function usage() {
     '',
     'Usage:',
     '  loopx --version',
-    '  loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]',
+    '  loopx init [--slug <slug>] [--json]',
     '  loopx clarify <slug> [--standard|--deep] [--json]',
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
@@ -32,22 +32,7 @@ function usage() {
     '  loopx setup-context',
     '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]',
     '  loopx doctor [--json]',
-    '  loopx migrate',
     '  loopx repair-install',
-    '',
-    'Advanced runtime commands: loopx help advanced',
-  ].join('\n');
-}
-
-function advancedUsage() {
-  return [
-    'Advanced runtime commands:',
-    '  loopx approve <slug> --from <stage> --to <stage>',
-    '  loopx plan [slug] [--interactive] [--deliberate]',
-    '  loopx build <slug> [--no-deslop]',
-    '  loopx build --from-review <review-report-path> [--no-deslop]',
-    '  loopx review <slug> [--reviewer <name>]',
-    '  loopx autopilot <slug> [--reviewer <name>]',
     '  loopx finish-start [slug] [--source <path>] [--json]',
     '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
     '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
@@ -136,20 +121,11 @@ function blockersForStatus(state) {
     return [];
   }
   const blockers = [];
-  const readinessKey = {
-    clarify: 'plan',
-    plan: 'build',
-    build: 'review',
-    review: 'done',
-  }[state.current_stage];
-  const readinessBlockers = readinessKey ? state.readiness?.[readinessKey]?.blockers : null;
-  if (Array.isArray(readinessBlockers)) {
-    blockers.push(...readinessBlockers);
+  if (state.current_stage === 'clarify' && state.unresolved_ambiguity_count > 0) {
+    blockers.push('unresolved_ambiguity');
   }
-  for (const key of ['plan_blockers', 'build_blockers', 'autopilot_blockers']) {
-    if (Array.isArray(state[key])) {
-      blockers.push(...state[key]);
-    }
+  if (state.current_stage === 'clarify' && state.clarify_current_round <= 0) {
+    blockers.push('clarify_current_round_required');
   }
   if (state.current_stage === 'review' && state.review_verdict === 'request-changes') {
     blockers.push('review_request_changes');
@@ -167,20 +143,7 @@ const HUMAN_BLOCKER_MESSAGES = new Map([
   ['clarify_non_goals_unresolved', 'Define non-goals'],
   ['clarify_decision_boundaries_unresolved', 'Define decision boundaries'],
   ['clarify_pressure_pass_incomplete', 'Complete clarify pressure pass'],
-  ['architect_review_incomplete', 'Complete planner architect review'],
-  ['acceptance_criteria_unresolved', 'Make acceptance criteria testable'],
-  ['verification_steps_unresolved', 'Define verification steps'],
-  ['execution_inputs_unresolved', 'Resolve execution inputs'],
-  ['missing_requirements_snapshot', 'Create requirements snapshot'],
-  ['missing_test_spec', 'Create test spec'],
-  ['missing_change_artifacts', 'Create change artifacts'],
-  ['missing_spec_delta_path', 'Create spec delta path'],
-  ['execution_record_missing', 'Create execution record'],
-  ['completion_audit_not_run', 'Run completion audit'],
-  ['workflow_not_done', 'Complete the workflow before archiving'],
   ['review_request_changes', 'Address requested review changes'],
-  ['review_rework_required', 'Address review rework'],
-  ['plan_rework_required', 'Address plan rework'],
   ['clarify_rework_required', 'Address clarify rework'],
   ['stage_status_blocked', 'Resolve the current stage blocker'],
 ]);
@@ -195,10 +158,6 @@ function humanBlockerMessage(code) {
   }
   const patterns = [
     [/^critic_verdict_(.+)$/, (value) => `Planner critic verdict is ${humanizeStatusValue(value)}`],
-    [/^plan_package_(.+)$/, (value) => `Plan package is ${humanizeStatusValue(value)}`],
-    [/^change_artifacts_(.+)$/, (value) => `Change artifacts are ${humanizeStatusValue(value)}`],
-    [/^spec_delta_(.+)$/, (value) => `Spec delta is ${humanizeStatusValue(value)}`],
-    [/^execution_record_(.+)$/, (value) => `Execution record is ${humanizeStatusValue(value)}`],
     [/^review_verdict_(.+)$/, (value) => `Review verdict is ${humanizeStatusValue(value)}`],
     [/^review_status_(.+)$/, (value) => `Review status is ${humanizeStatusValue(value)}`],
     [/^expansion_(.+)$/, (value) => `Expansion is ${humanizeStatusValue(value)}`],
@@ -224,17 +183,11 @@ function humanBlockersForStatus(state) {
 function nextPayloadFromStatus(status, { human = false } = {}) {
   const state = status.state || null;
   let nextSkill = nextSkillCommand(state);
-  let nextCli = nextCliCommand(state);
-  if (human && nextCli) {
-    nextCli = null;
-  }
-  if (!nextSkill && !nextCli && state?.current_stage === 'clarify' && blockersForStatus(state).length > 0) {
+  if (!nextSkill && state?.current_stage === 'clarify' && blockersForStatus(state).length > 0) {
     nextSkill = `$clarify ${state.slug}`;
-    nextCli = human ? null : `loopx clarify ${state.slug}`;
   }
   return {
     next_skill_command: nextSkill,
-    next_cli_command: nextCli,
     next_action: status.next_action,
   };
 }
@@ -244,10 +197,7 @@ function printNext(status, { fallback = true } = {}) {
   if (payload.next_skill_command) {
     console.log(`next skill: ${payload.next_skill_command}`);
   }
-  if (payload.next_cli_command) {
-    console.log(`next cli: ${payload.next_cli_command}`);
-  }
-  if (fallback && !payload.next_skill_command && !payload.next_cli_command) {
+  if (fallback && !payload.next_skill_command) {
     console.log(`next: ${payload.next_action}`);
   }
   const detailsSlug = status.slug ? ` ${status.slug}` : '';
@@ -255,9 +205,6 @@ function printNext(status, { fallback = true } = {}) {
 }
 
 function humanMissingArtifacts(status) {
-  if (status.state?.current_stage === 'clarify') {
-    return [];
-  }
   return Array.isArray(status.missing_artifacts) ? status.missing_artifacts : [];
 }
 
@@ -296,7 +243,6 @@ function printHumanStatus(status) {
   if (!status.slug) {
     console.log(`workspace: ${status.workspaceRoot}`);
     console.log(`workflows: ${status.workflow_count}`);
-    console.log(`legacy: ${status.summary.legacy}`);
     for (const workflow of status.workflows) {
       console.log(`- ${workflow.slug}: stage=${workflow.current_stage ?? '(none)'} contract=${workflow.contract}`);
     }
@@ -358,10 +304,7 @@ function printHumanClarify(result) {
   if (payload.next_skill_command) {
     console.log(`next skill: ${payload.next_skill_command}`);
   }
-  if (payload.next_cli_command) {
-    console.log(`next cli: ${payload.next_cli_command}`);
-  }
-  if (!payload.next_skill_command && !payload.next_cli_command) {
+  if (!payload.next_skill_command) {
     console.log(`next: ${payload.next_action}`);
   }
   console.log(`details: loopx clarify ${slug} --json`);
@@ -473,11 +416,7 @@ async function main() {
     console.log(packageJson.version);
     return;
   }
-  if (command === 'help' && positionals[0] === 'advanced') {
-    console.log(advancedUsage());
-    return;
-  }
-  if (!command || command === 'help' || command === '--help' || command === '-h') {
+  if (!command || command === '--help' || command === '-h' || (command === 'help' && positionals.length === 0)) {
     console.log(usage());
     return;
   }
@@ -487,11 +426,6 @@ async function main() {
       case 'init': {
         const result = await initWorkspace(process.cwd(), {
           slug: options.get('--slug') || positionals[0],
-          agentDelegation: {
-            enabled: Boolean(options.get('--enable-agent-delegation') || options.get('--auto-agent-delegation')),
-            auto_start: Boolean(options.get('--auto-agent-delegation')),
-            threshold: options.get('--agent-delegation-threshold'),
-          },
         });
         if (options.get('--json')) {
           console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
@@ -546,49 +480,6 @@ async function main() {
         } else {
           printHumanClarify(result);
         }
-        return;
-      }
-      case 'approve': {
-        const result = await approveStage(process.cwd(), positionals[0], {
-          from: options.get('--from'),
-          to: options.get('--to'),
-        });
-        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
-        return;
-      }
-      case 'plan': {
-        const result = await planStage(process.cwd(), positionals[0], {
-          interactive: Boolean(options.get('--interactive')),
-          deliberate: Boolean(options.get('--deliberate')),
-        });
-        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
-        return;
-      }
-      case 'build': {
-        const result = await buildStage(process.cwd(), options.get('--from-review') ? undefined : positionals[0], {
-          noDeslop: Boolean(options.get('--no-deslop')),
-          fromReviewPath: options.get('--from-review'),
-        });
-        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
-        return;
-      }
-      case 'review': {
-        const result = await reviewStage(process.cwd(), positionals[0], {
-          reviewer: options.get('--reviewer') || 'independent-reviewer',
-        });
-        console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state, verdict: result.verdict, review_message_zh: result.reviewMessageZh }, result.state), null, 2));
-        return;
-      }
-      case 'archive': {
-        const result = await archiveStage(process.cwd(), positionals[0]);
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state }, null, 2));
-        return;
-      }
-      case 'autopilot': {
-        const result = await autopilotStage(process.cwd(), positionals[0], {
-          reviewer: options.get('--reviewer') || 'autopilot-reviewer',
-        });
-        console.log(JSON.stringify({ ok: true, command, root: result.root, state: result.state, runPath: result.runPath }, null, 2));
         return;
       }
       case 'finish-start': {
@@ -689,11 +580,6 @@ async function main() {
         } else {
           printHumanDoctor(payload);
         }
-        return;
-      }
-      case 'migrate': {
-        const result = await migrateLegacyRuntime(process.cwd());
-        console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
         return;
       }
       case 'repair-install': {
