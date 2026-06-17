@@ -24,6 +24,16 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 - Postinstall opt-outs are `LOOPX_SKIP_POSTINSTALL=1` and `LOOPX_POSTINSTALL=0`.
 - Postinstall opt-out with `--json` must preserve JSON stdout.
 
+## Uninstalling User-Level Artifacts
+
+Undo installed files when you want to remove loopx-managed user-level artifacts:
+
+```bash
+rm -rf ~/.agents/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
+rm -rf ~/.claude/skills/{clarify,spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
+rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
+```
+
 ## Published Skill Surface
 
 - The package root `skills/` surface is exactly `skills/RESOLVER.md` plus the directories in `LOOPX_BUNDLED_SKILLS`.

@@ -112,6 +112,7 @@ function assertNoRemovedRuntimeCommandExposure(text, label) {
 async function assertPublicDocsAligned() {
   const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
   const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+  const installationSpec = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
   const commands = [
     'loopx install-skills',
     'loopx init',
@@ -134,14 +135,15 @@ async function assertPublicDocsAligned() {
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
-  assertContains(readme, 'Undo installed files', 'README.md');
+  assertContains(readme, 'remove loopx-managed user-level artifacts', 'README.md');
+  assertContains(installationSpec, 'Undo installed files', 'docs/loopx/specs/installation.md');
   assertContains(readme, 'Golden path', 'README.md');
 
   assertContains(readmeZh, '本地 audit ledger', 'README.zh-CN.md');
   assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
   assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
-  assertContains(readmeZh, '撤销已安装文件', 'README.zh-CN.md');
+  assertContains(readmeZh, '移除 loopx 管理的用户级 artifacts', 'README.zh-CN.md');
   assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
   for (const required of [
     'Quick start',
