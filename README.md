@@ -104,6 +104,8 @@ Support skills are lenses, not workflow states:
 
 The installed and governed v1 skill surface is this list. The repository may keep auxiliary or compatibility skill sources under `skills/`, but `loopx install-skills` installs only the bundled v1 set.
 
+For a fuller usage guide, see [loopx Skills Guide](./docs/loopx/skills.md).
+
 ## CLI
 
 Common commands:

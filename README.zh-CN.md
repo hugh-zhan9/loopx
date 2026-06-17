@@ -104,6 +104,8 @@ loopx install-skills --target all --json
 
 安装和治理意义上的 v1 skill surface 就是上面这组。仓库里可以保留辅助或兼容 skill 源文件，但 `loopx install-skills` 只安装 bundled v1 集合。
 
+更完整的使用说明见 [loopx Skills 使用指南](./docs/loopx/skills.zh-CN.md)。
+
 ## CLI
 
 常用命令：
