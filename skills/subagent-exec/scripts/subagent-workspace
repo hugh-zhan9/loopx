@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+dir="$root/.loopx/subagent-exec"
+mkdir -p "$dir"
+printf '*\n' > "$dir/.gitignore"
+touch "$dir/progress.md"
+cd "$dir" && pwd

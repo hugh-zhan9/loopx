@@ -78,7 +78,7 @@ Core workflow skills:
 | `clarify` | Interview until scope, non-goals, constraints, and decision boundaries are clear. |
 | `spec` | Write a design document or lightweight design note when design decisions are required. |
 | `plan-to-exec` | Turn clarified requirements into a bite-sized implementation plan. |
-| `subagent-exec` | Execute an approved plan with fresh subagents and staged review. |
+| `subagent-exec` | Execute an approved plan with fresh subagents and combined task review. |
 | `exec` | Execute an approved plan inline when subagents are unavailable or not desired. |
 | `review` | Request independent code review against a git range and plan or requirements. |
 | `final-review` | Review the completed feature for runtime, integration, and test-gap risk before finishing. |

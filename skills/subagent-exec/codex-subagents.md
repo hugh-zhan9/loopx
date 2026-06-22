@@ -16,8 +16,8 @@ Use this reference before executing this skill in Codex.
 ## Required Runtime Support
 
 Subagent dispatch requires Codex multi-agent support. If `spawn_agent`,
-`wait_agent`, or `close_agent` are unavailable, do not pretend this skill ran
-as subagent-exec. Use `loopx:exec` instead.
+`wait_agent`, or `close_agent` are unavailable, do not pretend this skill ran as
+subagent-exec. Use `loopx:exec` instead.
 
 Codex environments that require explicit feature flags should enable:
 
@@ -28,10 +28,14 @@ multi_agent = true
 
 ## Execution Rules
 
-- Spawn fresh subagents with complete task text and only the context they need.
-- Use implementer, spec reviewer, and code quality reviewer prompts from this directory.
-- Do not make subagents read the whole plan file; paste the relevant task text.
+- Spawn fresh implementer subagents with a task brief path, report file path,
+  and only the context they need.
+- Use `task-reviewer-prompt.md` for per-task review; it returns both spec and
+  quality verdicts.
+- Do not paste full task text or full diffs into controller messages when
+  helper scripts can write them to files.
 - Keep implementation tasks sequential unless write scopes are clearly disjoint.
 - Use `wait_agent` only when the next controller step needs that result.
 - Close completed agents after their result is integrated.
-- Keep the controller responsible for integration, review loops, and final status.
+- Keep the controller responsible for pre-flight plan review, progress ledger
+  updates, review loops, final-review, and finish.

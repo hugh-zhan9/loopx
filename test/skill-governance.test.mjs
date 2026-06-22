@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile, readdir } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { promisify } from 'node:util';
 
 import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
 
@@ -10,6 +13,7 @@ const repoRoot = resolve(process.cwd());
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
 const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
+const execFileAsync = promisify(execFile);
 
 function parseFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -162,5 +166,136 @@ describe('loopx skill governance', () => {
       assert.match(readmeZh, pattern, `${command} missing from README.zh-CN.md`);
     }
     assert.match(readme, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\) -> review\/final-review -> fix-review\? -> finish/);
+  });
+
+  it('governs subagent-exec combined task review surface', async () => {
+    const rootSkillDir = join(repoRoot, 'skills', 'subagent-exec');
+    const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec');
+    const removedSpecPrompt = ['spec', 'reviewer', 'prompt.md'].join('-');
+    const removedQualityPrompt = ['code', 'quality', 'reviewer', 'prompt.md'].join('-');
+    const removedTwoStagePhrase = ['two', 'stage review'].join('-');
+    const removedPromptPattern = new RegExp(`${removedSpecPrompt}|${removedQualityPrompt}|${removedTwoStagePhrase}`, 'i');
+    const rootSkill = await readFile(join(rootSkillDir, 'SKILL.md'), 'utf8');
+    const pluginSkill = await readFile(join(pluginSkillDir, 'SKILL.md'), 'utf8');
+    const taskReviewer = await readFile(join(rootSkillDir, 'task-reviewer-prompt.md'), 'utf8');
+    const implementer = await readFile(join(rootSkillDir, 'implementer-prompt.md'), 'utf8');
+    const codexReference = await readFile(join(rootSkillDir, 'codex-subagents.md'), 'utf8');
+
+    assert.equal(pluginSkill, rootSkill, 'subagent-exec SKILL.md mirror drifted');
+    assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
+    assert.equal(existsSync(join(pluginSkillDir, 'task-reviewer-prompt.md')), true);
+    assert.equal(existsSync(join(rootSkillDir, removedSpecPrompt)), false);
+    assert.equal(existsSync(join(rootSkillDir, removedQualityPrompt)), false);
+    assert.equal(existsSync(join(pluginSkillDir, removedSpecPrompt)), false);
+    assert.equal(existsSync(join(pluginSkillDir, removedQualityPrompt)), false);
+
+    assert.match(rootSkill, /task-reviewer-prompt\.md/);
+    assert.match(rootSkill, /progress ledger/);
+    assert.match(rootSkill, /Pre-Flight Plan Review/);
+    assert.match(rootSkill, /review package/);
+    assert.doesNotMatch(rootSkill, removedPromptPattern);
+    assert.match(taskReviewer, /Spec Compliance/);
+    assert.match(taskReviewer, /Task quality/);
+    assert.match(taskReviewer, /Anchor traceability/);
+    assert.match(taskReviewer, /Surface-change compliance/);
+    assert.match(taskReviewer, /read-only/i);
+    assert.match(taskReviewer, /Do Not Trust the Report/);
+    assert.match(taskReviewer, /Cannot verify from diff/);
+    assert.match(implementer, /Read your task brief first/);
+    assert.match(implementer, /REPORT_FILE/);
+    assert.match(codexReference, /task-reviewer-prompt\.md/);
+    assert.doesNotMatch(codexReference, /spec reviewer, and code quality reviewer/);
+  });
+
+  it('subagent-exec helper scripts create gitignored file handoff artifacts', async () => {
+    const wd = await realpath(await mkdtemp(join(tmpdir(), 'loopx-subagent-exec-')));
+    await execFileAsync('git', ['init'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: wd });
+    await execFileAsync('git', ['config', 'user.name', 'Test User'], { cwd: wd });
+    await writeFile(join(wd, 'plan.md'), [
+      '# Example Plan',
+      '',
+      '## Global Constraints',
+      '',
+      '- Runtime: Node.js ESM.',
+      '',
+      '### Task 1: Add greeting',
+      '',
+      '**Interfaces:**',
+      '- Consumes: none',
+      '- Produces: `greet(name)` returns `Hello, <name>`.',
+      '',
+      '- [ ] **Step 1: Write file**',
+      '',
+      '### Task 2: Use greeting',
+      '',
+      '- [ ] **Step 1: Import function**',
+      '',
+      '## Self-Review',
+      '',
+      'This section is not part of Task 2.',
+      '',
+      '## Execution Handoff',
+      '',
+      'This section is not part of Task 2.',
+      '',
+    ].join('\n'));
+    await writeFile(join(wd, 'app.txt'), 'one\n');
+    await execFileAsync('git', ['add', '.'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'initial'], { cwd: wd });
+    const base = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: wd })).stdout.trim();
+    await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
+    await execFileAsync('git', ['add', '.'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'change app'], { cwd: wd });
+    const head = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: wd })).stdout.trim();
+
+    const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
+    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package']) {
+      const mode = (await stat(join(scriptsDir, scriptName))).mode;
+      assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
+    }
+
+    const workspace = (await execFileAsync(join(scriptsDir, 'subagent-workspace'), [], { cwd: wd })).stdout.trim();
+    assert.equal(workspace, join(wd, '.loopx', 'subagent-exec'));
+    assert.equal(await readFile(join(workspace, '.gitignore'), 'utf8'), '*\n');
+    const progressPath = join(workspace, 'progress.md');
+    assert.equal(await readFile(progressPath, 'utf8'), '');
+    await appendFile(progressPath, 'Task 1: complete (commits base..head, review clean)\n');
+    assert.equal(
+      await readFile(progressPath, 'utf8'),
+      'Task 1: complete (commits base..head, review clean)\n',
+    );
+
+    const briefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['plan.md', '1'], { cwd: wd })).stdout.trim();
+    const brief = await readFile(briefPath, 'utf8');
+    assert.match(brief, /# Task 1 Brief/);
+    assert.match(brief, /Runtime: Node\.js ESM/);
+    assert.match(brief, /Produces: `greet\(name\)`/);
+    assert.doesNotMatch(brief, /Task 2: Use greeting/);
+
+    const finalBriefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['plan.md', '2'], { cwd: wd })).stdout.trim();
+    const finalBrief = await readFile(finalBriefPath, 'utf8');
+    assert.match(finalBrief, /# Task 2 Brief/);
+    assert.match(finalBrief, /Task 2: Use greeting/);
+    assert.doesNotMatch(finalBrief, /Self-Review/);
+    assert.doesNotMatch(finalBrief, /Execution Handoff/);
+
+    const packagePath = (await execFileAsync(join(scriptsDir, 'review-package'), [base, head], { cwd: wd })).stdout.trim();
+    const reviewPackage = await readFile(packagePath, 'utf8');
+    assert.match(reviewPackage, /# Review Package/);
+    assert.match(reviewPackage, /## Commits/);
+    assert.match(reviewPackage, /change app/);
+    assert.match(reviewPackage, /## Diff Stat/);
+    assert.match(reviewPackage, /## Diff/);
+    assert.match(reviewPackage, /two/);
+  });
+
+  it('plan-to-exec requires global constraints and task interfaces for subagent handoff', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    assert.match(planSkill, /## Global Constraints/);
+    assert.match(planSkill, /\*\*Interfaces:\*\*/);
+    assert.match(planSkill, /Consumes:/);
+    assert.match(planSkill, /Produces:/);
+    assert.match(planSkill, /combined task review|task reviewer/i);
   });
 });
