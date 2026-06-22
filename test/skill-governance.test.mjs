@@ -298,4 +298,19 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Produces:/);
     assert.match(planSkill, /combined task review|task reviewer/i);
   });
+
+  it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+    assert.match(finishSkill, /Match the user's language/);
+    assert.match(finishSkill, /If the user asked in Chinese/);
+    assert.match(finishSkill, /`GIT_DIR == GIT_COMMON` \(normal repo\) \| 2 commit-placement options/);
+    assert.match(finishSkill, /`GIT_DIR != GIT_COMMON`, named branch \| Standard 4 worktree options/);
+    assert.match(finishSkill, /Where should I commit this work\?/);
+    assert.match(finishSkill, /你想把这次改动提交到哪里/);
+    assert.match(finishSkill, /Create a new branch and commit there/);
+    assert.match(finishSkill, /finish-record <audit-id-or-path> --action keep --status done --summary "Committed on <current-branch>/);
+    assert.match(finishSkill, /finish-record <audit-id-or-path> --action keep --status done --summary "Committed on new branch <branch-name>/);
+    assert.match(finishSkill, /Present exactly 2 options for normal repos, 4 for named git worktrees, or 3 for detached HEAD/);
+    assert.doesNotMatch(finishSkill, /Normal repo and named-branch worktree — present exactly these 4 options/);
+  });
 });
