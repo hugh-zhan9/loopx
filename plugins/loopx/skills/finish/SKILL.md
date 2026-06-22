@@ -1,9 +1,9 @@
 ---
 name: finish
-description: "Finishes completed loopx development work after tests pass by presenting merge, PR, keep, or discard options. Not for unfinished work or failing verification."
-when_to_use: "implementation complete, tests pass, finish branch, create pull request, merge locally, keep branch, discard work"
+description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
+when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # Finish
@@ -12,9 +12,18 @@ metadata:
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
-**Core principle:** Verify tests → extract memory/spec learnings → Present options → Execute choice → Clean up.
+**Core principle:** Verify tests → extract memory/spec learnings → detect normal repo vs git worktree → present localized options → execute choice → clean up only when we own a worktree.
 
 **Announce at start:** "I'm using the finish skill to complete this work."
+
+## User-Facing Language
+
+Match the user's language for menus, confirmations, and completion summaries.
+
+- If the user asked in Chinese, present finish prompts in Chinese.
+- If the user asked in English, present finish prompts in English.
+- If the user mixed languages, follow the dominant language in the current turn.
+- Keep commands, paths, branch names, `git worktree`, `Pull Request`, and exact confirmation tokens such as `discard` unchanged.
 
 ## The Process
 
@@ -33,7 +42,7 @@ Tests failing (<N> failures). Must fix before completing:
 
 [Show failures]
 
-Cannot proceed with merge/PR until tests pass.
+Cannot proceed with completion until tests pass.
 ```
 
 Stop. Don't proceed to Step 2.
@@ -49,12 +58,26 @@ GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 ```
 
+Also collect:
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+WORKTREE_PATH=$(git rev-parse --show-toplevel)
+git status --short
+```
+
+Suggest a branch name from the plan/source slug when possible, for example:
+
+```text
+work/<slug>
+```
+
 This determines which menu to show and how cleanup works:
 
 | State | Menu | Cleanup |
 |-------|------|---------|
-| `GIT_DIR == GIT_COMMON` (normal repo) | Standard 4 options | No worktree to clean up |
-| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 options | Provenance-based (see Step 6) |
+| `GIT_DIR == GIT_COMMON` (normal repo) | 2 commit-placement options | No worktree cleanup |
+| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 worktree options | Provenance-based (see Step 7) |
 | `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 3 options (no merge) | No cleanup (externally managed) |
 
 ### Step 3: Determine Base Branch
@@ -68,7 +91,7 @@ Or ask: "This branch split from main - is that correct?"
 
 ### Step 4: Audit-First Learning Extraction
 
-Run `finish-audit` before presenting merge, PR, keep, or discard options.
+Run `finish-audit` before presenting commit, merge, PR, keep, or discard options.
 
 `loopx:exec` and `loopx:subagent-exec` should have run `finish-start` before implementation. `finish-audit` uses that baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean. It may also generate `audit.extraction_candidates` as draft memory/spec review prompts. These drafts are not automatically written to memory or specs.
 
@@ -182,7 +205,51 @@ Spec candidates must be visible in the repo diff and reported in the final respo
 
 ### Step 5: Present Options
 
-**Normal repo and named-branch worktree — present exactly these 4 options:**
+Present only the menu for the detected environment. Do not show worktree merge/discard options in a normal repo.
+
+#### Normal Repo
+
+When `GIT_DIR == GIT_COMMON`, present exactly these 2 options. Recommend a new branch when the current branch is the base branch (`main` or `master`); otherwise recommend the current branch.
+
+English:
+
+```text
+Implementation complete. Where should I commit this work?
+
+1. Commit on current branch: <current-branch>
+2. Create a new branch and commit there: <suggested-branch-name>
+
+Choose 1 or 2. You can also type a custom branch name for option 2.
+```
+
+Chinese:
+
+```text
+实现已完成。你想把这次改动提交到哪里？
+
+1. 提交到当前分支：<current-branch>
+2. 新建分支并提交：<suggested-branch-name>
+
+请选择 1 或 2。也可以直接输入自定义分支名作为选项 2。
+```
+
+If the working tree is clean and the current branch already contains the completion commit, adapt the first line but keep the same two choices:
+
+English:
+
+```text
+Implementation is already committed on <current-branch>. Where should this work live?
+```
+
+Chinese:
+
+```text
+实现已经提交在 <current-branch>。你想让这次改动保留在哪里？
+```
+
+#### Named Git Worktree
+
+When `GIT_DIR != GIT_COMMON` and `CURRENT_BRANCH` is not empty, present exactly these 4 options:
 
 ```
 Implementation complete. What would you like to do?
@@ -194,6 +261,21 @@ Implementation complete. What would you like to do?
 
 Which option?
 ```
+
+Chinese:
+
+```text
+实现已完成。你想怎么处理这个 git worktree？
+
+1. 合并回 <base-branch>
+2. 推送并创建 Pull Request
+3. 保留当前分支
+4. 丢弃这次改动
+
+请选择：
+```
+
+#### Detached HEAD
 
 **Detached HEAD — present exactly these 3 options:**
 
@@ -207,11 +289,59 @@ Implementation complete. You're on a detached HEAD (externally managed workspace
 Which option?
 ```
 
+Chinese:
+
+```text
+实现已完成。当前是 detached HEAD（外部管理的工作区）。
+
+1. 推送为新分支并创建 Pull Request
+2. 保持现状
+3. 丢弃这次改动
+
+请选择：
+```
+
 **Don't add explanation** - keep options concise.
 
 ### Step 6: Execute Choice
 
-#### Option 1: Merge Locally
+#### Normal Repo Option 1: Commit On Current Branch
+
+If there are unstaged or staged changes:
+
+```bash
+git add <intentional files>
+git commit -m "<summary>"
+loopx finish-record <audit-id-or-path> --action keep --status done --summary "Committed on <current-branch>: <summary>"
+```
+
+If the working tree is already clean, do not create an empty commit. Record the choice as keep/done with a summary that the work remains on the current branch.
+
+```bash
+loopx finish-record <audit-id-or-path> --action keep --status done --summary "Work remains on <current-branch>"
+```
+
+#### Normal Repo Option 2: Create New Branch And Commit There
+
+If the user chooses option 2 without typing a custom branch name, use the suggested branch name. If they type a custom branch name, use it exactly after checking it is non-empty.
+
+```bash
+git switch -c <branch-name>
+git add <intentional files>
+git commit -m "<summary>"
+loopx finish-record <audit-id-or-path> --action keep --status done --summary "Committed on new branch <branch-name>: <summary>"
+```
+
+If the working tree is already clean and the current branch already contains the completion commit, create the branch at the current commit:
+
+```bash
+git switch -c <branch-name>
+loopx finish-record <audit-id-or-path> --action keep --status done --summary "Moved completed work to branch <branch-name>"
+```
+
+Do not delete or reset the original branch.
+
+#### Worktree Option 1: Merge Locally
 
 ```bash
 # Get main repo root for CWD safety
@@ -235,7 +365,7 @@ Then: Cleanup worktree (Step 7), then delete branch:
 git branch -d <feature-branch>
 ```
 
-#### Option 2: Push and Create PR
+#### Worktree Option 2: Push and Create PR
 
 ```bash
 # Push branch
@@ -254,13 +384,13 @@ EOF
 
 **Do NOT clean up worktree** — user needs it alive to iterate on PR feedback.
 
-#### Option 3: Keep As-Is
+#### Worktree Option 3: Keep As-Is
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
 
 **Don't cleanup worktree.**
 
-#### Option 4: Discard
+#### Worktree Option 4: Discard
 
 **Confirm first:**
 ```
@@ -287,7 +417,7 @@ git branch -D <feature-branch>
 
 ### Step 7: Cleanup Workspace
 
-**Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree.
+**Only runs for worktree Options 1 and 4.** Normal repo choices never remove a worktree. Worktree Options 2 and 3 always preserve the worktree.
 
 ```bash
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
@@ -312,10 +442,12 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 | Option | Merge | Push | Keep Worktree | Cleanup Branch |
 |--------|-------|------|---------------|----------------|
-| 1. Merge locally | yes | - | - | yes |
-| 2. Create PR | - | yes | yes | - |
-| 3. Keep as-is | - | - | yes | - |
-| 4. Discard | - | - | - | yes (force) |
+| Normal 1. Commit current branch | - | - | n/a | - |
+| Normal 2. Create branch and commit | - | - | n/a | - |
+| Worktree 1. Merge locally | yes | - | cleanup if owned | yes |
+| Worktree 2. Create PR | - | yes | yes | - |
+| Worktree 3. Keep as-is | - | - | yes | - |
+| Worktree 4. Discard | - | - | cleanup if owned | yes (force) |
 
 ## Final Response Contract
 
@@ -345,7 +477,7 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 
 **Open-ended questions**
 - **Problem:** "What should I do next?" is ambiguous
-- **Fix:** Present exactly 4 structured options (or 3 for detached HEAD)
+- **Fix:** Present the environment-specific structured menu: 2 options for normal repos, 4 for named git worktrees, 3 for detached HEAD
 
 **Cleaning up worktree for Option 2**
 - **Problem:** Remove worktree user needs for PR iteration
@@ -367,6 +499,14 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 - **Problem:** Accidentally delete work
 - **Fix:** Require typed "discard" confirmation
 
+**Showing worktree choices in a normal repo**
+- **Problem:** Asking to merge, PR, or discard assumes a separate feature branch/worktree and is wrong for in-place development
+- **Fix:** In normal repos, ask whether to commit on the current branch or create a new branch
+
+**Ignoring the user's language**
+- **Problem:** Chinese users get English menus and confirmations
+- **Fix:** Match the user's language for prompts and summaries while preserving commands, paths, and branch names
+
 ## Red Flags
 
 **Never:**
@@ -377,12 +517,14 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 - Remove a worktree before confirming merge success
 - Clean up worktrees you didn't create (provenance check)
 - Run `git worktree remove` from inside the worktree
+- Present merge/PR/keep/discard as the normal repo menu
 
 **Always:**
 - Verify tests before offering options
 - Detect environment before presenting menu
-- Present exactly 4 options (or 3 for detached HEAD)
-- Get typed confirmation for Option 4
-- Clean up worktree for Options 1 & 4 only
+- Present exactly 2 options for normal repos, 4 for named git worktrees, or 3 for detached HEAD
+- Match the user's language for user-facing prompts
+- Get typed confirmation for worktree discard
+- Clean up worktree for worktree Options 1 & 4 only
 - `cd` to main repo root before worktree removal
 - Run `git worktree prune` after removal
