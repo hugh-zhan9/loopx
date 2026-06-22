@@ -1,46 +1,34 @@
 ---
 name: subagent-exec
-description: "Executes approved loopx implementation plans with fresh subagents per independent task and staged review. Not for planning, unclear requirements, or tightly coupled edits."
-when_to_use: "approved implementation plan, independent tasks, subagent execution, staged spec review, code quality review, parallel-capable execution"
+description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
+when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
   version: "0.3.1"
 ---
 
 # Subagent Exec
 
-Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review.
+Execute plan by dispatching a fresh implementer subagent per task, one combined
+task reviewer after each task, and `loopx:final-review` for the whole feature at
+the end.
 
-**Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
+**Why subagents:** You delegate tasks to specialized agents with isolated
+context. You construct exactly what they need: task brief, anchor context,
+surface-change context, report path, and review package path.
 
-**Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
+**Core principle:** Fresh subagent per task + combined task review (spec +
+quality) + final whole-feature review = high quality with fewer subagent turns.
 
-**Continuous execution:** Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are: BLOCKED status you cannot resolve, ambiguity that genuinely prevents progress, or all tasks complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
+**Continuous execution:** Do not pause to check in between tasks. Execute the
+plan without stopping unless you are BLOCKED, real ambiguity prevents progress,
+or all tasks are complete.
 
 ## When to Use
 
-```dot
-digraph when_to_use {
-    "Have implementation plan?" [shape=diamond];
-    "Tasks mostly independent?" [shape=diamond];
-    "Stay in this session?" [shape=diamond];
-    "subagent-exec" [shape=box];
-    "exec" [shape=box];
-    "Manual execution or brainstorm first" [shape=box];
-
-    "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
-    "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
-    "Tasks mostly independent?" -> "Stay in this session?" [label="yes"];
-    "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
-    "Stay in this session?" -> "subagent-exec" [label="yes"];
-    "Stay in this session?" -> "exec" [label="no - parallel session"];
-}
-```
-
-**vs. Exec (parallel session):**
-- Same session (no context switch)
-- Fresh subagent per task (no context pollution)
-- Two-stage review after each task: spec compliance first, then code quality
-- Faster iteration (no human-in-loop between tasks)
+Use this skill for approved implementation plans whose tasks can be executed
+mostly sequentially with isolated subagent context. Use `loopx:exec` when
+subagent support is unavailable or edits are too tightly coupled for safe
+delegation.
 
 ## The Process
 
@@ -50,48 +38,40 @@ digraph process {
 
     subgraph cluster_per_task {
         label="Per Task";
+        "Run scripts/task-brief PLAN_FILE N" [shape=box];
         "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
-        "Implementer subagent asks questions?" [shape=diamond];
-        "Answer questions, provide context" [shape=box];
-        "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
-        "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
-        "Implementer subagent fixes spec gaps" [shape=box];
-        "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
-        "Code quality reviewer subagent approves?" [shape=diamond];
-        "Implementer subagent fixes quality issues" [shape=box];
-        "Mark task complete in update_plan" [shape=box];
+        "Implementer writes report file and returns short status" [shape=box];
+        "Run scripts/review-package BASE HEAD" [shape=box];
+        "Dispatch task reviewer subagent (./task-reviewer-prompt.md)" [shape=box];
+        "Task reviewer reports spec compliant and task quality approved?" [shape=diamond];
+        "Dispatch one fix subagent for Critical/Important findings" [shape=box];
+        "Mark task complete in update_plan and progress ledger" [shape=box];
     }
 
     "Record finish baseline with loopx finish-start <slug> --source <plan-path>" [shape=box];
-    "Read plan, extract all tasks with full text, note context, create update_plan" [shape=box];
+    "Pre-flight plan review" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Use loopx:final-review for entire implementation" [shape=box];
     "Use loopx:finish" [shape=box style=filled fillcolor=lightgreen];
 
-    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Read plan, extract all tasks with full text, note context, create update_plan";
-    "Read plan, extract all tasks with full text, note context, create update_plan" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
-    "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
-    "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
-    "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer subagent confirms code matches spec?" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
-    "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
-    "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Mark task complete in update_plan" [label="yes"];
-    "Mark task complete in update_plan" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
+    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Pre-flight plan review";
+    "Pre-flight plan review" -> "Run scripts/task-brief PLAN_FILE N";
+    "Run scripts/task-brief PLAN_FILE N" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer writes report file and returns short status";
+    "Implementer writes report file and returns short status" -> "Run scripts/review-package BASE HEAD";
+    "Run scripts/review-package BASE HEAD" -> "Dispatch task reviewer subagent (./task-reviewer-prompt.md)";
+    "Dispatch task reviewer subagent (./task-reviewer-prompt.md)" -> "Task reviewer reports spec compliant and task quality approved?";
+    "Task reviewer reports spec compliant and task quality approved?" -> "Dispatch one fix subagent for Critical/Important findings" [label="no"];
+    "Dispatch one fix subagent for Critical/Important findings" -> "Run scripts/review-package BASE HEAD" [label="re-review"];
+    "Task reviewer reports spec compliant and task quality approved?" -> "Mark task complete in update_plan and progress ledger" [label="yes"];
+    "Mark task complete in update_plan and progress ledger" -> "More tasks remain?";
+    "More tasks remain?" -> "Run scripts/task-brief PLAN_FILE N" [label="yes"];
     "More tasks remain?" -> "Use loopx:final-review for entire implementation" [label="no"];
     "Use loopx:final-review for entire implementation" -> "Use loopx:finish";
 }
 ```
 
-### Step 0: Record Finish Baseline
+## Step 0: Record Finish Baseline
 
 Before dispatching the first implementer, run:
 
@@ -99,9 +79,60 @@ Before dispatching the first implementer, run:
 loopx finish-start <slug> --source <plan-path>
 ```
 
-Use the plan filename slug when no workflow slug is available. This preserves the starting `HEAD` so `finish-audit` can inspect `baseline..HEAD` even after implementers commit their work and the current `git diff` is empty.
+Use the plan filename slug when no workflow slug is available. This preserves
+the starting `HEAD` so `finish-audit` can inspect `baseline..HEAD` even after
+implementers commit their work and the current `git diff` is empty.
 
-### Anchor Context Contract
+## Pre-Flight Plan Review
+
+Before dispatching Task 1, scan the plan once for conflicts:
+
+- tasks that contradict each other
+- tasks that contradict Global Constraints
+- missing Interfaces that downstream tasks rely on
+- anything the plan explicitly mandates that the task reviewer rubric treats as
+  a defect
+
+Batch findings into one question to the user. Show the plan text and the
+conflicting requirement side by side, and ask which governs. If the scan is
+clean, proceed without comment.
+
+## File Handoffs
+
+Use files for bulky artifacts so controller context stays small:
+
+- Task brief: run `scripts/task-brief PLAN_FILE N`; pass the printed path to
+  the implementer.
+- Report file: use the same workspace path with `task-N-report.md`; the
+  implementer writes the full report there and returns only a short status.
+- Review package: run `scripts/review-package BASE HEAD`; pass the printed path
+  to the task reviewer.
+- Reviewer prompt: provide the brief path, report path, review package path,
+  Global Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
+
+Use the BASE commit recorded before dispatching the implementer. Never use
+`HEAD~1` for multi-commit tasks.
+
+## Durable Progress
+
+At skill start, check the progress ledger:
+
+```bash
+workspace=$(scripts/subagent-workspace)
+cat "$workspace/progress.md"
+```
+
+If the ledger marks a task complete, do not re-dispatch it. After a clean task
+review, append:
+
+```text
+Task N: complete (commits <base7>..<head7>, review clean, brief <path>, report <path>, review <path>)
+```
+
+The progress ledger is gitignored scratch. If `git clean -fdx` removes it,
+recover from `git log` and existing commits.
+
+## Anchor Context Contract
 
 Before dispatching an implementer, provide an `ANCHOR_CONTEXT` block:
 
@@ -122,20 +153,29 @@ docs-only
 refactor-only
 ```
 
-and explain why it is not directly tied to a product requirement. Implementer and reviewer reports must preserve these fields:
+Implementer and reviewer reports must preserve:
 
 ```yaml
 anchor_coverage:
   REQ-001: implemented
 implemented_anchor_ids:
   - REQ-001
+tests_for_anchor_ids:
+  - REQ-001
 extra_behavior: none
 missing_context: none
 ```
 
-### Surface Change Contract
+Allowed anchor statuses are `implemented`, `tested`, `not_applicable`,
+`blocked`, and `needs_context`.
 
-Use this contract for any task that removes, replaces, narrows, migrates, or changes compatibility for existing behavior or public surface. This includes commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
+## Surface Change Contract
+
+Use this contract for any task that removes, replaces, narrows, migrates, or
+changes compatibility for existing behavior or public surface. This includes
+commands, APIs, schemas, events, config, package contents, templates, generated
+artifacts, docs, hooks, background jobs, permissions, migrations, and
+user-visible workflows.
 
 Before dispatching an implementer, provide a `SURFACE_CHANGE_CONTEXT` block:
 
@@ -149,7 +189,9 @@ SURFACE_CHANGE_CONTEXT:
 - package/deploy/governance checks required:
 ```
 
-If the plan omits caller proof or negative assertions for a surface-changing task, stop and treat it as a plan defect. Do not let implementers infer deletion scope from prose.
+If the plan omits caller proof or negative assertions for a surface-changing
+task, stop and treat it as a plan defect. Do not let implementers infer deletion
+scope from prose.
 
 Implementer reports for surface-changing tasks must include:
 
@@ -168,198 +210,100 @@ surface_change:
       result: <pass/fail>
 ```
 
-Spec and code quality reviewers must explicitly check that removed behavior is absent from strict current product paths, conditional kept items have retained callers, and package/governance/docs/tests match the new surface. Historical docs, release notes, old plans, and frozen external content do not count as retained callers.
+The task reviewer must check removed behavior against strict current product
+paths. Historical docs, release notes, old plans, and frozen external content do
+not count as retained callers.
 
 ## Model Selection
 
-Use the least powerful model that can handle each role to conserve cost and increase speed.
+Use the least powerful model that can handle each role to conserve cost and
+increase speed.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+**Mechanical implementation tasks** (isolated functions, clear specs, 1-2
+files): use a fast, cheap model.
 
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
+**Integration and judgment tasks** (multi-file coordination, pattern matching,
+debugging): use a standard model.
 
-**Architecture, design, and review tasks**: use the most capable available model.
+**Architecture and final review tasks:** use the most capable available model.
 
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec → cheap model
-- Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+**Review tasks:** use a model with enough judgment for the diff's size,
+complexity, and risk. Use a mid-tier floor for reviewers and prose-driven
+implementers; use the cheapest tier only for transcription-level tasks or
+single-file mechanical fixes.
+
+Always specify the model explicitly when dispatching a subagent. An omitted
+model inherits the session default and can silently put cheap review work on the
+most expensive model.
 
 ## Handling Implementer Status
 
-Implementer subagents report one of four statuses. Handle each appropriately:
+**DONE:** Generate the review package with `scripts/review-package BASE HEAD`,
+then dispatch the task reviewer with the printed path.
 
-**DONE:** Proceed to spec compliance review.
+**DONE_WITH_CONCERNS:** Read the concerns before review. If they affect
+correctness or scope, address them before review. Otherwise note them and
+proceed to review.
 
-**DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
+**NEEDS_CONTEXT:** Provide the missing context and re-dispatch.
 
-**NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
+**BLOCKED:** Assess whether to provide more context, use a stronger model, split
+the task, or escalate a plan defect to the user.
 
-**BLOCKED:** The implementer cannot complete the task. Assess the blocker:
-1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
-3. If the task is too large, break it into smaller pieces
-4. If the plan itself is wrong, escalate to the human
+Never ignore an escalation or force the same model to retry without changes.
 
-**Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
+## Handling Task Reviewer Results
+
+The task reviewer returns both required gates:
+
+- Spec Compliance: `SPEC_COMPLIANT` | `ISSUES_FOUND` | `NEEDS_CONTEXT`
+- Task quality: `Approved` | `Needs fixes`
+
+Do not mark a task complete unless spec compliance is `SPEC_COMPLIANT` and task
+quality is `Approved`. Resolve `Cannot verify from diff` items yourself before
+marking the task complete.
+
+Dispatch one fix subagent with all Critical and Important findings. The fixer
+must re-run focused tests covering the amended code and append results to the
+same report file. Then re-run `scripts/review-package` and dispatch the task
+reviewer again.
+
+## Constructing Reviewer Prompts
+
+Do not tell a reviewer what not to flag, do not pre-rate severity, and do not
+paste accumulated history. If your dispatch says "do not flag", "at most
+Minor", or "the plan chose this", stop and remove that pre-judgment. The task
+reviewer gets only the task brief, report file, review package, Global
+Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
 
 ## Prompt Templates
 
 - `./codex-subagents.md` - Codex subagent tool mapping and required runtime support
 - `./implementer-prompt.md` - Dispatch implementer subagent
-- `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
-- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
-
-## Example Workflow
-
-```
-You: I'm using Subagent Exec to execute this plan.
-
-[Read plan file once: docs/loopx/plans/feature-plan.md]
-[Extract all 5 tasks with full text and context]
-[create update_plan with all tasks]
-
-Task 1: Hook installation script
-
-[Get Task 1 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
-
-Implementer: "Before I begin - should the hook be installed at user or system level?"
-
-You: "User level (~/.config/loopx/hooks/)"
-
-Implementer: "Got it. Implementing now..."
-[Later] Implementer:
-  - Implemented install-hook command
-  - Added tests, 5/5 passing
-  - Self-review: Found I missed --force flag, added it
-  - Committed
-
-[Dispatch spec compliance reviewer]
-Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
-
-[Get git SHAs, dispatch code quality reviewer]
-Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
-
-[Mark Task 1 complete]
-
-Task 2: Recovery modes
-
-[Get Task 2 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
-
-Implementer: [No questions, proceeds]
-Implementer:
-  - Added verify/repair modes
-  - 8/8 tests passing
-  - Self-review: All good
-  - Committed
-
-[Dispatch spec compliance reviewer]
-Spec reviewer: ❌ Issues:
-  - Missing: Progress reporting (spec says "report every 100 items")
-  - Extra: Added --json flag (not requested)
-
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
-
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
-
-[Dispatch code quality reviewer]
-Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
-
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
-
-[Code reviewer reviews again]
-Code reviewer: ✅ Approved
-
-[Mark Task 2 complete]
-
-...
-
-[After all tasks]
-[Use loopx:final-review]
-Final reviewer: No whole-feature runtime or integration risks found. Ready for finish.
-
-Done!
-```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
-
-**vs. Exec:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
-
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Two-stage review: spec compliance, then code quality
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-- Surface-changing tasks require caller proof, negative assertions, and governance/package/doc checks before approval
-
-**Cost:**
-- More subagent invocations (implementer + 2 reviewers per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- But catches issues early (cheaper than debugging later)
+- `./task-reviewer-prompt.md` - Dispatch task reviewer subagent
 
 ## Red Flags
 
 **Never:**
-- Skip reviews (spec compliance OR code quality)
-- Proceed with unfixed issues
-- Dispatch multiple implementation subagents in parallel (conflicts)
-- Make subagent read plan file (provide full text instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
-- Ignore subagent questions (answer before letting them proceed)
-- Accept "close enough" on spec compliance (spec reviewer found issues = not done)
-- Skip review loops (reviewer found issues = implementer fixes = review again)
-- Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
-- Move to next task while either review has open issues
-
-**If subagent asks questions:**
-- Answer clearly and completely
-- Provide additional context if needed
-- Don't rush them into implementation
-
-**If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
-- Don't skip the re-review
-
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
+- Skip task review
+- Proceed with unfixed Critical or Important issues
+- Dispatch multiple implementation subagents in parallel when their write scopes overlap
+- Make a subagent read the whole plan file instead of a task brief
+- Ignore subagent questions
+- Accept "close enough" on spec compliance
+- Move to the next task while the task reviewer has open blocking issues
+- Re-dispatch a task the progress ledger marks complete
 
 ## Integration
 
 **Required workflow skills:**
-
 - **loopx:plan-to-exec** - Creates the plan this skill executes
-- **loopx:review** - Code review template for reviewer subagents
 - **loopx:final-review** - Final whole-feature runtime and integration risk review
-- **loopx:finish** - Complete development after all tasks
+- **loopx:fix-review** - Handles findings returned by task review or final review
+- **loopx:finish** - Completes development after verification
 
 **Subagents should use:**
-- **loopx:tdd** - Subagents follow TDD for each task
+- **loopx:tdd** - Subagents follow TDD for each task when the plan requires it
 
 **Alternative workflow:**
-- **loopx:exec** - Use for parallel session instead of same-session execution
+- **loopx:exec** - Use when subagents are unavailable or the work must remain in one context

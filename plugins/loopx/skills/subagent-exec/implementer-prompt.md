@@ -10,7 +10,9 @@ Native Codex subagent:
 
     ## Task Description
 
-    [FULL TEXT of task from plan - paste it here, don't make subagent read file]
+    Read your task brief first: [BRIEF_FILE]
+    It contains the full task text from the plan, including Global Constraints
+    and task Interfaces.
 
     ## Context
 
@@ -52,6 +54,10 @@ Native Codex subagent:
     6. Report back
 
     Work from: [directory]
+
+    Write your detailed report to: [REPORT_FILE]
+    Return only status, commits, a one-line test summary, concerns, and the
+    report file path.
 
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
     It's always OK to pause and clarify. Don't guess or make assumptions.
@@ -109,6 +115,7 @@ Native Codex subagent:
     - Do tests actually verify behavior (not just mock behavior)?
     - Did I follow TDD if required?
     - Are tests comprehensive?
+    - Is the test output pristine, with no unexplained warnings or noise?
 
     **Surface changes:**
     - If I removed, replaced, narrowed, migrated, or changed compatibility, did I run
@@ -122,8 +129,7 @@ Native Codex subagent:
 
     ## Report Format
 
-    When done, report:
-    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    Write your full report to [REPORT_FILE]:
     - What you implemented (or what you attempted, if blocked)
     - What you tested and test results
     - Files changed
@@ -169,6 +175,14 @@ Native Codex subagent:
     If the task is surface-changing but SURFACE_CHANGE_CONTEXT is absent or lacks
     caller proof, negative assertions, strict current product paths, or package/
     governance checks, report NEEDS_CONTEXT before editing.
+
+    Then report back with ONLY (under 15 lines — the detail lives in the report
+    file):
+    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    - Commits created (short SHA + subject)
+    - One-line test summary
+    - Concerns, if any
+    - Report file path
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need

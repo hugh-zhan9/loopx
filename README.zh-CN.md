@@ -78,7 +78,7 @@ loopx install-skills --target all --json
 | `clarify` | 持续追问直到范围、非目标、约束和决策边界清楚。 |
 | `spec` | 在需要设计决策时写设计文档或轻量 design note。 |
 | `plan-to-exec` | 把已澄清的需求拆成小步执行计划。 |
-| `subagent-exec` | 用 fresh subagents 和 staged review 执行已批准计划。 |
+| `subagent-exec` | 用 fresh subagents 和 combined task review 执行已批准计划。 |
 | `exec` | 没有 subagent 或用户选择 inline 时顺序执行计划。 |
 | `review` | 基于 git range 和计划/需求发起独立代码评审。 |
 | `final-review` | 收尾前对完整 feature 做运行时、集成和测试缺口风险评审。 |

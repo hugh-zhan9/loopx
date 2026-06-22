@@ -57,6 +57,13 @@ Before defining tasks, map out which files will be created or modified and what 
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
+## Task Right-Sizing
+
+A task is the smallest unit that carries its own test cycle and is worth a
+fresh reviewer's gate. Fold setup, configuration, scaffolding, and documentation
+into the task whose deliverable needs them. Split only where a reviewer could
+meaningfully reject one task while approving its neighbor.
+
 ## High-Risk Change Planning
 
 Use this section for any plan that removes, replaces, narrows, migrates, or changes compatibility for an existing behavior or public surface. This is not project-specific; it applies to CLI commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
@@ -128,6 +135,13 @@ Every plan must start with this header:
 
 **Tech Stack:** [Key technologies/libraries]
 
+## Global Constraints
+
+[Project-wide requirements copied exactly from the source: version floors,
+dependency limits, naming/copy rules, platform requirements, compatibility
+requirements, package contents, and exact values. Every task implicitly includes
+this section.]
+
 ---
 ```
 
@@ -140,6 +154,10 @@ Every plan must start with this header:
 - Create: `exact/path/to/file.py`
 - Modify: `exact/path/to/existing.py:123-145`
 - Test: `tests/exact/path/to/test.py`
+
+**Interfaces:**
+- Consumes: [inputs from previous tasks or existing code, with exact names/signatures]
+- Produces: [outputs later tasks or callers rely on, with exact names/signatures]
 
 - [ ] **Step 1: Write the failing test**
 
@@ -184,6 +202,8 @@ Every step must contain the actual content an engineer needs. These are plan fai
 - "Similar to Task N"; repeat the code because the engineer may be reading tasks out of order
 - Steps that describe what to do without showing how when code is required
 - References to types, functions, or methods not defined in any task
+- Global Constraints that paraphrase exact source values instead of copying them
+- Interfaces blocks that omit exact names, signatures, paths, file formats, CLI flags, or return values later tasks depend on
 
 ## Remember
 
@@ -204,6 +224,7 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 4. **Design drift:** Did you introduce a new architecture, API, data model, or business behavior not present in the design spec? If yes, return to `spec`.
 5. **Anchor coverage:** Does each generated requirement anchor map to a task, verification step, or deferred-with-rationale row? If not, fix the plan before handoff.
 6. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
+7. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints and Interfaces for an implementer and task reviewer who cannot see the rest of the plan?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 
@@ -216,7 +237,7 @@ Plan complete and saved to `docs/loopx/plans/<filename>.md`.
 
 Two execution options:
 
-1. Subagent Exec (recommended) - dispatch a fresh subagent per task, review between tasks, fast iteration
+1. Subagent Exec (recommended) - dispatch a fresh subagent per task, use one combined task reviewer per task, then final-review
 2. Inline Execution - execute tasks in this session using exec, batch execution with checkpoints
 
 Which approach?
@@ -225,7 +246,7 @@ Which approach?
 If Subagent Exec is chosen:
 
 - REQUIRED SUB-SKILL: Use `loopx:subagent-exec`
-- Fresh subagent per task plus two-stage review
+- Fresh subagent per task plus combined task review and final-review
 
 If Inline Execution is chosen:
 

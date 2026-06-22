@@ -15,7 +15,6 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## When to Request Review
 
 **Mandatory:**
-- After each task in subagent-exec
 - After completing major feature
 - Before merge to main
 
@@ -42,7 +41,8 @@ Review has two stages. Run them in order. Do not skip stage 1.
 
 **Dispatch spec compliance reviewer:**
 
-Use the platform's native subagent mechanism when available and fill template at `spec-reviewer-prompt.md` (in the subagent-exec directory), or use this inline check:
+Use the platform's native subagent mechanism when available and provide this
+inline check:
 
 ```
 Spec Compliance Check:
@@ -201,8 +201,10 @@ Code reviewer:
 ## Integration with Workflows
 
 **Subagent Exec:**
-- Both stages run automatically per task (spec → quality)
-- Uses dedicated prompt templates
+- Per-task review uses `subagent-exec/task-reviewer-prompt.md`, which combines
+  Stage 1 spec compliance and Stage 2 code quality into one task-scoped reviewer.
+- The standalone `review` skill remains available for ad-hoc or checkpoint
+  review outside `subagent-exec`.
 
 **Exec:**
 - Self-check spec compliance after each task
@@ -229,4 +231,3 @@ Code reviewer:
 
 See templates at:
 - `review/code-reviewer.md` — code quality review prompt
-- `subagent-exec/spec-reviewer-prompt.md` — spec compliance review prompt
