@@ -134,6 +134,106 @@ describe('loopx skill governance', () => {
     );
   });
 
+  it('includes issue-driven workflow skills in the bundled skill set and package surface', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('issue'), true, 'issue must be bundled');
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('fix'), true, 'fix must be bundled');
+    assert.equal(packageJson.files.includes('skills/issue/'), true, 'npm package must include issue skill');
+    assert.equal(packageJson.files.includes('skills/fix/'), true, 'npm package must include fix skill');
+  });
+
+  it('governs issue skill as the issue-driven intake and diagnosis workflow', async () => {
+    const issueSkill = await readFile(join(repoRoot, 'skills', 'issue', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(issueSkill);
+
+    assert.equal(fields.name, 'issue');
+    assert.match(fields.description, /bug-class/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-<timestamp>\.md/);
+    assert.match(issueSkill, /phase/);
+    assert.match(issueSkill, /status/);
+    assert.match(issueSkill, /Evidence Log/);
+    assert.match(issueSkill, /Diagnosis Summary/);
+    assert.match(issueSkill, /Fix Brief/);
+    assert.match(issueSkill, /Response Draft/);
+    assert.match(issueSkill, /ready_for_fix/);
+    assert.match(issueSkill, /needs_info/);
+    assert.match(issueSkill, /not_a_bug/);
+    assert.match(issueSkill, /feature_request/);
+    assert.match(issueSkill, /\$fix \.loopx\/issues\//);
+    assert.match(issueSkill, /debug discipline/i);
+    assert.match(issueSkill, /temporary diagnostic/i);
+    assert.doesNotMatch(issueSkill, /gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge/);
+    assert.doesNotMatch(issueSkill, /durable code fix/i);
+  });
+
+  it('governs fix skill as the issue-driven execution workflow', async () => {
+    const fixSkill = await readFile(join(repoRoot, 'skills', 'fix', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(fixSkill);
+
+    assert.equal(fields.name, 'fix');
+    assert.match(fields.description, /ready_for_fix/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /ready_for_fix|\.loopx\/issues|bug fix/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(fixSkill, /status: ready_for_fix/);
+    assert.match(fixSkill, /clean worktree/i);
+    assert.match(fixSkill, /expected_touched_files/);
+    assert.match(fixSkill, /parallel_safe/);
+    assert.match(fixSkill, /scope validation/i);
+    assert.match(fixSkill, /actual_changed_files/);
+    assert.match(fixSkill, /local review/i);
+    assert.match(fixSkill, /whole diff review/i);
+    assert.match(fixSkill, /fix-review/i);
+    assert.match(fixSkill, /finish/i);
+    assert.match(fixSkill, /must not commit/i);
+    assert.match(fixSkill, /must not push/i);
+    assert.match(fixSkill, /must not close/i);
+    assert.match(fixSkill, /Do not invoke `subagent-exec` or `loopx:exec`/);
+    assert.match(fixSkill, /Do not use `git worktree`/);
+    assert.doesNotMatch(fixSkill, /Use `subagent-exec`|Use `loopx:exec`|Create git worktree|gh issue close|gh pr merge/);
+  });
+
+  it('debug exposes a structured diagnosis summary contract for issue workflow', async () => {
+    const debugSkill = await readFile(join(repoRoot, 'skills', 'debug', 'SKILL.md'), 'utf8');
+
+    assert.match(debugSkill, /Diagnosis Summary Contract/);
+    assert.match(debugSkill, /classification: bug \| regression \| failing_test \| build_failure \| unexpected_behavior \| not_a_bug \| needs_info/);
+    assert.match(debugSkill, /reproduction_status: reproduced \| intermittent \| not_reproduced \| not_attempted/);
+    assert.match(debugSkill, /root_cause_status: confirmed \| likely \| unknown/);
+    assert.match(debugSkill, /fix_mode: root_cause_fix \| defensive_fix \| blocked \| no_fix_needed/);
+    assert.match(debugSkill, /regression_test_required/);
+    assert.match(debugSkill, /risk_triggers/);
+    assert.match(debugSkill, /issue workflow/i);
+  });
+
+  it('documents feature-driven and issue-driven workflows as parallel main flows', async () => {
+    const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
+    const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+    const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    const skillsGuide = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
+    const skillsGuideZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
+    const installationSpec = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
+
+    for (const text of [resolver, readme, readmeZh, skillsGuide, skillsGuideZh]) {
+      assert.match(text, /issue-driven/i);
+      assert.match(text, /\$issue|`issue`/);
+      assert.match(text, /\$fix|`fix`/);
+      assert.match(text, /bug-class|bug 类|bug-class issues/i);
+    }
+    assert.match(resolver, /skills\/issue\/SKILL\.md/);
+    assert.match(resolver, /skills\/fix\/SKILL\.md/);
+    assert.match(readme, /feature-driven/);
+    assert.match(readme, /issue-driven/);
+    assert.match(readmeZh, /feature-driven/);
+    assert.match(readmeZh, /issue-driven/);
+    assert.match(installationSpec, /issue/);
+    assert.match(installationSpec, /fix/);
+  });
+
   it('keeps current public docs and guidance free of removed runtime commands', async () => {
     const publicPaths = [
       'README.md',
