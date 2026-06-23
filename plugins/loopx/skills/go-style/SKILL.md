@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Go Style
@@ -17,6 +17,8 @@ Use it as a support skill from `subagent-exec` or `exec` when Go files are creat
 ## Core Rules
 
 - Preserve local project style first. If nearby code conflicts with this skill, follow the local pattern unless it is clearly broken.
+- When modernizing Go idioms or APIs, read the project's `go.mod` first and do not use syntax or standard-library APIs newer than the declared `go` directive.
+- Treat Go modernization as behavior-preserving cleanup. Prefer project lint/tool output and official Go tooling over broad manual rewrites.
 - Keep the happy path straight down. Return early for errors and guard clauses.
 - Put `context.Context` first in functions that accept a context.
 - Wrap propagated errors with operation context using `%w` when the caller benefits from the cause.

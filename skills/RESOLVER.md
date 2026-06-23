@@ -10,6 +10,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 |---|---|
 | Ambiguous request, unclear scope, non-goals, decision boundaries, requirements interview | `skills/clarify/SKILL.md` |
 | Design方案, technical design, API/data/state/security decisions, or architecture tradeoffs | `skills/spec/SKILL.md` |
+| Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Approved requirements or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
 | Approved plan has independent tasks and should run with subagents plus staged review | `skills/subagent-exec/SKILL.md` |
 | Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
@@ -17,6 +18,8 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Completed full feature needs final integration, runtime-risk, and test-gap review before finish | `skills/final-review/SKILL.md` |
 | Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
 | Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |
+| Issue-driven bug-class intake, diagnosis, local ledger creation, or fix brief preparation | `skills/issue/SKILL.md` |
+| Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
 
 ## Support Skills
@@ -38,20 +41,23 @@ Read the selected skill file before acting. If multiple skills match, read every
 ## Disambiguation
 
 1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify`.
-2. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
-3. If remaining questions are local implementation choices, use `plan-to-exec`.
-4. `plan-to-exec` writes `docs/loopx/plans/*.md` and then offers `subagent-exec` or `exec`.
-5. Use `subagent-exec` when subagents are available and the plan has independent tasks.
-6. Use `exec` when the user chooses inline execution or subagents are unavailable.
-7. Use `review` to request code review of completed task or checkpoint work.
-8. Use `final-review` after the whole feature is implemented and before `finish`.
-9. Use `fix-review` only after feedback exists.
-10. Use `finish` only after implementation, final review, and verification are complete.
-11. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-12. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
-13. Treat `tdd`, `debug`, `verify`, `doc-readability`, `requirement-analyzer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` as support lenses unless the user explicitly invokes them directly.
-14. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
-15. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
+2. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they want to design a future change, use `spec`.
+3. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
+4. If remaining questions are local implementation choices, use `plan-to-exec`.
+5. `plan-to-exec` writes `docs/loopx/plans/*.md` and then offers `subagent-exec` or `exec`.
+6. Use `subagent-exec` when subagents are available and the plan has independent tasks.
+7. Use `exec` when the user chooses inline execution or subagents are unavailable.
+8. Use `review` to request code review of completed task or checkpoint work.
+9. Use `final-review` after the whole feature is implemented and before `finish`.
+10. Use `fix-review` only after feedback exists.
+11. Use `finish` only after implementation, final review, and verification are complete.
+12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
+13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
+14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
+15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
+16. Treat `tdd`, `debug`, `verify`, `doc-readability`, `requirement-analyzer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` as support lenses unless the user explicitly invokes them directly.
+17. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
+18. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
 
 ## Deterministic Guard
 

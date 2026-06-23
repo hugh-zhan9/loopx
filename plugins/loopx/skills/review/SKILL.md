@@ -3,7 +3,7 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Review
@@ -76,6 +76,8 @@ Verify:
 **Purpose:** Verify the implementation is well-built — clean, tested, maintainable, secure.
 
 **When to use:** After spec compliance passes. Never run code quality review on code that doesn't match spec — you'll review code that gets rewritten.
+
+**Smell checks:** For broad changes, architecture-sensitive changes, performance-sensitive code, or explicit smell/anti-pattern requests, read `references/smell-checklist.md` before dispatching or performing Stage 2. Use it to focus the review on evidence-backed architecture, coupling, cohesion, testing, and complexity issues. Do not dump the checklist into the review output.
 
 **Dispatch code quality reviewer:**
 

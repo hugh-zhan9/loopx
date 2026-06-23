@@ -3,7 +3,7 @@ name: debug
 description: "Finds root cause for bugs, failing tests, build failures, regressions, and unexpected behavior before fixes. Not for new feature planning or routine code review."
 when_to_use: "debug, bug, test failure, build failure, regression, unexpected behavior, root cause, 报错, 失败, 回归, 排查"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Systematic Debugging
@@ -266,6 +266,39 @@ If you catch yourself thinking:
 | **2. Pattern** | Find working examples, compare | Identify differences |
 | **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
 | **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
+
+## Diagnosis Summary Contract
+
+When `debug` is used directly or inside the `issue` workflow, end diagnosis with a structured summary. The issue workflow consumes this contract when writing `.loopx/issues/*.md` ledgers.
+
+```yaml
+diagnosis:
+  classification: bug | regression | failing_test | build_failure | unexpected_behavior | not_a_bug | needs_info
+  reproduction_status: reproduced | intermittent | not_reproduced | not_attempted
+  evidence:
+    - type: command | log | steps | code | user_report
+      value: ...
+  root_cause_status: confirmed | likely | unknown
+  root_cause: ...
+  hypotheses_rejected:
+    - ...
+  fix_mode: root_cause_fix | defensive_fix | blocked | no_fix_needed
+  regression_test_required: true | false
+  regression_test_exception_reason: ...
+  risk_triggers:
+    - no_repro
+    - defensive_fix
+    - public_surface
+    - scope_unclear
+```
+
+Rules:
+
+- `root_cause_status: confirmed` requires reproduction or strong evidence that identifies the source, not just the symptom.
+- `reproduction_status: not_reproduced` must include attempted steps and evidence gaps.
+- `fix_mode: defensive_fix` requires `risk_triggers` to include `defensive_fix` and a clear explanation of why a root-cause fix is unavailable.
+- `regression_test_required: false` requires an exception reason.
+- `classification: needs_info` should list the exact missing logs, steps, environment, version, or expected behavior.
 
 ## When Process Reveals "No Root Cause"
 

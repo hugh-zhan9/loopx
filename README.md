@@ -18,6 +18,11 @@ workflow happens by invoking skills inside the agent.
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+loopx has two main flows:
+
+- feature-driven work follows the path above for new product or code changes.
+- issue-driven work handles bug-class issues: `$issue` diagnoses and writes a local ledger, then `$fix` executes ledgers that are ready for repair.
+
 ## Install
 
 ```bash
@@ -42,6 +47,8 @@ After installation, ask the agent to use the relevant skill by name:
 $clarify <feature-or-problem>
 $plan-to-exec <slug>
 $subagent-exec <approved-plan>
+$issue <bug-report-or-failing-output>
+$fix .loopx/issues/<ledger>.md
 $final-review
 $finish
 ```
@@ -54,12 +61,16 @@ Use `$exec` instead of `$subagent-exec` when subagents are unavailable or the
 work is small enough to run inline. Use `$fix-review` whenever review feedback
 needs to be evaluated and applied.
 
+For a bug-class issue, start with `$issue`. Continue with `$fix` only after the
+ledger status is `ready_for_fix`.
+
 ## Core Skills
 
 | Skill | Use it when |
 |---|---|
 | `clarify` | Scope, non-goals, constraints, or decision boundaries are still unclear. |
 | `spec` | API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. |
+| `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. |
 | `plan-to-exec` | Requirements are clear enough to become small executable tasks. |
 | `subagent-exec` | An approved plan should be executed with fresh subagents and combined task review. |
 | `exec` | An approved plan should be executed inline. |
@@ -67,6 +78,8 @@ needs to be evaluated and applied.
 | `final-review` | The whole feature is implemented and needs integration, runtime, and test-gap review before finishing. |
 | `fix-review` | Review feedback needs technical evaluation, pushback, or implementation. |
 | `finish` | Work is verified and needs a merge, PR, keep, or discard decision. |
+| `issue` | Issue-driven bug-class intake, diagnosis, and fix brief creation. |
+| `fix` | Issue-driven repair from `.loopx/issues` ledgers marked `ready_for_fix`. |
 | `refactor-plan` | A behavior-preserving refactor needs a scoped plan and tiny commits. |
 
 Support skills are lenses, not workflow states: `tdd`, `debug`, `verify`,
