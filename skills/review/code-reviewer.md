@@ -43,18 +43,28 @@ Native subagent:
     - Type safety where applicable?
     - DRY without premature abstraction?
     - Edge cases handled?
+    - Any evidence-backed code smells such as long methods, duplicated business rules,
+      primitive obsession, speculative generality, or dead code?
 
     **Architecture:**
     - Sound design decisions?
     - Reasonable scalability and performance?
     - Security concerns?
     - Integrates cleanly with surrounding code?
+    - Any boundary, coupling, cohesion, or abstraction smells introduced or worsened?
 
     **Testing:**
     - Tests verify real behavior, not mocks?
     - Edge cases covered?
     - Integration tests where they matter?
     - All tests passing?
+    - Tests coupled to implementation details or missing regression coverage?
+
+    **Complexity smells:**
+    - N+1 database/API calls in loops?
+    - Repeated linear scans where Set/Map indexing would preserve behavior?
+    - Sorts, expensive transforms, or recomputation inside hot loops or UI render paths?
+    - Wrong data structure for the observed access pattern?
 
     **Production readiness:**
     - Migration strategy if schema changed?
@@ -94,6 +104,7 @@ Native subagent:
     - What's wrong
     - Why it matters
     - How to fix (if not obvious)
+    - Whether the issue was introduced by this change or is a pre-existing risk
 
     ### Recommendations
     [Improvements for code quality, architecture, or process]

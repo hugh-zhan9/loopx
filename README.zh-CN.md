@@ -18,6 +18,11 @@ skill 调用完成。
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+loopx 有两条主流程：
+
+- feature-driven 工作使用上面的路径，处理新的产品或代码变更。
+- issue-driven 工作处理 bug 类问题：`$issue` 负责诊断并写入本地 ledger，`$fix` 只执行已经 ready for repair 的 ledger。
+
 ## 安装
 
 ```bash
@@ -42,6 +47,8 @@ loopx install-skills --target all --dry-run
 $clarify <feature-or-problem>
 $plan-to-exec <slug>
 $subagent-exec <approved-plan>
+$issue <bug-report-or-failing-output>
+$fix .loopx/issues/<ledger>.md
 $final-review
 $finish
 ```
@@ -52,12 +59,15 @@ $finish
 没有 subagent，或任务足够小的时候，用 `$exec` 代替 `$subagent-exec`。评审反馈
 需要评估、反驳或修复时，用 `$fix-review`。
 
+bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后，才进入 `$fix`。
+
 ## 核心 skills
 
 | Skill | 什么时候用 |
 |---|---|
 | `clarify` | 范围、非目标、约束或决策边界仍不清楚。 |
 | `spec` | API、数据、状态、权限、迁移、兼容、产品行为或架构决策必须先固定。 |
+| `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 |
 | `plan-to-exec` | 需求已经清楚，可以拆成小步执行任务。 |
 | `subagent-exec` | 已批准计划需要 fresh subagents 和 combined task review 执行。 |
 | `exec` | 已批准计划需要 inline 顺序执行。 |
@@ -65,6 +75,8 @@ $finish
 | `final-review` | 完整 feature 已实现，需要在 finish 前检查集成、运行时和测试缺口风险。 |
 | `fix-review` | review feedback 需要技术评估、反驳或实现。 |
 | `finish` | 工作已验证，需要选择 merge、PR、保留或丢弃。 |
+| `issue` | issue-driven bug 类 intake、诊断和 fix brief 创建。 |
+| `fix` | 从 `.loopx/issues` 中 `ready_for_fix` 的 ledger 执行 issue-driven 修复。 |
 | `refactor-plan` | 行为保持的重构需要限定范围、拆成 tiny commits。 |
 
 辅助 skills 是 lens，不是 workflow state：`tdd`、`debug`、`verify`、

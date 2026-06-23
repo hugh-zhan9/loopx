@@ -159,7 +159,15 @@ describe('loopx skill governance', () => {
     assert.match(issueSkill, /Diagnosis Summary/);
     assert.match(issueSkill, /Fix Brief/);
     assert.match(issueSkill, /Response Draft/);
+    assert.match(issueSkill, /Execution Reports/);
+    assert.match(issueSkill, /Reviews/);
+    assert.match(issueSkill, /Verification/);
+    assert.match(issueSkill, /Closeout/);
     assert.match(issueSkill, /ready_for_fix/);
+    assert.match(issueSkill, /fixed/);
+    assert.match(issueSkill, /reviewed/);
+    assert.match(issueSkill, /complete/);
+    assert.match(issueSkill, /failed/);
     assert.match(issueSkill, /needs_info/);
     assert.match(issueSkill, /not_a_bug/);
     assert.match(issueSkill, /feature_request/);
@@ -189,6 +197,10 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /whole diff review/i);
     assert.match(fixSkill, /fix-review/i);
     assert.match(fixSkill, /finish/i);
+    assert.match(fixSkill, /Execution Reports/);
+    assert.match(fixSkill, /Reviews/);
+    assert.match(fixSkill, /Verification/);
+    assert.match(fixSkill, /Closeout/);
     assert.match(fixSkill, /must not commit/i);
     assert.match(fixSkill, /must not push/i);
     assert.match(fixSkill, /must not close/i);

@@ -3,7 +3,7 @@ name: refactor-plan
 description: "Creates a behavior-preserving refactor plan with user interview, repo evidence, tiny commits, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
 when_to_use: "refactor-plan, refactor request, refactoring RFC, tiny commits, behavior-preserving cleanup, architecture cleanup, 重构计划"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
@@ -22,7 +22,9 @@ This skill will be invoked when the user wants to create a refactor request. You
 
 7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
 
-8. Write the refactor plan to `docs/loopx/refactors/YYYY-MM-DD-<topic>.md`. If the repository has an issue workflow and the user wants an issue, also create a GitHub issue with the same plan. Use the following template:
+8. If the user asks about specific code smells, Fowler-style refactoring techniques, or how to break a refactor into safe mechanical steps, read `references/fowler-refactorings.md` and use it as a planning reference. Do not load it for every refactor request by default.
+
+9. Write the refactor plan to `docs/loopx/refactors/YYYY-MM-DD-<topic>.md`. If the repository has an issue workflow and the user wants an issue, also create a GitHub issue with the same plan. Use the following template:
 
 <refactor-plan-template>
 

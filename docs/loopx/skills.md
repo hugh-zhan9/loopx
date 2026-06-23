@@ -9,6 +9,7 @@ This guide explains the installed loopx v1 skills and how to use them together. 
 loopx skills fall into two groups:
 
 - Core workflow skills move work through a feature lifecycle: clarify, design when needed, plan, execute, review, fix feedback, and finish.
+- Issue-driven workflow skills handle bug-class issues separately: `issue` diagnoses and writes a local ledger, then `fix` executes ready ledgers.
 - Support skills add discipline to a specific activity such as testing, debugging, documentation review, API design, SQL, Go, or CLI behavior. They are lenses, not workflow states.
 
 Use the core workflow for ordinary product or code changes. Add support skills when the task has a specialized risk.
@@ -19,12 +20,19 @@ Recommended flow:
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+Issue-driven flow:
+
+```text
+issue -> fix -> finish
+```
+
 ## Core Workflow Skills
 
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | Answered questions and a route to `spec` or `plan-to-exec`. |
 | `spec` | Product behavior, API, data, state, permission, migration, compatibility, or architecture decisions must be fixed before planning. | A design spec or lightweight design note under `docs/loopx/design/`. |
+| `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. | A detailed codebase spec under `docs/loopx/codebase-specs/`. |
 | `plan-to-exec` | Requirements or a spec are approved and need executable tasks. | A bite-sized implementation plan under `docs/loopx/plans/`. |
 | `subagent-exec` | An approved plan has independent tasks and subagents are available. | Implemented tasks with staged review checkpoints. |
 | `exec` | An approved plan should be executed inline or subagents are unavailable. | Sequential implementation with verification and review checkpoints. |
@@ -32,6 +40,8 @@ clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-revie
 | `final-review` | The whole feature is implemented and needs integration, runtime, and test-gap review before finishing. | Final risk review before `finish`. |
 | `fix-review` | Concrete review feedback exists and needs technical evaluation or implementation. | One-feedback-item-at-a-time fixes, pushback, or verification. |
 | `finish` | Implementation and verification are complete and the user needs a merge, PR, keep, or discard decision. | A completion decision and local finish audit record. |
+| `issue` | A bug-class issue needs intake, triage, diagnosis, and a fix brief. | A `.loopx/issues` ledger with diagnosis and handoff status. |
+| `fix` | One or more `.loopx/issues` ledgers are marked `ready_for_fix`. | A scoped bug fix with verification, review, and finish handoff. |
 | `refactor-plan` | The user wants a behavior-preserving refactor plan with small commits. | A scoped refactor plan; not immediate implementation. |
 
 ## Support Skills
@@ -56,11 +66,13 @@ Use this routing rule:
 
 1. If the work is unclear, start with `clarify`.
 2. If decisions must be fixed before planning, use `spec`.
-3. If the design is settled and work needs tasks, use `plan-to-exec`.
-4. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.
-5. If implementation is complete but not reviewed, use `review` or `final-review`.
-6. If feedback exists, use `fix-review`.
-7. If tests and final review are complete, use `finish`.
+3. If the user wants to document the current codebase instead of designing a future change, use `codebase-spec`.
+4. If the design is settled and work needs tasks, use `plan-to-exec`.
+5. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.
+6. If implementation is complete but not reviewed, use `review` or `final-review`.
+7. If feedback exists, use `fix-review`.
+8. If tests and final review are complete, use `finish`.
+9. If the request is a bug-class issue, use `issue`; use `fix` only after the ledger is `ready_for_fix`.
 
 Support skills can be layered onto this path. For example:
 
@@ -102,6 +114,19 @@ Bug investigation:
 $debug failing renewal invoice test
 ```
 
+Issue-driven bug-class workflow:
+
+```text
+$issue failing renewal invoice test
+$fix .loopx/issues/issue-renewal-invoice-2026-06-23.md
+```
+
+Existing codebase documentation:
+
+```text
+$codebase-spec src/cli.mjs
+```
+
 Document review:
 
 ```text
@@ -120,5 +145,6 @@ $finish
 - Do not skip `clarify` when scope, non-goals, or decision boundaries are unresolved.
 - Do not use `plan-to-exec` to invent missing product or architecture decisions.
 - Do not treat support skills as workflow states.
+- Do not use `fix` on vague reports; run `issue` first and require `ready_for_fix`.
 - Do not claim work is complete without `verify`-style fresh evidence.
 - Do not run `finish` before implementation, review, and verification are actually complete.

@@ -9,6 +9,7 @@
 loopx skills 分成两类：
 
 - 核心工作流 skills 推动一次功能工作的生命周期：澄清、必要时设计、计划、执行、评审、处理反馈、收尾。
+- issue-driven 工作流 skills 单独处理 bug 类问题：`issue` 负责诊断并写入本地 ledger，`fix` 执行 ready 的 ledger。
 - 辅助 skills 给特定活动增加纪律，例如测试、调试、文档可读性、API 设计、SQL、Go 或 CLI 行为。它们是 lens，不是 workflow state。
 
 普通产品或代码变更使用核心工作流。任务有专门风险时，再叠加对应的辅助 skill。
@@ -19,12 +20,19 @@ loopx skills 分成两类：
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+Issue-driven 流程：
+
+```text
+issue -> fix -> finish
+```
+
 ## 核心工作流 Skills
 
 | Skill | 什么时候用 | 产出 |
 |---|---|---|
 | `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | 已回答的问题，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
 | `spec` | 产品行为、API、数据、状态、权限、迁移、兼容或架构决策需要先固定。 | `docs/loopx/design/` 下的设计 spec 或轻量 design note。 |
+| `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 | `docs/loopx/codebase-specs/` 下的详细 codebase spec。 |
 | `plan-to-exec` | 需求或 spec 已批准，需要拆成可执行任务。 | `docs/loopx/plans/` 下的小步实施计划。 |
 | `subagent-exec` | 已批准计划包含独立任务，并且可以使用 subagents。 | 带 staged review checkpoints 的任务执行结果。 |
 | `exec` | 已批准计划需要 inline 执行，或不能/不想使用 subagents。 | 带验证和评审 checkpoint 的顺序实现。 |
@@ -32,6 +40,8 @@ clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-revie
 | `final-review` | 整个 feature 已实现，需要在收尾前检查集成、运行时和测试缺口风险。 | `finish` 前的最终风险评审。 |
 | `fix-review` | 已经有具体 review feedback，需要技术评估或实现。 | 逐条处理反馈、必要时 pushback，并完成验证。 |
 | `finish` | 实现和验证已完成，需要决定 merge、PR、保留或丢弃。 | 完成决策和本地 finish audit 记录。 |
+| `issue` | bug 类 issue 需要 intake、triage、诊断和 fix brief。 | 带诊断与 handoff 状态的 `.loopx/issues` ledger。 |
+| `fix` | 一个或多个 `.loopx/issues` ledger 已标记为 `ready_for_fix`。 | 带验证、评审和 finish handoff 的限定范围 bug 修复。 |
 | `refactor-plan` | 用户想要行为保持的重构计划，并且希望用小提交推进。 | 有边界的 refactor plan；不是立即实现。 |
 
 ## 辅助 Skills
@@ -56,11 +66,13 @@ clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-revie
 
 1. 工作还不清楚，用 `clarify`。
 2. 计划前需要固定决策，用 `spec`。
-3. 设计已定，需要拆任务，用 `plan-to-exec`。
-4. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
-5. 实现完成但还没评审，用 `review` 或 `final-review`。
-6. 已有反馈，用 `fix-review`。
-7. 测试和最终评审都完成后，用 `finish`。
+3. 用户要记录当前代码库现状而不是设计未来变更，用 `codebase-spec`。
+4. 设计已定，需要拆任务，用 `plan-to-exec`。
+5. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
+6. 实现完成但还没评审，用 `review` 或 `final-review`。
+7. 已有反馈，用 `fix-review`。
+8. 测试和最终评审都完成后，用 `finish`。
+9. 请求是 bug 类 issue 时，用 `issue`；只有 ledger 为 `ready_for_fix` 后才用 `fix`。
 
 辅助 skills 可以叠加到这条路径上。例如：
 
@@ -102,6 +114,19 @@ Bug 调查：
 $debug failing renewal invoice test
 ```
 
+Issue-driven bug 类工作流：
+
+```text
+$issue failing renewal invoice test
+$fix .loopx/issues/issue-renewal-invoice-2026-06-23.md
+```
+
+已有代码库文档：
+
+```text
+$codebase-spec src/cli.mjs
+```
+
 文档评审：
 
 ```text
@@ -120,5 +145,6 @@ $finish
 - 范围、非目标或决策边界未解决时，不要跳过 `clarify`。
 - 不要用 `plan-to-exec` 发明缺失的产品或架构决策。
 - 不要把辅助 skills 当作 workflow states。
+- 不要对含糊报告直接使用 `fix`；先运行 `issue`，并要求 ledger 为 `ready_for_fix`。
 - 没有 `verify` 风格的新鲜证据，不要声称工作完成。
 - 实现、评审和验证没有真正完成前，不要运行 `finish`。
