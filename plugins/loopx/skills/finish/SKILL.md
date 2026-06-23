@@ -173,7 +173,7 @@ Allowed memory `type` values:
 - `pitfall`
 - `handoff`
 
-Finish may automatically update `.loopx/memory/MEMORY.md`, `.loopx/memory/index.jsonl`, and active memory cards. The final response must list the memory changes.
+Finish may automatically update `.loopx/memory/MEMORY.md`, `.loopx/memory/index.jsonl`, and active memory cards. The completion summary must list the memory changes.
 
 When accepting an `audit.extraction_candidates[]` item with `kind: "memory"` and `scope: "shared"`, write the accepted note under `docs/loopx/memory/` so it is visible in the git diff. Promote shared memory to `docs/loopx/specs/` when it becomes a durable rule that planning or review should depend on.
 
@@ -201,7 +201,7 @@ Recommended domains:
 - `testing`
 - `inbox`
 
-Spec candidates must be visible in the repo diff and reported in the final response. Do not silently change team specs.
+Spec candidates must be visible in the repo diff and reported in the completion summary. Do not silently change team specs.
 
 ### Step 5: Present Options
 
@@ -449,9 +449,9 @@ git worktree prune  # Self-healing: clean up any stale registrations
 | Worktree 3. Keep as-is | - | - | yes | - |
 | Worktree 4. Discard | - | - | cleanup if owned | yes (force) |
 
-## Final Response Contract
+## Completion Summary Contract
 
-Every finish response must include the verification result, chosen completion action, memory changes, and Spec candidates.
+Every finish completion summary must include the verification result, chosen completion action, memory changes, and Spec candidates.
 
 Use this shape:
 

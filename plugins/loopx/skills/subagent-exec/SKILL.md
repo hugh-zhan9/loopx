@@ -52,7 +52,7 @@ digraph process {
     "Pre-flight plan review" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Use loopx:final-review for entire implementation" [shape=box];
-    "Use loopx:finish" [shape=box style=filled fillcolor=lightgreen];
+    "Use loopx:finish after clean final-review" [shape=box style=filled fillcolor=lightgreen];
 
     "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Pre-flight plan review";
     "Pre-flight plan review" -> "Run scripts/task-brief PLAN_FILE N";
@@ -67,7 +67,7 @@ digraph process {
     "Mark task complete in update_plan and progress ledger" -> "More tasks remain?";
     "More tasks remain?" -> "Run scripts/task-brief PLAN_FILE N" [label="yes"];
     "More tasks remain?" -> "Use loopx:final-review for entire implementation" [label="no"];
-    "Use loopx:final-review for entire implementation" -> "Use loopx:finish";
+    "Use loopx:final-review for entire implementation" -> "Use loopx:finish after clean final-review";
 }
 ```
 
@@ -300,7 +300,7 @@ Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
 - **loopx:plan-to-exec** - Creates the plan this skill executes
 - **loopx:final-review** - Final whole-feature runtime and integration risk review
 - **loopx:fix-review** - Handles findings returned by task review or final review
-- **loopx:finish** - Completes development after verification
+- **loopx:finish** - Completes development after verification. Only start `loopx:finish` after `loopx:final-review` is clean or all Critical/Important feedback has been handled and rechecked.
 
 **Subagents should use:**
 - **loopx:tdd** - Subagents follow TDD for each task when the plan requires it

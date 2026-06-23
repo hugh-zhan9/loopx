@@ -88,6 +88,7 @@ After all tasks complete and verified:
 - Announce: "I'm using the final-review skill to review the completed feature."
 - **REQUIRED SUB-SKILL:** Use loopx:final-review
 - If final-review finds Critical or Important issues, use loopx:fix-review to handle feedback before proceeding
+- Only start `loopx:finish` after `loopx:final-review` is clean or all Critical/Important feedback has been handled and rechecked.
 - Announce: "I'm using the finish skill to complete this work."
 - **REQUIRED SUB-SKILL:** Use loopx:finish
 - Follow finish to verify tests, present options, execute choice

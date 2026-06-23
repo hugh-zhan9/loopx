@@ -313,4 +313,17 @@ describe('loopx skill governance', () => {
     assert.match(finishSkill, /Present exactly 2 options for normal repos, 4 for named git worktrees, or 3 for detached HEAD/);
     assert.doesNotMatch(finishSkill, /Normal repo and named-branch worktree — present exactly these 4 options/);
   });
+
+  it('finish wording avoids colliding with the assistant final channel', async () => {
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+
+    assert.doesNotMatch(finishSkill, /Final Response Contract/i);
+    assert.doesNotMatch(finishSkill, /final response must/i);
+    assert.match(finishSkill, /Completion Summary Contract/);
+    assert.match(finishSkill, /completion summary must list/);
+    assert.match(execSkill, /Only start `loopx:finish` after `loopx:final-review` is clean/);
+    assert.match(subagentExecSkill, /Only start `loopx:finish` after `loopx:final-review` is clean/);
+  });
 });
