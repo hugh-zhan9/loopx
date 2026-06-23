@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, periodic code review, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, periodic review, no subagent lane"
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # Exec

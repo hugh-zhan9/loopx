@@ -4,7 +4,7 @@ description: "Applies loopx architecture discipline for system boundaries, ADRs,
 when_to_use: "architecture-designer, architecture, system design, ADR, NFR, scalability, failure modes, technology tradeoff, 架构设计"
 license: MIT
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/architecture-designer
   maintained_by: loopx
 ---

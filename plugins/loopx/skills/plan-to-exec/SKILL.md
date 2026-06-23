@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
 argument-hint: "<design spec path or feature name>"
 ---
 

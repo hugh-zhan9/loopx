@@ -4,7 +4,7 @@ description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, re
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---
