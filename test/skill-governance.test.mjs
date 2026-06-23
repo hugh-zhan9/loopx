@@ -12,7 +12,9 @@ import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
 const repoRoot = resolve(process.cwd());
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
 const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
+const syncPluginSkillsScriptPath = join(repoRoot, 'scripts', 'sync-plugin-skills.mjs');
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
+const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const execFileAsync = promisify(execFile);
 
 function parseFrontmatter(text) {
@@ -81,7 +83,9 @@ function assertMarkdownStructure(text, label) {
 }
 
 describe('loopx skill governance', () => {
-  it('keeps bundled skill frontmatter triggerable and plugin mirrors byte-identical', async () => {
+  it('keeps bundled skill frontmatter triggerable and generated plugin mirrors byte-identical', async () => {
+    await execFileAsync(process.execPath, [syncPluginSkillsScriptPath, '--check'], { cwd: repoRoot });
+
     const resolver = await readFile(resolverPath, 'utf8');
     for (const skillName of LOOPX_BUNDLED_SKILLS) {
       const rootSkillPath = join(repoRoot, 'skills', skillName, 'SKILL.md');
@@ -94,19 +98,19 @@ describe('loopx skill governance', () => {
       assert.ok(fields.description?.length >= 40, `${skillName} description is too short`);
       assert.match(fields.description, /not for/i, `${skillName} description must include a Not for exclusion`);
       assert.ok(fields.when_to_use?.length >= 20, `${skillName} needs when_to_use trigger metadata`);
-      assert.ok(fields['metadata.version'], `${skillName} needs metadata.version`);
+      assert.match(fields['metadata.version'] ?? '', semverPattern, `${skillName} needs valid metadata.version`);
       assert.match(resolver, new RegExp(`skills/${skillName}/SKILL\\.md`), `${skillName} missing from resolver`);
-      assert.equal(pluginSkill, rootSkill, `${skillName} plugin mirror drifted`);
+      assert.equal(pluginSkill, rootSkill, `${skillName} plugin mirror drifted; run npm run sync-plugin-skills`);
 
       const rootSkillDir = join(repoRoot, 'skills', skillName);
       const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
       const rootFiles = await recursiveFiles(rootSkillDir);
       const pluginFiles = await recursiveFiles(pluginSkillDir);
-      assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted`);
+      assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted; run npm run sync-plugin-skills`);
       for (const relativeFile of rootFiles) {
         const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
         const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
-        assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted`);
+        assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted; run npm run sync-plugin-skills`);
       }
     }
   });
@@ -115,7 +119,10 @@ describe('loopx skill governance', () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md must exist');
     assert.equal(existsSync(verifyScriptPath), true, 'scripts/verify-skills.mjs must exist');
+    assert.equal(existsSync(syncPluginSkillsScriptPath), true, 'scripts/sync-plugin-skills.mjs must exist');
     assert.equal(packageJson.files.includes('scripts/verify-skills.mjs'), true, 'npm package must include verify-skills.mjs');
+    assert.equal(packageJson.files.includes('scripts/sync-plugin-skills.mjs'), true, 'npm package must include sync-plugin-skills.mjs');
+    assert.equal(packageJson.scripts['sync-plugin-skills'], 'node scripts/sync-plugin-skills.mjs');
     assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
     assert.equal(packageJson.files.includes('scripts/codex-stop-hook.mjs'), false, 'npm package must not include deleted codex stop hook');
     assert.equal(packageJson.files.includes('templates/spec.md'), true, 'npm package must include retained clarify spec template');
@@ -131,6 +138,8 @@ describe('loopx skill governance', () => {
     const publicPaths = [
       'README.md',
       'README.zh-CN.md',
+      'docs/loopx/cli.md',
+      'docs/loopx/cli.zh-CN.md',
       'docs/loopx/design/loopx-skill-suite-v1-design.md',
       'docs/loopx/specs/installation.md',
       'src/cli.mjs',
@@ -149,6 +158,8 @@ describe('loopx skill governance', () => {
 
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    const cliDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'cli.md'), 'utf8');
+    const cliDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'cli.zh-CN.md'), 'utf8');
     for (const command of [
       'loopx init',
       'loopx clarify',
@@ -162,10 +173,18 @@ describe('loopx skill governance', () => {
       'node scripts/verify-skills.mjs',
     ]) {
       const pattern = new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      assert.match(readme, pattern, `${command} missing from README.md`);
-      assert.match(readmeZh, pattern, `${command} missing from README.zh-CN.md`);
+      assert.match(cliDoc, pattern, `${command} missing from docs/loopx/cli.md`);
+      assert.match(cliDocZh, pattern, `${command} missing from docs/loopx/cli.zh-CN.md`);
     }
     assert.match(readme, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\) -> review\/final-review -> fix-review\? -> finish/);
+    assert.match(readme, /workflow happens by invoking skills inside the agent/);
+    assert.match(readme, /\$clarify/);
+    assert.match(readme, /\$finish/);
+    assert.match(readme, /\.\/docs\/loopx\/cli\.md/);
+    assert.match(readmeZh, /skill 调用完成/);
+    assert.match(readmeZh, /\$clarify/);
+    assert.match(readmeZh, /\$finish/);
+    assert.match(readmeZh, /\.\/docs\/loopx\/cli\.zh-CN\.md/);
   });
 
   it('governs subagent-exec combined task review surface', async () => {

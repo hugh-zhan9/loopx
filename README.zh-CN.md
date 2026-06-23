@@ -10,9 +10,9 @@
 
 [English](./README.md)
 
-`loopx` 为 Codex 和 Claude 风格的 coding agent 安装并治理一组实用的 v1 skills。它适合把 agent 工作流固定成一条清楚的路径：先澄清范围，需要时写设计说明，再把决策拆成执行计划，经过评审，最后用明确验证收尾。
-
-推荐 v1 流程：
+`loopx` 的主要定位是给 Codex 和 Claude 风格的 coding agent 安装并治理一组
+skills。CLI 负责安装 skills、hooks 和项目上下文；日常工作流在 agent 内通过
+skill 调用完成。
 
 ```text
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
@@ -20,198 +20,90 @@ clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-revie
 
 ## 安装
 
-全局安装：
-
 ```bash
 npm install -g @ai-content-space/loopx
-```
-
-安装 bundled skills 和 hooks：
-
-```bash
 loopx install-skills --target all --yes
 loopx doctor
 ```
 
-如果想先检查会写入哪些文件：
+先预览会写入哪些文件：
 
 ```bash
 loopx install-skills --target all --dry-run
 ```
 
-## 快速开始
+完整 CLI 和安装细节见 [CLI 参考](./docs/loopx/cli.zh-CN.md)。
 
-创建工作流、澄清需求，然后让 loopx 提示下一步：
+## 在 agent 中使用
 
-```bash
-loopx init --slug my-feature
-loopx clarify my-feature
-loopx status my-feature
-loopx next my-feature
+安装后，在 agent 里直接按名称调用对应 skill：
+
+```text
+$clarify <feature-or-problem>
+$plan-to-exec <slug>
+$subagent-exec <approved-plan>
+$final-review
+$finish
 ```
 
-`clarify` 之后，跟随提示的 skill 命令继续，通常是 `$plan-to-exec <slug>`。后续用 `loopx status <slug>` 或 `loopx next <slug>` 查看下一步，直到 `final-review` 和 `$finish` 完成收尾。
+普通 feature 从 `$clarify` 开始。它的输出应该说明下一步是 `$spec` 还是
+`$plan-to-exec`。沿着黄金路径继续，直到 `$finish` 完成验证并记录结果。
 
-这就是首次使用的黄金路径。
+没有 subagent，或任务足够小的时候，用 `$exec` 代替 `$subagent-exec`。评审反馈
+需要评估、反驳或修复时，用 `$fix-review`。
 
-默认输出面向人类。当 agent 或脚本需要完整 runtime payload 时使用 `--json`：
+## 核心 skills
 
-```bash
-loopx init --slug my-feature --json
-loopx clarify my-feature --json
-loopx doctor --json
-loopx install-skills --target all --json
-```
-
-默认 init 路径也支持 JSON 输出：`loopx init --json`。
-
-## 工作流
-
-`spec` 是条件设计门。涉及 API、数据、状态、权限、迁移、兼容、产品行为或架构决策时使用；只剩局部实现选择时可以跳过。
-
-`clarify` 输出和 `spec` 设计文档都是 anchor sources。`plan-to-exec` 把这些来源转换成可执行任务时，必须保留需求覆盖关系。
-
-核心工作流 skills：
-
-| Skill | 作用 |
+| Skill | 什么时候用 |
 |---|---|
-| `clarify` | 持续追问直到范围、非目标、约束和决策边界清楚。 |
-| `spec` | 在需要设计决策时写设计文档或轻量 design note。 |
-| `plan-to-exec` | 把已澄清的需求拆成小步执行计划。 |
-| `subagent-exec` | 用 fresh subagents 和 combined task review 执行已批准计划。 |
-| `exec` | 没有 subagent 或用户选择 inline 时顺序执行计划。 |
-| `review` | 基于 git range 和计划/需求发起独立代码评审。 |
-| `final-review` | 收尾前对完整 feature 做运行时、集成和测试缺口风险评审。 |
-| `fix-review` | 严谨评估并处理 code review feedback。 |
-| `finish` | 验证完成后选择 merge、PR、保留或丢弃。 |
-| `refactor-plan` | 访谈并写行为保持的 tiny-commit 重构计划。 |
+| `clarify` | 范围、非目标、约束或决策边界仍不清楚。 |
+| `spec` | API、数据、状态、权限、迁移、兼容、产品行为或架构决策必须先固定。 |
+| `plan-to-exec` | 需求已经清楚，可以拆成小步执行任务。 |
+| `subagent-exec` | 已批准计划需要 fresh subagents 和 combined task review 执行。 |
+| `exec` | 已批准计划需要 inline 顺序执行。 |
+| `review` | 具体 git range 需要独立代码评审。 |
+| `final-review` | 完整 feature 已实现，需要在 finish 前检查集成、运行时和测试缺口风险。 |
+| `fix-review` | review feedback 需要技术评估、反驳或实现。 |
+| `finish` | 工作已验证，需要选择 merge、PR、保留或丢弃。 |
+| `refactor-plan` | 行为保持的重构需要限定范围、拆成 tiny commits。 |
 
-`review` 和 `fix-review` 在 `subagent-exec` 或 `exec` 内部作为 task/checkpoint review loop 运行。`final-review` 是 `finish` 前的 whole-feature review，它的反馈也通过 `fix-review` 处理。
+辅助 skills 是 lens，不是 workflow state：`tdd`、`debug`、`verify`、
+`doc-readability`、`requirement-analyzer`、`go-style`、`kratos`、
+`api-designer`、`architecture-designer`、`sql-style` 和 `cli-developer`。
 
-辅助 skills 是 lens，不是 workflow state：
+完整 bundled v1 skill surface 见 [loopx Skills 使用指南](./docs/loopx/skills.zh-CN.md)。
 
-- `tdd`
-- `debug`
-- `verify`
-- `doc-readability`
-- `requirement-analyzer`
-- `go-style`
-- `kratos`
-- `api-designer`
-- `architecture-designer`
-- `sql-style`
-- `cli-developer`
+## 上下文规则
 
-安装和治理意义上的 v1 skill surface 就是上面这组。仓库里可以保留辅助或兼容 skill 源文件，但 `loopx install-skills` 只安装 bundled v1 集合。
+人工维护的工作流产物放在 `docs/loopx/`：`design/`、`plans/`、`reviews/`、
+`refactors/`、`memory/` 和 `specs/`。
 
-更完整的使用说明见 [loopx Skills 使用指南](./docs/loopx/skills.zh-CN.md)。
+`docs/loopx/specs/` 保存长期有效、具有约束力的 repo context。工作流 skills 会在澄清、
+设计、计划、执行和评审前读取相关 specs。
 
-## CLI
+`.loopx/memory/MEMORY.md` 是建议性的 curated memory。它帮助 agent 记住有用的项目知识，
+但不能覆盖当前用户指令、已批准的 source documents 或具有约束力的 specs。
 
-常用命令：
+优先级顺序：当前用户指令、source document、repo specs、memory。生成的支撑状态、
+hook 诊断、安装元数据、HTML views 和 runtime JSON 仍放在 `.loopx/` 下。
 
-```bash
-loopx --version
-loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]
-loopx init [--slug <slug>] [--enable-agent-delegation] [--auto-agent-delegation] [--agent-delegation-threshold <local|critic-only|parallel-review>] [--json]
-loopx clarify <slug> [--standard|--deep] [--json]
-loopx render [slug|--all]
-loopx status [slug] [--json]
-loopx next <slug> [--json]
-loopx setup-context
-loopx doctor [--json]
-loopx repair-install
-```
+## Finish audit
 
-## 文件和上下文
+`finish` 会在 `.loopx/finish/<audit-id>/` 下写入本地 audit ledger。`none` 表示已经完成审计，
+但没有产生可持久化的 learning candidate。
 
-人工维护的工作流产物放在 `docs/loopx/`：
+根据审计结果判断是否需要后续更新项目 memory 或 specs。`finish` 不应该把每个完成任务
+都静默变成持久知识。
 
-- `docs/loopx/design/`
-- `docs/loopx/plans/`
-- `docs/loopx/reviews/`
-- `docs/loopx/refactors/`
-- `docs/loopx/memory/`
-- `docs/loopx/specs/`
+## 维护者说明
 
-`docs/loopx/specs/` 保存长期有效、具有约束力的 repo context。工作流 skills 会在澄清、设计、计划、构建和评审前读取相关 specs。
+安装和治理意义上的 v1 skill surface 是 `skills/` 里的 bundled 集合。Codex plugin
+shell 位于 `plugins/loopx/`，其中的 skill mirror 从 canonical bundled skills 生成。
 
-`.loopx/memory/MEMORY.md` 是建议性的 curated memory。它帮助 agent 记住有用的项目知识，但不能覆盖当前用户指令、已批准的 source documents 或具有约束力的 specs。
-
-`finish` 会在 `.loopx/finish/<audit-id>/` 下写入本地 audit ledger。`none` 表示已经完成审计，但没有产生可持久化的 learning candidate。
-
-优先级顺序：当前用户指令、source document、repo specs、memory。
-
-生成的支撑状态、hook 诊断、安装元数据、HTML views 和 runtime JSON 仍放在 `.loopx/` 下。
-
-## 安装细节
-
-postinstall 默认安装 Codex 和 Claude 用户级 skills 与 hooks：
-
-- Codex skills：`~/.agents/skills/`
-- Claude skills：`~/.claude/skills/`
-- Codex hook：`~/.codex/hooks/codex-workflow-hook.mjs`
-- Claude hook：`~/.claude/hooks/loopx-workflow-hook.mjs`
-
-跳过 npm postinstall 阶段的自动安装：
+只手动编辑 `skills/`。修改 bundled skills 后，重新生成 `plugins/loopx/skills/`：
 
 ```bash
-LOOPX_SKIP_POSTINSTALL=1 npm install -g @ai-content-space/loopx
-LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
-```
-
-只在当前进程禁用 loopx hooks：
-
-```bash
-LOOPX_HOOKS=0 codex
-```
-
-修复中断或冲突的安装：
-
-```bash
-loopx repair-install
-loopx doctor
-```
-
-手动选择安装目标：
-
-```bash
-loopx install-skills
-loopx install-skills --target codex
-loopx install-skills --target claude
-loopx install-skills --target claude --project
-loopx install-skills --target all --add-agent-guidance
-loopx install-skills --target all --yes
-```
-
-Agent guidance 是 opt-in。`--add-agent-guidance` 会写入 loopx managed block，提示 agent 读取 repo specs 和 memory context。Managed block 之外的用户内容会保留。
-
-Claude project install 会把 skills 和 settings 写入当前仓库的 `.claude/skills/` 和 `.claude/settings.json`。
-
-如需移除 loopx 管理的用户级 artifacts，请查看 [Installation And CLI Onboarding Spec](./docs/loopx/specs/installation.md)。
-
-## Codex Plugin
-
-Codex plugin shell 位于：
-
-```text
-plugins/loopx/
-```
-
-插件安装脚本：
-
-```bash
-node plugins/loopx/scripts/plugin-install.mjs
-```
-
-插件镜像 `skills/` 中 canonical bundled v1 skills，并复用同一套 install/discovery core。
-
-## 治理
-
-bundled skill resolver 位于：
-
-```text
-skills/RESOLVER.md
+npm run sync-plugin-skills
 ```
 
 发布前或修改 bundled skills 后运行确定性治理检查：
@@ -220,4 +112,5 @@ skills/RESOLVER.md
 node scripts/verify-skills.mjs
 ```
 
-治理脚本检查 bundled v1 skill frontmatter、plugin mirrors、resolver coverage、本地引用、发布包包含项、版本一致性和公开文档。它刻意验证可安装的 v1 skill 集合，而不是 `skills/` 下的每个辅助源目录。
+package 和 plugin manifest version 跟 npm release 走。Skill `metadata.version`
+独立管理；只给内容或行为契约变化过的 skills 升级版本。

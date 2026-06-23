@@ -13,12 +13,12 @@ This repository is a Node.js ESM CLI package for loopx, a skill-first workflow h
 - `src/` contains runtime modules and the `src/cli.mjs` executable.
 - `test/` contains Node test suites, mainly `workflow.test.mjs` and `trellis-hardening.test.mjs`.
 - `skills/` contains canonical skill source files. The v1 installed set is controlled by `LOOPX_BUNDLED_SKILLS` in `src/install-discovery.mjs`; not every local skill source is installed or governed as part of v1.
-- `plugins/loopx/` mirrors the bundled plugin-ready v1 skills and plugin install scripts.
+- `plugins/loopx/` contains the generated bundled plugin-ready v1 skill mirror and plugin install scripts.
 - `templates/` stores canonical workflow artifact templates.
 - `scripts/` contains postinstall and hook scripts.
 - `assets/` and `docs/` hold static assets, release notes, and design/planning documents.
 
-Keep source changes close to the owning module. When changing workflow behavior, update matching tests and any affected bundled skill docs in both `skills/` and `plugins/loopx/skills/` when they are intentionally mirrored.
+Keep source changes close to the owning module. When changing bundled skill docs, edit `skills/` as the canonical source, then run `npm run sync-plugin-skills` to regenerate `plugins/loopx/skills/`. Skill `metadata.version` is independent from the npm package version; bump only the skills whose content or behavior contract changed.
 
 ## Build, Test, and Development Commands
 
@@ -27,6 +27,7 @@ Keep source changes close to the owning module. When changing workflow behavior,
 - `node --test test/trellis-hardening.test.mjs` runs context, hook, and review hardening tests.
 - `node src/cli.mjs <command>` runs the local CLI without installing globally.
 - `npm install` triggers `postinstall`, which runs `scripts/install-skills.mjs`.
+- `npm run sync-plugin-skills` regenerates the plugin skill mirror from canonical `skills/`.
 
 There is no separate build step; published files are controlled by the `files` list in `package.json`.
 
