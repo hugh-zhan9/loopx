@@ -85,7 +85,7 @@ test -e skills/issue/SKILL.md
 test -e skills/fix/SKILL.md
 test -e plugins/loopx/skills/issue/SKILL.md
 test -e plugins/loopx/skills/fix/SKILL.md
-! rg "gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge|git worktree" skills/issue skills/fix plugins/loopx/skills/issue plugins/loopx/skills/fix
+! rg "gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge|Create git worktree|Use `git worktree` for isolation|Run git worktree" skills/issue skills/fix plugins/loopx/skills/issue plugins/loopx/skills/fix
 ! rg "loopx issue|loopx fix" src README.md README.zh-CN.md docs/loopx/cli.md docs/loopx/cli.zh-CN.md
 npm pack --dry-run
 ```
@@ -1130,7 +1130,7 @@ test -e skills/issue/SKILL.md
 test -e skills/fix/SKILL.md
 test -e plugins/loopx/skills/issue/SKILL.md
 test -e plugins/loopx/skills/fix/SKILL.md
-! rg "gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge|git worktree" skills/issue skills/fix plugins/loopx/skills/issue plugins/loopx/skills/fix
+! rg "gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge|Create git worktree|Use `git worktree` for isolation|Run git worktree" skills/issue skills/fix plugins/loopx/skills/issue plugins/loopx/skills/fix
 ! rg "loopx issue|loopx fix" src README.md README.zh-CN.md docs/loopx/cli.md docs/loopx/cli.zh-CN.md
 ```
 
