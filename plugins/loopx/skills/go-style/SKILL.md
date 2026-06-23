@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Go Style
@@ -26,6 +26,14 @@ Use it as a support skill from `subagent-exec` or `exec` when Go files are creat
 - Keep interfaces small and define them at the consumer boundary when practical.
 - Prefer table-driven tests for behavior matrices.
 - Run `gofmt` on edited Go files before verification.
+
+## Numeric Precision
+
+- Do not introduce `float32` or `float64` for exact business quantities unless the domain explicitly accepts approximation.
+- Treat money, share quantity, inventory, points, counts, quotas, ratios, and rates as exact unless the surrounding code or domain model says otherwise.
+- Choose a precision-safe type that matches the domain: integer minor units, fixed-point values, decimal types, or the project's existing numeric type.
+- Treat external float/double values as boundary data; convert them before they enter core business logic.
+- Make division, rounding, formatting, and unit conversion rules explicit, with focused tests for important boundaries.
 
 ## Error Handling
 

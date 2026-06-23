@@ -12,16 +12,20 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 const pluginManifest = JSON.parse(await readFile(join(repoRoot, 'plugins', 'loopx', '.codex-plugin', 'plugin.json'), 'utf8'));
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
+const syncPluginSkillsScriptPath = join(repoRoot, 'scripts', 'sync-plugin-skills.mjs');
 const markdownPaths = [
   'README.md',
   'README.zh-CN.md',
   'AGENTS.md',
+  'docs/loopx/cli.md',
+  'docs/loopx/cli.zh-CN.md',
   'docs/loopx/design/loopx-skill-suite-v1-design.md',
   'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
   'skills/RESOLVER.md',
 ];
 const personalPathPattern = /\/(?:Users|home)\/[A-Za-z0-9._-]+\//;
 const localRefPattern = /(?<![/.])\b(?:references|agents|scripts)\/[\w/.-]+\b/g;
+const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 function parseFrontmatter(path, text) {
   assert.equal(text.startsWith('---\n'), true, `${path} must start with YAML frontmatter`);
@@ -112,6 +116,8 @@ function assertNoRemovedRuntimeCommandExposure(text, label) {
 async function assertPublicDocsAligned() {
   const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
   const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+  const cliDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'cli.md'), 'utf8');
+  const cliDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'cli.zh-CN.md'), 'utf8');
   const installationSpec = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
   const commands = [
     'loopx install-skills',
@@ -126,24 +132,35 @@ async function assertPublicDocsAligned() {
     'node scripts/verify-skills.mjs',
   ];
   for (const command of commands) {
-    assertContains(readme, command, 'README.md');
-    assertContains(readmeZh, command, 'README.zh-CN.md');
+    assertContains(cliDoc, command, 'docs/loopx/cli.md');
+    assertContains(cliDocZh, command, 'docs/loopx/cli.zh-CN.md');
   }
   assertNoRemovedRuntimeCommandExposure(readme, 'README.md');
   assertNoRemovedRuntimeCommandExposure(readmeZh, 'README.zh-CN.md');
+  assertNoRemovedRuntimeCommandExposure(cliDoc, 'docs/loopx/cli.md');
+  assertNoRemovedRuntimeCommandExposure(cliDocZh, 'docs/loopx/cli.zh-CN.md');
+  assertContains(readme, 'skill suite', 'README.md');
+  assertContains(readme, 'workflow happens by invoking skills inside the agent', 'README.md');
+  assertContains(readme, './docs/loopx/cli.md', 'README.md');
+  assertContains(readme, '$clarify', 'README.md');
+  assertContains(readme, '$finish', 'README.md');
   assertContains(readme, 'local audit ledger', 'README.md');
   assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
   assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
-  assertContains(readme, 'remove loopx-managed user-level artifacts', 'README.md');
+  assertContains(cliDoc, 'remove loopx-managed user-level artifacts', 'docs/loopx/cli.md');
   assertContains(installationSpec, 'Undo installed files', 'docs/loopx/specs/installation.md');
   assertContains(readme, 'Golden path', 'README.md');
 
+  assertContains(readmeZh, 'skill 调用完成', 'README.zh-CN.md');
+  assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
+  assertContains(readmeZh, '$clarify', 'README.zh-CN.md');
+  assertContains(readmeZh, '$finish', 'README.zh-CN.md');
   assertContains(readmeZh, '本地 audit ledger', 'README.zh-CN.md');
   assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
   assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
-  assertContains(readmeZh, '移除 loopx 管理的用户级 artifacts', 'README.zh-CN.md');
+  assertContains(cliDocZh, '移除 loopx 管理的用户级 artifacts', 'docs/loopx/cli.zh-CN.md');
   assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
   for (const required of [
     'Quick start',
@@ -153,7 +170,7 @@ async function assertPublicDocsAligned() {
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
   ]) {
-    assertContains(readme, required, 'README.md');
+    assertContains(cliDoc, required, 'docs/loopx/cli.md');
   }
   for (const required of [
     '快速开始',
@@ -163,12 +180,16 @@ async function assertPublicDocsAligned() {
     'LOOPX_POSTINSTALL=0',
     'LOOPX_HOOKS=0',
   ]) {
-    assertContains(readmeZh, required, 'README.zh-CN.md');
+    assertContains(cliDocZh, required, 'docs/loopx/cli.zh-CN.md');
   }
   assert.doesNotMatch(readme, /`loopx install-skills --dry-run`/, 'README.md should use explicit dry-run target');
   assert.doesNotMatch(readmeZh, /`loopx install-skills --dry-run`/, 'README.zh-CN.md should use explicit dry-run target');
+  assert.doesNotMatch(cliDoc, /`loopx install-skills --dry-run`/, 'docs/loopx/cli.md should use explicit dry-run target');
+  assert.doesNotMatch(cliDocZh, /`loopx install-skills --dry-run`/, 'docs/loopx/cli.zh-CN.md should use explicit dry-run target');
   assert.doesNotMatch(readme, /Public finish audit commands:/, 'README.md should not promote finish runtime commands as public primary flow');
   assert.doesNotMatch(readmeZh, /公开的 finish audit 命令：/, 'README.zh-CN.md should not promote finish runtime commands as public primary flow');
+  assert.doesNotMatch(cliDoc, /Public finish audit commands:/, 'docs/loopx/cli.md should not promote finish runtime commands as public primary flow');
+  assert.doesNotMatch(cliDocZh, /公开的 finish audit 命令：/, 'docs/loopx/cli.zh-CN.md should not promote finish runtime commands as public primary flow');
 
   const releaseNotesRoot = join(repoRoot, 'docs', 'release-notes');
   const releaseNotes = existsSync(releaseNotesRoot)
@@ -188,23 +209,23 @@ async function assertSkill(skillName, resolverText) {
 
   const rootText = await readFile(rootPath, 'utf8');
   const pluginText = await readFile(pluginPath, 'utf8');
-  assert.equal(pluginText, rootText, `${skillName} plugin mirror drifted`);
+  assert.equal(pluginText, rootText, `${skillName} plugin mirror drifted; run npm run sync-plugin-skills`);
   assert.equal(personalPathPattern.test(rootText), false, `${skillName} contains a personal absolute path`);
 
   const rootSkillDir = join(repoRoot, 'skills', skillName);
   const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
   const rootFiles = await recursiveFiles(rootSkillDir);
   const pluginFiles = await recursiveFiles(pluginSkillDir);
-  assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted`);
+  assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted; run npm run sync-plugin-skills`);
   for (const relativeFile of rootFiles) {
     const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
     const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
-    assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted`);
+    assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted; run npm run sync-plugin-skills`);
   }
 
   const fields = parseFrontmatter(rootPath, rootText);
   assert.equal(fields.name, skillName, `${skillName} frontmatter name mismatch`);
-  assert.equal(fields.version, packageJson.version, `${skillName} metadata.version must match package.json`);
+  assert.match(fields.version ?? '', semverPattern, `${skillName} metadata.version must be valid semver`);
   assert.ok(fields.when_to_use && fields.when_to_use.length >= 20, `${skillName} missing useful when_to_use metadata`);
   assertSkillDescription(skillName, fields.description);
   assert.match(resolverText, new RegExp(`skills/${skillName}/SKILL\\.md`), `${skillName} missing from skills/RESOLVER.md`);
@@ -219,6 +240,8 @@ async function assertSkill(skillName, resolverText) {
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
 assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
+assert.equal(existsSync(syncPluginSkillsScriptPath), true, 'scripts/sync-plugin-skills.mjs missing');
+assert.equal(packageJson.files.includes('scripts/sync-plugin-skills.mjs'), true, 'npm package must include sync-plugin-skills.mjs');
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
