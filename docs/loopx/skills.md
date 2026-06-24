@@ -10,7 +10,7 @@ loopx skills fall into two groups:
 
 - Core workflow skills move work through a feature lifecycle: clarify, design when needed, plan, execute, review, fix feedback, and finish.
 - Issue-driven workflow skills handle bug-class issues separately: `issue` diagnoses and writes a local ledger, then `fix` executes ready ledgers.
-- Support skills add discipline to a specific activity such as testing, debugging, documentation review, API design, SQL, Go, or CLI behavior. They are lenses, not workflow states.
+- Support skills add discipline to a specific activity such as testing, debugging, workspace isolation, documentation review, API design, SQL, Go, or CLI behavior. They are lenses, not workflow states.
 
 Use the core workflow for ordinary product or code changes. Add support skills when the task has a specialized risk.
 
@@ -31,7 +31,7 @@ issue -> fix -> finish
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | Answered questions and a route to `spec` or `plan-to-exec`. |
-| `spec` | Product behavior, API, data, state, permission, migration, compatibility, or architecture decisions must be fixed before planning. | A design spec or lightweight design note under `docs/loopx/design/`. |
+| `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, both a design proposal and detailed design spec under `docs/loopx/design/`. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. | A detailed codebase spec under `docs/loopx/codebase-specs/`. |
 | `plan-to-exec` | Requirements or a spec are approved and need executable tasks. | A bite-sized implementation plan under `docs/loopx/plans/`. |
 | `subagent-exec` | An approved plan has independent tasks and subagents are available. | Implemented tasks with staged review checkpoints. |
@@ -51,6 +51,7 @@ issue -> fix -> finish
 | `tdd` | A feature or bugfix should start with a failing test. | Use before production code when behavior can be tested. |
 | `debug` | A bug, failing test, build failure, regression, or unexpected behavior needs root-cause investigation. | Diagnose before changing code. |
 | `verify` | The agent is about to claim work is complete, fixed, passing, review-ready, or ready to commit. | Requires fresh command output. |
+| `using-git-worktrees` | Implementation work needs an isolated workspace or the user asks for git worktree setup. | Detect existing isolation first; use native worktree tools before git fallback. |
 | `doc-readability` | A document, PRD, spec, meeting note, or knowledge-base article is unclear, bloated, or AI-like. | Assess or rewrite the document before treating it as source material. |
 | `requirement-analyzer` | Existing requirements need ambiguity, gap, feasibility, traceability, or readiness analysis. | Produces a gap report; does not advance workflow state. |
 | `go-style` | Editing or reviewing Go code. | Covers idiomatic Go style, errors, context, naming, tests, and interface boundaries. |
@@ -65,7 +66,7 @@ issue -> fix -> finish
 Use this routing rule:
 
 1. If the work is unclear, start with `clarify`.
-2. If decisions must be fixed before planning, use `spec`.
+2. If decisions must be fixed before planning, use `spec`; by default it writes both the design proposal and the detailed design.
 3. If the user wants to document the current codebase instead of designing a future change, use `codebase-spec`.
 4. If the design is settled and work needs tasks, use `plan-to-exec`.
 5. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.
@@ -78,7 +79,9 @@ Support skills can be layered onto this path. For example:
 
 - A database feature may go through `clarify -> spec` with `sql-style`, then `plan-to-exec`.
 - A public API change may use `api-designer` during `spec` and `review`.
+- A risky architecture change should have `spec` produce both `<需求名>设计提案.md` and `<需求名>需求设计文档.md`.
 - A failing test should route to `debug`; a new behavior can route to `tdd` before implementation.
+- Implementation that should not touch the current checkout can use `using-git-worktrees` before `exec` or manual edits.
 - A PRD or source document can be checked with `doc-readability` or `requirement-analyzer` before `clarify`.
 
 ## Common Examples
@@ -100,6 +103,12 @@ Approved implementation plan:
 ```text
 $plan-to-exec billing-state-transitions
 $subagent-exec billing-state-transitions
+```
+
+Isolated implementation workspace:
+
+```text
+$using-git-worktrees billing-state-transitions
 ```
 
 Inline execution:

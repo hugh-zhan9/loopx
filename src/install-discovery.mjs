@@ -31,6 +31,7 @@ const LOOPX_SKILLS = [
   'debug',
   'tdd',
   'verify',
+  'using-git-worktrees',
   'doc-readability',
   'requirement-analyzer',
   'go-style',

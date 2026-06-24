@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # loopx Spec
@@ -33,7 +33,33 @@ Write the design as a decision document, not a task list.
 
 The design document should make requirements, non-goals, decision boundaries, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan-to-exec` can preserve coverage without re-interpreting the source.
 
-Use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) as the required output structure. Keep the section order. If a section does not apply, write `无` or `不涉及` with a short reason instead of deleting it.
+Default to producing two documents:
+
+1. `docs/loopx/design/<需求名>设计提案.md`
+2. `docs/loopx/design/<需求名>需求设计文档.md`
+
+Only produce one document when the user explicitly asks for proposal-only or detailed-design-only output, or when unresolved material questions make the detailed design unsafe to write. Do not ask the user to choose an output mode by default.
+
+For the design proposal, read `references/design-proposal.md` and use it as the required structure. The proposal answers why this approach, which alternatives were rejected, and what compatibility or migration costs are accepted.
+
+For the detailed design, use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) as the required output structure. Keep the section order. If a section does not apply, write `无` or `不涉及` with a short reason instead of deleting it.
+
+The detailed design must reference the design proposal and treat accepted proposal decisions as constraints. Do not re-litigate the direction in the detailed design; put unresolved direction questions back in the proposal and stop before planning if they block implementation.
+
+## Support Lens Activation
+
+Before writing the proposal or detailed design, identify support lenses that apply. Read only the triggered support skill files and use them as design checklists; do not let them replace `spec`.
+
+| Trigger in requirement or repo evidence | Use support lens |
+|---|---|
+| REST, GraphQL, OpenAPI, resources, pagination, API errors, versioning, or client compatibility | `api-designer` |
+| System boundaries, ADRs, NFRs, scalability, failure modes, operability, deployment topology, or technology tradeoffs | `architecture-designer` |
+| SQL, schema, migration, indexes, query plans, persistence semantics, backfills, or database performance | `sql-style` |
+| CLI commands, flags, stdout/stderr, `--json`, exit codes, help text, prompts, shell behavior, or cross-platform terminal UX | `cli-developer` |
+| Go files, Go tests, errors, context, interfaces, goroutines, or idiomatic Go behavior | `go-style` |
+| Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, config, or Kratos troubleshooting | `kratos` |
+
+Record triggered support lenses in the design proposal and detailed design. If no support lens applies, state `Support lenses: none` so downstream planning does not guess.
 
 Cover:
 
@@ -41,12 +67,14 @@ Cover:
 - explicit non-goals and decision boundaries
 - system context and affected modules
 - proposed solution
+- boundary scenarios where the solution starts, stops, degrades, rejects input, or preserves existing behavior
 - alternatives considered and why rejected
 - data model, state model, and contracts
 - key flows and edge cases
 - failure modes, rollback, migration, and compatibility
 - security, privacy, performance, and operational concerns when relevant
 - testing and verification strategy
+- triggered support lenses and the design checks they add
 - open risks that do not block planning
 
 For brownfield work, distinguish repo evidence from inference.
@@ -55,13 +83,15 @@ For brownfield work, distinguish repo evidence from inference.
 
 Write Markdown by default. Derive `<需求名>` from the clarified requirement title or the user's own wording, not from an opaque slug:
 
+- `docs/loopx/design/<需求名>设计提案.md`
 - `docs/loopx/design/<需求名>需求设计文档.md`
 
 If the user asks for a presentable document or visual review artifact, also write:
 
+- `docs/loopx/design/<需求名>设计提案.html`
 - `docs/loopx/design/<需求名>需求设计文档.html`
 
-The Markdown spec must include these sections:
+The detailed Markdown spec must include these sections:
 
 - `# <项目/功能>设计文档`
 - `一、修订历史`
@@ -78,9 +108,13 @@ The Markdown spec must include these sections:
 
 The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan-to-exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
+The design proposal and detailed design must both cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
+
 ## Handoff
 
-After the spec is complete, recommend:
+If only the design proposal is complete, ask for review of the proposal before writing a detailed design or planning work.
+
+After the detailed spec is complete, recommend:
 
 ```text
 $plan-to-exec docs/loopx/design/<需求名>需求设计文档.md

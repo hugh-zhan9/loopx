@@ -1,6 +1,6 @@
 # loopx Skill Resolver
 
-Central routing map for loopx bundled skills. Keep this file in sync with every bundled `skills/<name>/SKILL.md` and `plugins/loopx/skills/<name>/SKILL.md`.
+Central routing map for loopx bundled skills. Keep this file in sync with every bundled `skills/<name>/SKILL.md`. Normal and plugin installs both consume this canonical package-root `skills/` source.
 
 Read the selected skill file before acting. If multiple skills match, read every likely candidate and use the disambiguation rules below.
 
@@ -29,6 +29,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Feature or bugfix implementation should be covered by a failing test first | `skills/tdd/SKILL.md` |
 | Bug, test failure, build failure, regression, unexpected behavior, root-cause investigation | `skills/debug/SKILL.md` |
 | Completion, fixed, passing, review-ready, commit, or handoff claims need fresh evidence | `skills/verify/SKILL.md` |
+| Implementation work needs an isolated workspace, existing isolation must be detected, or git worktree setup is requested | `skills/using-git-worktrees/SKILL.md` |
 | Document readability, PRD assessment, requirements gaps, unclear viewpoint, AI-like prose, or document rewriting | `skills/doc-readability/SKILL.md` |
 | Existing requirement, PRD, spec, or feature brief needs ambiguity, gap, impact, feasibility, or readiness analysis | `skills/requirement-analyzer/SKILL.md` |
 | Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
@@ -55,9 +56,10 @@ Read the selected skill file before acting. If multiple skills match, read every
 13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
 14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
 15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
-16. Treat `tdd`, `debug`, `verify`, `doc-readability`, `requirement-analyzer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` as support lenses unless the user explicitly invokes them directly.
-17. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
-18. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
+16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
+17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` as support lenses unless the user explicitly invokes them directly.
+18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
+19. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
 
 ## Deterministic Guard
 

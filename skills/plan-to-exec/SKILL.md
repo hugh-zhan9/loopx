@@ -135,6 +135,8 @@ Every plan must start with this header:
 
 **Tech Stack:** [Key technologies/libraries]
 
+**Support lenses:** [Copy from source design: none, or exact skill names such as `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, `go-style`, `kratos`. Do not invent new lenses.]
+
 ## Global Constraints
 
 [Project-wide requirements copied exactly from the source: version floors,
@@ -158,6 +160,8 @@ this section.]
 **Interfaces:**
 - Consumes: [inputs from previous tasks or existing code, with exact names/signatures]
 - Produces: [outputs later tasks or callers rely on, with exact names/signatures]
+
+**Support lenses:** [none, or the subset of source support lenses this task must apply]
 
 - [ ] **Step 1: Write the failing test**
 
@@ -204,6 +208,7 @@ Every step must contain the actual content an engineer needs. These are plan fai
 - References to types, functions, or methods not defined in any task
 - Global Constraints that paraphrase exact source values instead of copying them
 - Interfaces blocks that omit exact names, signatures, paths, file formats, CLI flags, or return values later tasks depend on
+- Omitting Support lenses when the source design names `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, `go-style`, or `kratos`
 
 ## Remember
 
@@ -224,7 +229,8 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 4. **Design drift:** Did you introduce a new architecture, API, data model, or business behavior not present in the design spec? If yes, return to `spec`.
 5. **Anchor coverage:** Does each generated requirement anchor map to a task, verification step, or deferred-with-rationale row? If not, fix the plan before handoff.
 6. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
-7. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints and Interfaces for an implementer and task reviewer who cannot see the rest of the plan?
+7. **Support lens coverage:** If the source design names support lenses, does each relevant task list them and include verification or review steps that exercise their discipline? If not, add them before handoff.
+8. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints, Interfaces, and Support lenses for an implementer and task reviewer who cannot see the rest of the plan?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 

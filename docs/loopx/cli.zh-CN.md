@@ -101,11 +101,8 @@ Claude project install 会把 skills 和 settings 写入当前仓库的 `.claude
 
 ## 维护命令
 
-修改 bundled skills 后，重新生成 plugin skill mirrors：
-
-```bash
-npm run sync-plugin-skills
-```
+Normal install 和 plugin install 都从 package-root 的 canonical `skills/` source
+读取 bundled skills。修改 bundled skills 时，只手动编辑 `skills/`。
 
 发布前或修改 bundled skills 后运行确定性治理检查：
 

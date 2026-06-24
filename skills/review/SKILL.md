@@ -77,6 +77,26 @@ Verify:
 
 **When to use:** After spec compliance passes. Never run code quality review on code that doesn't match spec — you'll review code that gets rewritten.
 
+### Support Lens Triggers
+
+Before Stage 2 or Stage 3, inspect the changed files, public surface, and requirements. If a trigger applies, read the matching support skill and include its checklist in the reviewer context. Support lenses add domain discipline; they do not replace spec compliance or code quality review.
+
+| Change or requirement | Use support lens |
+|---|---|
+| REST, GraphQL, OpenAPI, routes, resources, pagination, API errors, versioning, or client compatibility | `api-designer` |
+| Architecture boundaries, ADRs, NFRs, scalability, failure modes, deployment topology, or operational tradeoffs | `architecture-designer` |
+| SQL, schema, migrations, indexes, query plans, persistence semantics, backfills, or database performance | `sql-style` |
+| CLI commands, flags, stdout/stderr, `--json`, exit codes, help text, prompts, or shell behavior | `cli-developer` |
+| Go files, Go tests, errors, context, interfaces, or goroutines | `go-style` |
+| Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, or config | `kratos` |
+
+When dispatching the reviewer, include:
+
+```text
+Support lenses: <none | exact skill names>
+Lens-specific checks: <brief bullets from the triggered skills>
+```
+
 **Smell checks:** For broad changes, architecture-sensitive changes, performance-sensitive code, or explicit smell/anti-pattern requests, read `references/smell-checklist.md` before dispatching or performing Stage 2. Use it to focus the review on evidence-backed architecture, coupling, cohesion, testing, and complexity issues. Do not dump the checklist into the review output.
 
 **Dispatch code quality reviewer:**
@@ -109,6 +129,7 @@ Use the platform's native subagent mechanism when available and fill template at
 - [ ] No behavioral change to existing functionality (unless intended)
 - [ ] Schema changes are backward compatible (or migration exists)
 - [ ] API changes are backward compatible (or version bump exists)
+- [ ] Support lens checks passed for any triggered domain concerns
 
 ### Skip Impact Scan When:
 - Changes are purely internal (no public interface change)
@@ -142,6 +163,7 @@ Not every review needs the same depth. Match depth to risk:
 | Small isolated task, clear spec | Stage 1 (quick) + Stage 2 | Light |
 | Multi-file change, integration points | Stage 1 + Stage 2 + Stage 3 | Standard |
 | Architecture change, public API, security-sensitive | Stage 1 + Stage 2 + Stage 3 (full) | Deep |
+| API, schema, CLI, architecture, Go, or Kratos domain change | Stage 1 + Stage 2 + triggered support lens + Stage 3 when public/shared | Standard/Deep |
 
 ## Optional: Health Score
 

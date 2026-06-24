@@ -37,5 +37,6 @@ rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook
 ## Published Skill Surface
 
 - The package root `skills/` surface is exactly `skills/RESOLVER.md` plus the directories in `LOOPX_BUNDLED_SKILLS`.
+- Normal installs and plugin installs both consume bundled skills from the package root `skills/` source.
 - Auxiliary root skill sources must not be published by explicit or broad `package.json.files` entries.
 - `scripts/verify-skills.mjs` and the package governance tests are the release gates for this surface.

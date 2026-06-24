@@ -110,13 +110,10 @@ hook 诊断、安装元数据、HTML views 和 runtime JSON 仍放在 `.loopx/` 
 ## 维护者说明
 
 安装和治理意义上的 v1 skill surface 是 `skills/` 里的 bundled 集合。Codex plugin
-shell 位于 `plugins/loopx/`，其中的 skill mirror 从 canonical bundled skills 生成。
+shell 位于 `plugins/loopx/`，但 normal install 和 plugin install 都读取 package-root
+的 canonical `skills/` source。
 
-只手动编辑 `skills/`。修改 bundled skills 后，重新生成 `plugins/loopx/skills/`：
-
-```bash
-npm run sync-plugin-skills
-```
+修改 bundled skills 时，只手动编辑 `skills/`。
 
 发布前或修改 bundled skills 后运行确定性治理检查：
 

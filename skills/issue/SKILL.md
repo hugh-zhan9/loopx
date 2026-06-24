@@ -21,7 +21,7 @@ Issue-driven handles:
 Issue-driven does not handle feature requests or enhancements. Route those to the feature-driven workflow:
 
 ```text
-clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review -> finish
+clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review -> fix-review? -> finish
 ```
 
 ## Contract
@@ -32,7 +32,7 @@ clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review ->
 .loopx/issues/issue-<slug>-<timestamp>.md
 ```
 
-`issue` does not perform lasting product code changes. It may read code, run commands, inspect git history, and create temporary diagnostic edits. Temporary diagnostic edits must be rolled back before handoff or recorded as a diagnostic patch for `fix`.
+`issue` does not perform lasting product code changes. It may read code, run commands, and inspect git history. Temporary diagnostic edits are allowed only on a clean worktree by default. If the worktree is dirty, do not create temporary diagnostic edits unless the user explicitly allows them; when allowed, record a baseline diff first, then roll back the diagnostic diff or record it as a diagnostic patch for `fix`.
 
 Do not use issue tracker automation. If the source is an external issue, the user must provide the issue text, a local file, or pasted output.
 
@@ -59,7 +59,9 @@ Reject or route:
 1. Inspect `git status --porcelain`.
 2. Record whether the worktree is clean or dirty.
 3. If dirty, record the dirty file list in the ledger.
-4. Never revert pre-existing user changes.
+4. If dirty, diagnostic edits are prohibited unless the user explicitly allows them.
+5. If dirty diagnostic edits are allowed, record the baseline diff before editing and keep any diagnostic diff separately identifiable.
+6. Never revert pre-existing user changes.
 
 ## Ledger Template
 
@@ -69,8 +71,8 @@ Write this structure:
 # Issue Ledger: <title-or-slug>
 
 metadata:
-  phase: intake | triage | diagnosis | fix_brief | execution | local_review | whole_review | verification | closeout
-  status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | fixed | reviewed | complete | failed | blocked
+  phase: intake | triage | diagnosis | fix_brief | closeout
+  status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | blocked
   source: pasted | local_file | failing_test | build_failure | reproduction_notes | existing_ledger
   created_at: <timestamp>
   updated_at: <timestamp>
@@ -119,7 +121,8 @@ diagnosis:
   - <path>
 - expected_touched_surfaces:
   - <surface>
-- parallel_safe: true | false
+- parallel_safe: false by default; true only when expected files/surfaces are narrow, non-overlapping, and avoid public CLI/API/schema/config, lockfile, and generated artifacts
+- parallel_safety_reason: <why this is safe, or why it defaults to false>
 - regression_test_plan: <test to add or update>
 - verification_commands:
   - <command>
@@ -139,45 +142,10 @@ diagnosis:
 - if status is `ready_for_fix`: `$fix .loopx/issues/<this-ledger>.md`
 - if status is `needs_info`: ask for the missing reproduction, log, environment, or version data
 - if status is `not_a_bug`: explain the observed behavior and evidence
+- if status is `duplicate`: link or describe the existing issue/source
+- if status is `already_fixed`: explain the evidence that current behavior is already fixed
 - if status is `feature_request`: route to `$clarify`
 - if status is `blocked`: explain the blocker and the next decision needed
-
-## Execution Reports
-
-- status: pending | fixed | failed | blocked | needs_scope_change
-- actual_changed_files:
-  - <path>
-- verification:
-  - command: <command>
-    result: pass | fail
-- notes: <execution summary>
-
-## Reviews
-
-- local_review:
-  - status: pending | clean | findings_addressed | blocked
-  - findings:
-    - <finding or none>
-- whole_diff_review:
-  - status: pending | clean | findings_addressed | blocked
-  - findings:
-    - <finding or none>
-- fix_review_decisions:
-  - <Critical/Important finding handled, pushed back with evidence, or none>
-
-## Verification
-
-- final_commands:
-  - command: <command>
-    result: pass | fail | not_run
-- regression_test_result: <summary>
-- evidence: <fresh verification evidence>
-
-## Closeout
-
-- status: complete | failed | blocked
-- response_draft: <final user/reporter response>
-- finish_handoff: `$finish` when complete, or blocker summary when failed/blocked
 
 ## Evidence Log
 
@@ -199,9 +167,31 @@ diagnosis:
 - Use `ready_for_fix` only when the diagnosis and fix brief are specific enough for `$fix .loopx/issues/<ledger>.md`.
 - Use `needs_info` when reproduction steps, logs, environment, or expected behavior are missing.
 - Use `not_a_bug` when evidence shows the behavior is intentional or outside the product contract.
+- Use `duplicate` when another issue, report, or local ledger already covers the same root problem.
+- Use `already_fixed` when current code or tests show the reported behavior no longer reproduces.
 - Use `feature_request` for enhancements and route to `$clarify`.
 - Use `blocked` when diagnosis cannot continue without a user or external decision.
+- Do not use execution statuses such as fixed, reviewed, complete, or failed in `issue`; those belong to `fix` ledger append sections.
 
 ## Temporary Diagnostic Edits
 
-Temporary diagnostic edits are allowed only to gather evidence. Before handoff, either revert them or record the patch and reason in `diagnostic_patches`. Do not leave unrecorded diagnostic changes in the worktree.
+Temporary diagnostic edits are allowed only to gather evidence and only on a clean worktree by default.
+
+When the worktree is dirty:
+
+- Do not make diagnostic edits unless the user explicitly allows them.
+- If allowed, record the baseline diff before editing.
+- Keep diagnostic changes isolated from pre-existing user changes.
+- Before handoff, either revert the diagnostic diff or record the patch and reason in `diagnostic_patches`.
+
+Do not leave unrecorded diagnostic changes in the worktree.
+
+## Parallel Safety
+
+Set `parallel_safe: false` by default. Use `true` only when:
+
+- `expected_touched_files` and `expected_touched_surfaces` are specific and narrow
+- the likely fix does not touch public CLI/API/schema/config, lockfiles, generated artifacts, migrations, or shared test fixtures
+- the expected files/surfaces do not overlap with other known ready ledgers
+
+`fix` must still perform final scope validation before parallel scheduling.
