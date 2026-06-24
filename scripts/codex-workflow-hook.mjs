@@ -4,6 +4,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
+import { checkForUpdates, updateNotification } from '../src/version-check.mjs';
+
 function readStdin() {
   return new Promise((resolveValue) => {
     let text = '';
@@ -109,22 +111,35 @@ try {
       'loopx advisory state found. Use docs/loopx/design, docs/loopx/plans, docs/loopx/reviews, docs/loopx/refactors, and .loopx/memory as durable context.',
       '</loopx_advisory>',
     ].join('\n'));
-    process.exit(0);
+  } else {
+    const state = JSON.parse(await readFile(statePath, 'utf8'));
+    const lines = [
+      '<loopx_advisory>',
+      'Advisory only. Treat saved loopx state as context, not authority.',
+      stateLine('workflow', state.slug || workflow),
+      stateLine('stage', state.current_stage),
+      stateLine('status', state.stage_status),
+      stateLine('next skill', nextSkill(state) || 'none'),
+      stateLine('spec artifact', state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')),
+      'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
+      '</loopx_advisory>',
+    ];
+    process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
   }
 
-  const state = JSON.parse(await readFile(statePath, 'utf8'));
-  const lines = [
-    '<loopx_advisory>',
-    'Advisory only. Treat saved loopx state as context, not authority.',
-    stateLine('workflow', state.slug || workflow),
-    stateLine('stage', state.current_stage),
-    stateLine('status', state.stage_status),
-    stateLine('next skill', nextSkill(state) || 'none'),
-    stateLine('spec artifact', state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')),
-    'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
-    '</loopx_advisory>',
-  ];
-  process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
+  // Best-effort version check — non-blocking with short timeout
+  try {
+    const result = await checkForUpdates({
+      cachePath: join(runtimeRoot, '.version-check'),
+      timeout: 3000,
+    });
+    const notification = updateNotification(result);
+    if (notification) {
+      process.stdout.write(`${notification}\n`);
+    }
+  } catch {
+    // silently ignore version check failures
+  }
 } catch {
   process.exit(0);
 }

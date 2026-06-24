@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
+import { checkForUpdates, updateNotification } from './version-check.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
@@ -24,6 +25,7 @@ function usage() {
     '',
     'Usage:',
     '  loopx --version',
+    '  loopx version [--check] [--json]',
     '  loopx init [--slug <slug>] [--json]',
     '  loopx clarify <slug> [--standard|--deep] [--json]',
     '  loopx render [slug|--all]',
@@ -413,7 +415,38 @@ function printHumanInstall(result, { dryRun = false } = {}) {
 async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
   if (command === 'version' || command === '--version' || command === '-v') {
-    console.log(packageJson.version);
+    const check = Boolean(options.get('--check'));
+    const json = Boolean(options.get('--json'));
+    if (!check) {
+      if (json) {
+        console.log(JSON.stringify({ ok: true, command: 'version', version: packageJson.version }, null, 2));
+      } else {
+        console.log(packageJson.version);
+      }
+      return;
+    }
+    const result = await checkForUpdates({ force: true });
+    const notification = updateNotification(result);
+    if (json) {
+      console.log(JSON.stringify({
+        ok: true,
+        command: 'version',
+        local: result.local,
+        latest: result.latest,
+        outdated: result.outdated,
+        error: result.error || null,
+        notification: notification || null,
+      }, null, 2));
+    } else {
+      console.log(`loopx ${result.local}`);
+      if (result.error) {
+        console.log(`Update check failed: ${result.error}`);
+      } else if (notification) {
+        console.log(notification);
+      } else {
+        console.log('✓ Up to date');
+      }
+    }
     return;
   }
   if (!command || command === '--help' || command === '-h' || (command === 'help' && positionals.length === 0)) {
