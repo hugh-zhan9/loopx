@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { appendFile, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
@@ -12,7 +12,9 @@ import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
 const repoRoot = resolve(process.cwd());
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
 const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
-const syncPluginSkillsScriptPath = join(repoRoot, 'scripts', 'sync-plugin-skills.mjs');
+const removedPluginPayloadDir = join(repoRoot, 'plugins', 'loopx', 'skills');
+const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
+const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
 const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const execFileAsync = promisify(execFile);
@@ -45,22 +47,6 @@ function parseFrontmatter(text) {
   return fields;
 }
 
-async function recursiveFiles(root) {
-  const files = [];
-  async function walk(dir) {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(path);
-      } else if (entry.isFile()) {
-        files.push(relative(root, path));
-      }
-    }
-  }
-  await walk(root);
-  return files.sort();
-}
-
 function assertNoRemovedRuntimeCommandExposure(text, label) {
   assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
 }
@@ -83,15 +69,13 @@ function assertMarkdownStructure(text, label) {
 }
 
 describe('loopx skill governance', () => {
-  it('keeps bundled skill frontmatter triggerable and generated plugin mirrors byte-identical', async () => {
-    await execFileAsync(process.execPath, [syncPluginSkillsScriptPath, '--check'], { cwd: repoRoot });
-
+  it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
+    assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
+    assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
     for (const skillName of LOOPX_BUNDLED_SKILLS) {
       const rootSkillPath = join(repoRoot, 'skills', skillName, 'SKILL.md');
-      const pluginSkillPath = join(repoRoot, 'plugins', 'loopx', 'skills', skillName, 'SKILL.md');
       const rootSkill = await readFile(rootSkillPath, 'utf8');
-      const pluginSkill = await readFile(pluginSkillPath, 'utf8');
       const fields = parseFrontmatter(rootSkill);
 
       assert.equal(fields.name, skillName);
@@ -100,18 +84,6 @@ describe('loopx skill governance', () => {
       assert.ok(fields.when_to_use?.length >= 20, `${skillName} needs when_to_use trigger metadata`);
       assert.match(fields['metadata.version'] ?? '', semverPattern, `${skillName} needs valid metadata.version`);
       assert.match(resolver, new RegExp(`skills/${skillName}/SKILL\\.md`), `${skillName} missing from resolver`);
-      assert.equal(pluginSkill, rootSkill, `${skillName} plugin mirror drifted; run npm run sync-plugin-skills`);
-
-      const rootSkillDir = join(repoRoot, 'skills', skillName);
-      const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
-      const rootFiles = await recursiveFiles(rootSkillDir);
-      const pluginFiles = await recursiveFiles(pluginSkillDir);
-      assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted; run npm run sync-plugin-skills`);
-      for (const relativeFile of rootFiles) {
-        const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
-        const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
-        assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted; run npm run sync-plugin-skills`);
-      }
     }
   });
 
@@ -119,10 +91,11 @@ describe('loopx skill governance', () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md must exist');
     assert.equal(existsSync(verifyScriptPath), true, 'scripts/verify-skills.mjs must exist');
-    assert.equal(existsSync(syncPluginSkillsScriptPath), true, 'scripts/sync-plugin-skills.mjs must exist');
+    assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
+    assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
     assert.equal(packageJson.files.includes('scripts/verify-skills.mjs'), true, 'npm package must include verify-skills.mjs');
-    assert.equal(packageJson.files.includes('scripts/sync-plugin-skills.mjs'), true, 'npm package must include sync-plugin-skills.mjs');
-    assert.equal(packageJson.scripts['sync-plugin-skills'], 'node scripts/sync-plugin-skills.mjs');
+    assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
+    assert.equal(Object.hasOwn(packageJson.scripts ?? {}, removedPluginSyncScriptName), false);
     assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
     assert.equal(packageJson.files.includes('scripts/codex-stop-hook.mjs'), false, 'npm package must not include deleted codex stop hook');
     assert.equal(packageJson.files.includes('templates/spec.md'), true, 'npm package must include retained clarify spec template');
@@ -143,6 +116,29 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/fix/'), true, 'npm package must include fix skill');
   });
 
+  it('includes using-git-worktrees as a governed support skill', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const resolver = await readFile(resolverPath, 'utf8');
+    const skill = await readFile(join(repoRoot, 'skills', 'using-git-worktrees', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(skill);
+
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('using-git-worktrees'), true, 'using-git-worktrees must be bundled');
+    assert.equal(packageJson.files.includes('skills/using-git-worktrees/'), true, 'npm package must include using-git-worktrees skill');
+    assert.equal(fields.name, 'using-git-worktrees');
+    assert.match(fields.description, /isolated workspace|git worktree/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /worktree|isolated workspace/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(resolver, /skills\/using-git-worktrees\/SKILL\.md/);
+    assert.match(skill, /support lens, not a workflow state/);
+    assert.match(skill, /Native Worktree Tools/);
+    assert.match(skill, /git worktree add/);
+    assert.match(skill, /Do not use this skill for:/);
+    assert.match(skill, /`fix` parallel subagent worktrees/);
+    assert.match(skill, /`finish` owns branch placement/);
+    assert.match(skill, /Do not commit the `.gitignore` change/);
+  });
+
   it('governs issue skill as the issue-driven intake and diagnosis workflow', async () => {
     const issueSkill = await readFile(join(repoRoot, 'skills', 'issue', 'SKILL.md'), 'utf8');
     const fields = parseFrontmatter(issueSkill);
@@ -159,21 +155,24 @@ describe('loopx skill governance', () => {
     assert.match(issueSkill, /Diagnosis Summary/);
     assert.match(issueSkill, /Fix Brief/);
     assert.match(issueSkill, /Response Draft/);
-    assert.match(issueSkill, /Execution Reports/);
-    assert.match(issueSkill, /Reviews/);
-    assert.match(issueSkill, /Verification/);
-    assert.match(issueSkill, /Closeout/);
     assert.match(issueSkill, /ready_for_fix/);
-    assert.match(issueSkill, /fixed/);
-    assert.match(issueSkill, /reviewed/);
-    assert.match(issueSkill, /complete/);
-    assert.match(issueSkill, /failed/);
     assert.match(issueSkill, /needs_info/);
     assert.match(issueSkill, /not_a_bug/);
+    assert.match(issueSkill, /duplicate/);
+    assert.match(issueSkill, /already_fixed/);
     assert.match(issueSkill, /feature_request/);
     assert.match(issueSkill, /\$fix \.loopx\/issues\//);
     assert.match(issueSkill, /debug discipline/i);
     assert.match(issueSkill, /temporary diagnostic/i);
+    assert.match(issueSkill, /baseline diff/i);
+    assert.match(issueSkill, /explicitly allows/i);
+    assert.match(issueSkill, /parallel_safe: false by default/);
+    assert.match(issueSkill, /fix-review\? -> finish/);
+    assert.doesNotMatch(issueSkill, /## Execution Reports/);
+    assert.doesNotMatch(issueSkill, /## Reviews/);
+    assert.doesNotMatch(issueSkill, /## Verification/);
+    assert.doesNotMatch(issueSkill, /## Closeout/);
+    assert.doesNotMatch(issueSkill, /fixed \| reviewed \| complete \| failed/);
     assert.doesNotMatch(issueSkill, /gh issue view|gh issue comment|gh issue close|gh pr create|gh pr merge/);
     assert.doesNotMatch(issueSkill, /durable code fix/i);
   });
@@ -193,6 +192,16 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /parallel_safe/);
     assert.match(fixSkill, /scope validation/i);
     assert.match(fixSkill, /actual_changed_files/);
+    assert.match(fixSkill, /isolated `git worktree`/);
+    assert.match(fixSkill, /patch\/report artifacts/);
+    assert.match(fixSkill, /Never let multiple subagents directly edit the main worktree at the same time/);
+    assert.match(fixSkill, /High-Risk Triggers/);
+    assert.match(fixSkill, /scope_unclear/);
+    assert.match(fixSkill, /public_surface/);
+    assert.match(fixSkill, /no_repro/);
+    assert.match(fixSkill, /defensive_fix/);
+    assert.match(fixSkill, /status: needs_scope_change/);
+    assert.match(fixSkill, /metadata `status: blocked`/);
     assert.match(fixSkill, /local review/i);
     assert.match(fixSkill, /whole diff review/i);
     assert.match(fixSkill, /fix-review/i);
@@ -201,12 +210,12 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /Reviews/);
     assert.match(fixSkill, /Verification/);
     assert.match(fixSkill, /Closeout/);
+    assert.match(fixSkill, /should not pre-fill execution, review, verification, or closeout content/);
     assert.match(fixSkill, /must not commit/i);
     assert.match(fixSkill, /must not push/i);
     assert.match(fixSkill, /must not close/i);
     assert.match(fixSkill, /Do not invoke `subagent-exec` or `loopx:exec`/);
-    assert.match(fixSkill, /Do not use `git worktree`/);
-    assert.doesNotMatch(fixSkill, /Use `subagent-exec`|Use `loopx:exec`|Create git worktree|gh issue close|gh pr merge/);
+    assert.doesNotMatch(fixSkill, /Use `subagent-exec`|Use `loopx:exec`|gh issue close|gh pr merge/);
   });
 
   it('debug exposes a structured diagnosis summary contract for issue workflow', async () => {
@@ -301,24 +310,19 @@ describe('loopx skill governance', () => {
 
   it('governs subagent-exec combined task review surface', async () => {
     const rootSkillDir = join(repoRoot, 'skills', 'subagent-exec');
-    const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', 'subagent-exec');
     const removedSpecPrompt = ['spec', 'reviewer', 'prompt.md'].join('-');
     const removedQualityPrompt = ['code', 'quality', 'reviewer', 'prompt.md'].join('-');
     const removedTwoStagePhrase = ['two', 'stage review'].join('-');
     const removedPromptPattern = new RegExp(`${removedSpecPrompt}|${removedQualityPrompt}|${removedTwoStagePhrase}`, 'i');
     const rootSkill = await readFile(join(rootSkillDir, 'SKILL.md'), 'utf8');
-    const pluginSkill = await readFile(join(pluginSkillDir, 'SKILL.md'), 'utf8');
     const taskReviewer = await readFile(join(rootSkillDir, 'task-reviewer-prompt.md'), 'utf8');
     const implementer = await readFile(join(rootSkillDir, 'implementer-prompt.md'), 'utf8');
     const codexReference = await readFile(join(rootSkillDir, 'codex-subagents.md'), 'utf8');
 
-    assert.equal(pluginSkill, rootSkill, 'subagent-exec SKILL.md mirror drifted');
+    assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
     assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
-    assert.equal(existsSync(join(pluginSkillDir, 'task-reviewer-prompt.md')), true);
     assert.equal(existsSync(join(rootSkillDir, removedSpecPrompt)), false);
     assert.equal(existsSync(join(rootSkillDir, removedQualityPrompt)), false);
-    assert.equal(existsSync(join(pluginSkillDir, removedSpecPrompt)), false);
-    assert.equal(existsSync(join(pluginSkillDir, removedQualityPrompt)), false);
 
     assert.match(rootSkill, /task-reviewer-prompt\.md/);
     assert.match(rootSkill, /progress ledger/);
@@ -427,7 +431,53 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /\*\*Interfaces:\*\*/);
     assert.match(planSkill, /Consumes:/);
     assert.match(planSkill, /Produces:/);
+    assert.match(planSkill, /\*\*Support lenses:\*\*/);
+    assert.match(planSkill, /Support lens coverage/);
     assert.match(planSkill, /combined task review|task reviewer/i);
+  });
+
+  it('spec requires boundary scenarios in proposal and detailed design', async () => {
+    const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
+    const proposal = await readFile(join(repoRoot, 'skills', 'spec', 'references', 'design-proposal.md'), 'utf8');
+    const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+
+    assert.match(specSkill, /boundary scenarios/i);
+    assert.match(specSkill, /invalid inputs/);
+    assert.match(specSkill, /unchanged behavior/);
+    assert.match(specSkill, /Support Lens Activation/);
+    assert.match(specSkill, /api-designer/);
+    assert.match(specSkill, /architecture-designer/);
+    assert.match(specSkill, /sql-style/);
+    assert.match(specSkill, /cli-developer/);
+    assert.match(specSkill, /go-style/);
+    assert.match(specSkill, /kratos/);
+    assert.match(proposal, /Boundary Scenarios/);
+    assert.match(proposal, /Support Lens Checks/);
+    assert.match(proposal, /invalid, missing, duplicated/);
+    assert.match(proposal, /unchanged behavior that must not regress/);
+    assert.match(template, /#### 4\.x\.4 边界条件/);
+    assert.match(template, /非法输入/);
+    assert.match(template, /重复请求/);
+    assert.match(template, /#### 4\.x\.5 不变行为/);
+    assert.match(template, /### 3\.6 专项设计检查/);
+  });
+
+  it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+
+    for (const skillText of [reviewSkill, finalReviewSkill]) {
+      assert.match(skillText, /api-designer/);
+      assert.match(skillText, /architecture-designer/);
+      assert.match(skillText, /sql-style/);
+      assert.match(skillText, /cli-developer/);
+      assert.match(skillText, /go-style/);
+      assert.match(skillText, /kratos/);
+    }
+    assert.match(reviewSkill, /Support Lens Triggers/);
+    assert.match(reviewSkill, /Lens-specific checks/);
+    assert.match(finalReviewSkill, /Support Lens Risk Scan/);
+    assert.match(finalReviewSkill, /five phases/);
   });
 
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {

@@ -8,14 +8,14 @@ import { installBundledSkills, verifyInstallState } from '../../../src/install-d
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(MODULE_DIR, '..');
 const REPO_ROOT = resolve(PLUGIN_ROOT, '..', '..');
-const PLUGIN_SKILLS_ROOT = join(PLUGIN_ROOT, 'skills');
+const ROOT_SKILLS_DIR = join(REPO_ROOT, 'skills');
 const DISTRIBUTION_CHANNEL = 'plugin';
 
 function buildPluginEnv() {
   return {
     ...process.env,
     LOOPX_PROJECT_ROOT: REPO_ROOT,
-    LOOPX_SKILL_SOURCE_ROOT: PLUGIN_SKILLS_ROOT,
+    LOOPX_SKILL_SOURCE_ROOT: ROOT_SKILLS_DIR,
     LOOPX_DISTRIBUTION_CHANNEL: DISTRIBUTION_CHANNEL,
     LOOPX_INSTALLATION_IDENTITY: 'loopx',
     LOOPX_SOURCE_URL: PLUGIN_ROOT,

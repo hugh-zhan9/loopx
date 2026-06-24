@@ -40,7 +40,7 @@ If the git range or requirements are unclear, stop and ask. A final review witho
 
 ## The Final Review Process
 
-Final review is more than just another code review. It has four phases:
+Final review is more than just another code review. It has five phases:
 
 ### Phase 1: Requirements Coverage Matrix
 
@@ -68,7 +68,32 @@ Before dispatching the code reviewer, build a requirements coverage matrix to ve
 
 **If any requirement is ⚠️ partial:** This is an Important finding. Assess whether partial coverage is acceptable or must be fixed.
 
-### Phase 2: Runtime Validation
+### Phase 2: Support Lens Risk Scan
+
+Identify domain-specific review lenses from the completed diff, source requirements, and plan. Read only the support skill files that trigger, and use them to sharpen runtime validation, regression checks, and reviewer context.
+
+| Completed feature touches | Use support lens |
+|---|---|
+| REST, GraphQL, OpenAPI, routes, resources, pagination, API errors, versioning, or client compatibility | `api-designer` |
+| Architecture boundaries, ADRs, NFRs, scalability, failure modes, deployment topology, or operational tradeoffs | `architecture-designer` |
+| SQL, schema, migrations, indexes, query plans, persistence semantics, backfills, or database performance | `sql-style` |
+| CLI commands, flags, stdout/stderr, `--json`, exit codes, help text, prompts, or shell behavior | `cli-developer` |
+| Go files, Go tests, errors, context, interfaces, or goroutines | `go-style` |
+| Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, or config | `kratos` |
+
+Record:
+
+```markdown
+## Support Lens Risk Scan
+
+| Support lens | Trigger | Extra checks required | Result |
+|---|---|---|---|
+| <skill or none> | <diff/source signal> | <checks> | <pass/finding/not applicable> |
+```
+
+If the source plan names support lenses, every named lens must either appear in this scan or be explicitly marked no longer applicable with evidence.
+
+### Phase 3: Runtime Validation
 
 When the feature is runnable (has a dev server, CLI, or testable interface), perform runtime validation beyond just tests passing.
 
@@ -96,10 +121,10 @@ When the feature is runnable (has a dev server, CLI, or testable interface), per
 
 **When runtime validation is not possible:**
 - State explicitly: "Runtime validation not performed because [reason]"
-- Increase scrutiny on test quality in Phase 3
+- Increase scrutiny on test quality in Phase 4
 - This is acceptable for library code, internal utilities, or CI-only changes
 
-### Phase 3: Regression Checklist
+### Phase 4: Regression Checklist
 
 Check whether the implementation introduced unintended changes to existing behavior.
 
@@ -136,7 +161,7 @@ Check whether the implementation introduced unintended changes to existing behav
 - Existing test assertions changed to make new code pass (test was right, code is wrong?)
 - Package major version bump without changelog review
 
-### Phase 4: Dispatch Code Reviewer
+### Phase 5: Dispatch Code Reviewer
 
 Use the platform's native subagent mechanism when available and fill template at `final-reviewer.md`.
 
@@ -150,8 +175,9 @@ Use the platform's native subagent mechanism when available and fill template at
 
 **Additional context to include:**
 - The requirements coverage matrix from Phase 1
-- Any runtime validation findings from Phase 2
-- The regression checklist results from Phase 3
+- The support lens risk scan from Phase 2
+- Any runtime validation findings from Phase 3
+- The regression checklist results from Phase 4
 
 ## Review Priority
 
@@ -185,14 +211,17 @@ The complete final review output should include:
 ## Requirements Coverage Matrix
 [from Phase 1]
 
-## Runtime Validation Results
+## Support Lens Risk Scan
 [from Phase 2]
 
+## Runtime Validation Results
+[from Phase 3]
+
 ## Code Review Findings
-[from Phase 4 — reviewer output]
+[from Phase 5 — reviewer output]
 
 ## Regression Assessment
-[from Phase 3]
+[from Phase 4]
 
 ## Overall Assessment
 

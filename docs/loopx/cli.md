@@ -105,11 +105,9 @@ To remove loopx-managed user-level artifacts, see
 
 ## Maintainer Commands
 
-Regenerate plugin skill mirrors after changing bundled skills:
-
-```bash
-npm run sync-plugin-skills
-```
+Normal and plugin installs both consume bundled skills from the canonical
+package-root `skills/` source. Only edit `skills/` by hand when changing bundled
+skills.
 
 Run deterministic governance checks before release or after changing bundled
 skills:

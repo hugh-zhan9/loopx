@@ -119,15 +119,10 @@ knowledge.
 ## Maintainers
 
 The installed and governed v1 skill surface is the bundled set in `skills/`.
-The Codex plugin shell lives at `plugins/loopx/`, and its skill mirror is
-generated from the canonical bundled skills.
+The Codex plugin shell lives at `plugins/loopx/`, but normal and plugin installs
+both consume the canonical package-root `skills/` source.
 
-Only edit `skills/` by hand. Regenerate `plugins/loopx/skills/` after changing
-bundled skills:
-
-```bash
-npm run sync-plugin-skills
-```
+Only edit `skills/` by hand when changing bundled skills.
 
 Run deterministic governance checks before release or after changing bundled
 skills:

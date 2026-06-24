@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
@@ -12,7 +12,9 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 const pluginManifest = JSON.parse(await readFile(join(repoRoot, 'plugins', 'loopx', '.codex-plugin', 'plugin.json'), 'utf8'));
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
-const syncPluginSkillsScriptPath = join(repoRoot, 'scripts', 'sync-plugin-skills.mjs');
+const pluginSkillsRoot = join(repoRoot, 'plugins', 'loopx', 'skills');
+const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
+const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
 const markdownPaths = [
   'README.md',
   'README.zh-CN.md',
@@ -85,22 +87,6 @@ async function assertMarkdownStructure(relativePath) {
   });
 
   assert.deepEqual(fenceStack, [], `${relativePath} has unclosed fenced block`);
-}
-
-async function recursiveFiles(root) {
-  const files = [];
-  async function walk(dir) {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(path);
-      } else if (entry.isFile()) {
-        files.push(relative(root, path));
-      }
-    }
-  }
-  await walk(root);
-  return files.sort();
 }
 
 function assertContains(text, value, label) {
@@ -203,25 +189,10 @@ async function assertPublicDocsAligned() {
 
 async function assertSkill(skillName, resolverText) {
   const rootPath = join(repoRoot, 'skills', skillName, 'SKILL.md');
-  const pluginPath = join(repoRoot, 'plugins', 'loopx', 'skills', skillName, 'SKILL.md');
   assert.equal(existsSync(rootPath), true, `${skillName} root SKILL.md missing`);
-  assert.equal(existsSync(pluginPath), true, `${skillName} plugin SKILL.md missing`);
 
   const rootText = await readFile(rootPath, 'utf8');
-  const pluginText = await readFile(pluginPath, 'utf8');
-  assert.equal(pluginText, rootText, `${skillName} plugin mirror drifted; run npm run sync-plugin-skills`);
   assert.equal(personalPathPattern.test(rootText), false, `${skillName} contains a personal absolute path`);
-
-  const rootSkillDir = join(repoRoot, 'skills', skillName);
-  const pluginSkillDir = join(repoRoot, 'plugins', 'loopx', 'skills', skillName);
-  const rootFiles = await recursiveFiles(rootSkillDir);
-  const pluginFiles = await recursiveFiles(pluginSkillDir);
-  assert.deepEqual(pluginFiles, rootFiles, `${skillName} plugin mirror file list drifted; run npm run sync-plugin-skills`);
-  for (const relativeFile of rootFiles) {
-    const rootExtra = await readFile(join(rootSkillDir, relativeFile), 'utf8');
-    const pluginExtra = await readFile(join(pluginSkillDir, relativeFile), 'utf8');
-    assert.equal(pluginExtra, rootExtra, `${skillName}/${relativeFile} plugin mirror drifted; run npm run sync-plugin-skills`);
-  }
 
   const fields = parseFrontmatter(rootPath, rootText);
   assert.equal(fields.name, skillName, `${skillName} frontmatter name mismatch`);
@@ -240,8 +211,10 @@ async function assertSkill(skillName, resolverText) {
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
 assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
-assert.equal(existsSync(syncPluginSkillsScriptPath), true, 'scripts/sync-plugin-skills.mjs missing');
-assert.equal(packageJson.files.includes('scripts/sync-plugin-skills.mjs'), true, 'npm package must include sync-plugin-skills.mjs');
+assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload directory must be absent');
+assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
+assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
+assert.equal(Object.hasOwn(packageJson.scripts ?? {}, removedPluginSyncScriptName), false, 'npm scripts must exclude removed sync script');
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {

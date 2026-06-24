@@ -22,7 +22,7 @@ Do not use `fix` for feature requests, enhancements, vague reports, or bug repor
 
 Do not invoke `subagent-exec` or `loopx:exec` as the execution engine for this workflow.
 
-Do not use `git worktree`.
+Use `git worktree` only when parallel subagents will directly modify code. Serial execution may edit the main worktree. Parallel subagents that do not use isolated worktrees must produce patches or reports only; they must not directly modify the main worktree.
 
 Controllers and subagents must not commit, must not push, and must not close issues. `finish` remains the final completion step.
 
@@ -58,13 +58,15 @@ Before changing code, perform scope validation:
 - Confirm each `expected_touched_files` entry exists or is a clearly named new test/source file.
 - Confirm `expected_touched_files` and expected surfaces do not overlap across ledgers before parallel execution.
 - Treat public CLI/API/schema/config/lockfile/generated artifact changes as high risk unless explicitly listed in the Fix Brief.
-- If a necessary file is outside the expected scope, stop and update the ledger with `needs_scope_change`; do not silently expand scope.
+- If a necessary file is outside the expected scope, stop, write `status: needs_scope_change` under `## Execution Reports`, set ledger metadata status to `blocked`, and do not silently expand scope.
 
 ## Scheduling
 
-- If all ledgers are `parallel_safe: true`, expected files do not overlap, and no high-risk trigger requires confirmation, independent bug-fix subagents may run in parallel.
-- If parallel safety cannot be proven and no high-risk trigger blocks execution, downgrade to serial execution.
-- If high-risk triggers exist, ask for confirmation before execution.
+- Default to serial direct execution in the main worktree.
+- If all ledgers are `parallel_safe: true`, expected files do not overlap, and no high-risk trigger requires confirmation, independent bug-fix subagents may run in parallel only with isolated `git worktree` checkouts.
+- If parallel worktrees are unavailable or unnecessary, parallel subagents may produce patch/report artifacts only; the controller applies patches serially in the main worktree.
+- If parallel safety cannot be proven and no high-risk trigger blocks execution, downgrade to serial direct execution.
+- Never let multiple subagents directly edit the main worktree at the same time.
 
 Each subagent receives only:
 
@@ -73,8 +75,38 @@ Each subagent receives only:
 - forbidden scope
 - verification commands
 - report path under `.loopx/issues/reports/`
+- worktree path when using isolated parallel direct execution
 
 Subagents must stop with `needs_scope_change` if the fix requires files outside the allowed set.
+
+## Worktree Isolation
+
+Use isolated worktrees only for parallel direct code edits:
+
+```bash
+git worktree add --detach .loopx/worktrees/fix-<ledger-slug> HEAD
+```
+
+Each worktree belongs to one ledger. The subagent edits only that worktree and writes its report under `.loopx/issues/reports/`.
+
+After the subagent finishes:
+
+1. Capture a patch from the isolated worktree, including intentional untracked files.
+2. Apply patches serially in the main worktree.
+3. Run the ledger verification commands after each patch.
+4. Remove the isolated worktree after the patch is applied or rejected.
+
+Do not commit, push, or close issues from the isolated worktree.
+
+## High-Risk Triggers
+
+Evaluate `risk_triggers` from the Diagnosis Summary and Fix Brief before execution:
+
+- `scope_unclear`: block execution and return to `$issue` or the user to narrow expected files/surfaces.
+- `public_surface`: ask for confirmation unless the Fix Brief explicitly lists the public CLI/API/schema/config change and verification command.
+- `no_repro`: ask for confirmation before a defensive fix; if confirmation is not given, mark the ledger `blocked`.
+- `defensive_fix`: ask for confirmation and require a verification command that proves the defensive behavior.
+- lockfile, generated artifact, migration, package metadata, global config, or shared fixture changes: ask for confirmation unless explicitly listed in the Fix Brief.
 
 ## Execution
 
@@ -107,6 +139,53 @@ Stop before closeout when:
 - actual changed files overlap between supposedly parallel fixes
 - a subagent reports `needs_scope_change`
 
+When `needs_scope_change` occurs, do not invent a new metadata status. Write `status: needs_scope_change` in `## Execution Reports`, set ledger metadata `status: blocked`, and hand back to `$issue` or the user to revise the Fix Brief.
+
+## Ledger Append Sections
+
+`issue` creates the intake, diagnosis, Fix Brief, Response Draft, Handoff, and Evidence Log sections. It should not pre-fill execution, review, verification, or closeout content.
+
+When executing a ready ledger, append or update these sections:
+
+```markdown
+## Execution Reports
+
+- status: fixed | failed | blocked | needs_scope_change
+- actual_changed_files:
+  - <path>
+- verification:
+  - command: <command>
+    result: pass | fail
+- notes: <execution summary>
+
+## Reviews
+
+- local_review:
+  - status: clean | findings_addressed | blocked
+  - findings:
+    - <finding or none>
+- whole_diff_review:
+  - status: clean | findings_addressed | blocked
+  - findings:
+    - <finding or none>
+- fix_review_decisions:
+  - <Critical/Important finding handled, pushed back with evidence, or none>
+
+## Verification
+
+- final_commands:
+  - command: <command>
+    result: pass | fail | not_run
+- regression_test_result: <summary>
+- evidence: <fresh verification evidence>
+
+## Closeout
+
+- status: complete | failed | blocked
+- response_draft: <final user/reporter response>
+- finish_handoff: `$finish` when complete, or blocker summary when failed/blocked
+```
+
 ## Review
 
 Every code modification through `fix` requires:
@@ -123,7 +202,7 @@ Minor findings may be fixed or recorded, but must not expand scope.
 After local review, whole diff review, and any `fix-review` pass:
 
 1. Run final verification commands from every ledger.
-2. Update each ledger using the existing `## Execution Reports`, `## Reviews`, `## Verification`, and `## Closeout` sections from the issue ledger template.
+2. Append or update `## Execution Reports`, `## Reviews`, `## Verification`, and `## Closeout`.
 3. Set status to `complete`, `failed`, or `blocked`.
 4. Only when all ledgers are complete, hand off to `finish`.
 

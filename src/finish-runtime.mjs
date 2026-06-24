@@ -11,7 +11,6 @@ const FINISH_RECORD_STATE_STATUSES = ['needs-agent-audit', 'audited', 'choice-re
 const EXTRACTION_SURFACE_PREFIXES = [
   'src',
   'skills',
-  'plugins/loopx/skills',
   'scripts',
   'templates',
   'docs',

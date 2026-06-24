@@ -1,3 +1,0 @@
-interface:
-  display_name: "Subagent Exec"
-  short_description: "Execute loopx plans with combined task review"

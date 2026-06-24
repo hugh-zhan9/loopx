@@ -5,6 +5,7 @@
 | 版本号 | 修订内容 | 修订时间 | 修订人 |
 |---|---|---|---|
 | V1.0.0 | 新建初稿，定义与 feature-driven 并列的 issue-driven bug 修复工作流 | 2026-06-23 | zhangyukun |
+| V1.0.1 | 调整 `fix` 并行模型，允许并行直接修改时使用隔离 git worktree | 2026-06-23 | zhangyukun |
 
 ## 二、需求信息
 
@@ -36,7 +37,7 @@
   - 定义 `.loopx/issues/issue-<slug>-<timestamp>.md` ledger 格式，用于诊断、fix brief、执行、review、验证和 closeout。
   - `issue` 负责 bug report intake、triage、debug-discipline diagnosis、fix brief、response draft 和 handoff，不做持久修复。
   - `fix` 负责消费 ready ledger，执行修复、默认写 regression test 或记录例外、验证、局部 review、整体 review、处理 Critical/Important review findings、更新 ledger，并交给 `finish` 收口。
-  - `fix` 第一版支持多个无关联 bug 的 subagent 并行执行，但不使用 git worktree。
+  - `fix` 第一版支持多个无关联 bug 的 subagent 并行执行；并行直接修改代码时必须使用隔离 git worktree。
   - 更新根技能、plugin mirror、安装发现、公开文档、治理测试和卸载说明。
 - 非目标：
   - 不替代 feature-driven workflow。
@@ -44,7 +45,7 @@
   - 不调用 `gh` 拉取 GitHub issue，不要求 GitHub CLI。
   - 不自动评论、关闭、创建 PR、merge GitHub issue。
   - 不复用 `exec` 或 `subagent-exec` 作为 bug fix 执行器。
-  - 不引入 git worktree。
+  - 不要求所有修复都使用 git worktree；串行修复可直接在主工作区执行。
   - 不允许 fix subagent commit、push 或 close issue。
   - 不实现全局 open issue 批量队列或 `.loop-state.json` 式全局状态文件。
 - 决策边界：
@@ -81,7 +82,7 @@
   - 直接搬 `loop-it`：产品闭环强，但它是 GitHub issue 队列和批量 ship 流程，与本需求的通用 bug report 入口不匹配。
   - 只写文档不加 bundled skill：风险低，但用户无法通过安装获得新主链。
 - 关键风险：
-  - 没有 worktree 的并行 subagent 修改存在工作区污染风险。
+  - 并行 subagent 直接修改主工作区会导致工作区污染；必须使用隔离 git worktree，或让 subagent 只产出 patch/report。
   - `expected_touched_files` 预测错误会导致并行安全判断失效。
   - `issue` 临时诊断修改在 dirty worktree 下容易和用户既有变更混淆。
   - `issue-driven` 命名可能让用户误以为 enhancement issue 也能走该流程，文档必须强调 bug-class boundary。
@@ -176,7 +177,7 @@
 - 新增 `skills/fix/SKILL.md`：
   - 输入为一个或多个 ready issue ledgers。
   - preflight 要求 clean worktree，允许目标 ledgers dirty。
-  - 支持无 worktree 的多 bug subagent 并行，但必须通过 scope validation。
+  - 支持多 bug subagent 并行；直接改代码时必须使用隔离 git worktree，未使用 worktree 的并行 subagent 只能产出 patch/report。
   - 内部执行 local review、whole diff review、fix-review 和 verification。
 - 增强 `skills/debug/SKILL.md`：
   - 增加 diagnosis summary contract。
@@ -268,10 +269,10 @@
   - preflight 检查 git repo、worktree clean、ledger status、diagnosis summary、fix brief、expected touched files、parallel safety。
   - 轻量 scope validation：文件存在或为明确新增测试；多个 ledger expected files/surfaces 不重叠；没有 public surface/config/schema/lockfile/generated artifact 风险。
   - 调度：
-    - 全部 parallel safe 且无重叠：每 ledger 一个 bug-fix subagent。
+    - 全部 parallel safe 且无重叠：每 ledger 一个隔离 git worktree 和 bug-fix subagent。
     - 不满足并行但无高风险：自动串行。
     - 有高风险：停止确认。
-  - 每个 subagent 只收到自己的 ledger、allowed files/surfaces、forbidden scope、report path。
+  - 每个 subagent 只收到自己的 ledger、allowed files/surfaces、forbidden scope、report path，以及需要直接修改时的隔离 worktree path。
   - subagent 不允许 commit/push/close issue。
   - subagent 如需越界修改，必须停止并报告 `needs_scope_change`。
   - controller 汇总 reports，检查 actual changed files 是否越界或重叠。
@@ -547,7 +548,7 @@ diagnosis:
 ### 9.3 可靠性与兜底
 
 - 幂等击穿：complete ledger 默认不重跑；重跑需记录 reason。
-- 并发失效：无 worktree 并行可能导致 working tree 污染；通过 expected files、scope validation、actual changed files check 兜底。
+- 并发失效：并行直接修改主 working tree 会造成污染；通过隔离 git worktree、expected files、scope validation、actual changed files check 兜底。
 - 冷热备：不涉及。
 - 数据丢失：ledger 在 `.loopx/`，默认本地 scratch；用户需要长期保存时可手动提升为文档。
 - 人工兜底：scope violation、root cause unknown 高风险、防御性修复、public surface change 必须停下或确认。
@@ -623,5 +624,5 @@ $plan-to-exec docs/loopx/design/issue-driven工作流需求设计文档.md
 ### 11.3 残余风险
 
 - 第一版主要靠 skill contracts 和 agent discipline，不靠 runtime enforcement。
-- 无 worktree 并行的安全性依赖 expected files 和 actual changed files 检查。
+- 并行直接修改依赖隔离 git worktree；无 worktree 并行只能产出 patch/report，并由 controller 串行应用。
 - Markdown ledger 可读性强但机器校验弱；后续如需要更强恢复能力，可增加 JSON sidecar。

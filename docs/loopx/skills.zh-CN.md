@@ -10,7 +10,7 @@ loopx skills 分成两类：
 
 - 核心工作流 skills 推动一次功能工作的生命周期：澄清、必要时设计、计划、执行、评审、处理反馈、收尾。
 - issue-driven 工作流 skills 单独处理 bug 类问题：`issue` 负责诊断并写入本地 ledger，`fix` 执行 ready 的 ledger。
-- 辅助 skills 给特定活动增加纪律，例如测试、调试、文档可读性、API 设计、SQL、Go 或 CLI 行为。它们是 lens，不是 workflow state。
+- 辅助 skills 给特定活动增加纪律，例如测试、调试、隔离工作区、文档可读性、API 设计、SQL、Go 或 CLI 行为。它们是 lens，不是 workflow state。
 
 普通产品或代码变更使用核心工作流。任务有专门风险时，再叠加对应的辅助 skill。
 
@@ -31,7 +31,7 @@ issue -> fix -> finish
 | Skill | 什么时候用 | 产出 |
 |---|---|---|
 | `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | 已回答的问题，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
-| `spec` | 产品行为、API、数据、状态、权限、迁移、兼容或架构决策需要先固定。 | `docs/loopx/design/` 下的设计 spec 或轻量 design note。 |
+| `spec` | 产品行为、API、数据、状态、权限、迁移、兼容、边界场景或架构决策需要先固定。 | 默认在 `docs/loopx/design/` 下同时产出设计提案和详细设计文档。 |
 | `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 | `docs/loopx/codebase-specs/` 下的详细 codebase spec。 |
 | `plan-to-exec` | 需求或 spec 已批准，需要拆成可执行任务。 | `docs/loopx/plans/` 下的小步实施计划。 |
 | `subagent-exec` | 已批准计划包含独立任务，并且可以使用 subagents。 | 带 staged review checkpoints 的任务执行结果。 |
@@ -51,6 +51,7 @@ issue -> fix -> finish
 | `tdd` | feature 或 bugfix 应该先写失败测试。 | 行为可测试时，在生产代码之前使用。 |
 | `debug` | bug、失败测试、构建失败、回归或异常行为需要 root-cause investigation。 | 先诊断，再改代码。 |
 | `verify` | agent 准备声称完成、修复、测试通过、可评审或可提交。 | 必须有新鲜命令输出作为证据。 |
+| `using-git-worktrees` | 实现工作需要隔离当前 checkout，或用户要求设置 git worktree。 | 先检测已有隔离；优先使用原生 worktree 工具，再 fallback 到 git worktree。 |
 | `doc-readability` | 文档、PRD、spec、会议纪要或知识库文章不清楚、臃肿或 AI 味重。 | 在把文档当成 source material 前，先评估或重写。 |
 | `requirement-analyzer` | 现有需求需要检查歧义、缺口、可行性、追踪关系或开发就绪度。 | 输出 gap report；不推进 workflow state。 |
 | `go-style` | 编辑或评审 Go 代码。 | 覆盖 Go 风格、错误处理、context、命名、测试和 interface 边界。 |
@@ -65,7 +66,7 @@ issue -> fix -> finish
 按这条规则路由：
 
 1. 工作还不清楚，用 `clarify`。
-2. 计划前需要固定决策，用 `spec`。
+2. 计划前需要固定决策，用 `spec`；默认同时输出设计提案和详细设计文档。
 3. 用户要记录当前代码库现状而不是设计未来变更，用 `codebase-spec`。
 4. 设计已定，需要拆任务，用 `plan-to-exec`。
 5. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
@@ -78,7 +79,9 @@ issue -> fix -> finish
 
 - 数据库 feature 可以走 `clarify -> spec`，在 `spec` 中叠加 `sql-style`，然后进入 `plan-to-exec`。
 - 公共 API 变更可以在 `spec` 和 `review` 中使用 `api-designer`。
+- 高风险架构变更应该让 `spec` 同时产出 `<需求名>设计提案.md` 和 `<需求名>需求设计文档.md`。
 - 失败测试应该先走 `debug`；新行为可以在实现前使用 `tdd`。
+- 不希望污染当前 checkout 的实现工作，可以在 `exec` 或手动编辑前使用 `using-git-worktrees`。
 - PRD 或 source document 可以先用 `doc-readability` 或 `requirement-analyzer` 检查，再进入 `clarify`。
 
 ## 常见例子
@@ -100,6 +103,12 @@ $spec billing-state-transitions
 ```text
 $plan-to-exec billing-state-transitions
 $subagent-exec billing-state-transitions
+```
+
+隔离实现工作区：
+
+```text
+$using-git-worktrees billing-state-transitions
 ```
 
 inline 执行：
