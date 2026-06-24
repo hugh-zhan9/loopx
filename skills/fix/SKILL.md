@@ -3,7 +3,7 @@ name: fix
 description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, local review, whole diff review, and finish handoff. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Fix
@@ -39,17 +39,22 @@ Reject:
 - missing ledgers
 - ledgers whose `status` is not `ready_for_fix`
 - ledgers missing Diagnosis Summary or Fix Brief
-- dirty worktrees except target ledger changes under `.loopx/issues/`
+- conflicting worktree state:
+  - tracked changes outside the target `.loopx/issues/` ledgers
+  - unignored untracked files unless explicitly listed as expected new files
+
+Ignored local data is non-blocking. Files excluded by `.gitignore`, `.git/info/exclude`, or global git excludes are treated as local runtime data unless the Fix Brief explicitly brings them into scope.
 
 ## Preflight
 
 1. Read every requested ledger.
 2. Confirm each ledger contains `status: ready_for_fix`.
 3. Confirm every ready ledger has `expected_touched_files`, `parallel_safe`, regression test plan or exception, risk triggers, and verification commands.
-4. Inspect `git status --porcelain`.
-5. Require a clean worktree except changes to the target `.loopx/issues/` ledgers.
-6. Record baseline with `git diff --name-only` and untracked files.
-7. Stop if unrelated dirty files exist.
+4. Inspect `git status --porcelain --untracked-files=all`.
+5. Require a clean tracked baseline except changes to the target `.loopx/issues/` ledgers.
+6. Record baseline with `git diff --name-only` and `git ls-files --others --exclude-standard`.
+7. Stop if unrelated tracked changes or unignored untracked files exist.
+8. Do not block on ignored files. If ignored files might affect verification, record them as environment context, not as fix scope.
 
 ## Scope Validation
 
@@ -131,7 +136,14 @@ notes: <summary>
 
 ## Actual Changed Files Check
 
-After execution, compute `actual_changed_files` from the baseline diff and untracked files.
+After execution, compute `actual_changed_files` from the baseline tracked diff and the delta of unignored untracked files:
+
+```bash
+git diff --name-only
+git ls-files --others --exclude-standard
+```
+
+Ignored files are excluded from `actual_changed_files` unless the Fix Brief explicitly made them part of the fix scope.
 
 Stop before closeout when:
 
