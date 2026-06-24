@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.1.0"
+  version: "0.3.5"
 ---
 
 # Issue
@@ -54,6 +54,23 @@ Reject or route:
 - pure review feedback -> suggest `$fix-review`
 - approved implementation plan -> suggest `$exec` or `$subagent-exec`
 
+## Triage Decision Matrix
+
+Classify before diagnosis. Use the first row that fits the evidence; do not force a feature request through `issue` just because it is phrased as a bug.
+
+Ask these questions:
+
+- Was this behavior ever working, or is there a failing existing test/build check? If yes, treat it as bug-class.
+- Was this behavior documented, specified, or accepted as part of the product contract? If yes, treat divergence as bug-class.
+- Is the report only "not what I expected" with no contract, history, or failing check? Treat it as `feature_request`.
+- Is this a new use case on top of existing capability? Treat it as enhancement and route to `$clarify`.
+
+| Signal | Existing contract or once worked | No contract/history, expectation only | Explicit new behavior or new use case |
+|---|---|---|---|
+| Reproducible failure, failing test, build failure, or regression evidence | `issue_driven` bug-class | `needs_info` until contract/history is identified | `feature_request` unless existing contract is found |
+| Documentation, spec, accepted behavior, or comparable working path contradicts actual behavior | `issue_driven` bug-class | `needs_info` for contract evidence | `feature_request` if the contract must change |
+| No failure evidence; request says "should", "I want", or asks for different behavior | `needs_info` or `already_fixed` after checking current code | `feature_request` -> `$clarify` | `feature_request` -> `$clarify` |
+
 ## Preflight
 
 1. Inspect `git status --porcelain`.
@@ -91,6 +108,11 @@ metadata:
 
 - classification: bug | regression | failing_test | build_failure | unexpected_behavior | not_a_bug | needs_info | feature_request
 - routing_decision: issue_driven | feature_driven | fix_review | exec | blocked
+- decision_question_results:
+  - previously_worked: yes | no | unknown
+  - documented_or_accepted_contract: yes | no | unknown
+  - failing_existing_check: yes | no | unknown
+  - new_or_changed_behavior: yes | no | unknown
 - reason: <why>
 
 ## Diagnosis Summary
@@ -102,7 +124,8 @@ diagnosis:
     - type: command | log | steps | code | user_report
       value: <summary>
   root_cause_status: confirmed | likely | unknown
-  root_cause: <summary>
+  root_cause_hypothesis: <specific cause and mechanism>
+  root_cause: <summary or confirmation>
   hypotheses_rejected:
     - <hypothesis and evidence>
   fix_mode: root_cause_fix | defensive_fix | blocked | no_fix_needed
@@ -162,6 +185,21 @@ diagnosis:
 6. Write a Fix Brief only when the issue is bug-class and the next step is controlled repair.
 7. Write a Response Draft and Handoff section.
 
+## Diagnosis Minimum Standard
+
+The `issue` workflow consumes the `debug` Diagnosis Summary Contract. Before writing a Fix Brief or using `ready_for_fix`, the ledger diagnosis must contain:
+
+- `classification` and `reproduction_status`
+- at least one evidence item from command, log, steps, code, or user report
+- `root_cause_status` of `confirmed` or `likely`
+- a specific `root_cause_hypothesis` explaining cause and mechanism, not only the symptom
+- at least one `hypotheses_rejected` entry with evidence
+- `fix_mode`
+- `regression_test_required`, plus `regression_test_exception_reason` when false
+- `risk_triggers`, even when the list is empty
+
+If these fields cannot be filled from available evidence, do not write a ready Fix Brief. Use `needs_info`, `blocked`, `not_a_bug`, `already_fixed`, or `feature_request` as the evidence requires.
+
 ## Status Rules
 
 - Use `ready_for_fix` only when the diagnosis and fix brief are specific enough for `$fix .loopx/issues/<ledger>.md`.
@@ -172,6 +210,24 @@ diagnosis:
 - Use `feature_request` for enhancements and route to `$clarify`.
 - Use `blocked` when diagnosis cannot continue without a user or external decision.
 - Do not use execution statuses such as fixed, reviewed, complete, or failed in `issue`; those belong to `fix` ledger append sections.
+
+## Ready For Fix Gate
+
+Use `ready_for_fix` only when all conditions are true:
+
+- Triage classification is `bug`, `regression`, `failing_test`, `build_failure`, or `unexpected_behavior`.
+- `routing_decision` is `issue_driven`.
+- Diagnosis satisfies the minimum standard above.
+- `reproduction_status` is `reproduced` or `intermittent`, or equivalent code/log evidence is recorded with `no_repro` in `risk_triggers`.
+- `fix_mode` is `root_cause_fix`, or `defensive_fix` with an explicit risk trigger and confirmation requirement.
+- Fix Brief includes `strategy`, `expected_touched_files`, `expected_touched_surfaces`, `parallel_safe`, `parallel_safety_reason`, `regression_test_plan` or a valid exception, `verification_commands`, `forbidden_scope`, and `diagnostic_patches`.
+- Expected files and surfaces are narrow enough for `fix` scope validation.
+- Public CLI/API/schema/config, lockfile, generated artifact, migration, package metadata, and shared fixture changes are either absent or explicitly listed as high-risk scope.
+- No unresolved product behavior, scope, reproduction, or external dependency decision remains.
+
+Do not set `ready_for_fix` when root cause is unknown, reproduction was not attempted, evidence is only a vague user expectation, expected files are placeholders, verification commands are missing, or the report is actually a feature request.
+
+User confirmation is not required for a narrow root-cause fix with reproduced or strongly evidenced behavior. User confirmation is required before handoff when the Fix Brief relies on `no_repro`, `defensive_fix`, public surface changes, generated artifacts, lockfiles, migrations, package metadata, or other high-risk scope.
 
 ## Temporary Diagnostic Edits
 
