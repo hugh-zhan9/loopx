@@ -187,7 +187,11 @@ describe('loopx skill governance', () => {
     assert.match(fields.when_to_use, /ready_for_fix|\.loopx\/issues|bug fix/i);
     assert.match(fields['metadata.version'] ?? '', semverPattern);
     assert.match(fixSkill, /status: ready_for_fix/);
-    assert.match(fixSkill, /clean worktree/i);
+    assert.match(fixSkill, /clean tracked baseline/i);
+    assert.match(fixSkill, /Ignored local data is non-blocking/);
+    assert.match(fixSkill, /git ls-files --others --exclude-standard/);
+    assert.match(fixSkill, /unignored untracked files/);
+    assert.doesNotMatch(fixSkill, /Require a clean worktree/i);
     assert.match(fixSkill, /expected_touched_files/);
     assert.match(fixSkill, /parallel_safe/);
     assert.match(fixSkill, /scope validation/i);
