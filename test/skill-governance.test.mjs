@@ -68,6 +68,15 @@ function assertMarkdownStructure(text, label) {
   assert.deepEqual(fences, [], `${label} has unclosed fenced blocks`);
 }
 
+function assertSkillHandoffFormat(text, label) {
+  assert.match(text, /## Skill Handoff Format/, `${label} must document agent-native handoff rendering`);
+  assert.match(text, /Codex: `\$<skill> <args>`/, `${label} missing Codex handoff form`);
+  assert.match(text, /Claude Code: `\/<skill> <args>`/, `${label} missing Claude Code handoff form`);
+  assert.match(text, /Cursor Agent Skills: `\/<skill> <args>`/, `${label} missing Cursor Agent Skills handoff form`);
+  assert.match(text, /Generic: `Use the <skill> skill with <args>`/, `${label} missing generic handoff form`);
+  assert.match(text, /Do not present Codex `\$\.\.\.` syntax as the only handoff/, `${label} must prevent Codex-only handoff`);
+}
+
 describe('loopx skill governance', () => {
   it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
@@ -137,6 +146,36 @@ describe('loopx skill governance', () => {
     assert.match(skill, /`fix` parallel subagent worktrees/);
     assert.match(skill, /`finish` owns branch placement/);
     assert.match(skill, /Do not commit the `.gitignore` change/);
+  });
+
+  it('governs clarify skill as incremental requirements intake', async () => {
+    const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(clarifySkill);
+
+    assert.equal(fields.name, 'clarify');
+    assert.match(fields.description, /ambiguous loopx work/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /requirements|unclear scope|需求澄清/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(clarifySkill, /Write the clarification context bundle \*\*incrementally\*\*/);
+    assert.match(clarifySkill, /Do not wait until all questions are resolved/);
+    assert.match(clarifySkill, /\.loopx\/intake\/clarify-<slug>-<timestamp>\.md/);
+    assert.match(clarifySkill, /first material answer/);
+    assert.match(clarifySkill, /\[PENDING\]/);
+    assert.match(clarifySkill, /## Resume State/);
+    assert.match(clarifySkill, /current_round/);
+    assert.match(clarifySkill, /unresolved_count/);
+    assert.match(clarifySkill, /next_question/);
+    assert.match(clarifySkill, /`spec` or `plan-to-exec` needs/);
+    assertSkillHandoffFormat(clarifySkill, 'clarify');
+    assert.match(clarifySkill, /skill: plan-to-exec/);
+    assert.match(clarifySkill, /Codex: \$plan-to-exec/);
+    assert.match(clarifySkill, /Claude Code: \/plan-to-exec/);
+    assert.match(clarifySkill, /Cursor Agent Skills: \/plan-to-exec/);
+    assert.match(clarifySkill, /Generic: Use the plan-to-exec skill/);
+    assert.match(clarifySkill, /needs_spec/);
+    assert.match(clarifySkill, /direct_to_plan/);
+    assert.match(clarifySkill, /blocked/);
   });
 
   it('governs issue skill as the issue-driven intake and diagnosis workflow', async () => {
