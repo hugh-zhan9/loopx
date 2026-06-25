@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.3"
+  version: "0.3.5"
 ---
 
 # Subagent Exec
@@ -29,6 +29,15 @@ Use this skill for approved implementation plans whose tasks can be executed
 mostly sequentially with isolated subagent context. Use `loopx:exec` when
 subagent support is unavailable or edits are too tightly coupled for safe
 delegation.
+
+## Step -1: Confirm Subagent Capability
+
+Before falling back to `loopx:exec`, run the current platform's subagent
+capability check. Use the matching platform reference from `./platform-subagents.md`.
+Codex may expose multi-agent tools through deferred tool discovery, so do not
+treat an initial visible tool list that omits `spawn_agent`, `wait_agent`, or
+`close_agent` as final evidence. In non-Codex runtimes, use the platform's
+native subagent availability check before declaring subagents unavailable.
 
 ## The Process
 
@@ -278,7 +287,10 @@ Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
 
 ## Prompt Templates
 
+- `./platform-subagents.md` - Choose the platform-specific subagent reference
 - `./codex-subagents.md` - Codex subagent tool mapping and required runtime support
+- `./claude-subagents.md` - Claude Code subagent dispatch and availability rules
+- `./cursor-subagents.md` - Cursor Cloud Agent compatibility and fallback rules
 - `./implementer-prompt.md` - Dispatch implementer subagent
 - `./task-reviewer-prompt.md` - Dispatch task reviewer subagent
 

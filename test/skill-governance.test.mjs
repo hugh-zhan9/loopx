@@ -371,14 +371,23 @@ describe('loopx skill governance', () => {
     const rootSkill = await readFile(join(rootSkillDir, 'SKILL.md'), 'utf8');
     const taskReviewer = await readFile(join(rootSkillDir, 'task-reviewer-prompt.md'), 'utf8');
     const implementer = await readFile(join(rootSkillDir, 'implementer-prompt.md'), 'utf8');
+    const platformReference = await readFile(join(rootSkillDir, 'platform-subagents.md'), 'utf8');
     const codexReference = await readFile(join(rootSkillDir, 'codex-subagents.md'), 'utf8');
+    const claudeReference = await readFile(join(rootSkillDir, 'claude-subagents.md'), 'utf8');
+    const cursorReference = await readFile(join(rootSkillDir, 'cursor-subagents.md'), 'utf8');
 
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
     assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
+    assert.equal(existsSync(join(rootSkillDir, 'platform-subagents.md')), true);
+    assert.equal(existsSync(join(rootSkillDir, 'claude-subagents.md')), true);
+    assert.equal(existsSync(join(rootSkillDir, 'cursor-subagents.md')), true);
     assert.equal(existsSync(join(rootSkillDir, removedSpecPrompt)), false);
     assert.equal(existsSync(join(rootSkillDir, removedQualityPrompt)), false);
 
     assert.match(rootSkill, /task-reviewer-prompt\.md/);
+    assert.match(rootSkill, /platform-subagents\.md/);
+    assert.match(rootSkill, /claude-subagents\.md/);
+    assert.match(rootSkill, /cursor-subagents\.md/);
     assert.match(rootSkill, /progress ledger/);
     assert.match(rootSkill, /Pre-Flight Plan Review/);
     assert.match(rootSkill, /review package/);
@@ -392,7 +401,25 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /Cannot verify from diff/);
     assert.match(implementer, /Read your task brief first/);
     assert.match(implementer, /REPORT_FILE/);
+    assert.doesNotMatch(implementer, /Native Codex subagent/);
+    assert.match(platformReference, /Codex/);
+    assert.match(platformReference, /Claude Code/);
+    assert.match(platformReference, /Cursor/);
+    assert.match(platformReference, /Generic Requirements/);
     assert.match(codexReference, /task-reviewer-prompt\.md/);
+    assert.match(rootSkill, /Confirm Subagent Capability/);
+    assert.match(rootSkill, /deferred tool\s+discovery/i);
+    assert.match(codexReference, /deferred-loaded tools/i);
+    assert.match(codexReference, /tool_search/);
+    assert.match(codexReference, /multi_agent_v1\.spawn_agent/);
+    assert.match(codexReference, /Only after direct lookup and available discovery both fail/);
+    assert.match(claudeReference, /Agent tool/);
+    assert.match(claudeReference, /\/agents/);
+    assert.match(claudeReference, /@agent-/);
+    assert.match(claudeReference, /loopx:exec/);
+    assert.match(cursorReference, /Cursor Cloud Agents/);
+    assert.match(cursorReference, /asynchronous Cloud Agent branch or PR workflow/);
+    assert.match(cursorReference, /loopx:review/);
     assert.doesNotMatch(codexReference, /spec reviewer, and code quality reviewer/);
   });
 
