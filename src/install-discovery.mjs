@@ -40,6 +40,7 @@ const LOOPX_SKILLS = [
   'architecture-designer',
   'sql-style',
   'cli-developer',
+  'lancet',
 ];
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [

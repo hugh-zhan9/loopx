@@ -148,6 +148,27 @@ describe('loopx skill governance', () => {
     assert.match(skill, /Do not commit the `.gitignore` change/);
   });
 
+  it('includes lancet as a governed bundled support skill', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const resolver = await readFile(resolverPath, 'utf8');
+    const skill = await readFile(join(repoRoot, 'skills', 'lancet', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(skill);
+
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('lancet'), true, 'lancet must be bundled');
+    assert.equal(packageJson.files.includes('skills/lancet/'), true, 'npm package must include lancet skill');
+    assert.equal(fields.name, 'lancet');
+    assert.match(fields.description, /support lens|implementation-layer minimization/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /over-engineering|yagni|implementation/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(resolver, /skills\/lancet\/SKILL\.md/);
+    assert.match(skill, /support lens, not a workflow state/);
+    assert.match(skill, /Codex-only automatic activation/);
+    assert.match(skill, /implementation and review layers/i);
+    assert.match(skill, /Do not use this skill for:/);
+    assert.match(skill, /`clarify` or `spec` planning/);
+  });
+
   it('governs clarify skill as incremental requirements intake', async () => {
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const fields = parseFrontmatter(clarifySkill);
