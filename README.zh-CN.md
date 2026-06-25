@@ -81,7 +81,12 @@ bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后�
 
 辅助 skills 是 lens，不是 workflow state：`tdd`、`debug`、`verify`、
 `doc-readability`、`requirement-analyzer`、`go-style`、`kratos`、
-`api-designer`、`architecture-designer`、`sql-style` 和 `cli-developer`。
+`api-designer`、`architecture-designer`、`sql-style`、`cli-developer` 和
+`lancet`。
+
+`lancet` 是 Codex-only 的自动辅助 lens，用于实现和评审阶段。使用
+`loopx lancet on`、`loopx lancet off` 或 `loopx lancet status` 控制本机
+`~/.loopx/lancet/` 下的自动指引状态。
 
 完整 bundled v1 skill surface 见 [loopx Skills 使用指南](./docs/loopx/skills.zh-CN.md)。
 

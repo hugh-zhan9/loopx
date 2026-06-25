@@ -35,6 +35,7 @@ loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx next <slug> [--json]
 loopx setup-context
+loopx lancet <on|off|status> [--json]
 loopx doctor [--json]
 loopx repair-install
 ```
@@ -74,6 +75,19 @@ Disable loopx hooks for one process:
 ```bash
 LOOPX_HOOKS=0 codex
 ```
+
+Control Codex-only automatic `lancet` guidance for implementation and review
+work:
+
+```bash
+loopx lancet status
+loopx lancet off
+loopx lancet on
+LOOPX_LANCET=0 codex
+```
+
+`lancet` state lives under `~/.loopx/lancet/`. `LOOPX_LANCET=0` disables
+automatic guidance for the current process without rewriting local state.
 
 Repair an interrupted or conflicted install:
 

@@ -5,7 +5,7 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 ## Public CLI Surface
 
 - `loopx --help` must start with a short quickstart path: install skills, init, clarify, status.
-- Public commands are install, init, clarify, render, status, next, setup-context, doctor, repair-install, and finish audit commands.
+- Public commands are install, init, clarify, render, status, next, setup-context, lancet, doctor, repair-install, and finish audit commands.
 - Public `lancet` controls are `loopx lancet on`, `loopx lancet off`, and `loopx lancet status`.
 - Removed early runtime commands must not appear in current public docs, default help, next-step helpers, workflow hooks, or installer guidance.
 - `loopx next` returns a skill handoff, not a runtime command handoff.

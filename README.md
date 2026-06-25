@@ -84,7 +84,12 @@ ledger status is `ready_for_fix`.
 
 Support skills are lenses, not workflow states: `tdd`, `debug`, `verify`,
 `doc-readability`, `requirement-analyzer`, `go-style`, `kratos`,
-`api-designer`, `architecture-designer`, `sql-style`, and `cli-developer`.
+`api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and
+`lancet`.
+
+`lancet` is a Codex-only automatic support lens for implementation and review
+work. Use `loopx lancet on`, `loopx lancet off`, or `loopx lancet status` to
+control local automatic guidance under `~/.loopx/lancet/`.
 
 See [loopx Skills Guide](./docs/loopx/skills.md) for the full bundled v1 skill
 surface.

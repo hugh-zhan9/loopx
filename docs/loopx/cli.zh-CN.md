@@ -33,6 +33,7 @@ loopx render [slug|--all]
 loopx status [slug] [--json]
 loopx next <slug> [--json]
 loopx setup-context
+loopx lancet <on|off|status> [--json]
 loopx doctor [--json]
 loopx repair-install
 ```
@@ -71,6 +72,18 @@ LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
 ```bash
 LOOPX_HOOKS=0 codex
 ```
+
+控制 Codex-only 的 `lancet` 自动指引；它只用于实现和评审阶段：
+
+```bash
+loopx lancet status
+loopx lancet off
+loopx lancet on
+LOOPX_LANCET=0 codex
+```
+
+`lancet` 状态保存在 `~/.loopx/lancet/`。`LOOPX_LANCET=0` 只禁用当前进程的
+自动指引，不改写本地状态。
 
 修复中断或冲突的安装：
 
