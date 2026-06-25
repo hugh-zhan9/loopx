@@ -123,6 +123,11 @@ For each ready ledger:
 4. Run ledger verification commands.
 5. Write an execution report with:
 
+Use `lancet` discipline while fixing: check whether the fix can be deletion,
+repo reuse, stdlib, native platform, or an already-installed dependency before
+adding code. Keep the smallest root-cause fix and do not add speculative
+abstractions, new dependencies, or broader cleanup outside the ledger scope.
+
 ```yaml
 ledger: .loopx/issues/<ledger>.md
 status: fixed | failed | blocked | needs_scope_change

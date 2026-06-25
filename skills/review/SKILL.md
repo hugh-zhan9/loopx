@@ -89,6 +89,7 @@ Before Stage 2 or Stage 3, inspect the changed files, public surface, and requir
 | CLI commands, flags, stdout/stderr, `--json`, exit codes, help text, prompts, or shell behavior | `cli-developer` |
 | Go files, Go tests, errors, context, interfaces, or goroutines | `go-style` |
 | Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, or config | `kratos` |
+| Implementation minimization, over-engineering risk, avoidable dependencies, reusable existing code, stdlib/native alternatives, or deletable abstractions | `lancet` |
 
 When dispatching the reviewer, include:
 

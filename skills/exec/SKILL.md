@@ -49,6 +49,12 @@ For each task:
 6. Mark as completed
 7. **Checkpoint** — record progress (see Checkpoint/Resume below)
 
+If the plan names `lancet` as a support lens, use `lancet` discipline before
+editing each task: check deletion, repo reuse, stdlib, native platform, and
+already-installed dependencies before adding new code, files, or dependencies.
+Keep the smallest correct diff that still satisfies validation, error handling,
+security, accessibility, and regression coverage.
+
 ### Review Triggers
 
 Request a `loopx:review` (Stage 1 + Stage 2) between tasks when any of these conditions are met:

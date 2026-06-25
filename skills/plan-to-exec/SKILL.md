@@ -57,6 +57,13 @@ Before defining tasks, map out which files will be created or modified and what 
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
+## Implementation Support Lenses
+
+When the source design or repo rules require `lancet`, record it in Support
+lenses and remind implementers that lancet activates at implementation time; do
+not collapse planning-stage analysis into implementation shortcuts. Planning
+still owns complete requirements, interfaces, tests, and surface-change evidence.
+
 ## Task Right-Sizing
 
 A task is the smallest unit that carries its own test cycle and is worth a

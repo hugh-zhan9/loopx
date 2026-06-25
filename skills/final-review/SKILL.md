@@ -80,6 +80,7 @@ Identify domain-specific review lenses from the completed diff, source requireme
 | CLI commands, flags, stdout/stderr, `--json`, exit codes, help text, prompts, or shell behavior | `cli-developer` |
 | Go files, Go tests, errors, context, interfaces, or goroutines | `go-style` |
 | Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, or config | `kratos` |
+| Over-engineering risk, avoidable dependencies, missing repo reuse, stdlib/native alternatives, or deletable abstractions across the completed feature | `lancet` |
 
 Record:
 
