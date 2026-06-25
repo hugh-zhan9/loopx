@@ -582,6 +582,34 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /five phases/);
   });
 
+  it('threads lancet through implementation and review contracts without collapsing planning freedom', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const fixSkill = await readFile(join(repoRoot, 'skills', 'fix', 'SKILL.md'), 'utf8');
+    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
+    const reviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+
+    assert.match(planSkill, /lancet activates at implementation time/i);
+    assert.match(planSkill, /not collapse planning-stage analysis/i);
+    assert.match(execSkill, /Use `lancet` discipline/i);
+    assert.match(execSkill, /deletion, repo reuse, stdlib, native platform/i);
+    assert.match(subagentExecSkill, /Use `lancet` discipline/i);
+    assert.match(subagentExecSkill, /LANCET_CONTEXT/);
+    assert.match(reviewSkill, /over-engineering/i);
+    assert.match(reviewSkill, /stdlib\/native alternatives/i);
+    assert.match(finalReviewSkill, /over-engineering/i);
+    assert.match(finalReviewSkill, /deletable abstractions/i);
+    assert.match(fixSkill, /smallest root-cause fix/i);
+    assert.match(fixSkill, /Use `lancet` discipline/i);
+    assert.match(implementerPrompt, /LANCET_CONTEXT/);
+    assert.match(implementerPrompt, /smallest correct diff/);
+    assert.match(reviewerPrompt, /over-engineering/);
+    assert.match(reviewerPrompt, /repo reuse, stdlib\/native\s+alternatives/);
+  });
+
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
     assert.match(finishSkill, /Match the user's language/);

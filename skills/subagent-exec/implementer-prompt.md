@@ -33,6 +33,14 @@ Native subagent:
     package/deploy/governance checks required. If this task is not a surface change,
     write: not_applicable.]
 
+    ## LANCET_CONTEXT
+
+    [Include the exact `lancet` implementation-stage distilled rules when this
+    task carries the `lancet` support lens: check deletion, repo reuse, stdlib,
+    native platform, and already-installed dependencies before new code; prefer
+    the smallest correct diff; preserve validation, error handling, security,
+    accessibility, and regression coverage. Otherwise write: not_applicable.]
+
     ## Before You Begin
 
     If you have questions about:
@@ -108,6 +116,9 @@ Native subagent:
 
     **Discipline:**
     - Did I avoid overbuilding (YAGNI)?
+    - If LANCET_CONTEXT applies, did I choose the smallest correct diff after
+      checking deletion, repo reuse, stdlib, native platform, and installed
+      dependency options?
     - Did I only build what was requested?
     - Did I follow existing patterns in the codebase?
 

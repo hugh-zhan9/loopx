@@ -32,6 +32,10 @@ Native subagent:
     [SURFACE_CHANGE_CONTEXT plus the implementer's surface_change report block,
     or not_applicable]
 
+    ## Lancet Context
+
+    [LANCET_CONTEXT plus any implementer notes, or not_applicable]
+
     ## What The Implementer Claims They Built
 
     Read the implementer's report: [REPORT_FILE]
@@ -99,6 +103,8 @@ Native subagent:
     - Clean separation of concerns and file responsibilities
     - Proper error handling
     - DRY without premature abstraction
+    - If Lancet Context applies: over-engineering, repo reuse, stdlib/native
+      alternatives, avoidable dependencies, and deletable abstractions
     - Edge cases handled
     - Tests verify real behavior, not mocks
     - Task outputs match downstream interfaces

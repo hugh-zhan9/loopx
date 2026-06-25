@@ -178,6 +178,22 @@ missing_context: none
 Allowed anchor statuses are `implemented`, `tested`, `not_applicable`,
 `blocked`, and `needs_context`.
 
+## Lancet Context Contract
+
+When a task or source plan names `lancet` as a support lens, provide a
+`LANCET_CONTEXT` block to implementers and reviewers. Use `lancet` discipline:
+check deletion, repo reuse, stdlib, native platform, and already-installed
+dependencies before new code, files, or dependencies. Require the smallest
+correct diff while preserving validation, error handling, security,
+accessibility, and regression coverage.
+
+If `lancet` does not apply, write:
+
+```text
+LANCET_CONTEXT:
+not_applicable
+```
+
 ## Surface Change Contract
 
 Use this contract for any task that removes, replaces, narrows, migrates, or
