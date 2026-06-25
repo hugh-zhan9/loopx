@@ -408,4 +408,3 @@
 - 验证 subagent 继承同一纪律。
 - 验证 review 能捕捉 over-engineering。
 - 验证规划层只保留轻提示。
-
