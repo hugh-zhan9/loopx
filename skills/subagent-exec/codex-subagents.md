@@ -15,9 +15,25 @@ Use this reference before executing this skill in Codex.
 
 ## Required Runtime Support
 
-Subagent dispatch requires Codex multi-agent support. If `spawn_agent`,
-`wait_agent`, or `close_agent` are unavailable, do not pretend this skill ran as
-subagent-exec. Use `loopx:exec` instead.
+Subagent dispatch requires Codex multi-agent support.
+
+Before declaring support unavailable, account for deferred-loaded tools. Some
+Codex runtimes expose multi-agent tools only after tool discovery, so an initial
+tool list that omits `spawn_agent`, `wait_agent`, or `close_agent` is not enough
+evidence to fall back.
+
+Capability check order:
+
+1. If `spawn_agent`, `wait_agent`, and `close_agent` are directly available, use
+   them.
+2. If a tool-discovery mechanism such as `tool_search` is available, search for
+   `spawn_agent wait_agent close_agent multi-agent subagent`.
+3. If discovery exposes an equivalent namespace such as
+   `multi_agent_v1.spawn_agent`, `multi_agent_v1.wait_agent`, and
+   `multi_agent_v1.close_agent`, use those tools and continue subagent-exec.
+4. Only after direct lookup and available discovery both fail, treat subagent
+   support as unavailable. Do not pretend this skill ran as subagent-exec; use
+   `loopx:exec` instead.
 
 Codex environments that require explicit feature flags should enable:
 
