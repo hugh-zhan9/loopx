@@ -9,6 +9,7 @@ import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
 import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
+import { readLancetConfig, readLancetSession, writeLancetSession } from './lancet-runtime.mjs';
 import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
@@ -33,6 +34,7 @@ function usage() {
     '  loopx next <slug> [--json]',
     '  loopx setup-context',
     '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]',
+    '  loopx lancet <on|off|status> [--json]',
     '  loopx doctor [--json]',
     '  loopx repair-install',
     '  loopx finish-start [slug] [--source <path>] [--json]',
@@ -412,6 +414,33 @@ function printHumanInstall(result, { dryRun = false } = {}) {
   console.log('details: loopx install-skills --json');
 }
 
+async function lancetPayload(action, env = process.env) {
+  if (action === 'on' || action === 'off') {
+    await writeLancetSession({ env, mode: action, persistent: true });
+  } else if (action !== 'status') {
+    throw new Error('lancet_requires_on_off_status');
+  }
+  const [config, session] = await Promise.all([
+    readLancetConfig(env),
+    readLancetSession(env),
+  ]);
+  return {
+    ok: true,
+    command: 'lancet',
+    action,
+    config,
+    session,
+    automatic_activation: 'codex-only',
+  };
+}
+
+function printHumanLancet(payload) {
+  console.log(`lancet: ${payload.session.mode}`);
+  console.log(`default enabled: ${payload.config.enabled === true ? 'yes' : 'no'}`);
+  console.log('automatic activation: Codex-only implementation/review stages');
+  console.log('state: ~/.loopx/lancet/session.json');
+}
+
 async function main() {
   const { command, positionals, options } = parseArgs(process.argv.slice(2));
   if (command === 'version' || command === '--version' || command === '-v') {
@@ -502,6 +531,15 @@ async function main() {
         }
         if (payload.ok === false) {
           process.exitCode = 1;
+        }
+        return;
+      }
+      case 'lancet': {
+        const payload = await lancetPayload(positionals[0] || 'status', process.env);
+        if (options.get('--json')) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          printHumanLancet(payload);
         }
         return;
       }

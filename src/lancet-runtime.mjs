@@ -30,6 +30,21 @@ export function defaultLancetConfig() {
   return cloneJson(DEFAULT_CONFIG);
 }
 
+function envLancetEnabled(env) {
+  const raw = env.LOOPX_LANCET;
+  if (raw === undefined) {
+    return null;
+  }
+  const value = String(raw).trim().toLowerCase();
+  if (['0', 'false', 'off', 'no', 'disabled'].includes(value)) {
+    return false;
+  }
+  if (['1', 'true', 'on', 'yes', 'enabled'].includes(value)) {
+    return true;
+  }
+  return null;
+}
+
 export function resolveLancetPaths(env = process.env) {
   const home = resolve(env.LOOPX_HOME || env.HOME || process.cwd());
   const root = join(home, '.loopx', 'lancet');
@@ -53,7 +68,9 @@ async function readJson(path, fallback) {
 }
 
 export async function readLancetConfig(env = process.env) {
-  return readJson(resolveLancetPaths(env).configPath, DEFAULT_CONFIG);
+  const config = await readJson(resolveLancetPaths(env).configPath, DEFAULT_CONFIG);
+  const enabled = envLancetEnabled(env);
+  return enabled === null ? config : { ...config, enabled };
 }
 
 export async function readLancetSession(env = process.env) {

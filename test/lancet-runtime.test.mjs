@@ -53,6 +53,14 @@ describe('lancet runtime', () => {
     const text = await readFile(paths.sessionPath, 'utf8');
     assert.match(text, /"mode": "off"/);
   });
+
+  it('honors LOOPX_LANCET as a process-level default override', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-lancet-home-'));
+
+    assert.equal((await readLancetConfig({ ...process.env, HOME: home, LOOPX_HOME: home, LOOPX_LANCET: '0' })).enabled, false);
+    assert.equal((await readLancetConfig({ ...process.env, HOME: home, LOOPX_HOME: home, LOOPX_LANCET: 'off' })).enabled, false);
+    assert.equal((await readLancetConfig({ ...process.env, HOME: home, LOOPX_HOME: home, LOOPX_LANCET: '1' })).enabled, true);
+  });
 });
 
 describe('codex lancet advisory hook', () => {
@@ -93,6 +101,34 @@ describe('codex lancet advisory hook', () => {
       payload: { cwd: repoRoot, skillName: 'exec' },
     });
     assert.doesNotMatch(output, /LANCET/);
+  });
+
+  it('silently degrades when LOOPX_LANCET disables the process', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-hook-home-'));
+    const env = { ...process.env, HOME: home, LOOPX_HOME: home, LOOPX_LANCET: '0' };
+
+    await writeLancetSession({ env, mode: 'on', persistent: true });
+
+    const output = await runCodexHook({
+      env,
+      payload: { cwd: repoRoot, skillName: 'exec' },
+    });
+    assert.doesNotMatch(output, /LANCET/);
+  });
+
+  it('supports CLI on/off/status controls', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-lancet-cli-home-'));
+    const env = { ...process.env, HOME: home, LOOPX_HOME: home };
+    const cliPath = resolve(repoRoot, 'src/cli.mjs');
+
+    const off = await execFileAsync(process.execPath, [cliPath, 'lancet', 'off', '--json'], { cwd: repoRoot, env });
+    assert.equal(JSON.parse(off.stdout).session.mode, 'off');
+
+    const status = await execFileAsync(process.execPath, [cliPath, 'lancet', 'status', '--json'], { cwd: repoRoot, env });
+    assert.equal(JSON.parse(status.stdout).session.mode, 'off');
+
+    const on = await execFileAsync(process.execPath, [cliPath, 'lancet', 'on'], { cwd: repoRoot, env });
+    assert.match(on.stdout, /lancet: on/);
   });
 
   it('emits no lancet guidance for unrelated or missing skill names', async () => {

@@ -6,6 +6,7 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 
 - `loopx --help` must start with a short quickstart path: install skills, init, clarify, status.
 - Public commands are install, init, clarify, render, status, next, setup-context, doctor, repair-install, and finish audit commands.
+- Public `lancet` controls are `loopx lancet on`, `loopx lancet off`, and `loopx lancet status`.
 - Removed early runtime commands must not appear in current public docs, default help, next-step helpers, workflow hooks, or installer guidance.
 - `loopx next` returns a skill handoff, not a runtime command handoff.
 
@@ -41,5 +42,6 @@ rm -rf ~/.loopx/lancet
 - Normal installs and plugin installs both consume bundled skills from the package root `skills/` source.
 - `lancet` is bundled in the package skill surface. Automatic `lancet` activation is Codex-only in this release.
 - `lancet` user defaults and session state live under `~/.loopx/lancet/`.
+- `LOOPX_LANCET=0` disables automatic `lancet` guidance for the current process; `LOOPX_LANCET=1` enables it.
 - Auxiliary root skill sources must not be published by explicit or broad `package.json.files` entries.
 - `scripts/verify-skills.mjs` and the package governance tests are the release gates for this surface.

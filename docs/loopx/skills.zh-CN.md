@@ -151,6 +151,14 @@ $final-review billing-state-transitions
 $finish
 ```
 
+Lancet 控制：
+
+```text
+$lancet on
+$lancet off
+$lancet status
+```
+
 ## Guardrails
 
 - 范围、非目标或决策边界未解决时，不要跳过 `clarify`。
