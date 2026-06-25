@@ -5,6 +5,12 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { checkForUpdates, updateNotification } from '../src/version-check.mjs';
+import {
+  buildLancetGuidance,
+  readLancetConfig,
+  readLancetSession,
+  resolveLancetStage,
+} from '../src/lancet-runtime.mjs';
 
 function readStdin() {
   return new Promise((resolveValue) => {
@@ -91,6 +97,30 @@ function stateLine(key, value) {
   return `${key}: ${value ?? 'unknown'}`;
 }
 
+async function lancetAdvisory(input) {
+  // Best-effort, Codex-only support lens. Never throws; returns null on any
+  // degrade condition so the existing advisory output stays intact.
+  try {
+    const stage = resolveLancetStage({ skillName: input.skillName });
+    if (!stage) {
+      return null;
+    }
+
+    const [config, session] = await Promise.all([
+      readLancetConfig(process.env),
+      readLancetSession(process.env),
+    ]);
+
+    if (config.enabled !== true || config.codexAutoEnable !== true || session.mode === 'off') {
+      return null;
+    }
+
+    return buildLancetGuidance({ stage });
+  } catch {
+    return null;
+  }
+}
+
 try {
   if (process.env.LOOPX_HOOKS === '0') {
     process.exit(0);
@@ -125,6 +155,16 @@ try {
       '</loopx_advisory>',
     ];
     process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
+  }
+
+  // Best-effort Codex-only lancet support lens — additive, silent degrade.
+  const lancet = await lancetAdvisory(input);
+  if (lancet) {
+    process.stdout.write([
+      '<loopx_lancet_advisory>',
+      lancet,
+      '</loopx_lancet_advisory>',
+    ].join('\n').concat('\n'));
   }
 
   // Best-effort version check — non-blocking with short timeout
