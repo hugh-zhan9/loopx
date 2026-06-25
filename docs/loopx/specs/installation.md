@@ -29,14 +29,17 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
+rm -rf ~/.loopx/lancet
 ```
 
 ## Published Skill Surface
 
 - The package root `skills/` surface is exactly `skills/RESOLVER.md` plus the directories in `LOOPX_BUNDLED_SKILLS`.
 - Normal installs and plugin installs both consume bundled skills from the package root `skills/` source.
+- `lancet` is bundled in the package skill surface. Automatic `lancet` activation is Codex-only in this release.
+- `lancet` user defaults and session state live under `~/.loopx/lancet/`.
 - Auxiliary root skill sources must not be published by explicit or broad `package.json.files` entries.
 - `scripts/verify-skills.mjs` and the package governance tests are the release gates for this surface.

@@ -610,6 +610,21 @@ describe('loopx skill governance', () => {
     assert.match(reviewerPrompt, /repo reuse, stdlib\/native\s+alternatives/);
   });
 
+  it('documents lancet as bundled but Codex-only auto activation', async () => {
+    const readme = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
+    const readmeZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
+    const installationSpec = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+
+    assert.match(readme, /lancet/);
+    assert.match(readme, /Codex-only automatic activation/i);
+    assert.match(readmeZh, /lancet/);
+    assert.match(readmeZh, /仅 Codex 自动启用/);
+    assert.match(installationSpec, /lancet/);
+    assert.match(installationSpec, /~\/.loopx\/lancet/);
+    assert.equal(packageJson.files.includes('skills/lancet/'), true);
+  });
+
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
     assert.match(finishSkill, /Match the user's language/);

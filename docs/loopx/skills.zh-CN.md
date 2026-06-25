@@ -60,6 +60,7 @@ issue -> fix -> finish
 | `architecture-designer` | 决策涉及边界、ADR、NFR、可扩展性、failure modes、operability 或技术取舍。 | 用于设计阶段和 final review 的系统级风险判断。 |
 | `sql-style` | 修改 SQL、schema、index、migration、方言行为或性能敏感的数据访问。 | schema 或 migration 决策建议配合 `spec` 使用。 |
 | `cli-developer` | 设计 CLI commands、flags、人类/JSON 输出、错误、交互、help text、shell 行为或跨平台 UX。 | 用于 CLI 产品表面变更。 |
+| `lancet` | 实现或评审有过度工程、可避免依赖、额外文件，或本该删除的抽象风险。 | 仅 Codex 自动启用，且只在实现/评审阶段自动注入；其他场景仍需显式使用。 |
 
 ## 如何选择下一个 Skill
 
@@ -82,6 +83,7 @@ issue -> fix -> finish
 - 高风险架构变更应该让 `spec` 同时产出 `<需求名>设计提案.md` 和 `<需求名>需求设计文档.md`。
 - 失败测试应该先走 `debug`；新行为可以在实现前使用 `tdd`。
 - 不希望污染当前 checkout 的实现工作，可以在 `exec` 或手动编辑前使用 `using-git-worktrees`。
+- Codex 的实现和评审工作在启用时会自动收到 `lancet` 指引；其他 agent 需要时应显式调用 `lancet`。
 - PRD 或 source document 可以先用 `doc-readability` 或 `requirement-analyzer` 检查，再进入 `clarify`。
 
 ## 常见例子

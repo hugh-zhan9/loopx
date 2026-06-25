@@ -60,6 +60,7 @@ issue -> fix -> finish
 | `architecture-designer` | Decisions involve boundaries, ADRs, NFRs, scalability, failure modes, operability, or technology tradeoffs. | Use during design and final review for system-level risk. |
 | `sql-style` | Changing SQL, schemas, indexes, migrations, dialect-specific behavior, or performance-sensitive data access. | Pair with `spec` for schema or migration decisions. |
 | `cli-developer` | Designing CLI commands, flags, human/JSON output, errors, interactivity, help text, shell behavior, or cross-platform UX. | Use for CLI product surface changes. |
+| `lancet` | Implementation or review work risks over-engineering, avoidable dependencies, extra files, or abstractions that should be deleted. | Codex-only automatic activation in implementation/review stages; manual skill use remains explicit elsewhere. |
 
 ## Choosing The Next Skill
 
@@ -82,6 +83,7 @@ Support skills can be layered onto this path. For example:
 - A risky architecture change should have `spec` produce both `<需求名>设计提案.md` and `<需求名>需求设计文档.md`.
 - A failing test should route to `debug`; a new behavior can route to `tdd` before implementation.
 - Implementation that should not touch the current checkout can use `using-git-worktrees` before `exec` or manual edits.
+- Codex implementation and review work automatically receives `lancet` guidance when enabled; other agents should invoke `lancet` explicitly when needed.
 - A PRD or source document can be checked with `doc-readability` or `requirement-analyzer` before `clarify`.
 
 ## Common Examples
