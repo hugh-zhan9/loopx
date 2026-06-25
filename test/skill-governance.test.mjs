@@ -618,10 +618,13 @@ describe('loopx skill governance', () => {
 
     assert.match(readme, /lancet/);
     assert.match(readme, /Codex-only automatic activation/i);
+    assert.match(readme, /\$lancet on/);
     assert.match(readmeZh, /lancet/);
     assert.match(readmeZh, /仅 Codex 自动启用/);
+    assert.match(readmeZh, /\$lancet status/);
     assert.match(installationSpec, /lancet/);
     assert.match(installationSpec, /~\/.loopx\/lancet/);
+    assert.match(installationSpec, /LOOPX_LANCET=0/);
     assert.equal(packageJson.files.includes('skills/lancet/'), true);
   });
 

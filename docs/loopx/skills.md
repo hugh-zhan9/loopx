@@ -151,6 +151,14 @@ $final-review billing-state-transitions
 $finish
 ```
 
+Lancet controls:
+
+```text
+$lancet on
+$lancet off
+$lancet status
+```
+
 ## Guardrails
 
 - Do not skip `clarify` when scope, non-goals, or decision boundaries are unresolved.
