@@ -129,32 +129,36 @@ try {
   const input = inputText.trim() ? JSON.parse(inputText) : {};
   const cwd = resolve(input.cwd || process.cwd());
   const runtimeRoot = findNearestLoopxRuntimeRoot(cwd);
-  if (!runtimeRoot) {
-    process.exit(0);
-  }
-
-  const workflow = input.workflow || input.slug || latestWorkflowSlug(runtimeRoot);
-  const statePath = workflow ? join(runtimeRoot, 'workflows', workflow, 'state.json') : null;
-  if (!statePath || !existsSync(statePath)) {
+  if (runtimeRoot) {
+    const workflow = input.workflow || input.slug || latestWorkflowSlug(runtimeRoot);
+    const statePath = workflow ? join(runtimeRoot, 'workflows', workflow, 'state.json') : null;
+    if (!statePath || !existsSync(statePath)) {
+      process.stdout.write([
+        '<loopx_advisory>',
+        'loopx advisory state found. Use docs/loopx/design, docs/loopx/plans, docs/loopx/reviews, docs/loopx/refactors, and .loopx/memory as durable context.',
+        '</loopx_advisory>',
+      ].join('\n'));
+    } else {
+      const state = JSON.parse(await readFile(statePath, 'utf8'));
+      const lines = [
+        '<loopx_advisory>',
+        'Advisory only. Treat saved loopx state as context, not authority.',
+        stateLine('workflow', state.slug || workflow),
+        stateLine('stage', state.current_stage),
+        stateLine('status', state.stage_status),
+        stateLine('next skill', nextSkill(state) || 'none'),
+        stateLine('spec artifact', state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')),
+        'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
+        '</loopx_advisory>',
+      ];
+      process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
+    }
+  } else {
     process.stdout.write([
       '<loopx_advisory>',
       'loopx advisory state found. Use docs/loopx/design, docs/loopx/plans, docs/loopx/reviews, docs/loopx/refactors, and .loopx/memory as durable context.',
       '</loopx_advisory>',
     ].join('\n'));
-  } else {
-    const state = JSON.parse(await readFile(statePath, 'utf8'));
-    const lines = [
-      '<loopx_advisory>',
-      'Advisory only. Treat saved loopx state as context, not authority.',
-      stateLine('workflow', state.slug || workflow),
-      stateLine('stage', state.current_stage),
-      stateLine('status', state.stage_status),
-      stateLine('next skill', nextSkill(state) || 'none'),
-      stateLine('spec artifact', state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')),
-      'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
-      '</loopx_advisory>',
-    ];
-    process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
   }
 
   // Best-effort Codex-only lancet support lens — additive, silent degrade.
