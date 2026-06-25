@@ -90,6 +90,20 @@ describe('codex lancet advisory hook', () => {
     assert.match(reviewOutput, /LANCET REVIEW ACTIVE/);
   });
 
+  it('injects stage-aware guidance even without a loopx runtime root', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-hook-home-'));
+    const env = { ...process.env, HOME: home, LOOPX_HOME: home };
+
+    await writeLancetSession({ env, mode: 'on', persistent: true });
+
+    const output = await runCodexHook({
+      env,
+      payload: { cwd: await mkdtemp(join(tmpdir(), 'loopx-hook-cwd-')), skillName: 'exec' },
+    });
+
+    assert.match(output, /LANCET IMPLEMENTATION ACTIVE/);
+  });
+
   it('silently degrades when session mode is off', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-hook-home-'));
     const env = { ...process.env, HOME: home, LOOPX_HOME: home };
