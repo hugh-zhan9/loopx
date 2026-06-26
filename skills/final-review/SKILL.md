@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Final Review
@@ -227,85 +227,12 @@ Do not report pure documentation polish, style preferences, or wording tweaks. D
 
 ## Final Review Output
 
-The complete final review output should include the template that matches the user's language.
+Before writing the final-review artifact, read the report template matching the user's language:
 
-For Chinese users, use this concrete structure:
+- Chinese users: `references/report-template.zh-CN.md`
+- English users: `references/report-template.en.md`
 
-```markdown
-# 最终评审报告
-
-## 修改摘要
-[面向用户说明本次完成的修改，包括主要涉及的文件/模块以及交付的预期行为。]
-
-## 需求 / 设计一致性
-| 设计点 / 需求 | 实现证据 | 状态 | 备注 |
-|---|---|---|---|
-| [需求文本] | [file:function 或测试证据] | 已一致 / 部分一致 / 不一致 | [简短原因] |
-
-## 需求覆盖矩阵
-[来自 Phase 1]
-
-## 支持视角风险扫描
-[来自 Phase 2]
-
-## 运行时验证结果
-[来自 Phase 3]
-
-## 代码评审发现
-[来自 Phase 5 — reviewer output]
-
-## 回归评估
-[来自 Phase 4]
-
-## 总体结论
-
-**Ready for finish?** [Yes | No | With fixes]
-
-**Coverage:** X/Y requirements fully covered
-**Runtime:** [Validated / Not validated + reason]
-**Regression:** [Clean / Issues found]
-
-**Blocking issues:** [list or "none"]
-```
-
-For English users, use this structure:
-
-```markdown
-# Final Review Report
-
-## Change Summary
-[User-readable summary of the completed change, including main files/modules touched and the intended behavior delivered.]
-
-## Requirements / Design Alignment
-| Design Point / Requirement | Implementation Evidence | Status | Notes |
-|---|---|---|---|
-| [requirement text] | [file:function or test evidence] | aligned / partial / not aligned | [short reason] |
-
-## Requirements Coverage Matrix
-[from Phase 1]
-
-## Support Lens Risk Scan
-[from Phase 2]
-
-## Runtime Validation Results
-[from Phase 3]
-
-## Code Review Findings
-[from Phase 5 — reviewer output]
-
-## Regression Assessment
-[from Phase 4]
-
-## Overall Assessment
-
-**Ready for finish?** [Yes | No | With fixes]
-
-**Coverage:** X/Y requirements fully covered
-**Runtime:** [Validated / Not validated + reason]
-**Regression:** [Clean / Issues found]
-
-**Blocking issues:** [list or "none"]
-```
+Use the selected template as the complete report structure. Keep `Ready for finish?` and exact status values `Yes`, `No`, and `With fixes` unchanged.
 
 After writing the artifact, tell the user:
 
