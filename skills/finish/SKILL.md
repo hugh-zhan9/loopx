@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Finish
@@ -77,7 +77,7 @@ This determines which menu to show and how cleanup works:
 | State | Menu | Cleanup |
 |-------|------|---------|
 | `GIT_DIR == GIT_COMMON` (normal repo) | 2 commit-placement options | No worktree cleanup |
-| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 worktree options | Provenance-based (see Step 7) |
+| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 worktree options | Provenance-based (see Step 8) |
 | `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 3 options (no merge) | No cleanup (externally managed) |
 
 ### Step 3: Determine Base Branch
@@ -89,7 +89,21 @@ git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 
 Or ask: "This branch split from main - is that correct?"
 
-### Step 4: Audit-First Learning Extraction
+### Step 4: Check Final Review Report
+
+Before presenting completion options, look for the latest `.loopx/final-review/<timestamp>-<slug>.md` report.
+
+If a report exists, read its `Overall Assessment` and capture:
+
+- report path
+- `Ready for finish?` value
+- `Blocking issues` summary
+
+If `Ready for finish?` is `No`, or if unresolved Critical or Important findings remain, stop and route to `fix-review` instead of presenting finish options.
+
+If no report exists, do not generate one inside `finish`. `finish` must not generate the final-review report or perform requirements/design alignment review. Tell the user no final-review artifact was found and ask whether to run `final-review` first, unless the user explicitly says final review was handled elsewhere.
+
+### Step 5: Audit-First Learning Extraction
 
 Run `finish-audit` before presenting commit, merge, PR, keep, or discard options.
 
@@ -203,7 +217,7 @@ Recommended domains:
 
 Spec candidates must be visible in the repo diff and reported in the completion summary. Do not silently change team specs.
 
-### Step 5: Present Options
+### Step 6: Present Options
 
 Present only the menu for the detected environment. Do not show worktree merge/discard options in a normal repo.
 
@@ -303,7 +317,7 @@ Chinese:
 
 **Don't add explanation** - keep options concise.
 
-### Step 6: Execute Choice
+### Step 7: Execute Choice
 
 #### Normal Repo Option 1: Commit On Current Branch
 
@@ -356,10 +370,10 @@ git merge <feature-branch>
 # Verify tests on merged result
 <test command>
 
-# Only after merge succeeds: cleanup worktree (Step 7), then delete branch
+# Only after merge succeeds: cleanup worktree (Step 8), then delete branch
 ```
 
-Then: Cleanup worktree (Step 7), then delete branch:
+Then: Cleanup worktree (Step 8), then delete branch:
 
 ```bash
 git branch -d <feature-branch>
@@ -410,12 +424,12 @@ MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-tople
 cd "$MAIN_ROOT"
 ```
 
-Then: Cleanup worktree (Step 7), then force-delete branch:
+Then: Cleanup worktree (Step 8), then force-delete branch:
 ```bash
 git branch -D <feature-branch>
 ```
 
-### Step 7: Cleanup Workspace
+### Step 8: Cleanup Workspace
 
 **Only runs for worktree Options 1 and 4.** Normal repo choices never remove a worktree. Worktree Options 2 and 3 always preserve the worktree.
 
@@ -451,11 +465,16 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 ## Completion Summary Contract
 
-Every finish completion summary must include the verification result, chosen completion action, memory changes, and Spec candidates.
+Every finish completion summary must include the verification result, chosen completion action, final-review evidence, memory changes, and Spec candidates.
 
 Use this shape:
 
 ```text
+Final review:
+- report path: .loopx/final-review/<timestamp>-<slug>.md
+- ready for finish: <Yes | With fixes | not found / externally handled>
+- blocking issues: <none | summary>
+
 Memory:
 - updated: .loopx/memory/MEMORY.md
 - shared: docs/loopx/memory/<file>.md
@@ -465,6 +484,15 @@ Memory:
 
 Spec candidates:
 - docs/loopx/specs/<domain>.md: <candidate change>
+```
+
+If no final-review report exists and the user explicitly continues because review was handled elsewhere, report:
+
+```text
+Final review:
+- report path: none
+- ready for finish: externally handled
+- blocking issues: unknown
 ```
 
 If there are no memory changes or spec candidates, report `none`. Do not write `none` into memory.
@@ -507,10 +535,15 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 - **Problem:** Chinese users get English menus and confirmations
 - **Fix:** Match the user's language for prompts and summaries while preserving commands, paths, and branch names
 
+**Generating the final-review report inside finish**
+- **Problem:** `finish` becomes responsible for requirements/design alignment and duplicates `final-review`.
+- **Fix:** `finish` only reads or cites `.loopx/final-review/<timestamp>-<slug>.md`; run `final-review` first when the report is missing.
+
 ## Red Flags
 
 **Never:**
 - Proceed with failing tests
+- Generate the final-review report inside `finish`
 - Merge without verifying tests on result
 - Delete work without confirmation
 - Force-push without explicit request
