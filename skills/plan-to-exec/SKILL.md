@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -17,7 +17,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 Use this skill after requirements are clear. The source may be:
 
-- `docs/loopx/design/<需求名>需求设计文档.md`
+- `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
 - `.loopx/intake/clarify-<slug>-<timestamp>.md`
 - an issue, PRD, or requirements document that already fixes material decisions
 
