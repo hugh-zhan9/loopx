@@ -566,15 +566,32 @@ describe('loopx skill governance', () => {
     assert.match(template, /重复请求/);
     assert.match(template, /#### 4\.x\.5 不变行为/);
     assert.match(template, /### 3\.6 专项设计检查/);
-    for (const text of [specSkill, clarifySkill, planToExecSkill, template, skillsDoc, skillsDocZh]) {
+    const currentProductSurfaces = [
+      ['skills/spec/SKILL.md', specSkill],
+      ['skills/clarify/SKILL.md', clarifySkill],
+      ['skills/plan-to-exec/SKILL.md', planToExecSkill],
+      ['skills/spec/DESIGN_SPEC_TEMPLATE.md', template],
+      ['docs/loopx/skills.md', skillsDoc],
+      ['docs/loopx/skills.zh-CN.md', skillsDocZh],
+    ];
+
+    for (const [, text] of currentProductSurfaces) {
       assert.match(text, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.md/);
     }
     assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/设计提案\.md/);
     assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/设计提案\.html/);
     assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.html/);
     assert.match(specSkill, /Derive `<kebab-slug>`/);
-    assert.doesNotMatch(specSkill, /docs\/loopx\/design\/<需求名>设计提案\.md/);
-    assert.doesNotMatch(specSkill, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
+    const oldCurrentProductPathPatterns = [
+      /docs\/loopx\/design\/<需求名>设计提案\.md/,
+      /docs\/loopx\/design\/<需求名>需求设计文档\.md/,
+      /docs\/loopx\/design\/<需求名>(?:\s|$|[`'")，。；、])/,
+    ];
+    for (const [label, text] of currentProductSurfaces) {
+      for (const pattern of oldCurrentProductPathPatterns) {
+        assert.doesNotMatch(text, pattern, `${label} should not reference old current-product spec path ${pattern}`);
+      }
+    }
   });
 
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
