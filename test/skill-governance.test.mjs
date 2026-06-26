@@ -540,8 +540,12 @@ describe('loopx skill governance', () => {
 
   it('spec requires boundary scenarios in proposal and detailed design', async () => {
     const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
+    const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    const planToExecSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const proposal = await readFile(join(repoRoot, 'skills', 'spec', 'references', 'design-proposal.md'), 'utf8');
     const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+    const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
+    const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
     assert.match(specSkill, /boundary scenarios/i);
     assert.match(specSkill, /invalid inputs/);
@@ -562,6 +566,15 @@ describe('loopx skill governance', () => {
     assert.match(template, /重复请求/);
     assert.match(template, /#### 4\.x\.5 不变行为/);
     assert.match(template, /### 3\.6 专项设计检查/);
+    for (const text of [specSkill, clarifySkill, planToExecSkill, template, skillsDoc, skillsDocZh]) {
+      assert.match(text, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.md/);
+    }
+    assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/设计提案\.md/);
+    assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/设计提案\.html/);
+    assert.match(specSkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.html/);
+    assert.match(specSkill, /Derive `<kebab-slug>`/);
+    assert.doesNotMatch(specSkill, /docs\/loopx\/design\/<需求名>设计提案\.md/);
+    assert.doesNotMatch(specSkill, /docs\/loopx\/design\/<需求名>需求设计文档\.md/);
   });
 
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
@@ -595,6 +608,12 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /Match the user's language/);
     assert.match(finalReviewSkill, /If the user asked in Chinese/);
     assert.match(finalReviewSkill, /write the final-review report in Chinese/);
+    assert.match(finalReviewSkill, /# 最终评审报告/);
+    assert.match(finalReviewSkill, /## 修改摘要/);
+    assert.match(finalReviewSkill, /## 需求 \/ 设计一致性/);
+    assert.match(finalReviewSkill, /## 需求覆盖矩阵/);
+    assert.match(finalReviewSkill, /## 总体结论/);
+    assert.match(finalReviewSkill, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
 
     assert.match(finishSkill, /latest `.loopx\/final-review\/<timestamp>-<slug>\.md`/);
     assert.match(finishSkill, /Final review:/);
