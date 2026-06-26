@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Final Review
@@ -37,6 +37,20 @@ Before dispatching the reviewer, collect:
 - Per-task review artifacts, if available
 
 If the git range or requirements are unclear, stop and ask. A final review without a concrete scope is not useful.
+
+## Report Artifact
+
+Write the complete final review report to:
+
+```text
+.loopx/final-review/<timestamp>-<slug>.md
+```
+
+Use a UTC timestamp such as `YYYYMMDDTHHMMSSZ`. Derive `<slug>` from the plan, spec, issue, task brief, or feature name. If no source slug is available, use `final-review`.
+
+The report artifact is local workflow state for human inspection before `finish`. It is not repo-tracked by default. Do not move it under `docs/loopx/` unless the user explicitly asks for repo-tracked review records.
+
+The chat response may summarize the result, but the complete report must be in the artifact file.
 
 ## The Final Review Process
 
@@ -209,6 +223,14 @@ The complete final review output should include:
 ```markdown
 # Final Review Report
 
+## Change Summary
+[User-readable summary of the completed change, including main files/modules touched and the intended behavior delivered.]
+
+## Requirements / Design Alignment
+| Design Point / Requirement | Implementation Evidence | Status | Notes |
+|---|---|---|---|
+| [requirement text] | [file:function or test evidence] | aligned / partial / not aligned | [short reason] |
+
 ## Requirements Coverage Matrix
 [from Phase 1]
 
@@ -234,6 +256,16 @@ The complete final review output should include:
 
 **Blocking issues:** [list or "none"]
 ```
+
+After writing the artifact, tell the user:
+
+```text
+Final review report saved to `.loopx/final-review/<timestamp>-<slug>.md`.
+Ready for finish: <Yes | No | With fixes>
+Blocking issues: <none | summary>
+```
+
+Do not proceed to `finish` when the report says `Ready for finish? No` or unresolved Critical/Important findings remain.
 
 ## Common Mistakes
 
