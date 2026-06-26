@@ -31,7 +31,7 @@ issue -> fix -> finish
 | Skill | 什么时候用 | 产出 |
 |---|---|---|
 | `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | 已回答的问题，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
-| `spec` | 产品行为、API、数据、状态、权限、迁移、兼容、边界场景或架构决策需要先固定。 | 默认在 `docs/loopx/design/` 下同时产出设计提案和详细设计文档。 |
+| `spec` | 产品行为、API、数据、状态、权限、迁移、兼容、边界场景或架构决策需要先固定。 | 默认产出 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md` 和 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`。 |
 | `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 | `docs/loopx/codebase-specs/` 下的详细 codebase spec。 |
 | `plan-to-exec` | 需求或 spec 已批准，需要拆成可执行任务。 | `docs/loopx/plans/` 下的小步实施计划。 |
 | `subagent-exec` | 已批准计划包含独立任务，并且可以使用 subagents。 | 带 staged review checkpoints 的任务执行结果。 |
@@ -67,7 +67,7 @@ issue -> fix -> finish
 按这条规则路由：
 
 1. 工作还不清楚，用 `clarify`。
-2. 计划前需要固定决策，用 `spec`；默认同时输出设计提案和详细设计文档。
+2. 计划前需要固定决策，用 `spec`；默认在 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/` 下同时输出 `设计提案.md` 和 `需求设计文档.md`。
 3. 用户要记录当前代码库现状而不是设计未来变更，用 `codebase-spec`。
 4. 设计已定，需要拆任务，用 `plan-to-exec`。
 5. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
@@ -80,7 +80,7 @@ issue -> fix -> finish
 
 - 数据库 feature 可以走 `clarify -> spec`，在 `spec` 中叠加 `sql-style`，然后进入 `plan-to-exec`。
 - 公共 API 变更可以在 `spec` 和 `review` 中使用 `api-designer`。
-- 高风险架构变更应该让 `spec` 同时产出 `<需求名>设计提案.md` 和 `<需求名>需求设计文档.md`。
+- 高风险架构变更应该让 `spec` 默认在 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/` 下同时产出 `设计提案.md` 和 `需求设计文档.md`。
 - 失败测试应该先走 `debug`；新行为可以在实现前使用 `tdd`。
 - 不希望污染当前 checkout 的实现工作，可以在 `exec` 或手动编辑前使用 `using-git-worktrees`。
 - Codex 的实现和评审工作在启用时会自动收到 `lancet` 指引；其他 agent 需要时应显式调用 `lancet`。

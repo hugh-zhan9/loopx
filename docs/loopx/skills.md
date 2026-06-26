@@ -31,7 +31,7 @@ issue -> fix -> finish
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | Answered questions and a route to `spec` or `plan-to-exec`. |
-| `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, both a design proposal and detailed design spec under `docs/loopx/design/`. |
+| `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md` and `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. | A detailed codebase spec under `docs/loopx/codebase-specs/`. |
 | `plan-to-exec` | Requirements or a spec are approved and need executable tasks. | A bite-sized implementation plan under `docs/loopx/plans/`. |
 | `subagent-exec` | An approved plan has independent tasks and subagents are available. | Implemented tasks with staged review checkpoints. |
@@ -67,7 +67,7 @@ issue -> fix -> finish
 Use this routing rule:
 
 1. If the work is unclear, start with `clarify`.
-2. If decisions must be fixed before planning, use `spec`; by default it writes both the design proposal and the detailed design.
+2. If decisions must be fixed before planning, use `spec`; by default it writes both the design proposal and the detailed design under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`.
 3. If the user wants to document the current codebase instead of designing a future change, use `codebase-spec`.
 4. If the design is settled and work needs tasks, use `plan-to-exec`.
 5. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.
@@ -80,7 +80,7 @@ Support skills can be layered onto this path. For example:
 
 - A database feature may go through `clarify -> spec` with `sql-style`, then `plan-to-exec`.
 - A public API change may use `api-designer` during `spec` and `review`.
-- A risky architecture change should have `spec` produce both `<需求名>设计提案.md` and `<需求名>需求设计文档.md`.
+- A risky architecture change should have `spec` produce both `设计提案.md` and `需求设计文档.md` inside `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`.
 - A failing test should route to `debug`; a new behavior can route to `tdd` before implementation.
 - Implementation that should not touch the current checkout can use `using-git-worktrees` before `exec` or manual edits.
 - Codex implementation and review work automatically receives `lancet` guidance when enabled; other agents should invoke `lancet` explicitly when needed.

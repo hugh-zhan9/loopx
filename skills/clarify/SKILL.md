@@ -88,19 +88,19 @@ Use `direct_to_plan` when goals, non-goals, constraints, affected scope, and ver
 
 Use `blocked` when any material requirement or decision boundary is still unclear.
 
-For `needs_spec`, immediately use the `spec` skill with the clarification context bundle, current conversation context, repo evidence, and source documents. `spec` writes:
+For `needs_spec`, immediately use the `spec` skill with the clarification context bundle, current conversation context, repo evidence, and source documents. `spec` writes a dated design package under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`, including:
 
-- `docs/loopx/design/<需求名>需求设计文档.md`
+- `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
 
 Then stop before implementation planning and report:
 
 ```text
 skill: plan-to-exec
-args: docs/loopx/design/<需求名>需求设计文档.md
-Codex: $plan-to-exec docs/loopx/design/<需求名>需求设计文档.md
-Claude Code: /plan-to-exec docs/loopx/design/<需求名>需求设计文档.md
-Cursor Agent Skills: /plan-to-exec docs/loopx/design/<需求名>需求设计文档.md
-Generic: Use the plan-to-exec skill with docs/loopx/design/<需求名>需求设计文档.md.
+args: docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Codex: $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Claude Code: /plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Cursor Agent Skills: /plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Generic: Use the plan-to-exec skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
 ```
 
 For `direct_to_plan`, hand off to the `plan-to-exec` skill with the clarification context bundle as the source. `plan-to-exec` writes:
