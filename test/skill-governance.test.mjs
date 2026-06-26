@@ -615,22 +615,45 @@ describe('loopx skill governance', () => {
   it('final-review persists a human-reviewable report artifact before finish', async () => {
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+    const zhTemplate = await readFile(
+      join(repoRoot, 'skills', 'final-review', 'references', 'report-template.zh-CN.md'),
+      'utf8',
+    );
+    const enTemplate = await readFile(
+      join(repoRoot, 'skills', 'final-review', 'references', 'report-template.en.md'),
+      'utf8',
+    );
 
     assert.match(finalReviewSkill, /\.loopx\/final-review\/<timestamp>-<slug>\.md/);
     assert.match(finalReviewSkill, /Write the complete final review report/);
-    assert.match(finalReviewSkill, /## Change Summary/);
-    assert.match(finalReviewSkill, /## Requirements \/ Design Alignment/);
     assert.match(finalReviewSkill, /human/i);
     assert.match(finalReviewSkill, /Ready for finish\?/);
     assert.match(finalReviewSkill, /Match the user's language/);
     assert.match(finalReviewSkill, /If the user asked in Chinese/);
     assert.match(finalReviewSkill, /write the final-review report in Chinese/);
-    assert.match(finalReviewSkill, /# 最终评审报告/);
-    assert.match(finalReviewSkill, /## 修改摘要/);
-    assert.match(finalReviewSkill, /## 需求 \/ 设计一致性/);
-    assert.match(finalReviewSkill, /## 需求覆盖矩阵/);
-    assert.match(finalReviewSkill, /## 总体结论/);
-    assert.match(finalReviewSkill, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
+    assert.match(finalReviewSkill, /references\/report-template\.zh-CN\.md/);
+    assert.match(finalReviewSkill, /references\/report-template\.en\.md/);
+    assert.match(finalReviewSkill, /read the report template matching the user's language/i);
+    assert.match(finalReviewSkill, /before writing the final-review artifact/i);
+
+    assert.match(zhTemplate, /# 最终评审报告/);
+    assert.match(zhTemplate, /## 修改摘要/);
+    assert.match(zhTemplate, /## 需求 \/ 设计一致性/);
+    assert.match(zhTemplate, /## 需求覆盖矩阵/);
+    assert.match(zhTemplate, /## 总体结论/);
+    assert.match(zhTemplate, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
+
+    assert.match(enTemplate, /# Final Review Report/);
+    assert.match(enTemplate, /## Change Summary/);
+    assert.match(enTemplate, /## Requirements \/ Design Alignment/);
+    assert.match(enTemplate, /## Requirements Coverage Matrix/);
+    assert.match(enTemplate, /## Overall Assessment/);
+    assert.match(enTemplate, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
+
+    assert.doesNotMatch(finalReviewSkill, /^# 最终评审报告/m);
+    assert.doesNotMatch(finalReviewSkill, /^# Final Review Report/m);
+    assert.doesNotMatch(finalReviewSkill, /^## 修改摘要/m);
+    assert.doesNotMatch(finalReviewSkill, /^## Change Summary/m);
 
     assert.match(finishSkill, /latest `.loopx\/final-review\/<timestamp>-<slug>\.md`/);
     assert.match(finishSkill, /Final review:/);
