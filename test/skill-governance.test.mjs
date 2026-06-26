@@ -582,6 +582,24 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /five phases/);
   });
 
+  it('final-review persists a human-reviewable report artifact before finish', async () => {
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+
+    assert.match(finalReviewSkill, /\.loopx\/final-review\/<timestamp>-<slug>\.md/);
+    assert.match(finalReviewSkill, /Write the complete final review report/);
+    assert.match(finalReviewSkill, /## Change Summary/);
+    assert.match(finalReviewSkill, /## Requirements \/ Design Alignment/);
+    assert.match(finalReviewSkill, /human/i);
+    assert.match(finalReviewSkill, /Ready for finish\?/);
+
+    assert.match(finishSkill, /latest `.loopx\/final-review\/<timestamp>-<slug>\.md`/);
+    assert.match(finishSkill, /Final review:/);
+    assert.match(finishSkill, /report path/);
+    assert.match(finishSkill, /blocking issues/);
+    assert.match(finishSkill, /must not generate/i);
+  });
+
   it('threads lancet through implementation and review contracts without collapsing planning freedom', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
