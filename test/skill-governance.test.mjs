@@ -592,6 +592,9 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /## Requirements \/ Design Alignment/);
     assert.match(finalReviewSkill, /human/i);
     assert.match(finalReviewSkill, /Ready for finish\?/);
+    assert.match(finalReviewSkill, /Match the user's language/);
+    assert.match(finalReviewSkill, /If the user asked in Chinese/);
+    assert.match(finalReviewSkill, /write the final-review report in Chinese/);
 
     assert.match(finishSkill, /latest `.loopx\/final-review\/<timestamp>-<slug>\.md`/);
     assert.match(finishSkill, /Final review:/);
