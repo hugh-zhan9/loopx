@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Final Review
@@ -13,6 +13,15 @@ Run the final whole-feature review after implementation is complete and before `
 **Core principle:** Per-task review catches local issues. Final review hunts integration and runtime risk across the complete feature, verifies all requirements are met, and validates real behavior.
 
 **Announce at start:** "I'm using the final-review skill to review the completed feature."
+
+## User-Facing Language
+
+Match the user's language for the report artifact, report summary, and readiness/blocking issue wording.
+
+- If the user asked in Chinese, write the final-review report in Chinese.
+- If the user asked in English, write the final-review report in English.
+- If the user mixed languages, follow the dominant language in the current turn.
+- Keep commands, file paths, branch names, skill names, `Ready for finish?`, and exact status values such as `Yes`, `No`, and `With fixes` unchanged.
 
 ## When to Use
 
