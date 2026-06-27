@@ -52,10 +52,10 @@ If the git range or requirements are unclear, stop and ask. A final review witho
 Write the complete final review report to:
 
 ```text
-.loopx/final-review/<timestamp>-<slug>.md
+.loopx/final-review/YYYY-MM-DD-<slug>.md
 ```
 
-Use a UTC timestamp such as `YYYYMMDDTHHMMSSZ`. Derive `<slug>` from the plan, spec, issue, task brief, or feature name. If no source slug is available, use `final-review`.
+Use `YYYY-MM-DD` as the date prefix. Derive `<slug>` from the plan, spec, issue, task brief, or feature name. If no source slug is available, use `final-review`.
 
 The report artifact is local workflow state for human inspection before `finish`. It is not repo-tracked by default. Do not move it under `docs/loopx/` unless the user explicitly asks for repo-tracked review records.
 
@@ -237,7 +237,7 @@ Use the selected template as the complete report structure. Keep `Ready for fini
 After writing the artifact, tell the user:
 
 ```text
-Final review report saved to `.loopx/final-review/<timestamp>-<slug>.md`.
+Final review report saved to `.loopx/final-review/YYYY-MM-DD-<slug>.md`.
 Ready for finish: <Yes | No | With fixes>
 Blocking issues: <none | summary>
 ```

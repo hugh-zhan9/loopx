@@ -180,7 +180,7 @@ describe('loopx skill governance', () => {
     assert.match(fields['metadata.version'] ?? '', semverPattern);
     assert.match(clarifySkill, /Write the clarification context bundle \*\*incrementally\*\*/);
     assert.match(clarifySkill, /Do not wait until all questions are resolved/);
-    assert.match(clarifySkill, /\.loopx\/intake\/clarify-<slug>-<timestamp>\.md/);
+    assert.match(clarifySkill, /\.loopx\/intake\/clarify-<slug>-YYYY-MM-DD\.md/);
     assert.match(clarifySkill, /first material answer/);
     assert.match(clarifySkill, /\[PENDING\]/);
     assert.match(clarifySkill, /## Resume State/);
@@ -208,7 +208,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
     assert.equal(fields['metadata.version'], '0.3.5');
-    assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-<timestamp>\.md/);
+    assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-YYYY-MM-DD\.md/);
     assert.match(issueSkill, /phase/);
     assert.match(issueSkill, /status/);
     assert.match(issueSkill, /Triage Decision Matrix/);
@@ -624,7 +624,7 @@ describe('loopx skill governance', () => {
       'utf8',
     );
 
-    assert.match(finalReviewSkill, /\.loopx\/final-review\/<timestamp>-<slug>\.md/);
+    assert.match(finalReviewSkill, /\.loopx\/final-review\/YYYY-MM-DD-<slug>\.md/);
     assert.match(finalReviewSkill, /Write the complete final review report/);
     assert.match(finalReviewSkill, /human/i);
     assert.match(finalReviewSkill, /Ready for finish\?/);
@@ -655,7 +655,7 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(finalReviewSkill, /^## 修改摘要/m);
     assert.doesNotMatch(finalReviewSkill, /^## Change Summary/m);
 
-    assert.match(finishSkill, /latest `.loopx\/final-review\/<timestamp>-<slug>\.md`/);
+    assert.match(finishSkill, /latest `.loopx\/final-review\/YYYY-MM-DD-<slug>\.md`/);
     assert.match(finishSkill, /Final review:/);
     assert.match(finishSkill, /report path/);
     assert.match(finishSkill, /blocking issues/);

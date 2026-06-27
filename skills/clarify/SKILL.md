@@ -37,7 +37,7 @@ Write the clarification context bundle **incrementally** — start the file afte
 
 Write to:
 
-- `.loopx/intake/clarify-<slug>-<timestamp>.md`
+- `.loopx/intake/clarify-<slug>-YYYY-MM-DD.md`
 
 **Incremental writing rules:**
 
