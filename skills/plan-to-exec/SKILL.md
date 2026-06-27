@@ -18,7 +18,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 Use this skill after requirements are clear. The source may be:
 
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
-- `.loopx/intake/clarify-<slug>-<timestamp>.md`
+- `.loopx/intake/clarify-<slug>-YYYY-MM-DD.md`
 - an issue, PRD, or requirements document that already fixes material decisions
 
 ## Repo Specs And Memory Context

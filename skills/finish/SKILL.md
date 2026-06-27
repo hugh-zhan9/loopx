@@ -91,7 +91,7 @@ Or ask: "This branch split from main - is that correct?"
 
 ### Step 4: Check Final Review Report
 
-Before presenting completion options, look for the latest `.loopx/final-review/<timestamp>-<slug>.md` report.
+Before presenting completion options, look for the latest `.loopx/final-review/YYYY-MM-DD-<slug>.md` report.
 
 If a report exists, read its `Overall Assessment` and capture:
 
@@ -471,7 +471,7 @@ Use this shape:
 
 ```text
 Final review:
-- report path: .loopx/final-review/<timestamp>-<slug>.md
+- report path: .loopx/final-review/YYYY-MM-DD-<slug>.md
 - ready for finish: <Yes | With fixes | not found / externally handled>
 - blocking issues: <none | summary>
 
@@ -537,7 +537,7 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 
 **Generating the final-review report inside finish**
 - **Problem:** `finish` becomes responsible for requirements/design alignment and duplicates `final-review`.
-- **Fix:** `finish` only reads or cites `.loopx/final-review/<timestamp>-<slug>.md`; run `final-review` first when the report is missing.
+- **Fix:** `finish` only reads or cites `.loopx/final-review/YYYY-MM-DD-<slug>.md`; run `final-review` first when the report is missing.
 
 ## Red Flags
 

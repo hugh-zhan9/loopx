@@ -29,7 +29,7 @@ clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review ->
 `issue` creates or updates a local ledger:
 
 ```text
-.loopx/issues/issue-<slug>-<timestamp>.md
+.loopx/issues/issue-<slug>-YYYY-MM-DD.md
 ```
 
 `issue` does not perform lasting product code changes. It may read code, run commands, and inspect git history. Temporary diagnostic edits are allowed only on a clean worktree by default. If the worktree is dirty, do not create temporary diagnostic edits unless the user explicitly allows them; when allowed, record a baseline diff first, then roll back the diagnostic diff or record it as a diagnostic patch for `fix`.
@@ -91,8 +91,8 @@ metadata:
   phase: intake | triage | diagnosis | fix_brief | closeout
   status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | blocked
   source: pasted | local_file | failing_test | build_failure | reproduction_notes | existing_ledger
-  created_at: <timestamp>
-  updated_at: <timestamp>
+  created_at: YYYY-MM-DD
+  updated_at: YYYY-MM-DD
 
 ## Source
 
@@ -172,7 +172,7 @@ diagnosis:
 
 ## Evidence Log
 
-- <timestamp> <command/file/observation> -> <result>
+- YYYY-MM-DD <command/file/observation> -> <result>
 ```
 
 ## Process

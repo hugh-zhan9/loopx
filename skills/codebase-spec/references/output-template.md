@@ -5,7 +5,7 @@ Use this structure for the final Markdown unless the user requested another form
 ```markdown
 # <Project Or Module> Codebase Spec
 
-Generated from repository evidence on <YYYY-MM-DD>.
+Generated from repository evidence on YYYY-MM-DD.
 
 ## 1. Executive Summary
 

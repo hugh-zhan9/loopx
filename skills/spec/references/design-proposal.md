@@ -48,7 +48,7 @@ Each meaningful fork should become either a chosen decision, a rejected alternat
 # <一句话结论式标题>
 
 Author(s): <author or team>
-Last updated: <YYYY-MM-DD>
+Last updated: YYYY-MM-DD
 Status: Draft | Under review | Accepted | Rejected
 Discussion: <link or 不涉及>
 Source requirements: <PRD / clarify output / issue / notes>

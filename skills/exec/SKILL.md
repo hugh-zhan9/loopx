@@ -151,7 +151,7 @@ After each task is marked complete, write or update the checkpoint file:
 - Plan: docs/loopx/plans/<slug>.md
 - Baseline SHA: <finish-start SHA>
 - Current SHA: <latest commit>
-- Last updated: <timestamp>
+- Last updated: YYYY-MM-DD
 
 ## Progress
 
