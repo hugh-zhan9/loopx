@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,7 +94,32 @@ function resolveIntakeRoot(cwd) {
   return join(resolveWorkspaceRoot(cwd), 'intake');
 }
 
-function canonicalClarifySpecPath(cwd, slug, stamp) {
+function intakeDateStamp() {
+  return nowIso().slice(0, 10);
+}
+
+function intakeTimeSuffix() {
+  return nowIso().slice(11, 19).replaceAll(':', '');
+}
+
+function intakePackageName(slug, suffix = null) {
+  const base = `${intakeDateStamp()}-${normalizeSlug(slug)}`;
+  return suffix ? `${base}-${suffix}` : base;
+}
+
+function intakePackagePath(cwd, slug, suffix = null) {
+  return join(resolveIntakeRoot(cwd), intakePackageName(slug, suffix));
+}
+
+function intakeChildPaths(packagePath) {
+  return {
+    clarification_path: join(packagePath, 'clarification.md'),
+    requirements_path: join(packagePath, 'requirements.md'),
+    test_cases_path: join(packagePath, 'test-cases.md'),
+  };
+}
+
+function legacyClarifySpecPath(cwd, slug, stamp) {
   return join(resolveIntakeRoot(cwd), `clarify-${normalizeSlug(slug)}-${stamp}.md`);
 }
 
@@ -141,7 +166,8 @@ function buildWorkspaceReadme() {
     '',
     '- `workflows/<slug>/state.json`',
     '- `workflows/<slug>/spec.md`',
-    '- `intake/clarify-*.md` clarify snapshots',
+    '- `intake/YYYY-MM-DD-<slug>/` clarify intake packages (`clarification.md`, `requirements.md`, `test-cases.md`)',
+    '- historical `intake/clarify-*.md` clarify snapshots may exist from older loopx versions',
     '- `context/domain.md` and `agents/*.md` for project context and collaboration guidance',
     '- `finish/` audit state',
     '- `views/` and `workflows/<slug>/view/` generated HTML views',
@@ -172,6 +198,10 @@ function createInitialState(slug, profile) {
       },
     ],
     unresolved_ambiguity_count: 1,
+    intake_package_path: null,
+    clarification_path: null,
+    requirements_path: null,
+    test_cases_path: null,
     spec_artifact_path: null,
     recommended_next_action: `Run $clarify ${slug} until the spec is handoff-ready.`,
   };
@@ -287,24 +317,62 @@ function relativeOrAbsolute(cwd, path) {
   return rel && !rel.startsWith('..') ? rel : path;
 }
 
-async function writeTemplateArtifact(root, name, replacements) {
+async function renderTemplate(name, replacements) {
   const templatePath = resolve(MODULE_DIR, '..', 'templates', name);
   let text = await readFile(templatePath, 'utf8');
   for (const [key, value] of Object.entries(replacements)) {
     text = text.replaceAll(`<${key}>`, String(value));
   }
-  await writeText(join(root, name), text);
+  return text;
 }
 
-async function copyArtifact(root, target, name) {
-  await ensureDir(dirname(target));
-  await cp(join(root, name), target);
+async function writeTemplateArtifact(root, name, replacements) {
+  await writeText(join(root, name), await renderTemplate(name, replacements));
+}
+
+async function writeTemplateToPath(target, templateName, replacements) {
+  await writeText(target, await renderTemplate(templateName, replacements));
+}
+
+async function createIntakePackage(cwd, slug, replacements) {
+  let packagePath = intakePackagePath(cwd, slug);
+  if (existsSync(packagePath)) {
+    packagePath = intakePackagePath(cwd, slug, intakeTimeSuffix());
+  }
+  let counter = 2;
+  while (existsSync(packagePath)) {
+    packagePath = intakePackagePath(cwd, slug, `${intakeTimeSuffix()}-${counter}`);
+    counter += 1;
+  }
+
+  await ensureDir(packagePath);
+  const childPaths = intakeChildPaths(packagePath);
+  await writeTemplateToPath(childPaths.clarification_path, 'intake-clarification.md', replacements);
+  await writeTemplateToPath(childPaths.requirements_path, 'intake-requirements.md', replacements);
+  await writeTemplateToPath(childPaths.test_cases_path, 'intake-test-cases.md', replacements);
+
+  return {
+    intake_package_path: packagePath,
+    ...childPaths,
+  };
 }
 
 function workflowArtifactStatus(root, state) {
   const specPath = state?.spec_artifact_path || join(root, 'spec.md');
+  const intakePackagePath = state?.intake_package_path || null;
+  const clarificationPath = state?.clarification_path || null;
+  const requirementsPath = state?.requirements_path || specPath;
+  const testCasesPath = state?.test_cases_path || null;
   return {
     'spec.md': existsSync(join(root, 'spec.md')),
+    intake_package_path: intakePackagePath,
+    intake_package_exists: intakePackagePath ? existsSync(intakePackagePath) : false,
+    clarification_path: clarificationPath,
+    clarification_exists: clarificationPath ? existsSync(clarificationPath) : false,
+    requirements_path: requirementsPath,
+    requirements_exists: requirementsPath ? existsSync(requirementsPath) : false,
+    test_cases_path: testCasesPath,
+    test_cases_exists: testCasesPath ? existsSync(testCasesPath) : false,
     spec_artifact_path: specPath,
     spec_artifact_exists: existsSync(specPath),
   };
@@ -384,18 +452,17 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
   const existing = await readState(cwd, normalized);
   await ensureLoopxRoot(cwd);
   await ensureDir(root);
-  const stamp = nowStamp();
+  const replacements = {
+    'task name': normalized,
+    'workflow id': normalized,
+    profile: clarifyProfile,
+    'target ambiguity threshold': CLARIFY_PROFILES[clarifyProfile].threshold,
+    'max rounds': CLARIFY_PROFILES[clarifyProfile].maxRounds,
+  };
   if (!existsSync(join(root, 'spec.md'))) {
-    await writeTemplateArtifact(root, 'spec.md', {
-      'task name': normalized,
-      'workflow id': normalized,
-      profile: clarifyProfile,
-      'target ambiguity threshold': CLARIFY_PROFILES[clarifyProfile].threshold,
-      'max rounds': CLARIFY_PROFILES[clarifyProfile].maxRounds,
-    });
+    await writeTemplateArtifact(root, 'spec.md', replacements);
   }
-  const specArtifactPath = canonicalClarifySpecPath(cwd, normalized, stamp);
-  await copyArtifact(root, specArtifactPath, 'spec.md');
+  const intakePackage = await createIntakePackage(cwd, normalized, replacements);
   const base = existing || createInitialState(normalized, clarifyProfile);
   const state = withRecommendedAction({
     ...base,
@@ -406,7 +473,11 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
     clarify_profile: clarifyProfile,
     clarify_target_ambiguity_threshold: CLARIFY_PROFILES[clarifyProfile].threshold,
     clarify_max_rounds: CLARIFY_PROFILES[clarifyProfile].maxRounds,
-    spec_artifact_path: specArtifactPath,
+    intake_package_path: intakePackage.intake_package_path,
+    clarification_path: intakePackage.clarification_path,
+    requirements_path: intakePackage.requirements_path,
+    test_cases_path: intakePackage.test_cases_path,
+    spec_artifact_path: intakePackage.requirements_path,
   });
   await writeText(statePath(root), JSON.stringify(state, null, 2));
   return { root, state };
@@ -444,8 +515,8 @@ export async function statusSummary(cwd, slug) {
     : withRecommendedAction(state);
   const artifacts = state ? workflowArtifactStatus(root, statusState) : {};
   const missing = Object.entries(artifacts)
-    .filter(([key, present]) => key.endsWith('.md') && !present)
-    .map(([name]) => name);
+    .filter(([key, present]) => key.endsWith('_exists') && present === false)
+    .map(([name]) => name.replace(/_exists$/, ''));
   return {
     initialized,
     workspaceRoot,
@@ -460,6 +531,10 @@ export async function statusSummary(cwd, slug) {
     contextSetup,
     contextArtifacts,
     next_skill_command: nextSkillCommand(statusState),
+    intake_package_path: statusState?.intake_package_path ? relativeOrAbsolute(cwd, statusState.intake_package_path) : null,
+    clarification_path: statusState?.clarification_path ? relativeOrAbsolute(cwd, statusState.clarification_path) : null,
+    requirements_path: statusState?.requirements_path ? relativeOrAbsolute(cwd, statusState.requirements_path) : null,
+    test_cases_path: statusState?.test_cases_path ? relativeOrAbsolute(cwd, statusState.test_cases_path) : null,
     spec_artifact_path: statusState?.spec_artifact_path ? relativeOrAbsolute(cwd, statusState.spec_artifact_path) : null,
     next_action: statusState ? recommendedAction(statusState) : 'Run loopx clarify to start a workflow.',
   };
