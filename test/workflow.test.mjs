@@ -16,6 +16,10 @@ const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function loopxEnv(home) {
   return {
     ...process.env,
@@ -143,20 +147,32 @@ describe('loopx retained workflow shell', () => {
     await writeResolvedSpec(clarified.root, 'ready-flow');
 
     const status = await statusSummary(wd, 'ready-flow');
+    const expectedPlanCommand = `$plan-to-exec ${status.state.intake_package_path}`;
     assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.state.next_skill_command, '$plan-to-exec ready-flow');
-    assert.equal(status.next_skill_command, '$plan-to-exec ready-flow');
+    assert.equal(status.state.next_skill_command, expectedPlanCommand);
+    assert.equal(status.next_skill_command, expectedPlanCommand);
 
     const payload = withNextSkill({ ok: true }, status.state);
     assert.deepEqual(payload, {
       ok: true,
-      next_skill_command: '$plan-to-exec ready-flow',
-      next_skill_hint: 'Next skill: $plan-to-exec ready-flow',
+      next_skill_command: expectedPlanCommand,
+      next_skill_hint: `Next skill: ${expectedPlanCommand}`,
     });
 
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'ready-flow'], { cwd: wd });
-    assert.match(stdout, /^next skill: \$plan-to-exec ready-flow$/m);
-    assert.doesNotMatch(stdout, /next cli:/);
+    const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'ready-flow'], { cwd: wd });
+    assert.match(nextStdout, new RegExp(`^next skill: \\$plan-to-exec ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
+    assert.doesNotMatch(nextStdout, /next cli:/);
+
+    const { stdout: statusStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow'], { cwd: wd });
+    assert.match(statusStdout, new RegExp(`^intake: ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
+    assert.match(statusStdout, new RegExp(`^requirements: ${escapeRegExp(status.state.requirements_path)}$`, 'm'));
+    assert.match(statusStdout, new RegExp(`^test cases: ${escapeRegExp(status.state.test_cases_path)}$`, 'm'));
+
+    const { stdout: statusJsonStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow', '--json'], { cwd: wd });
+    const statusJson = JSON.parse(statusJsonStdout);
+    assert.equal(statusJson.state.intake_package_path, status.state.intake_package_path);
+    assert.equal(statusJson.state.requirements_path, status.state.requirements_path);
+    assert.equal(statusJson.state.test_cases_path, status.state.test_cases_path);
   });
 
   it('legacy status keeps absent intake package children out of missing artifacts', async () => {

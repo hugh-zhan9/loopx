@@ -1,3 +1,7 @@
+function clarifyHandoffArg(state) {
+  return state.intake_package_path || state.requirements_path || state.spec_artifact_path || state.slug;
+}
+
 export function nextSkillCommand(state) {
   if (!state || !state.slug) {
     return null;
@@ -9,7 +13,7 @@ export function nextSkillCommand(state) {
     && state.clarify_decision_boundaries_resolved === true
     && state.clarify_pressure_pass_complete === true
   ) {
-    return `$plan-to-exec ${state.slug}`;
+    return `$plan-to-exec ${clarifyHandoffArg(state)}`;
   }
   if (state.current_stage === 'done'
     && state.completion_confirmed === true) {

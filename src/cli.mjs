@@ -226,8 +226,9 @@ function humanMissingArtifactsText(status) {
 function humanNextAction(status) {
   const state = status.state || null;
   if (state?.current_stage === 'clarify') {
-    if (nextSkillCommand(state)?.startsWith('$plan-to-exec ')) {
-      return `Follow $plan-to-exec ${state.slug}.`;
+    const nextCommand = nextSkillCommand(state);
+    if (nextCommand?.startsWith('$plan-to-exec ')) {
+      return `Follow ${nextCommand}.`;
     }
     return 'Finish clarification, then follow $plan-to-exec when ready.';
   }
@@ -265,6 +266,15 @@ function printHumanStatus(status) {
     console.log(`hook_enabled: ${status.hook.enabled}`);
   }
   console.log(`missing artifacts: ${humanMissingArtifactsText(status)}`);
+  if (status.state?.intake_package_path || status.state?.spec_artifact_path) {
+    console.log(`intake: ${displayPathFromCwd(status.state.intake_package_path || status.state.spec_artifact_path)}`);
+  }
+  if (status.state?.requirements_path) {
+    console.log(`requirements: ${displayPathFromCwd(status.state.requirements_path)}`);
+  }
+  if (status.state?.test_cases_path) {
+    console.log(`test cases: ${displayPathFromCwd(status.state.test_cases_path)}`);
+  }
   printNext(status, { fallback: false });
   console.log(`next: ${humanNextAction(status)}`);
 }
@@ -304,7 +314,13 @@ function printHumanClarify(result) {
     console.log(`first question: ${firstQuestion}`);
   }
   console.log(`round: ${state.clarify_current_round ?? 0}/${state.clarify_max_rounds ?? '?'}`);
-  console.log(`intake: ${displayPathFromCwd(state.spec_artifact_path)}`);
+  console.log(`intake: ${displayPathFromCwd(state.intake_package_path || state.spec_artifact_path)}`);
+  if (state.requirements_path) {
+    console.log(`requirements: ${displayPathFromCwd(state.requirements_path)}`);
+  }
+  if (state.test_cases_path) {
+    console.log(`test cases: ${displayPathFromCwd(state.test_cases_path)}`);
+  }
   if (payload.next_skill_command) {
     console.log(`next skill: ${payload.next_skill_command}`);
   }
