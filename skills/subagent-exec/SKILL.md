@@ -9,8 +9,10 @@ metadata:
 # Subagent Exec
 
 Execute plan by dispatching a fresh implementer subagent per task, one combined
-task reviewer after each task, and `loopx:final-review` for the whole feature at
-the end.
+task reviewer after each task, and final review according to plan scope. For
+single-plan runs, proceed to `loopx:final-review` and `loopx:finish`. For
+numbered multi-plan child runs, stop after plan-level `loopx:final-review` and
+multi-plan state update.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated
 context. You construct exactly what they need: task brief, anchor context,
@@ -32,7 +34,7 @@ delegation.
 
 ## Multi-Plan Child Plans
 
-When the plan file is a numbered child plan under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do not execute sibling child plans and do not proceed to `finish` after the child plan completes.
+When the plan file is a numbered child plan under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do not execute sibling child plans. Do not proceed to `finish` after the child plan completes.
 
 After all tasks in the child plan pass task review, run plan-level `loopx:final-review` for that child plan and update `.loopx/multi-plan/<feature-slug>/state.json`:
 
