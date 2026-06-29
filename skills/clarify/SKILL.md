@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
 ---
 
 # loopx Clarify
@@ -33,21 +33,35 @@ If a question can be answered by exploring the codebase, explore the codebase in
 
 ## Output
 
-Write the clarification context bundle **incrementally** — start the file after the first meaningful answer is confirmed, and update it after every Q&A round. Do not wait until all questions are resolved.
+Write the clarify intake package **incrementally**. Start the package after the first meaningful answer is confirmed, and update the relevant files after every Q&A round. Do not wait until all questions are resolved.
 
 Write to:
 
-- `.loopx/intake/clarify-<slug>-YYYY-MM-DD.md`
+- `.loopx/intake/YYYY-MM-DD-<slug>/clarification.md`
+- `.loopx/intake/YYYY-MM-DD-<slug>/requirements.md`
+- `.loopx/intake/YYYY-MM-DD-<slug>/test-cases.md`
+
+`clarification.md` records the Q&A process, exact user wording, assumptions challenged, rejected alternatives, brownfield evidence, and `## Resume State`.
+
+`requirements.md` records the confirmed requirement contract: source facts, intent, scope, non-goals, decisions, constraints, acceptance criteria, open questions, and handoff recommendation.
+
+`test-cases.md` records requirement-stage black-box acceptance/integration scenarios. It is not a unit test implementation plan.
 
 **Incremental writing rules:**
 
-- Create the file as soon as the first material answer (intent, scope, non-goal, constraint, or decision boundary) is confirmed.
-- After each Q&A round, append or update the relevant section with the confirmed answer and the question that produced it.
+- Create the package as soon as the first material answer (intent, scope, non-goal, constraint, or decision boundary) is confirmed.
+- After each Q&A round, append or update the relevant package files with the confirmed answer and the question that produced it.
 - Mark unresolved sections as `[PENDING]` so a future session or handoff knows what is still open.
 - Preserve the user's exact wording when it captures a decision; quote it directly.
-- The last section must always be `## Resume State` and record `current_round`, `unresolved_count`, and `next_question` so state can be resumed.
+- The last section of `clarification.md` must always be `## Resume State` and record `current_round`, `unresolved_count`, and `next_question` so state can be resumed.
 
-The completed bundle must preserve the information `spec` or `plan-to-exec` needs:
+Acceptance criteria in `requirements.md` must use stable `AC-*` anchors. Prefer `WHEN / THEN / AND` wording, and do not hand off `direct_to_plan` when material ACs are not testable.
+
+Test cases in `test-cases.md` must use stable `TC-*` anchors. Every `TC-*` must reference at least one `AC-*`. High-risk `AC-*` items need at least one boundary or failure case unless the package records a concrete manual/deferred rationale.
+
+`requirements.md` and `test-cases.md` must share the same `AC-*` anchors. If they conflict, keep the package blocked and continue clarification.
+
+The completed intake package must preserve the information `spec` or `plan-to-exec` needs:
 
 - intent and desired outcome
 - in-scope work
@@ -88,7 +102,18 @@ Use `direct_to_plan` when goals, non-goals, constraints, affected scope, and ver
 
 Use `blocked` when any material requirement or decision boundary is still unclear.
 
-For `needs_spec`, immediately use the `spec` skill with the clarification context bundle, current conversation context, repo evidence, and source documents. `spec` writes a dated design package under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`, including:
+For `needs_spec`, hand off to the `spec` skill with the intake package directory as the source:
+
+```text
+skill: spec
+args: .loopx/intake/YYYY-MM-DD-<slug>/
+Codex: $spec .loopx/intake/YYYY-MM-DD-<slug>/
+Claude Code: /spec .loopx/intake/YYYY-MM-DD-<slug>/
+Cursor Agent Skills: /spec .loopx/intake/YYYY-MM-DD-<slug>/
+Generic: Use the spec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
+```
+
+`spec` writes a dated design package under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`, including:
 
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
 
@@ -103,7 +128,18 @@ Cursor Agent Skills: /plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需
 Generic: Use the plan-to-exec skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
 ```
 
-For `direct_to_plan`, hand off to the `plan-to-exec` skill with the clarification context bundle as the source. `plan-to-exec` writes:
+For `direct_to_plan`, hand off to the `plan-to-exec` skill with the intake package directory as the source:
+
+```text
+skill: plan-to-exec
+args: .loopx/intake/YYYY-MM-DD-<slug>/
+Codex: $plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
+Claude Code: /plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
+Cursor Agent Skills: /plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
+Generic: Use the plan-to-exec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
+```
+
+`plan-to-exec` writes:
 
 - Single plan: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`
 - Multiple plans from one source: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`

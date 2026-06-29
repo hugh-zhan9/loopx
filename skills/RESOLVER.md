@@ -11,7 +11,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Ambiguous request, unclear scope, non-goals, decision boundaries, requirements interview | `skills/clarify/SKILL.md` |
 | Design方案, technical design, API/data/state/security decisions, or architecture tradeoffs | `skills/spec/SKILL.md` |
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
-| Approved requirements or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
+| Approved intake package, requirements, or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
 | Approved plan has independent tasks and should run with subagents plus staged review | `skills/subagent-exec/SKILL.md` |
 | Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
 | Completed task, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
@@ -42,10 +42,10 @@ Read the selected skill file before acting. If multiple skills match, read every
 
 ## Disambiguation
 
-1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify`.
+1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify`. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
 2. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they want to design a future change, use `spec`.
 3. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
-4. If remaining questions are local implementation choices, use `plan-to-exec`.
+4. If remaining questions are local implementation choices, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
 5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, then offers `subagent-exec` or `exec`.
 6. Use `subagent-exec` when subagents are available and the plan has independent tasks.
 7. Use `exec` when the user chooses inline execution or subagents are unavailable.

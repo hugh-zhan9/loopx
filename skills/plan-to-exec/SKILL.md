@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -18,8 +18,11 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 Use this skill after requirements are clear. The source may be:
 
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
-- `.loopx/intake/clarify-<slug>-YYYY-MM-DD.md`
+- `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories
+- legacy `.loopx/intake/clarify-*.md` clarify bundles
 - an issue, PRD, or requirements document that already fixes material decisions
+
+When the source is an intake package directory, read `requirements.md` and `test-cases.md` before planning. Use `clarification.md` only for process evidence, exact user wording, and unresolved-history context.
 
 ## Repo Specs And Memory Context
 
@@ -34,7 +37,7 @@ Do not read every file under `docs/loopx/specs/` by default. Prefer relevant spe
 
 Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
 
-The plan must preserve and cover generated requirement anchors from `clarify` output or `spec` source documents. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
+The plan must preserve `AC-*` anchors from `requirements.md` and cover `TC-*` scenarios from `test-cases.md` through tasks, verification commands, or deferred-with-rationale rows. For legacy clarify bundles or spec source documents, preserve and cover generated requirement anchors from the source. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
 
 **Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
@@ -258,6 +261,7 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 6. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
 7. **Support lens coverage:** If the source design names support lenses, does each relevant task list them and include verification or review steps that exercise their discipline? If not, add them before handoff.
 8. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints, Interfaces, and Support lenses for an implementer and task reviewer who cannot see the rest of the plan?
+9. **Test-case coverage:** If the source includes `test-cases.md`, does each `TC-*` map to a task verification step, integration/e2e/API/CLI/manual check, or deferred-with-rationale row?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 

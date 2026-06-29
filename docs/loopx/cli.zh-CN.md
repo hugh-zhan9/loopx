@@ -45,6 +45,8 @@ loopx repair-install
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+新的 `clarify` workflow 会在 `.loopx/intake/YYYY-MM-DD-<slug>/` 下写入本地 intake package，包含 `clarification.md`、`requirements.md` 和 `test-cases.md`。人类输出展示简洁路径；完整 state 字段使用 `--json`。
+
 ## 安装
 
 postinstall 默认安装用户级 skills 和 hooks：

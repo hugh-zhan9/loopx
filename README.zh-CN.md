@@ -54,7 +54,8 @@ $finish
 ```
 
 普通 feature 从 `$clarify` 开始。它的输出应该说明下一步是 `$spec` 还是
-`$plan-to-exec`。沿着黄金路径继续，直到 `$finish` 完成验证并记录结果。
+`$plan-to-exec`，handoff 可以指向 intake package 目录或详细设计文档。沿着黄金路径
+继续，直到 `$finish` 完成验证并记录结果。
 
 没有 subagent，或任务足够小的时候，用 `$exec` 代替 `$subagent-exec`。评审反馈
 需要评估、反驳或修复时，用 `$fix-review`。
@@ -65,7 +66,7 @@ bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后�
 
 | Skill | 什么时候用 |
 |---|---|
-| `clarify` | 范围、非目标、约束或决策边界仍不清楚。 |
+| `clarify` | 范围、非目标、约束或决策边界仍不清楚；产出包含 `clarification.md`、`requirements.md`、`test-cases.md` 的 `.loopx/intake/YYYY-MM-DD-<slug>/`。 |
 | `spec` | API、数据、状态、权限、迁移、兼容、产品行为或架构决策必须先固定。 |
 | `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 |
 | `plan-to-exec` | 需求已经清楚，可以拆成小步执行任务。 |
