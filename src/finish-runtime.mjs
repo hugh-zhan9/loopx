@@ -5,6 +5,8 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
+const MULTI_PLAN_SCHEMA_VERSION = 1;
+const MULTI_PLAN_PACKAGE_PATTERN = /^docs\/loopx\/plans\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/(?:00-overview|[0-9]{2}-[a-z0-9-]+)\.md$/;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
 const MAX_AUDIT_ID_COLLISIONS = 1000;
 const FINISH_RECORD_STATE_STATUSES = ['needs-agent-audit', 'audited', 'choice-recorded', 'completed', 'failed'];
@@ -322,6 +324,56 @@ async function readJsonIfExists(path) {
   }
 }
 
+async function readMultiPlanStateIfExists(path, displayPath) {
+  if (!await pathExists(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    throw new Error(`finish_record_multi_plan_state_invalid:${displayPath}`);
+  }
+}
+
+function normalizedArtifactPath(path) {
+  return String(path || '').trim().replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function multiPlanPackageFromSourceArtifact(sourceArtifact) {
+  const normalized = normalizedArtifactPath(sourceArtifact);
+  const match = normalized.match(MULTI_PLAN_PACKAGE_PATTERN);
+  if (!match) {
+    return null;
+  }
+  const featureSlug = match[1];
+  return {
+    featureSlug,
+    planPackage: `docs/loopx/plans/${featureSlug}/`,
+    sourceArtifact: normalized,
+    statePath: join('.loopx', 'multi-plan', featureSlug, 'state.json'),
+  };
+}
+
+function firstMultiPlanPackageFromState(state) {
+  const sourceArtifacts = Array.isArray(state?.audit?.change_window?.source_artifacts)
+    ? state.audit.change_window.source_artifacts
+    : [];
+  for (const sourceArtifact of sourceArtifacts) {
+    const result = multiPlanPackageFromSourceArtifact(sourceArtifact);
+    if (result) {
+      return result;
+    }
+  }
+  return null;
+}
+
+function runtimeStateRoot(cwd, state) {
+  const worktree = state?.audit?.worktree;
+  return nonEmptyText(worktree) && worktree !== 'unknown'
+    ? worktree
+    : cwd;
+}
+
 async function resolveCommitRef(cwd, ref) {
   const value = String(ref || '').trim();
   if (!value) {
@@ -634,6 +686,91 @@ function nonEmptyTextArray(value) {
 
 function plainObject(item) {
   return item && typeof item === 'object' && !Array.isArray(item) ? item : null;
+}
+
+function multiPlanGateIssue(message, details = {}) {
+  return {
+    message,
+    ...details,
+  };
+}
+
+function validateMultiPlanState(multiPlanState, expected) {
+  const issues = [];
+  if (!plainObject(multiPlanState)) {
+    return [multiPlanGateIssue('state file must contain a JSON object')];
+  }
+  if (multiPlanState.schema_version !== MULTI_PLAN_SCHEMA_VERSION) {
+    issues.push(multiPlanGateIssue('schema_version must be 1'));
+  }
+  if (multiPlanState.feature_slug !== expected.featureSlug) {
+    issues.push(multiPlanGateIssue('feature_slug must match source path', {
+      expected: expected.featureSlug,
+      actual: multiPlanState.feature_slug ?? null,
+    }));
+  }
+  if (multiPlanState.plan_package !== expected.planPackage) {
+    issues.push(multiPlanGateIssue('plan_package must match source path', {
+      expected: expected.planPackage,
+      actual: multiPlanState.plan_package ?? null,
+    }));
+  }
+  if (!nonEmptyText(multiPlanState.source_spec)) {
+    issues.push(multiPlanGateIssue('source_spec is required'));
+  }
+  if (!Array.isArray(multiPlanState.plans) || multiPlanState.plans.length === 0) {
+    issues.push(multiPlanGateIssue('plans[] must be non-empty'));
+    return issues;
+  }
+
+  const seenPlanPaths = new Set();
+  for (const [index, plan] of multiPlanState.plans.entries()) {
+    if (!plainObject(plan)) {
+      issues.push(multiPlanGateIssue('plan entry must be an object', { index }));
+      continue;
+    }
+    const path = normalizedArtifactPath(plan.path);
+    if (!nonEmptyText(path)) {
+      issues.push(multiPlanGateIssue('plan.path is required', { index }));
+    } else if (seenPlanPaths.has(path)) {
+      issues.push(multiPlanGateIssue('plan.path must be unique', { path }));
+    } else {
+      seenPlanPaths.add(path);
+    }
+    if (plan.status !== 'complete') {
+      issues.push(multiPlanGateIssue('plan.status must be complete', {
+        path: path || `(index ${index})`,
+        actual: plan.status ?? null,
+      }));
+    }
+    if (!nonEmptyText(plan.plan_final_review)) {
+      issues.push(multiPlanGateIssue('plan_final_review is required', {
+        path: path || `(index ${index})`,
+      }));
+    }
+    if (plan.ready_for_spec_review !== true) {
+      issues.push(multiPlanGateIssue('ready_for_spec_review must be true', {
+        path: path || `(index ${index})`,
+        actual: plan.ready_for_spec_review ?? null,
+      }));
+    }
+  }
+
+  const specReview = multiPlanState.spec_final_review;
+  if (!plainObject(specReview)) {
+    issues.push(multiPlanGateIssue('spec_final_review is required'));
+  } else {
+    if (!nonEmptyText(specReview.path)) {
+      issues.push(multiPlanGateIssue('spec_final_review.path is required'));
+    }
+    if (specReview.ready_for_finish !== 'Yes') {
+      issues.push(multiPlanGateIssue('spec_final_review.ready_for_finish must be Yes', {
+        actual: specReview.ready_for_finish ?? null,
+      }));
+    }
+  }
+
+  return issues;
 }
 
 function candidateObject(item) {
@@ -1007,6 +1144,32 @@ function evidenceFromState(state, fallback = {}) {
   };
 }
 
+async function assertMultiPlanReadyForFinish(cwd, finishState) {
+  const multiPlanPackage = firstMultiPlanPackageFromState(finishState);
+  if (!multiPlanPackage) {
+    return;
+  }
+
+  const stateRoot = runtimeStateRoot(cwd, finishState);
+  const absoluteStatePath = join(stateRoot, multiPlanPackage.statePath);
+  const multiPlanState = await readMultiPlanStateIfExists(absoluteStatePath, multiPlanPackage.statePath);
+  if (!multiPlanState) {
+    throw new Error(`finish_record_multi_plan_state_missing:${multiPlanPackage.statePath}`);
+  }
+
+  const issues = validateMultiPlanState(multiPlanState, multiPlanPackage);
+  if (issues.length > 0) {
+    const summary = issues
+      .map((issue) => {
+        const path = issue.path ? ` path=${issue.path}` : '';
+        const actual = Object.hasOwn(issue, 'actual') ? ` actual=${String(issue.actual)}` : '';
+        return `${issue.message}${path}${actual}`;
+      })
+      .join('; ');
+    throw new Error(`finish_record_multi_plan_incomplete:${multiPlanPackage.statePath}:${summary}`);
+  }
+}
+
 export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date(), baselineRef = null } = {}) {
   const auditDate = date instanceof Date ? date : new Date(date);
   const evidence = await resolveGitEvidence(cwd);
@@ -1137,6 +1300,9 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   const statePath = join(root, 'finish-state.json');
   const state = await readFinishState(statePath);
   validateFinishRecordState(state, root);
+  if (normalizedStatus === 'done') {
+    await assertMultiPlanReadyForFinish(cwd, state);
+  }
   if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
     throw new Error('finish_record_audit_incomplete');
   }
