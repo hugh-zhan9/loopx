@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Subagent Exec
@@ -29,6 +29,23 @@ Use this skill for approved implementation plans whose tasks can be executed
 mostly sequentially with isolated subagent context. Use `loopx:exec` when
 subagent support is unavailable or edits are too tightly coupled for safe
 delegation.
+
+## Multi-Plan Child Plans
+
+When the plan file is a numbered child plan under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do not execute sibling child plans and do not proceed to `finish` after the child plan completes.
+
+After all tasks in the child plan pass task review, run plan-level `loopx:final-review` for that child plan and update `.loopx/multi-plan/<feature-slug>/state.json`:
+
+```json
+{
+  "path": "docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md",
+  "status": "complete",
+  "plan_final_review": ".loopx/final-review/YYYY-MM-DD-01-example.md",
+  "ready_for_spec_review": true
+}
+```
+
+Only after every child plan in the package is complete should an agent run spec-level `loopx:final-review` for the source spec and package overview. `loopx:finish` is allowed only after the spec-level final-review is clean.
 
 ## Step -1: Confirm Subagent Capability
 
@@ -60,8 +77,10 @@ digraph process {
     "Record finish baseline with loopx finish-start <slug> --source <plan-path>" [shape=box];
     "Pre-flight plan review" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Use loopx:final-review for entire implementation" [shape=box];
+    "Use loopx:final-review for completed plan" [shape=box];
+    "Single-plan run?" [shape=diamond];
     "Use loopx:finish after clean final-review" [shape=box style=filled fillcolor=lightgreen];
+    "For child plan: update .loopx/multi-plan state and stop" [shape=box];
 
     "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Pre-flight plan review";
     "Pre-flight plan review" -> "Run scripts/task-brief PLAN_FILE N";
@@ -75,8 +94,10 @@ digraph process {
     "Task reviewer reports spec compliant and task quality approved?" -> "Mark task complete in update_plan and progress ledger" [label="yes"];
     "Mark task complete in update_plan and progress ledger" -> "More tasks remain?";
     "More tasks remain?" -> "Run scripts/task-brief PLAN_FILE N" [label="yes"];
-    "More tasks remain?" -> "Use loopx:final-review for entire implementation" [label="no"];
-    "Use loopx:final-review for entire implementation" -> "Use loopx:finish after clean final-review";
+    "More tasks remain?" -> "Use loopx:final-review for completed plan" [label="no"];
+    "Use loopx:final-review for completed plan" -> "Single-plan run?";
+    "Single-plan run?" -> "Use loopx:finish after clean final-review" [label="yes"];
+    "Single-plan run?" -> "For child plan: update .loopx/multi-plan state and stop" [label="no"];
 }
 ```
 
@@ -326,9 +347,9 @@ Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
 
 **Required workflow skills:**
 - **loopx:plan-to-exec** - Creates the plan this skill executes
-- **loopx:final-review** - Final whole-feature runtime and integration risk review
+- **loopx:final-review** - Final runtime and integration risk review. Single-plan runs use it before `finish`; multi-plan child runs use plan-level final-review and stop after updating multi-plan state.
 - **loopx:fix-review** - Handles findings returned by task review or final review
-- **loopx:finish** - Completes development after verification. Only start `loopx:finish` after `loopx:final-review` is clean or all Critical/Important feedback has been handled and rechecked.
+- **loopx:finish** - Completes development after verification. Only start `loopx:finish` after single-plan `loopx:final-review` is clean, or for multi-plan packages after the spec-level `loopx:final-review` is clean and all Critical/Important feedback has been handled and rechecked.
 
 **Subagents should use:**
 - **loopx:tdd** - Subagents follow TDD for each task when the plan requires it

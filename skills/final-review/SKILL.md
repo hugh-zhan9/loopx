@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Final Review
@@ -35,6 +35,15 @@ Do not use this for:
 - fixing review feedback (`fix-review` is for that)
 - polishing documentation wording
 - incomplete implementation or failing verification
+
+## Review Scope
+
+Final review has two scopes for multi-plan packages:
+
+- Plan-level final-review: run after one child plan is implemented and task-reviewed. Source requirements are the child plan plus relevant `00-overview.md` context. The report decides whether that child plan is ready for spec-level review. It must not authorize `finish`.
+- Spec-level final-review: run after all child plans in a multi-plan package are ready. Source requirements include the source spec, `00-overview.md`, every child plan, every plan-level final-review artifact, and the full feature git range. This is the only multi-plan final-review scope that may set the package `Ready for finish? Yes`.
+
+When reviewing a multi-plan package, update `.loopx/multi-plan/<feature-slug>/state.json` after writing the report artifact. Plan-level reviews update the matching `plans[]` row. Spec-level reviews update `spec_final_review.path` and `spec_final_review.ready_for_finish`.
 
 ## Required Inputs
 

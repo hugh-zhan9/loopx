@@ -529,6 +529,11 @@ describe('loopx skill governance', () => {
 
   it('plan-to-exec requires global constraints and task interfaces for subagent handoff', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
     assert.match(planSkill, /## Global Constraints/);
     assert.match(planSkill, /\*\*Interfaces:\*\*/);
     assert.match(planSkill, /Consumes:/);
@@ -536,6 +541,25 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /\*\*Support lenses:\*\*/);
     assert.match(planSkill, /Support lens coverage/);
     assert.match(planSkill, /combined task review|task reviewer/i);
+    assert.match(planSkill, /Single plan: `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md`/);
+    assert.match(planSkill, /Multiple plans from one source: `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/`/);
+    assert.match(planSkill, /`00-overview\.md`/);
+    assert.match(planSkill, /execution order/);
+    assert.match(planSkill, /can run in parallel/);
+    assert.match(clarifySkill, /Multiple plans from one source: `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/`/);
+    assert.match(planSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
+    assert.match(planSkill, /plan-level `final-review`/);
+    assert.match(planSkill, /spec-level `final-review`/);
+    assert.match(subagentExecSkill, /Multi-Plan Child Plans/);
+    assert.match(subagentExecSkill, /Do not execute sibling child plans/);
+    assert.match(subagentExecSkill, /Do not .*finish/i);
+    assert.match(finalReviewSkill, /Plan-level final-review/);
+    assert.match(finalReviewSkill, /Spec-level final-review/);
+    assert.match(finalReviewSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
+    assert.match(finishSkill, /Step 4\.5: Check Multi-Plan Finish Gate/);
+    assert.match(finishSkill, /spec_final_review\.ready_for_finish/);
+    assert.match(resolver, /multiple plans from one source under `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/`/);
+    assert.match(resolver, /plan-level final-review and the package receives one spec-level final-review/);
   });
 
   it('spec requires boundary scenarios in proposal and detailed design', async () => {
@@ -733,6 +757,7 @@ describe('loopx skill governance', () => {
     assert.match(finishSkill, /Completion Summary Contract/);
     assert.match(finishSkill, /completion summary must list/);
     assert.match(execSkill, /Only start `loopx:finish` after `loopx:final-review` is clean/);
-    assert.match(subagentExecSkill, /Only start `loopx:finish` after `loopx:final-review` is clean/);
+    assert.match(subagentExecSkill, /Only start `loopx:finish` after single-plan `loopx:final-review` is clean/);
+    assert.match(subagentExecSkill, /for multi-plan packages after the spec-level `loopx:final-review` is clean/);
   });
 });

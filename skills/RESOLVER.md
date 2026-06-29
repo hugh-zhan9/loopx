@@ -46,11 +46,11 @@ Read the selected skill file before acting. If multiple skills match, read every
 2. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they want to design a future change, use `spec`.
 3. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
 4. If remaining questions are local implementation choices, use `plan-to-exec`.
-5. `plan-to-exec` writes `docs/loopx/plans/*.md` and then offers `subagent-exec` or `exec`.
+5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, then offers `subagent-exec` or `exec`.
 6. Use `subagent-exec` when subagents are available and the plan has independent tasks.
 7. Use `exec` when the user chooses inline execution or subagents are unavailable.
 8. Use `review` to request code review of completed task or checkpoint work.
-9. Use `final-review` after the whole feature is implemented and before `finish`.
+9. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review and the package receives one spec-level final-review before finish.
 10. Use `fix-review` only after feedback exists.
 11. Use `finish` only after implementation, final review, and verification are complete.
 12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
