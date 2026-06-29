@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Finish
@@ -102,6 +102,26 @@ If a report exists, read its `Overall Assessment` and capture:
 If `Ready for finish?` is `No`, or if unresolved Critical or Important findings remain, stop and route to `fix-review` instead of presenting finish options.
 
 If no report exists, do not generate one inside `finish`. `finish` must not generate the final-review report or perform requirements/design alignment review. Tell the user no final-review artifact was found and ask whether to run `final-review` first, unless the user explicitly says final review was handled elsewhere.
+
+### Step 4.5: Check Multi-Plan Finish Gate
+
+When the finish baseline source points at a multi-plan package path such as:
+
+```text
+docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md
+docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-<plan-slug>.md
+```
+
+`finish` must check `.loopx/multi-plan/<feature-slug>/state.json` before recording completion. Completion is allowed only when:
+
+- `plans[]` is non-empty
+- every child plan has `status: "complete"`
+- every child plan has `plan_final_review`
+- every child plan has `ready_for_spec_review: true`
+- `spec_final_review.path` is present
+- `spec_final_review.ready_for_finish` is exactly `"Yes"`
+
+If the gate is incomplete, stop and report the missing child plan or review gate. Do not present merge/PR/keep/discard completion as done until the gate passes.
 
 ### Step 5: Audit-First Learning Extraction
 

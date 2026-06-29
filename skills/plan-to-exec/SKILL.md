@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.4"
+  version: "0.3.6"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -38,13 +38,33 @@ The plan must preserve and cover generated requirement anchors from `clarify` ou
 
 **Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
-**Save plans to:** `docs/loopx/plans/YYYY-MM-DD-<feature-name>.md`
+**Save plans to:**
+
+- Single plan: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`
+- Multiple plans from one source: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`
+  - `00-overview.md`
+  - `01-<plan-slug>.md`
+  - `02-<plan-slug>.md`
 
 - User preferences for plan location override this default.
 
 ## Scope Check
 
 If the design spec covers multiple independent subsystems, it should have been broken into sub-project specs before planning. If it wasn't, suggest breaking this into separate plans: one per subsystem. Each plan should produce working, testable software on its own.
+
+When one source artifact needs multiple implementation plans, create the plan directory up front instead of writing sibling files at `docs/loopx/plans/`. Use the directory name to preserve the source date and feature slug. Write `00-overview.md` with the source path, split rationale, execution order, dependencies between plans, and which plans can run in parallel. Each numbered child plan must still be a complete executable plan with its own Source, Goal, Global Constraints, tasks, tests, and execution handoff. If the source produces exactly one executable plan, use the single-file path and do not create a directory.
+
+For a multi-plan package, `00-overview.md` must include:
+
+- Source spec path
+- Package slug and local state path: `.loopx/multi-plan/<feature-slug>/state.json`
+- Child plan list with each `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/NN-<plan-slug>.md`
+- Split rationale for each child plan
+- Execution order and dependencies
+- Which child plans can run in parallel
+- Final gate: every child plan needs plan-level `final-review`; the package needs one spec-level `final-review`; only then may `finish` run
+
+Each child plan remains independently executable and must not assume the agent can see sibling child plans except through explicit Interfaces and `00-overview.md`.
 
 ## File Structure
 
@@ -245,8 +265,10 @@ If you find issues, fix them inline. If you find a design requirement with no ta
 
 After saving the plan, offer execution choice:
 
+For multi-plan packages, offer execution per child plan. Do not ask one agent to execute the whole directory in a single run. After each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json`. After all child plans are ready, run one spec-level `final-review`, then `finish`.
+
 ```text
-Plan complete and saved to `docs/loopx/plans/<filename>.md`.
+Plan complete and saved to `<plan path>`.
 
 Two execution options:
 
