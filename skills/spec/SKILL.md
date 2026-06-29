@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # loopx Spec
@@ -23,7 +23,21 @@ Before using this skill in a repository, inspect loopx long-lived context when i
 
 Do not read every file under `docs/loopx/specs/` by default. Prefer relevant specs selected by filename, title, frontmatter such as `applies_to`, or the files/domains involved in the task.
 
-Use the user's PRD, external requirements document, or approved `clarify` output as the source of truth.
+Use the user's PRD, external requirements document, approved `clarify` output, or intake package directory as the source of truth.
+
+The source may be an intake package directory:
+
+- `.loopx/intake/YYYY-MM-DD-<slug>/`
+
+When the source is an intake package directory, read:
+
+1. `requirements.md` as the requirement contract.
+2. `test-cases.md` as requirement-stage acceptance/integration scenarios.
+3. `clarification.md` only as process evidence and exact user wording.
+
+If `requirements.md` and `test-cases.md` disagree about `AC-*`, stop and route back to `clarify`.
+
+Legacy `.loopx/intake/clarify-*.md` clarify bundles remain readable compatibility inputs. Do not migrate or rewrite them; use the package directory contract for new `clarify` output.
 
 Before writing, inspect relevant code and docs when the task touches an existing system. If a design question can be answered from the repo, answer it from evidence. If a material requirement, constraint, owner decision, or product behavior is still unclear, stop and route back to `clarify`.
 
@@ -31,7 +45,7 @@ Before writing, inspect relevant code and docs when the task touches an existing
 
 Write the design as a decision document, not a task list.
 
-The design document should make requirements, non-goals, decision boundaries, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan-to-exec` can preserve coverage without re-interpreting the source.
+The design document should make requirements, non-goals, decision boundaries, intake package source, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan-to-exec` can preserve coverage without re-interpreting the source.
 
 Default to producing two documents:
 
@@ -82,6 +96,8 @@ Cover:
 - open risks that do not block planning
 
 For brownfield work, distinguish repo evidence from inference.
+
+When the source is an intake package directory, the detailed design must reference the intake package path and its `requirements.md` and `test-cases.md` files. The verification strategy must preserve `TC-*` coverage by mapping requirement-stage acceptance/integration scenarios to design-level test strategy, manual checks, or deferred-with-rationale items.
 
 ## Output
 

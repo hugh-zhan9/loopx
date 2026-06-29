@@ -54,8 +54,9 @@ $finish
 ```
 
 For a normal feature, start with `$clarify`. The output should tell you whether
-the next step is `$spec` or `$plan-to-exec`. Continue the Golden path until
-`$finish` completes verification and records the outcome.
+the next step is `$spec` or `$plan-to-exec`, and may hand off an intake package
+directory or a detailed design doc. Continue the Golden path until `$finish`
+completes verification and records the outcome.
 
 Use `$exec` instead of `$subagent-exec` when subagents are unavailable or the
 work is small enough to run inline. Use `$fix-review` whenever review feedback
@@ -68,7 +69,7 @@ ledger status is `ready_for_fix`.
 
 | Skill | Use it when |
 |---|---|
-| `clarify` | Scope, non-goals, constraints, or decision boundaries are still unclear. |
+| `clarify` | Scope, non-goals, constraints, or decision boundaries are still unclear; produces `.loopx/intake/YYYY-MM-DD-<slug>/` with `clarification.md`, `requirements.md`, and `test-cases.md`. |
 | `spec` | API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. |
 | `plan-to-exec` | Requirements are clear enough to become small executable tasks. |

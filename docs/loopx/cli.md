@@ -48,6 +48,8 @@ the agent:
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+New `clarify` workflows write a local intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with `clarification.md`, `requirements.md`, and `test-cases.md`. Human output shows concise paths; use `--json` for full state fields.
+
 ## Installation
 
 Postinstall installs user-level skills and hooks:

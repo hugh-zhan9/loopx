@@ -22,6 +22,7 @@ const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const workflowHookScript = resolve(repoRoot, 'scripts/codex-workflow-hook.mjs');
 const claudeWorkflowHookScript = resolve(repoRoot, 'scripts/claude-workflow-hook.mjs');
+const removedSpecArtifactLinePattern = new RegExp(['spec', 'artifact:'].join(' '));
 
 describe('loopx retained hardening', () => {
   it('classifies template drift without overwriting user changes', async () => {
@@ -113,7 +114,7 @@ describe('loopx retained hardening', () => {
       assert.match(stdout, /intake package:/);
       assert.match(stdout, /requirements:/);
       assert.match(stdout, /test cases:/);
-      assert.doesNotMatch(stdout, /spec artifact:/);
+      assert.doesNotMatch(stdout, removedSpecArtifactLinePattern);
       assert.doesNotMatch(stdout, /next cli:/);
       assert.doesNotMatch(stdout, /loopx build|loopx approve/);
       assert.doesNotMatch(stdout, /runtime gates remain authoritative|implementation gate|authorization|build context|review context/);
