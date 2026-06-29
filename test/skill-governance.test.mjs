@@ -15,9 +15,19 @@ const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
 const removedPluginPayloadDir = join(repoRoot, 'plugins', 'loopx', 'skills');
 const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
 const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
+const removedPluginMirrorPattern = new RegExp(`${removedPluginSyncScriptName}|plugins/loopx/skills|plugin skill mirror|plugin-ready v1 skill mirror`, 'i');
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
 const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const execFileAsync = promisify(execFile);
+const activeMaintenanceDocs = [
+  'README.md',
+  'README.zh-CN.md',
+  'AGENTS.md',
+  'docs/loopx/cli.md',
+  'docs/loopx/cli.zh-CN.md',
+  'docs/loopx/specs/installation.md',
+  'skills/RESOLVER.md',
+];
 
 function parseFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -49,6 +59,10 @@ function parseFrontmatter(text) {
 
 function assertNoRemovedRuntimeCommandExposure(text, label) {
   assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
+}
+
+function assertNoRemovedPluginMirrorWorkflow(text, label) {
+  assert.doesNotMatch(text, removedPluginMirrorPattern, `${label} should not reference removed plugin skill mirror workflow`);
 }
 
 function assertMarkdownStructure(text, label) {
@@ -114,6 +128,13 @@ describe('loopx skill governance', () => {
       packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
       ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
     );
+  });
+
+  it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
+    for (const relativePath of activeMaintenanceDocs) {
+      const text = await readFile(join(repoRoot, relativePath), 'utf8');
+      assertNoRemovedPluginMirrorWorkflow(text, relativePath);
+    }
   });
 
   it('includes issue-driven workflow skills in the bundled skill set and package surface', async () => {
