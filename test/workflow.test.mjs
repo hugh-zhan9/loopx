@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -59,6 +59,31 @@ async function writeResolvedSpec(root, slug) {
       '- Agent chooses implementation details within the plan.',
     ].join('\n'),
   );
+}
+
+async function initGitRepo(wd) {
+  await execFileAsync('git', ['init'], { cwd: wd });
+  await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
+  await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
+  await writeFile(join(wd, 'README.md'), 'finish audit\n');
+  await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
+  await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+}
+
+async function markFinishAuditReviewed(audit) {
+  const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
+  state.status = 'audited';
+  state.audit.no_candidates_reason = 'No multi-plan extraction candidates were accepted for this test.';
+  state.audit.extraction_candidates = [];
+  await writeFile(audit.statePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+async function writeMultiPlanState(wd, featureSlug, state) {
+  const root = join(wd, '.loopx', 'multi-plan', featureSlug);
+  await mkdir(root, { recursive: true });
+  const path = join(root, 'state.json');
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  return path;
 }
 
 describe('loopx retained workflow shell', () => {
@@ -203,12 +228,7 @@ describe('loopx retained workflow shell', () => {
 
   it('finish audit lifecycle records a local decision', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-'));
-    await execFileAsync('git', ['init'], { cwd: wd });
-    await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
-    await execFileAsync('git', ['config', 'user.name', 'LoopX'], { cwd: wd });
-    await writeFile(join(wd, 'README.md'), 'finish audit\n');
-    await execFileAsync('git', ['add', 'README.md'], { cwd: wd });
-    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
+    await initGitRepo(wd);
 
     const baseline = await finishStartStage(wd, 'finish-flow', { source: 'docs/plan.md' });
     assert.equal(baseline.state.slug, 'finish-flow');
@@ -225,6 +245,113 @@ describe('loopx retained workflow shell', () => {
     });
     assert.equal(recorded.state.choice.action, 'keep');
     assert.equal(recorded.state.choice.status, 'pending');
+  });
+
+  it('blocks finish done when matching multi-plan state is incomplete', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-block-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/01-core.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 1,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${featureSlug}/`,
+      source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+      status: 'in_progress',
+      plans: [
+        {
+          path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+          status: 'complete',
+          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
+          ready_for_spec_review: true,
+        },
+        {
+          path: `docs/loopx/plans/${featureSlug}/02-ui.md`,
+          status: 'in_progress',
+          plan_final_review: null,
+          ready_for_spec_review: false,
+        },
+      ],
+      spec_final_review: null,
+    });
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should be blocked.',
+      }),
+      /finish_record_multi_plan_incomplete/,
+    );
+  });
+
+  it('allows finish done when matching multi-plan state has clean spec review', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-pass-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/00-overview.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 1,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${featureSlug}/`,
+      source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+      status: 'ready_for_finish',
+      plans: [
+        {
+          path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+          status: 'complete',
+          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
+          ready_for_spec_review: true,
+        },
+        {
+          path: `docs/loopx/plans/${featureSlug}/02-ui.md`,
+          status: 'complete',
+          plan_final_review: `.loopx/final-review/${featureSlug}-02-ui.md`,
+          ready_for_spec_review: true,
+        },
+      ],
+      spec_final_review: {
+        path: `.loopx/final-review/${featureSlug}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Multi-plan package complete.',
+    });
+    assert.equal(recorded.state.status, 'completed');
+    assert.equal(recorded.state.choice.status, 'done');
+  });
+
+  it('keeps single-plan finish done unchanged when no multi-plan source matches', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-single-plan-done-'));
+    await initGitRepo(wd);
+
+    await finishStartStage(wd, 'single-plan', { source: 'docs/loopx/plans/2026-06-29-single-plan.md' });
+    const audit = await finishAuditStage(wd, 'single-plan');
+    await markFinishAuditReviewed(audit);
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Single plan complete.',
+    });
+    assert.equal(recorded.state.status, 'completed');
+    assert.equal(recorded.state.choice.summary, 'Single plan complete.');
   });
 });
 
