@@ -109,8 +109,11 @@ describe('loopx retained hardening', () => {
         { cwd: wd },
       );
       assert.match(stdout, /loopx_advisory/);
-      assert.match(stdout, /next skill: \$plan-to-exec hook-flow/);
-      assert.match(stdout, /spec artifact:/);
+      assert.match(stdout, /next skill: \$plan-to-exec .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-hook-flow/);
+      assert.match(stdout, /intake package:/);
+      assert.match(stdout, /requirements:/);
+      assert.match(stdout, /test cases:/);
+      assert.doesNotMatch(stdout, /spec artifact:/);
       assert.doesNotMatch(stdout, /next cli:/);
       assert.doesNotMatch(stdout, /loopx build|loopx approve/);
       assert.doesNotMatch(stdout, /runtime gates remain authoritative|implementation gate|authorization|build context|review context/);

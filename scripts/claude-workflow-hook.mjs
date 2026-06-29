@@ -71,6 +71,10 @@ function clarifyReady(state) {
     && state.clarify_pressure_pass_complete === true;
 }
 
+function clarifyHandoffArg(state) {
+  return state.intake_package_path || state.requirements_path || state.spec_artifact_path || state.slug;
+}
+
 function nextSkill(state) {
   if (!state?.slug) {
     return null;
@@ -79,7 +83,7 @@ function nextSkill(state) {
     return '$finish';
   }
   if (clarifyReady(state)) {
-    return `$plan-to-exec ${state.slug}`;
+    return `$plan-to-exec ${clarifyHandoffArg(state)}`;
   }
   if (state.current_stage === 'clarify') {
     return `$clarify ${state.slug}`;
@@ -118,7 +122,9 @@ try {
     `stage: ${state.current_stage || 'unknown'}`,
     `status: ${state.stage_status || 'unknown'}`,
     `next skill: ${nextSkill(state) || 'none'}`,
-    `spec artifact: ${state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')}`,
+    `intake package: ${state.intake_package_path || 'none'}`,
+    `requirements: ${state.requirements_path || state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')}`,
+    `test cases: ${state.test_cases_path || 'none'}`,
     'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
     '</loopx_advisory>',
   ];
