@@ -110,7 +110,7 @@ describe('loopx skill governance', () => {
     }
   });
 
-  it('keeps package skill surface explicit and verifier packaged', async () => {
+  it('keeps package files skill surface explicit and verifier packaged', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md must exist');
     assert.equal(existsSync(verifyScriptPath), true, 'scripts/verify-skills.mjs must exist');
@@ -122,6 +122,9 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
     assert.equal(packageJson.files.includes('scripts/codex-stop-hook.mjs'), false, 'npm package must not include deleted codex stop hook');
     assert.equal(packageJson.files.includes('templates/spec.md'), true, 'npm package must include retained clarify spec template');
+    assert.equal(packageJson.files.includes('templates/intake-clarification.md'), true, 'npm package must include clarify intake clarification template');
+    assert.equal(packageJson.files.includes('templates/intake-requirements.md'), true, 'npm package must include clarify intake requirements template');
+    assert.equal(packageJson.files.includes('templates/intake-test-cases.md'), true, 'npm package must include clarify intake test cases template');
     assert.equal(packageJson.files.includes('templates/'), false, 'npm package must not include broad runtime templates surface');
     assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
     assert.deepEqual(

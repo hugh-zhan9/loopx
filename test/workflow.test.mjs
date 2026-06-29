@@ -110,14 +110,31 @@ describe('loopx retained workflow shell', () => {
     assert.equal(state.next_skill_command, null);
   });
 
-  it('clarify creates a spec artifact and deep mode state', async () => {
+  it('clarify creates an intake package and deep mode state', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-'));
     const result = await clarifyStage(wd, 'deep-flow', { profile: 'deep' });
 
     assert.equal(result.state.clarify_profile, 'deep');
     assert.equal(result.state.clarify_max_rounds, 25);
     assert.equal(existsSync(join(result.root, 'spec.md')), true);
-    assert.equal(existsSync(result.state.spec_artifact_path), true);
+
+    assert.match(result.state.intake_package_path, /\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-deep-flow(?:-\d{6})?$/);
+    assert.equal(existsSync(result.state.intake_package_path), true);
+    assert.equal(result.state.clarification_path, join(result.state.intake_package_path, 'clarification.md'));
+    assert.equal(result.state.requirements_path, join(result.state.intake_package_path, 'requirements.md'));
+    assert.equal(result.state.test_cases_path, join(result.state.intake_package_path, 'test-cases.md'));
+    assert.equal(result.state.spec_artifact_path, result.state.requirements_path);
+    assert.equal(existsSync(result.state.clarification_path), true);
+    assert.equal(existsSync(result.state.requirements_path), true);
+    assert.equal(existsSync(result.state.test_cases_path), true);
+
+    const requirements = await readFile(result.state.requirements_path, 'utf8');
+    const testCases = await readFile(result.state.test_cases_path, 'utf8');
+    assert.match(requirements, /## Acceptance Criteria/);
+    assert.match(requirements, /### AC-001/);
+    assert.match(testCases, /## Coverage Summary/);
+    assert.match(testCases, /### TC-001/);
+    assert.match(testCases, /Source AC: AC-001/);
   });
 
   it('status and next recommend plan-to-exec when clarify is handoff-ready', async () => {
