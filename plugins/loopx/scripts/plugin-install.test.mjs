@@ -81,7 +81,8 @@ describe('loopx plugin shell', () => {
 
     assert.match(planSkill, /Bite-Sized Task Granularity/);
     assert.match(planSkill, /No Placeholders/);
-    assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
+    assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\//);
     assert.match(planSkill, /loopx:subagent-exec/);
     assert.doesNotMatch(planSkill, /Planner -> Architect -> Critic/);
     assert.doesNotMatch(planSkill, /consensus-first/i);
@@ -93,7 +94,8 @@ describe('loopx plugin shell', () => {
     assert.match(clarifySkill, /needs_spec/);
     assert.match(clarifySkill, /direct_to_plan/);
     assert.match(clarifySkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.md/);
-    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-name>\.md/);
+    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
+    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\//);
     assert.doesNotMatch(clarifySkill, /Recommended invocation: `\$spec/);
     assert.doesNotMatch(clarifySkill, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
     assert.doesNotMatch(clarifySkill, /hand off to `build` only/i);
