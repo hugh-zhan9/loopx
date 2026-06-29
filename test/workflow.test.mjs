@@ -65,6 +65,33 @@ async function writeResolvedSpec(root, slug) {
   );
 }
 
+async function writeResolvedClarification(path, slug) {
+  await writeFile(
+    path,
+    [
+      '---',
+      'schema_version: 1',
+      `workflow_id: ${slug}`,
+      'stage: clarify',
+      'current_round: 2',
+      'ambiguity_score: 0.1',
+      'non_goals_resolved: true',
+      'decision_boundaries_resolved: true',
+      'pressure_pass_complete: true',
+      'unresolved_ambiguity_count: 0',
+      '---',
+      '',
+      `# Clarification Log: ${slug}`,
+      '',
+      '## Resume State',
+      '',
+      '- current_round: 2',
+      '- unresolved_count: 0',
+      '- next_question: none',
+    ].join('\n'),
+  );
+}
+
 async function initGitRepo(wd) {
   await execFileAsync('git', ['init'], { cwd: wd });
   await execFileAsync('git', ['config', 'user.email', 'loopx@example.com'], { cwd: wd });
@@ -175,7 +202,7 @@ describe('loopx retained workflow shell', () => {
   it('status and next recommend plan-to-exec when clarify is handoff-ready', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-next-'));
     const clarified = await clarifyStage(wd, 'ready-flow');
-    await writeResolvedSpec(clarified.root, 'ready-flow');
+    await writeResolvedClarification(clarified.state.clarification_path, 'ready-flow');
 
     const status = await statusSummary(wd, 'ready-flow');
     const expectedPlanCommand = `$plan-to-exec ${status.state.intake_package_path}`;
@@ -204,6 +231,26 @@ describe('loopx retained workflow shell', () => {
     assert.equal(statusJson.state.intake_package_path, status.state.intake_package_path);
     assert.equal(statusJson.state.requirements_path, status.state.requirements_path);
     assert.equal(statusJson.state.test_cases_path, status.state.test_cases_path);
+  });
+
+  it('legacy-ready status falls back to workflow spec readiness for legacy clarify state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-ready-'));
+    const clarified = await clarifyStage(wd, 'legacy-ready');
+    const statePath = join(clarified.root, 'state.json');
+    const state = JSON.parse(await readFile(statePath, 'utf8'));
+    await writeFile(statePath, `${JSON.stringify({
+      ...state,
+      clarification_path: null,
+      intake_package_path: null,
+      requirements_path: null,
+      test_cases_path: null,
+      spec_artifact_path: join(clarified.root, 'spec.md'),
+    }, null, 2)}\n`);
+    await writeResolvedSpec(clarified.root, 'legacy-ready');
+
+    const status = await statusSummary(wd, 'legacy-ready');
+    assert.equal(status.state.stage_status, 'ready');
+    assert.equal(status.next_skill_command, `$plan-to-exec ${join(clarified.root, 'spec.md')}`);
   });
 
   it('legacy status keeps absent intake package children out of missing artifacts', async () => {

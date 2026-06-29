@@ -246,8 +246,8 @@ function parseFrontmatter(text) {
   return result;
 }
 
-async function readSpecSummary(root) {
-  const path = artifactPath(root, 'spec.md');
+async function readClarifySummary(root, state) {
+  const path = state?.clarification_path || artifactPath(root, 'spec.md');
   if (!existsSync(path)) {
     return null;
   }
@@ -511,9 +511,9 @@ export async function statusSummary(cwd, slug) {
   const normalized = normalizeSlug(slug);
   const root = resolveWorkflowRoot(cwd, normalized);
   const state = await readState(cwd, normalized);
-  const specSummary = state ? await readSpecSummary(root) : null;
+  const clarifySummary = state ? await readClarifySummary(root, state) : null;
   const statusState = state?.current_stage === STAGES.CLARIFY
-    ? withClarifySummary(state, specSummary)
+    ? withClarifySummary(state, clarifySummary)
     : withRecommendedAction(state);
   const artifacts = state ? workflowArtifactStatus(root, statusState) : {};
   const missing = Object.entries(artifacts)
