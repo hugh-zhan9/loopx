@@ -363,19 +363,26 @@ function workflowArtifactStatus(root, state) {
   const clarificationPath = state?.clarification_path || null;
   const requirementsPath = state?.requirements_path || specPath;
   const testCasesPath = state?.test_cases_path || null;
-  return {
+  const artifacts = {
     'spec.md': existsSync(join(root, 'spec.md')),
-    intake_package_path: intakePackagePath,
-    intake_package_exists: intakePackagePath ? existsSync(intakePackagePath) : false,
-    clarification_path: clarificationPath,
-    clarification_exists: clarificationPath ? existsSync(clarificationPath) : false,
     requirements_path: requirementsPath,
     requirements_exists: requirementsPath ? existsSync(requirementsPath) : false,
-    test_cases_path: testCasesPath,
-    test_cases_exists: testCasesPath ? existsSync(testCasesPath) : false,
     spec_artifact_path: specPath,
     spec_artifact_exists: existsSync(specPath),
   };
+  if (intakePackagePath) {
+    artifacts.intake_package_path = intakePackagePath;
+    artifacts.intake_package_exists = existsSync(intakePackagePath);
+  }
+  if (clarificationPath) {
+    artifacts.clarification_path = clarificationPath;
+    artifacts.clarification_exists = existsSync(clarificationPath);
+  }
+  if (testCasesPath) {
+    artifacts.test_cases_path = testCasesPath;
+    artifacts.test_cases_exists = existsSync(testCasesPath);
+  }
+  return artifacts;
 }
 
 async function listWorkflowSummaries(workflowsRoot) {

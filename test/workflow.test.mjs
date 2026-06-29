@@ -159,6 +159,36 @@ describe('loopx retained workflow shell', () => {
     assert.doesNotMatch(stdout, /next cli:/);
   });
 
+  it('legacy status keeps absent intake package children out of missing artifacts', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-'));
+    await initWorkspace(wd);
+    const root = resolveWorkflowRoot(wd, 'legacy-flow');
+    await mkdir(root, { recursive: true });
+    const specPath = join(root, 'spec.md');
+    await writeFile(specPath, 'legacy clarify source\n');
+    await writeFile(join(root, 'state.json'), `${JSON.stringify({
+      schema_version: 1,
+      slug: 'legacy-flow',
+      current_stage: 'clarify',
+      stage_status: 'blocked',
+      spec_artifact_path: specPath,
+    }, null, 2)}\n`);
+
+    const status = await statusSummary(wd, 'legacy-flow');
+    assert.equal(status.artifacts.spec_artifact_exists, true);
+    assert.equal(status.artifacts.intake_package_exists, undefined);
+    assert.equal(status.artifacts.clarification_exists, undefined);
+    assert.equal(status.artifacts.test_cases_exists, undefined);
+    assert.equal(status.missing_artifacts.includes('intake_package'), false);
+    assert.equal(status.missing_artifacts.includes('clarification'), false);
+    assert.equal(status.missing_artifacts.includes('test_cases'), false);
+
+    await rm(specPath);
+    const missingSpecStatus = await statusSummary(wd, 'legacy-flow');
+    assert.equal(missingSpecStatus.artifacts.spec_artifact_exists, false);
+    assert.equal(missingSpecStatus.missing_artifacts.includes('spec_artifact'), true);
+  });
+
   it('next skill keeps retained review rollback guidance only', () => {
     assert.equal(nextSkillCommand({
       slug: 'review-plan',
