@@ -141,6 +141,37 @@ describe('loopx retained workflow shell', () => {
     assert.match(testCases, /Source AC: AC-001/);
   });
 
+  it('status exposes clarify intake package paths', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-status-intake-'));
+    const clarified = await clarifyStage(wd, 'package-status');
+
+    const status = await statusSummary(wd, 'package-status');
+    assert.equal(status.intake_package_path, status.state.intake_package_path);
+    assert.equal(status.requirements_path, status.state.requirements_path);
+    assert.equal(status.test_cases_path, status.state.test_cases_path);
+    assert.equal(status.spec_artifact_path, status.state.requirements_path);
+    assert.equal(status.artifacts.intake_package_exists, true);
+    assert.equal(status.artifacts.requirements_exists, true);
+    assert.equal(status.artifacts.test_cases_exists, true);
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'package-status'], { cwd: wd });
+    assert.match(stdout, /^intake: .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-package-status/m);
+    assert.match(stdout, /^requirements: .*requirements\.md$/m);
+    assert.match(stdout, /^test cases: .*test-cases\.md$/m);
+
+    assert.equal(existsSync(clarified.state.requirements_path), true);
+  });
+
+  it('clarify does not overwrite an existing same-day intake package', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-intake-repeat-'));
+    const first = await clarifyStage(wd, 'repeat-flow');
+    const second = await clarifyStage(wd, 'repeat-flow');
+
+    assert.notEqual(first.state.intake_package_path, second.state.intake_package_path);
+    assert.equal(existsSync(first.state.requirements_path), true);
+    assert.equal(existsSync(second.state.requirements_path), true);
+  });
+
   it('status and next recommend plan-to-exec when clarify is handoff-ready', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-next-'));
     const clarified = await clarifyStage(wd, 'ready-flow');

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ensureLoopxRoot, resolveLoopxRoot } from './runtime-maintenance.mjs';
@@ -312,11 +312,6 @@ function withRecommendedAction(state) {
   };
 }
 
-function relativeOrAbsolute(cwd, path) {
-  const rel = relative(cwd, path);
-  return rel && !rel.startsWith('..') ? rel : path;
-}
-
 async function renderTemplate(name, replacements) {
   const templatePath = resolve(MODULE_DIR, '..', 'templates', name);
   let text = await readFile(templatePath, 'utf8');
@@ -538,11 +533,11 @@ export async function statusSummary(cwd, slug) {
     contextSetup,
     contextArtifacts,
     next_skill_command: nextSkillCommand(statusState),
-    intake_package_path: statusState?.intake_package_path ? relativeOrAbsolute(cwd, statusState.intake_package_path) : null,
-    clarification_path: statusState?.clarification_path ? relativeOrAbsolute(cwd, statusState.clarification_path) : null,
-    requirements_path: statusState?.requirements_path ? relativeOrAbsolute(cwd, statusState.requirements_path) : null,
-    test_cases_path: statusState?.test_cases_path ? relativeOrAbsolute(cwd, statusState.test_cases_path) : null,
-    spec_artifact_path: statusState?.spec_artifact_path ? relativeOrAbsolute(cwd, statusState.spec_artifact_path) : null,
+    intake_package_path: statusState?.intake_package_path ?? null,
+    clarification_path: statusState?.clarification_path ?? null,
+    requirements_path: statusState?.requirements_path ?? null,
+    test_cases_path: statusState?.test_cases_path ?? null,
+    spec_artifact_path: statusState?.spec_artifact_path ?? null,
     next_action: statusState ? recommendedAction(statusState) : 'Run loopx clarify to start a workflow.',
   };
 }
