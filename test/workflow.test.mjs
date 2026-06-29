@@ -291,6 +291,52 @@ describe('loopx retained workflow shell', () => {
     );
   });
 
+  it('blocks finish done when matching multi-plan state is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-missing-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/01-core.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should be blocked.',
+      }),
+      /finish_record_multi_plan_state_missing:\.loopx\/multi-plan\/2026-06-29-feature\/state\.json/,
+    );
+  });
+
+  it('blocks finish done when matching multi-plan state is invalid JSON', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-invalid-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/01-core.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    const root = join(wd, '.loopx', 'multi-plan', featureSlug);
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, 'state.json'), '{invalid json\n');
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should be blocked.',
+      }),
+      /finish_record_multi_plan_state_invalid:\.loopx\/multi-plan\/2026-06-29-feature\/state\.json/,
+    );
+  });
+
   it('allows finish done when matching multi-plan state has clean spec review', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-pass-'));
     await initGitRepo(wd);
