@@ -552,7 +552,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /spec-level `final-review`/);
     assert.match(subagentExecSkill, /Multi-Plan Child Plans/);
     assert.match(subagentExecSkill, /Do not execute sibling child plans/);
-    assert.match(subagentExecSkill, /Do not .*finish/i);
+    assert.match(subagentExecSkill, /Do not proceed to `finish` after the child plan completes/);
     assert.match(finalReviewSkill, /Plan-level final-review/);
     assert.match(finalReviewSkill, /Spec-level final-review/);
     assert.match(finalReviewSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
