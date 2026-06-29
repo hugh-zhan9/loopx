@@ -15,6 +15,7 @@ const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
 const pluginSkillsRoot = join(repoRoot, 'plugins', 'loopx', 'skills');
 const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
 const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
+const removedPluginMirrorPattern = new RegExp(`${removedPluginSyncScriptName}|plugins/loopx/skills|plugin skill mirror|plugin-ready v1 skill mirror`, 'i');
 const markdownPaths = [
   'README.md',
   'README.zh-CN.md',
@@ -23,6 +24,15 @@ const markdownPaths = [
   'docs/loopx/cli.zh-CN.md',
   'docs/loopx/design/loopx-skill-suite-v1-design.md',
   'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
+  'skills/RESOLVER.md',
+];
+const activeMaintenanceDocs = [
+  'README.md',
+  'README.zh-CN.md',
+  'AGENTS.md',
+  'docs/loopx/cli.md',
+  'docs/loopx/cli.zh-CN.md',
+  'docs/loopx/specs/installation.md',
   'skills/RESOLVER.md',
 ];
 const personalPathPattern = /\/(?:Users|home)\/[A-Za-z0-9._-]+\//;
@@ -97,6 +107,10 @@ const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|arc
 
 function assertNoRemovedRuntimeCommandExposure(text, label) {
   assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
+}
+
+function assertNoRemovedPluginMirrorWorkflow(text, label) {
+  assert.doesNotMatch(text, removedPluginMirrorPattern, `${label} should not reference removed plugin skill mirror workflow`);
 }
 
 async function assertPublicDocsAligned() {
@@ -228,6 +242,10 @@ assert.deepEqual(
 
 for (const relativePath of markdownPaths) {
   await assertMarkdownStructure(relativePath);
+}
+for (const relativePath of activeMaintenanceDocs) {
+  const text = await readFile(join(repoRoot, relativePath), 'utf8');
+  assertNoRemovedPluginMirrorWorkflow(text, relativePath);
 }
 await assertPublicDocsAligned();
 
