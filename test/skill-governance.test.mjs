@@ -1210,6 +1210,28 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/lancet/'), true);
   });
 
+  it('execution review ranges plan anchors preserve source anchors', async () => {
+    const planRoot = join(repoRoot, 'docs', 'loopx', 'plans', '2026-06-30-execution-review-ranges');
+    const files = await Promise.all([
+      readFile(join(planRoot, '00-overview.md'), 'utf8'),
+      readFile(join(planRoot, '01-runtime-state-and-finish.md'), 'utf8'),
+      readFile(join(planRoot, '02-final-review-contracts.md'), 'utf8'),
+      readFile(join(planRoot, '03-skill-workflow-contracts.md'), 'utf8'),
+      readFile(join(planRoot, '04-governance-and-verification.md'), 'utf8'),
+    ]);
+    const combined = files.join('\n');
+
+    for (const anchor of ['AC-1', 'AC-2', 'AC-2a', 'AC-3', 'AC-4', 'AC-5', 'AC-6', 'AC-7', 'AC-8', 'AC-8a', 'AC-9', 'AC-10', 'AC-11', 'AC-12']) {
+      assert.match(combined, new RegExp(`\\b${anchor}\\b`));
+    }
+    for (const anchor of ['D-001', 'D-002', 'D-003', 'D-004', 'D-005', 'D-006', 'D-007', 'D-008', 'D-009', 'D-010', 'D-011']) {
+      assert.match(combined, new RegExp(`\\b${anchor}\\b`));
+    }
+    for (const anchor of ['TC-1', 'TC-2', 'TC-3', 'TC-4', 'TC-5', 'TC-6', 'TC-7', 'TC-7a', 'TC-8', 'TC-9', 'TC-9a', 'TC-9b', 'TC-10', 'TC-11', 'TC-12', 'TC-13', 'TC-14', 'TC-15']) {
+      assert.match(combined, new RegExp(`\\b${anchor}\\b`));
+    }
+  });
+
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
     assert.match(finishSkill, /Match the user's language/);
