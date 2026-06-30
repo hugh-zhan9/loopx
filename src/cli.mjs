@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 
 import { checkForUpdates, updateNotification } from './version-check.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
-import { finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
+import { executionStartStage, finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
 import { readLancetConfig, readLancetSession, writeLancetSession } from './lancet-runtime.mjs';
@@ -38,6 +38,7 @@ function usage() {
     '  loopx doctor [--json]',
     '  loopx repair-install',
     '  loopx finish-start [slug] [--source <path>] [--json]',
+    '  loopx execution-start [slug] [--source <path>] [--design <path>] [--json]',
     '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
     '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
   ].join('\n');
@@ -586,6 +587,29 @@ async function main() {
           console.log(`path: ${result.path}`);
           console.log(`head: ${result.state.head_short}`);
           console.log(`source: ${result.state.source ?? '(none)'}`);
+        }
+        return;
+      }
+      case 'execution-start': {
+        const result = await executionStartStage(process.cwd(), positionals[0], {
+          source: stringOption(options, '--source'),
+          design: stringOption(options, '--design'),
+        });
+        if (options.get('--json')) {
+          console.log(JSON.stringify({
+            ok: true,
+            command,
+            path: result.path,
+            state: result.state,
+            reused: result.reused,
+          }, null, 2));
+        } else {
+          console.log(`execution start: ${result.state.slug}`);
+          console.log(`path: ${result.path}`);
+          console.log(`reused: ${result.reused ? 'yes' : 'no'}`);
+          console.log(`head: ${result.state.start_commit_short}`);
+          console.log(`source: ${result.state.source_artifact}`);
+          console.log(`design: ${result.state.design_artifact ?? '(none)'}`);
         }
         return;
       }

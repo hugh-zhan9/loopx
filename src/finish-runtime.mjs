@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
+const EXECUTION_RANGE_SCHEMA_VERSION = 1;
 const MULTI_PLAN_SCHEMA_VERSION = 1;
 const MULTI_PLAN_PACKAGE_PATTERN = /^docs\/loopx\/plans\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/(?:00-overview|[0-9]{2}-[a-z0-9-]+)\.md$/;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
@@ -57,6 +58,15 @@ export function resolveFinishBaselinePath(cwd, slug) {
 
 export function resolveLatestFinishBaselinePath(cwd) {
   return join(resolveFinishBaselineRoot(cwd), 'latest.json');
+}
+
+export function resolveExecutionRangeRoot(cwd) {
+  return join(resolve(cwd), '.loopx', 'execution-ranges');
+}
+
+export function resolveExecutionRangePath(cwd, slug) {
+  const normalizedSlug = normalizeSlug(slug) || 'execution-range';
+  return join(resolveExecutionRangeRoot(cwd), `${normalizedSlug}.json`);
 }
 
 async function gitOutput(cwd, args) {
@@ -339,6 +349,14 @@ function normalizedArtifactPath(path) {
   return String(path || '').trim().replaceAll('\\', '/').replace(/^\.\//, '');
 }
 
+function canonicalFinalReviewReportPath({ source, design, slug }) {
+  const identity = normalizedArtifactPath(design || source);
+  const designMatch = identity.match(/docs\/loopx\/design\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/[^/]+\.md$/);
+  const sourceMatch = identity.match(/(?:^|\/)(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)(?:\.md|\/00-overview\.md|\/)?$/);
+  const reportSlug = designMatch?.[1] || sourceMatch?.[1] || normalizeSlug(slug) || 'final-review';
+  return `.loopx/final-review/${reportSlug}.md`;
+}
+
 function multiPlanPackageFromSourceArtifact(sourceArtifact) {
   const normalized = normalizedArtifactPath(sourceArtifact);
   const match = normalized.match(MULTI_PLAN_PACKAGE_PATTERN);
@@ -384,6 +402,25 @@ async function resolveCommitRef(cwd, ref) {
   } catch {
     return null;
   }
+}
+
+async function readExecutionRangeState(path) {
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return null;
+    }
+    throw new Error('execution_start_invalid_state');
+  }
+}
+
+function sameExecutionIdentity(state, expected) {
+  return state.schema_version === EXECUTION_RANGE_SCHEMA_VERSION
+    && state.slug === expected.slug
+    && state.worktree === expected.worktree
+    && normalizedArtifactPath(state.source_artifact) === normalizedArtifactPath(expected.source_artifact)
+    && normalizedArtifactPath(state.design_artifact || '') === normalizedArtifactPath(expected.design_artifact || '');
 }
 
 async function validatedFinishBaseline(cwd, baseline, { slug = null, evidence = null } = {}) {
@@ -1274,6 +1311,49 @@ export async function finishStartStage(cwd, slug, { source = null, date = new Da
   await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
   await writeFile(latestPath, `${JSON.stringify(state, null, 2)}\n`);
   return { path, latestPath, state };
+}
+
+export async function executionStartStage(cwd, slug, { source, design = null, date = new Date() } = {}) {
+  const normalizedSlug = normalizeSlug(slug) || 'execution-range';
+  if (!nonEmptyText(source)) {
+    throw new Error('execution_start_source_required');
+  }
+
+  const evidence = await resolveGitEvidence(cwd);
+  if (evidence.worktree === 'unknown') {
+    throw new Error('execution_start_no_valid_head');
+  }
+
+  const fullHead = await resolveRequiredHead(cwd);
+  const rootCwd = evidence.worktree;
+  const stateDate = date instanceof Date ? date : new Date(date);
+  await mkdir(resolveExecutionRangeRoot(rootCwd), { recursive: true });
+  const path = resolveExecutionRangePath(rootCwd, normalizedSlug);
+  const expected = {
+    schema_version: EXECUTION_RANGE_SCHEMA_VERSION,
+    slug: normalizedSlug,
+    worktree: evidence.worktree,
+    source_artifact: normalizedArtifactPath(source),
+    design_artifact: design ? normalizedArtifactPath(design) : null,
+  };
+  const existingState = await readExecutionRangeState(path);
+  if (existingState) {
+    if (!sameExecutionIdentity(existingState, expected)) {
+      throw new Error('execution_start_slug_conflict');
+    }
+    return { path, state: existingState, reused: true };
+  }
+
+  const state = {
+    ...expected,
+    started_at: stateDate.toISOString(),
+    branch: evidence.branch,
+    start_commit: fullHead,
+    start_commit_short: fullHead.slice(0, 7),
+    canonical_final_review_report: canonicalFinalReviewReportPath({ source, design, slug: normalizedSlug }),
+  };
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  return { path, state, reused: false };
 }
 
 export async function finishRecordStage(cwd, auditIdOrPath, {
