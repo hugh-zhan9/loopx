@@ -876,6 +876,8 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Critical\/Important|Critical or Important/);
     assert.match(planSkill, /revise.*re-check|re-check.*revise/is);
     assert.match(planSkill, /Plan review mode/);
+    assert.match(planSkill, /Review evidence/);
+    assert.match(planSkill, /Recheck evidence/);
     assert.match(planSkill, /Residual risk/);
     assert.match(planSkill, /\.loopx\/plan-to-exec\/<slug>-plan-review\.md/);
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
