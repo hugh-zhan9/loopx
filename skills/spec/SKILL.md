@@ -153,9 +153,9 @@ The design proposal and detailed design must both cover boundary scenarios. Incl
 
 For detailed designs with `D-*` anchors, include a `Design Contract Index / D-*` subsection under `十一、QA` or an equivalent final QA subsection. The index table must list every `D-*` anchor used in the document:
 
-| D anchor | Source AC | Contract type | Decision summary | Downstream expectation |
-|---|---|---|---|---|
-| `D-001` | `AC-001` or `not_applicable` | `workflow contract` | `<short decision>` | `<what plan/review must preserve>` |
+| D anchor | Source AC | Contract type | Decision summary | Boundary / non-goal | Downstream expectation |
+|---|---|---|---|---|---|
+| `D-001` | `AC-001` or `not_applicable` | `workflow contract` | `<short decision>` | `<where the decision stops applying>` | `<what plan/review must preserve>` |
 
 If design anchors are not applicable, include `Design anchors: not applicable` with a short reason instead of the table.
 
