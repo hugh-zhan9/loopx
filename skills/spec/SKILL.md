@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # loopx Spec
@@ -64,6 +64,25 @@ For the detailed design, use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) 
 
 The detailed design must reference the design proposal and treat accepted proposal decisions as constraints. Do not re-litigate the direction in the detailed design; put unresolved direction questions back in the proposal and stop before planning if they block implementation.
 
+## Design Contract Anchors
+
+`spec` remains a human-reviewed design document generator. `D-*` design anchors add traceability; they do not replace narrative context, tradeoffs, rationale, boundary scenarios, or the required detailed design template.
+
+For detailed designs with implementation-relevant decisions, assign stable `D-*` anchors such as `D-001`, `D-002`, and `D-003`. A decision is implementation-relevant when it affects behavior, API, data, state, CLI, permissions, compatibility, rollout, operations, downstream planning, or review.
+
+Each design contract entry should name:
+
+- `D-*` anchor
+- Source AC, when an `AC-*` exists
+- Contract type, such as behavior, data, state, CLI, compatibility, operations, or workflow contract
+- Decision
+- Boundary or non-goal
+- Downstream expectation for `plan-to-exec` or `review`
+
+Place each `D-*` anchor inline beside the relevant decision in the main design body, then include a final complete index table in the detailed design. The inline anchor keeps the design readable in context; the index table gives downstream skills one lookup surface.
+
+Proposal-only, research-only, explanatory, or no-implementation-output designs may write `Design anchors: not applicable` with a short reason. Do not invent fake anchors for documents without implementation-relevant decisions.
+
 ## Support Lens Activation
 
 Before writing the proposal or detailed design, identify support lenses that apply. Read only the triggered support skill files and use them as design checklists; do not let them replace `spec`.
@@ -78,6 +97,8 @@ Before writing the proposal or detailed design, identify support lenses that app
 | Go-Kratos proto/buf APIs, service/biz/data layers, middleware, auth, config, or Kratos troubleshooting | `kratos` |
 
 Record triggered support lenses in the design proposal and detailed design. If no support lens applies, state `Support lenses: none` so downstream planning does not guess.
+
+Support lenses inform the unified design document. They must not create separate authoritative contract files that `plan-to-exec`, `review`, or implementers need to reconcile. Fold lens-specific conclusions into the proposal, detailed design sections, boundary scenarios, verification strategy, or `D-*` entries.
 
 Cover:
 
@@ -97,7 +118,7 @@ Cover:
 
 For brownfield work, distinguish repo evidence from inference.
 
-When the source is an intake package directory, the detailed design must reference the intake package path and its `requirements.md` and `test-cases.md` files. The verification strategy must preserve `TC-*` coverage by mapping requirement-stage acceptance/integration scenarios to design-level test strategy, manual checks, or deferred-with-rationale items.
+When the source is an intake package directory, the detailed design must reference the intake package path and its `requirements.md` and `test-cases.md` files. The verification strategy must preserve `TC-*` coverage by mapping requirement-stage acceptance/integration scenarios to design-level test strategy, manual checks, or deferred-with-rationale items. If the detailed design also contains `D-*` anchors, the verification strategy should make the `AC-* -> D-* -> TC-*` relationship visible where that helps downstream planning.
 
 ## Output
 
@@ -129,6 +150,14 @@ The detailed Markdown spec must include these sections:
 The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan-to-exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
 The design proposal and detailed design must both cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
+
+For detailed designs with `D-*` anchors, include a `Design Contract Index / D-*` subsection under `十一、QA` or an equivalent final QA subsection. The index table must list every `D-*` anchor used in the document:
+
+| D anchor | Source AC | Contract type | Decision summary | Downstream expectation |
+|---|---|---|---|---|
+| `D-001` | `AC-001` or `not_applicable` | `workflow contract` | `<short decision>` | `<what plan/review must preserve>` |
+
+If design anchors are not applicable, include `Design anchors: not applicable` with a short reason instead of the table.
 
 ## Handoff
 
