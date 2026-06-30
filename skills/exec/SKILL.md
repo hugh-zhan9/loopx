@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, periodic code review, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, periodic review, no subagent lane"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Exec
@@ -41,6 +41,8 @@ Use the plan filename slug when no workflow slug is available. This preserves th
 
 For each task:
 
+If the plan task heading contains a `T-*` task anchor such as `T-001 / Task 1`, preserve that anchor in `update_plan`, checkpoint rows, blocked escalation, and review requests. Historical plans without `T-*` continue to use `Task N`.
+
 1. Mark as in_progress
 2. Follow each step exactly (plan has bite-sized steps)
 3. Run verifications as specified
@@ -76,6 +78,8 @@ When no trigger fires, spec self-check (Step 4) is sufficient — you don't need
 Only mark the task complete and update the checkpoint after all triggered review issues for that task are resolved.
 
 ### Checkpoint Review Questions
+
+For plans with `T-*`, include the relevant task anchor in the review request so findings can reference it directly.
 
 For triggered reviews, include the task text, changed files, test results, and the exact evidence commands you ran. For removal, replacement, compatibility, migration, package, installer, template, hook, or public-surface changes, the review must explicitly answer:
 
@@ -157,11 +161,11 @@ After each task is marked complete, write or update the checkpoint file:
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
-| 1 | completed | abc1234 | |
-| 2 | completed | def5678 | review requested after this task |
-| 3 | in_progress | - | blocked: missing API key config |
-| 4 | pending | - | |
-| 5 | pending | - | |
+| T-001 / Task 1 | completed | abc1234 | |
+| T-002 / Task 2 | completed | def5678 | review requested after this task |
+| T-003 / Task 3 | in_progress | - | blocked: missing API key config |
+| T-004 / Task 4 | pending | - | |
+| T-005 / Task 5 | pending | - | |
 
 ## Context for Resume
 
@@ -208,7 +212,7 @@ When execution is blocked, classify the blocker and take the appropriate action:
 When stopping to ask for help:
 
 ```markdown
-## Blocked: [task number and name]
+## Blocked: [task anchor or task number and name]
 
 **Blocker type:** [context gap / plan defect / dependency / test failure / environment]
 
