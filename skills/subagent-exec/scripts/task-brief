@@ -30,10 +30,11 @@ fi
 
 awk -v n="$task_number" -v source="$plan" '
   BEGIN {
-    task_header_2 = "^## Task " n "(:| |$)"
-    task_header_3 = "^### Task " n "(:| |$)"
-    next_task_2 = "^## Task [0-9]+(:| |$)"
-    next_task_3 = "^### Task [0-9]+(:| |$)"
+    task_prefix = "(T-[0-9][0-9][0-9][[:space:]]*/[[:space:]]*)?"
+    task_header_2 = "^## " task_prefix "Task " n "(:| |$)"
+    task_header_3 = "^### " task_prefix "Task " n "(:| |$)"
+    next_task_2 = "^## " task_prefix "Task [0-9]+(:| |$)"
+    next_task_3 = "^### " task_prefix "Task [0-9]+(:| |$)"
     in_global = 0
     in_task = 0
     in_fence = 0
