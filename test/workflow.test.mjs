@@ -512,6 +512,35 @@ describe('loopx retained workflow shell', () => {
     assert.deepEqual(second.state, first.state);
   });
 
+  it('rejects conflicting execution range identity for the same slug', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-conflict-'));
+    await initGitRepo(wd);
+    await writeFile(join(wd, 'plan.md'), '# Plan\n');
+    await execFileAsync('git', ['add', 'plan.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'initial plan'], { cwd: wd });
+
+    await executionStartStage(wd, 'feature-a', {
+      source: 'docs/loopx/plans/feature-a.md',
+      design: 'docs/loopx/design/2026-06-30-feature-a/需求设计文档.md',
+    });
+
+    await assert.rejects(
+      () => executionStartStage(wd, 'feature-a', {
+        source: 'docs/loopx/plans/feature-b.md',
+        design: 'docs/loopx/design/2026-06-30-feature-a/需求设计文档.md',
+      }),
+      /execution_start_slug_conflict/,
+    );
+
+    await assert.rejects(
+      () => executionStartStage(wd, 'feature-a', {
+        source: 'docs/loopx/plans/feature-a.md',
+        design: 'docs/loopx/design/2026-06-30-feature-b/需求设计文档.md',
+      }),
+      /execution_start_slug_conflict/,
+    );
+  });
+
   it('CLI exposes execution-start in help and prints human and JSON output', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-cli-'));
     await initGitRepo(wd);
