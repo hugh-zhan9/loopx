@@ -54,6 +54,7 @@ issue -> fix -> finish
 | `using-git-worktrees` | 实现工作需要隔离当前 checkout，或用户要求设置 git worktree。 | 先检测已有隔离；优先使用原生 worktree 工具，再 fallback 到 git worktree。 |
 | `doc-readability` | 文档、PRD、spec、会议纪要或知识库文章不清楚、臃肿或 AI 味重。 | 在把文档当成 source material 前，先评估或重写。 |
 | `requirement-analyzer` | 现有需求需要检查歧义、缺口、可行性、追踪关系或开发就绪度。 | 输出 gap report；不推进 workflow state。 |
+| `plan-reviewer` | 草稿或既有实施计划需要检查 source-to-plan 覆盖、scope drift、验证路径或任务交接质量。 | 由 `plan-to-exec` 内部使用；直接调用只用于临时 plan audit，不推进 workflow state。 |
 | `go-style` | 编辑或评审 Go 代码。 | 覆盖 Go 风格、错误处理、context、命名、测试和 interface 边界。 |
 | `kratos` | 处理 Go-Kratos 服务、proto/buf API、service/biz/data 层、middleware、auth 或 config。 | 同时有框架和 Go 代码问题时，可与 `go-style` 一起用。 |
 | `api-designer` | 设计 REST、GraphQL、OpenAPI、resources、pagination、versioning、compatibility 或 error models。 | 在 `spec`、实现或 review 中增加 API discipline。 |
@@ -69,7 +70,7 @@ issue -> fix -> finish
 1. 工作还不清楚，用 `clarify`。
 2. 计划前需要固定决策，用 `spec`；默认写 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`，只有 proposal 级取舍时才额外写 `设计提案.md`。
 3. 用户要记录当前代码库现状而不是设计未来变更，用 `codebase-spec`。
-4. 设计已定，需要拆任务，用 `plan-to-exec`，source 可以是 intake package 目录或详细设计文档。
+4. 设计已定，需要拆任务，用 `plan-to-exec`，source 可以是 intake package 目录或详细设计文档。`plan-to-exec` 会在最终 handoff 前内部运行 `plan-reviewer`；普通用户仍然直接继续到 `subagent-exec` 或 `exec`。
 5. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
 6. 实现完成但还没评审，用 `review` 或 `final-review`。
 7. 已有反馈，用 `fix-review`。

@@ -54,6 +54,7 @@ issue -> fix -> finish
 | `using-git-worktrees` | Implementation work needs an isolated workspace or the user asks for git worktree setup. | Detect existing isolation first; use native worktree tools before git fallback. |
 | `doc-readability` | A document, PRD, spec, meeting note, or knowledge-base article is unclear, bloated, or AI-like. | Assess or rewrite the document before treating it as source material. |
 | `requirement-analyzer` | Existing requirements need ambiguity, gap, feasibility, traceability, or readiness analysis. | Produces a gap report; does not advance workflow state. |
+| `plan-reviewer` | A draft or existing implementation plan needs source-to-plan coverage, scope drift, verification, or task handoff audit. | Used internally by `plan-to-exec`; direct use is for ad-hoc plan audits and does not advance workflow state. |
 | `go-style` | Editing or reviewing Go code. | Covers idiomatic Go style, errors, context, naming, tests, and interface boundaries. |
 | `kratos` | Working on Go-Kratos services, proto/buf APIs, service/biz/data layers, middleware, auth, or config. | Use with `go-style` when both framework and Go concerns matter. |
 | `api-designer` | Designing REST, GraphQL, OpenAPI, resources, pagination, versioning, compatibility, or error models. | Adds API discipline during `spec`, implementation, or review. |
@@ -69,7 +70,7 @@ Use this routing rule:
 1. If the work is unclear, start with `clarify`.
 2. If decisions must be fixed before planning, use `spec`; by default it writes the detailed design under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md` and adds `设计提案.md` only for proposal-level tradeoffs.
 3. If the user wants to document the current codebase instead of designing a future change, use `codebase-spec`.
-4. If the design is settled and work needs tasks, use `plan-to-exec` with an intake package directory or detailed design doc.
+4. If the design is settled and work needs tasks, use `plan-to-exec` with an intake package directory or detailed design doc. `plan-to-exec` runs `plan-reviewer` internally before final plan handoff; users normally continue directly to `subagent-exec` or `exec`.
 5. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.
 6. If implementation is complete but not reviewed, use `review` or `final-review`.
 7. If feedback exists, use `fix-review`.

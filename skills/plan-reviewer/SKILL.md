@@ -15,10 +15,10 @@ Use it inside `plan-to-exec` after a draft plan exists and before the final plan
 ## Do not use this skill for:
 
 - Writing or rewriting the implementation plan from scratch.
-- Reviewing implementation code or git diffs.
+- Do not review implementation code or git diffs.
 - Running `exec`, `subagent-exec`, `review`, `final-review`, or `finish`.
 - Creating a new workflow state, CLI command, or required user handoff.
-- Redesigning approved product, architecture, data, API, permission, or workflow decisions.
+- Do not redesign approved product, architecture, data, API, permission, or workflow decisions.
 - Migrating historical plans.
 
 If the source is missing required decisions, contradictory, or not testable, report that the work must return to `clarify` or `spec`. Do not invent decisions inside the review.
@@ -31,7 +31,7 @@ Read:
 
 1. Source artifact:
    - intake package directory with `requirements.md` and `test-cases.md`, or
-   - design spec with `AC-*`, `D-*`, `TC-*`, and verification strategy.
+   - design spec with Source AC, Design anchors, Test cases, `AC-*`, `D-*`, `TC-*`, and verification strategy.
 2. Draft implementation plan.
 3. Relevant repo specs or memory summaries already selected by the caller.
 
@@ -42,8 +42,8 @@ Do not inspect implementation code unless the caller explicitly asked for an ad-
 Build a source-to-plan coverage matrix:
 
 - Every Source AC maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
-- Every Design anchor maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
-- Every Test case maps to an automated command, integration/e2e/API/CLI/manual check, or deferred-with-rationale row.
+- Every Design anchors row maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
+- Every Test cases row maps to an automated command, integration/e2e/API/CLI/manual check, or deferred-with-rationale row.
 - Non-goals, compatibility rules, surface boundaries, and unchanged behaviors from the source remain preserved in the plan.
 - The plan does not add product, API, data, permission, workflow, runtime, or compatibility behavior not justified by the source.
 - Each task has enough interfaces, context, support lenses, and expected evidence for an `exec` or `subagent-exec` implementer and reviewer to work independently.

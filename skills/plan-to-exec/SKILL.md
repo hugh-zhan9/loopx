@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -40,6 +40,26 @@ Do not re-decide product or architecture. If the source is incomplete, contradic
 The plan must preserve `AC-*` anchors from `requirements.md` and cover `TC-*` scenarios from `test-cases.md` through tasks, verification commands, or deferred-with-rationale rows. For legacy clarify bundles or spec source documents, preserve and cover generated requirement anchors from the source. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
 
 When a source design spec contains `D-*` design anchors or a `Design Contract Index / D-*` table, preserve those anchors in the plan. Each implementation-relevant `D-*` must map to at least one task, verification step, review focus, or deferred-with-rationale row. Task briefs should include `Design anchors: D-001, D-002` alongside `Source AC`. If a `D-*` anchor is missing, contradictory, or would require a new design decision to plan safely, return to `spec` instead of inventing the decision in the plan.
+
+## Internal Plan Review
+
+After drafting the complete plan and before saving the final plan or offering execution handoff, run the `plan-reviewer` support lens as a source-to-plan review gate.
+
+Use a reviewer subagent when the platform supports subagents. Give the reviewer only the source artifact, the draft plan, relevant repo spec or memory context already selected for planning, and the `plan-reviewer` rubric. The reviewer must not inspect implementation code, because implementation has not started.
+
+If subagents are unavailable, run the same `plan-reviewer` rubric in the current context. Mark this as degraded independence in the final plan or handoff:
+
+```text
+Plan review mode: same-context
+Reviewer independence: degraded
+Residual risk: source-to-plan coverage was not independently reviewed by a separate subagent
+```
+
+Critical or Important plan-review findings block final plan save and execution handoff. Revise the draft plan, then re-check the affected findings before continuing. If the finding exposes missing or contradictory source decisions, return to `clarify` or `spec` instead of inventing the decision in the plan.
+
+Minor findings may remain only when they do not risk missed implementation, extra behavior, weak verification, or failed handoff; record the residual risk.
+
+Optional scratch review artifacts may be written to `.loopx/plan-to-exec/<slug>-plan-review.md`. They are local workflow state and not repo-tracked docs by default.
 
 ## Task Anchor Contract
 
@@ -188,6 +208,13 @@ dependency limits, naming/copy rules, platform requirements, compatibility
 requirements, package contents, and exact values. Every task implicitly includes
 this section.]
 
+## Internal Plan Review
+
+- Plan review mode: subagent | same-context
+- Reviewer independence: independent | degraded
+- Unresolved findings: none | <summary of unresolved findings, or none>
+- Residual risk: none | <concrete residual risk>
+
 ---
 ```
 
@@ -298,10 +325,13 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 8. **Support lens coverage:** If the source design names support lenses, does each relevant task list them and include verification or review steps that exercise their discipline? If not, add them before handoff.
 9. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints, Interfaces, and Support lenses for an implementer and task reviewer who cannot see the rest of the plan?
 10. **Test-case coverage:** If the source includes `test-cases.md`, does each `TC-*` map to a task verification step, integration/e2e/API/CLI/manual check, or deferred-with-rationale row?
+11. **Internal plan review readiness:** Is the draft complete enough for `plan-reviewer` to audit source-to-plan coverage, and does the final plan record `Plan review mode`, `Reviewer independence`, `Unresolved findings`, and `Residual risk`?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 
 ## Execution Handoff
+
+Do not offer execution choice until the internal plan review gate is complete and no Critical or Important findings remain unresolved.
 
 After saving the plan, offer execution choice:
 
