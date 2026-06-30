@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, it } from 'node:test';
 
-import { finishAuditStage, finishRecordStage, finishStartStage } from '../src/finish-runtime.mjs';
+import { executionStartStage, finishAuditStage, finishRecordStage, finishStartStage, resolveExecutionRangePath } from '../src/finish-runtime.mjs';
 import { installBundledSkills, LOOPX_BUNDLED_SKILLS, verifyInstallState } from '../src/install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
 import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWorkspaceRoot, statusSummary } from '../src/workflow.mjs';
@@ -87,8 +87,63 @@ async function writeResolvedClarification(path, slug) {
       '',
       '- current_round: 2',
       '- unresolved_count: 0',
+      '- non_goals_resolved: true',
+      '- decision_boundaries_resolved: true',
+      '- pressure_pass_complete: true',
       '- next_question: none',
     ].join('\n'),
+  );
+}
+
+async function writeResolvedClarificationResumeOnly(path, slug) {
+  await writeFile(
+    path,
+    [
+      '---',
+      'schema_version: 1',
+      `workflow_id: ${slug}`,
+      'stage: clarify',
+      'current_round: 0',
+      'ambiguity_score: 1',
+      'non_goals_resolved: false',
+      'decision_boundaries_resolved: false',
+      'pressure_pass_complete: false',
+      'unresolved_ambiguity_count: 1',
+      '---',
+      '',
+      `# Clarification Log: ${slug}`,
+      '',
+      '## Resume State',
+      '',
+      '- current_round: 2',
+      '- ambiguity_score: 0.1',
+      '- unresolved_count: 0',
+      '- non_goals_resolved: true',
+      '- decision_boundaries_resolved: true',
+      '- pressure_pass_complete: true',
+      '- next_question: none',
+    ].join('\n'),
+  );
+}
+
+async function appendResolvedClarificationResume(path) {
+  await writeFile(
+    path,
+    `${await readFile(path, 'utf8')}
+## Notes
+
+- Earlier resume state may be stale after incremental edits.
+
+## Resume State
+
+- current_round: 2
+- ambiguity_score: 0.1
+- unresolved_count: 0
+- non_goals_resolved: true
+- decision_boundaries_resolved: true
+- pressure_pass_complete: true
+- next_question: none
+`,
   );
 }
 
@@ -231,6 +286,42 @@ describe('loopx retained workflow shell', () => {
     assert.equal(statusJson.state.intake_package_path, status.state.intake_package_path);
     assert.equal(statusJson.state.requirements_path, status.state.requirements_path);
     assert.equal(statusJson.state.test_cases_path, status.state.test_cases_path);
+  });
+
+  it('status derives clarify readiness from Resume State when frontmatter is stale', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-resume-ready-'));
+    const clarified = await clarifyStage(wd, 'resume-ready');
+    await writeResolvedClarificationResumeOnly(clarified.state.clarification_path, 'resume-ready');
+
+    const status = await statusSummary(wd, 'resume-ready');
+    assert.equal(status.state.stage_status, 'ready');
+    assert.equal(status.next_skill_command, `$plan-to-exec ${status.state.intake_package_path}`);
+  });
+
+  it('status uses the last Resume State section when clarification has stale earlier state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-last-resume-'));
+    const clarified = await clarifyStage(wd, 'last-resume');
+    await appendResolvedClarificationResume(clarified.state.clarification_path);
+
+    const status = await statusSummary(wd, 'last-resume');
+    assert.equal(status.state.stage_status, 'ready');
+    assert.equal(status.state.unresolved_ambiguity_count, 0);
+    assert.equal(status.state.clarify_current_round, 2);
+    assert.equal(status.next_skill_command, `$plan-to-exec ${status.state.intake_package_path}`);
+  });
+
+  it('next skill quotes handoff paths that contain spaces', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx space next-'));
+    const clarified = await clarifyStage(wd, 'space-flow');
+    await writeResolvedClarification(clarified.state.clarification_path, 'space-flow');
+
+    const status = await statusSummary(wd, 'space-flow');
+    assert.match(status.state.intake_package_path, /\s/);
+    assert.match(status.next_skill_command, /^\$plan-to-exec '/);
+    assert.match(status.next_skill_command, /'\s*$/);
+
+    const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'space-flow'], { cwd: wd });
+    assert.match(nextStdout, /^next skill: \$plan-to-exec '/m);
   });
 
   it('legacy-ready status falls back to workflow spec readiness for legacy clarify state', async () => {
@@ -386,6 +477,81 @@ describe('loopx retained workflow shell', () => {
     });
     assert.equal(recorded.state.choice.action, 'keep');
     assert.equal(recorded.state.choice.status, 'pending');
+  });
+
+  it('creates and reuses execution range state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-'));
+    await initGitRepo(wd);
+    await writeFile(join(wd, 'plan.md'), '# Plan\n');
+    await execFileAsync('git', ['add', 'plan.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'initial plan'], { cwd: wd });
+    const { stdout: headStdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: wd });
+    const { stdout: worktreeStdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], { cwd: wd });
+    const head = headStdout.trim();
+    const worktree = worktreeStdout.trim();
+
+    const first = await executionStartStage(wd, 'feature-a', {
+      source: 'docs/loopx/plans/feature-a.md',
+      design: 'docs/loopx/design/2026-06-30-feature-a/需求设计文档.md',
+      date: new Date('2026-06-30T00:00:00.000Z'),
+    });
+    const second = await executionStartStage(wd, 'feature-a', {
+      source: 'docs/loopx/plans/feature-a.md',
+      design: 'docs/loopx/design/2026-06-30-feature-a/需求设计文档.md',
+      date: new Date('2026-06-30T00:01:00.000Z'),
+    });
+
+    assert.equal(first.reused, false);
+    assert.equal(second.reused, true);
+    assert.equal(first.path, resolveExecutionRangePath(worktree, 'feature-a'));
+    assert.equal(first.state.start_commit, head);
+    assert.equal(first.state.start_commit_short, head.slice(0, 7));
+    assert.equal(first.state.source_artifact, 'docs/loopx/plans/feature-a.md');
+    assert.equal(first.state.design_artifact, 'docs/loopx/design/2026-06-30-feature-a/需求设计文档.md');
+    assert.equal(first.state.canonical_final_review_report, '.loopx/final-review/2026-06-30-feature-a.md');
+    assert.deepEqual(second.state, first.state);
+  });
+
+  it('CLI exposes execution-start in help and prints human and JSON output', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-cli-'));
+    await initGitRepo(wd);
+    await writeFile(join(wd, 'plan.md'), '# Plan\n');
+    await execFileAsync('git', ['add', 'plan.md'], { cwd: wd });
+    await execFileAsync('git', ['commit', '-m', 'initial plan'], { cwd: wd });
+
+    const { stdout: help } = await execFileAsync(process.execPath, [cliPath], { cwd: wd });
+    assert.match(help, /loopx execution-start \[slug\] \[--source <path>\] \[--design <path>\] \[--json\]/);
+
+    const humanResult = await execFileAsync(process.execPath, [
+      cliPath,
+      'execution-start',
+      'feature-cli',
+      '--source',
+      'docs/loopx/plans/feature-cli.md',
+      '--design',
+      'docs/loopx/design/2026-06-30-feature-cli/需求设计文档.md',
+    ], { cwd: wd });
+    assert.match(humanResult.stdout, /execution start: feature-cli/);
+    assert.match(humanResult.stdout, /reused: no/);
+    assert.match(humanResult.stdout, /source: docs\/loopx\/plans\/feature-cli\.md/);
+    assert.match(humanResult.stdout, /design: docs\/loopx\/design\/2026-06-30-feature-cli\/需求设计文档\.md/);
+
+    const jsonResult = await execFileAsync(process.execPath, [
+      cliPath,
+      'execution-start',
+      'feature-cli',
+      '--source',
+      'docs/loopx/plans/feature-cli.md',
+      '--design',
+      'docs/loopx/design/2026-06-30-feature-cli/需求设计文档.md',
+      '--json',
+    ], { cwd: wd });
+    const payload = JSON.parse(jsonResult.stdout);
+    assert.equal(payload.ok, true);
+    assert.equal(payload.command, 'execution-start');
+    assert.equal(payload.reused, true);
+    assert.equal(payload.state.source_artifact, 'docs/loopx/plans/feature-cli.md');
+    assert.equal(payload.state.design_artifact, 'docs/loopx/design/2026-06-30-feature-cli/需求设计文档.md');
   });
 
   it('blocks finish done when matching multi-plan state is incomplete', async () => {
