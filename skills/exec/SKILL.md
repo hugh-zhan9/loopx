@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Exec
@@ -27,15 +27,18 @@ Load plan, review critically, execute all tasks with spec verification and manda
 5. If other concerns exist: Raise them with your human partner before starting
 6. If no concerns: create update_plan and proceed
 
-### Step 1.5: Record Finish Baseline
+### Step 1.5: Record Execution Range and Finish Baseline
 
-Before editing files or running the first task, run:
+Before implementation starts, record both requirement identity and finish audit baseline:
 
 ```bash
+loopx execution-start <slug> --source <plan-path> [--design <design-path>]
 loopx finish-start <slug> --source <plan-path>
 ```
 
-Use the plan filename slug when no workflow slug is available. This preserves the starting `HEAD` for finish learning/spec audit after the execution commits code.
+`execution-start` records the requirement start commit and canonical final-review report identity. `finish-start` remains the committed audit baseline for `finish-audit`; do not merge these responsibilities.
+
+Use the plan filename slug when no workflow slug is available.
 
 ### Step 2: Execute Tasks
 
@@ -72,7 +75,7 @@ security, accessibility, and regression coverage.
 
 ### Mandatory Review Checkpoints
 
-Request `loopx:review` (Stage 1 spec compliance + Stage 2 code quality) when any checkpoint condition below applies. These checkpoints are mandatory, not suggestions. Inline execution may skip review for small mechanical tasks only when no checkpoint condition applies.
+Use checkpoint reviews, not mandatory review after every task. Request `loopx:review` (Stage 1 spec compliance + Stage 2 code quality) when any checkpoint condition below applies. These checkpoints are mandatory, not suggestions. Inline execution may skip review for small mechanical tasks only when no checkpoint condition applies.
 
 Checkpoint conditions:
 
@@ -88,6 +91,8 @@ Checkpoint conditions:
 - You are about to leave Step 2 because all tasks are implemented. Before announcing all tasks complete or starting `loopx:final-review`, run a final checkpoint `loopx:review` unless the latest clean checkpoint review already covers every change since the previous review.
 
 When a checkpoint condition applies, call it out explicitly in the review request. When no checkpoint condition applies, spec self-check (Step 4) plus verification is sufficient; do not spend review tokens on every mechanical task.
+
+Before announcing all tasks complete or starting `loopx:final-review`, run a final checkpoint `loopx:review` unless the latest clean checkpoint review already covers every change since the previous review. Before that final checkpoint, inspect both unstaged and staged changes with `git diff` and `git diff --cached` so the review request covers the actual implementation range.
 
 The final checkpoint review is an implementation-stage code/spec checkpoint. It does not replace `loopx:final-review`, which still performs whole-feature integration, runtime, and test-gap review in Step 3.
 
