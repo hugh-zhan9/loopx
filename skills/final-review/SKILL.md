@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
 ---
 
 # Final Review
@@ -72,7 +72,7 @@ The chat response may summarize the result, but the complete report must be in t
 
 ## The Final Review Process
 
-Final review is more than just another code review. It has five phases:
+Final review is more than just another code review. It has six phases. It remains a human whole-feature review focused on requirements coverage, runtime behavior, test trust, and integration risk; do not reduce it to checking file shapes or required headings.
 
 ### Phase 1: Requirements Coverage Matrix
 
@@ -154,7 +154,7 @@ When the feature is runnable (has a dev server, CLI, or testable interface), per
 
 **When runtime validation is not possible:**
 - State explicitly: "Runtime validation not performed because [reason]"
-- Increase scrutiny on test quality in Phase 4
+- Increase scrutiny on test quality in Phase 5
 - This is acceptable for library code, internal utilities, or CI-only changes
 
 ### Phase 4: Regression Checklist
@@ -194,7 +194,28 @@ Check whether the implementation introduced unintended changes to existing behav
 - Existing test assertions changed to make new code pass (test was right, code is wrong?)
 - Package major version bump without changelog review
 
-### Phase 5: Dispatch Code Reviewer
+### Phase 5: Test Trust
+
+Build an independent `Test Trust` assessment after runtime validation and regression verification, before dispatching the reviewer. This phase evaluates whether the verification evidence is strong enough to trust the feature, without turning final-review into file-shape checking.
+
+```markdown
+## Test Trust
+
+**Level:** High | Medium | Low
+**Evidence:** [fresh commands, relevant outputs, covered paths]
+**Skipped checks:** [none or explicit skipped checks with rationale]
+**Residual risk:** [remaining confidence gaps]
+```
+
+Classify trust using:
+
+- **High** — evidence freshness is current for this diff, command specificity matches the changed surface, coverage relevance maps to requirements and risk areas, and unexplained skips are absent.
+- **Medium** — evidence is mostly fresh and relevant, but command specificity, coverage relevance, or skipped-check rationale leaves limited residual risk.
+- **Low** — evidence is stale, commands are too generic for the changed surface, coverage misses important requirements or integration paths, or unexplained skips materially weaken confidence.
+
+If trust is Low, include an Important or Critical finding unless the source requirements explicitly accepted the remaining risk.
+
+### Phase 6: Dispatch Code Reviewer
 
 Use the platform's native subagent mechanism when available and fill template at `final-reviewer.md`.
 
@@ -202,6 +223,7 @@ Use the platform's native subagent mechanism when available and fill template at
 - `{DESCRIPTION}` - concise summary of the completed feature
 - `{REQUIREMENTS}` - source requirements or plan/spec excerpts
 - `{VERIFICATION}` - test commands and results + runtime validation results
+- `{TEST_TRUST}` - Test Trust level, evidence, skipped checks, and residual risk
 - `{PER_TASK_REVIEWS}` - review artifacts or "not available"
 - `{BASE_SHA}` - commit before implementation began
 - `{HEAD_SHA}` - current commit
@@ -211,6 +233,7 @@ Use the platform's native subagent mechanism when available and fill template at
 - The support lens risk scan from Phase 2
 - Any runtime validation findings from Phase 3
 - The regression checklist results from Phase 4
+- The independent Test Trust assessment from Phase 5
 
 ## Review Priority
 

@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Subagent Exec
@@ -136,7 +136,8 @@ clean, proceed without comment.
 Use files for bulky artifacts so controller context stays small:
 
 - Task brief: run `scripts/task-brief PLAN_FILE N`; pass the printed path to
-  the implementer.
+  the implementer. The task brief must preserve `Source AC`, `Design anchors`,
+  `Test cases`, `Task anchor`, `Review focus`, and `Expected execution evidence`.
 - Task anchor: when the task brief contains `T-*`, pass the exact anchor such
   as `T-001 / Task 1` to the implementer and reviewer. Keep report file names
   such as `task-N-report.md` for compatibility; the report content must
@@ -198,6 +199,16 @@ Implementer and reviewer reports must preserve:
 
 ```yaml
 task_anchor: T-001
+source_ac:
+  - AC-001
+design_anchors:
+  - D-001
+test_cases:
+  - TC-001
+commands_run:
+  - npm test: pass
+evidence_summary: task proof matched Expected execution evidence
+remaining_risk: none
 anchor_coverage:
   REQ-001: implemented
 implemented_anchor_ids:
@@ -210,6 +221,8 @@ missing_context: none
 
 Allowed anchor statuses are `implemented`, `tested`, `not_applicable`,
 `blocked`, and `needs_context`.
+
+Merged task reports must preserve `task_anchor`, `source_ac`, `design_anchors`, `test_cases`, `commands_run`, `evidence_summary`, and `remaining_risk` so `review`, `final-review`, and `finish` can trace execution evidence back to Source AC, Design anchors, Test cases, and Expected execution evidence.
 
 ## Lancet Context Contract
 

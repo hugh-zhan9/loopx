@@ -90,6 +90,12 @@ Native subagent:
     anchor lacks evidence, or if product, API, data, or permission behavior is
     added without an anchor or explicit plan rationale.
 
+    Verify task completion evidence against Source AC, Design anchors, Test cases,
+    and Expected execution evidence from the task brief. The implementer report
+    must preserve `task_anchor`, `source_ac`, `design_anchors`, `test_cases`,
+    `commands_run`, `evidence_summary`, and `remaining_risk`; treat missing or
+    unsupported fields as a spec-compliance issue.
+
     ## Surface-change compliance
 
     For surface-changing tasks, verify removed behavior is absent from strict

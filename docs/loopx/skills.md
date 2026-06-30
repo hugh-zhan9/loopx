@@ -31,7 +31,7 @@ issue -> fix -> finish
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | An intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with `clarification.md`, `requirements.md`, `test-cases.md`, and a route to `spec` or `plan-to-exec`. |
-| `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md` and `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`. |
+| `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`; add `设计提案.md` only when proposal-level tradeoffs or review are needed. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. | A detailed codebase spec under `docs/loopx/codebase-specs/`. |
 | `plan-to-exec` | Requirements or a spec are approved and need executable tasks. | A bite-sized implementation plan under `docs/loopx/plans/`. |
 | `subagent-exec` | An approved plan has independent tasks and subagents are available. | Implemented tasks with staged review checkpoints. |
@@ -67,7 +67,7 @@ issue -> fix -> finish
 Use this routing rule:
 
 1. If the work is unclear, start with `clarify`.
-2. If decisions must be fixed before planning, use `spec`; by default it writes both the design proposal and the detailed design under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`.
+2. If decisions must be fixed before planning, use `spec`; by default it writes the detailed design under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md` and adds `设计提案.md` only for proposal-level tradeoffs.
 3. If the user wants to document the current codebase instead of designing a future change, use `codebase-spec`.
 4. If the design is settled and work needs tasks, use `plan-to-exec` with an intake package directory or detailed design doc.
 5. If there is an approved plan, use `subagent-exec` for independent work or `exec` for inline execution.

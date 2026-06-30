@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.7"
+  version: "0.3.9"
 ---
 
 # loopx Spec
@@ -47,26 +47,48 @@ Write the design as a decision document, not a task list.
 
 The design document should make requirements, non-goals, decision boundaries, intake package source, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan-to-exec` can preserve coverage without re-interpreting the source.
 
-Default to producing two documents:
+Default to producing one detailed design document:
 
-1. `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md`
-2. `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
+1. `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
+
+Produce `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md` only when a proposal trigger applies:
+
+- More than one credible technical approach exists.
+- The change affects public APIs, data schemas, state machines, plugin contracts, install behavior, security boundaries, or operational behavior.
+- The decision is hard to reverse.
+- Compatibility, migration, rollout, or rollback is a first-order concern.
+- The user explicitly asks for a design proposal, technical proposal, 设计提案, 方案取舍, or Go proposal style.
+- The detailed implementation would be premature until reviewers agree on the direction.
 
 Derive `<kebab-slug>` from the clarified requirement title or the user's own wording. Use a stable terminal-friendly kebab-case slug instead of raw Chinese text in the directory name. Keep the file names fixed as `设计提案.md` and `需求设计文档.md`.
 
 Do not migrate existing historical design files. The new dated directory layout applies to new `spec` outputs only.
 
-Only produce one document when the user explicitly asks for proposal-only or detailed-design-only output, or when unresolved material questions make the detailed design unsafe to write. Do not ask the user to choose an output mode by default.
+Do not ask the user to choose an output mode by default. Decide whether a proposal is needed from the source, repo evidence, and proposal triggers. For straightforward, low-risk work with a settled direction, skip the proposal to reduce token use and review overhead.
 
-For the design proposal, read `references/design-proposal.md` and use it as the required structure. The proposal answers why this approach, which alternatives were rejected, and what compatibility or migration costs are accepted.
+Only produce proposal-only output when the user explicitly asks for proposal-only output or when unresolved material questions make the detailed design unsafe to write.
+
+When producing a design proposal, read `references/design-proposal.md` and use it as the required structure. The proposal answers why this approach, which alternatives were rejected, and what compatibility or migration costs are accepted.
 
 For the detailed design, use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) as the required output structure. Keep the section order. If a section does not apply, write `无` or `不涉及` with a short reason instead of deleting it.
 
-The detailed design must reference the design proposal and treat accepted proposal decisions as constraints. Do not re-litigate the direction in the detailed design; put unresolved direction questions back in the proposal and stop before planning if they block implementation.
+When a proposal is produced, the detailed design must reference it and treat accepted proposal decisions as constraints. Do not re-litigate the direction in the detailed design; put unresolved direction questions back in the proposal and stop before planning if they block implementation.
 
 ## Design Contract Anchors
 
 `spec` remains a human-reviewed design document generator. `D-*` design anchors add traceability; they do not replace narrative context, tradeoffs, rationale, boundary scenarios, or the required detailed design template.
+
+Use these contract block names when the design needs an explicit downstream contract:
+
+- **Behavior Contract** - product behavior, state transitions, permissions, compatibility, and user-visible outcomes.
+- **Data Contract** - persisted data, schemas, payload shapes, migrations, retention, and derived data semantics.
+- **Interface Contract** - APIs, CLI commands, file formats, events, module exports, and integration boundaries.
+- **Workflow Contract** - workflow handoffs, artifact fields, stage gates, or downstream skill consumption.
+- **Operational Contract** - rollout, monitoring, failure modes, recovery, deployment, performance, and support obligations.
+
+Include a **Workflow Contract** block whenever the design changes workflow handoffs, artifact fields, stage gates, or downstream skill consumption.
+
+When `plan-to-exec`, `exec`, `subagent-exec`, `review`, `final-review`, or `finish` must consume a design decision, place the relevant `D-*` anchor inside contract blocks, not only in surrounding prose. If a downstream skill consumes a decision but no `D-*` anchor can be assigned safely, stop and resolve the design before planning.
 
 For detailed designs with implementation-relevant decisions, assign stable `D-*` anchors such as `D-001`, `D-002`, and `D-003`. A decision is implementation-relevant when it affects behavior, API, data, state, CLI, permissions, compatibility, rollout, operations, downstream planning, or review.
 
@@ -124,10 +146,13 @@ When the source is an intake package directory, the detailed design must referen
 
 Write Markdown by default:
 
-- `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md`
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
 
-If the user asks for a presentable document or visual review artifact, also write:
+When proposal triggers apply, also write:
+
+- `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.md`
+
+If the user asks for a presentable document or visual review artifact, also write matching HTML for each Markdown document produced:
 
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.html`
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.html`
@@ -149,7 +174,7 @@ The detailed Markdown spec must include these sections:
 
 The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan-to-exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
-The design proposal and detailed design must both cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
+The detailed design, and the design proposal when produced, must cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
 
 For detailed designs with `D-*` anchors, include a `Design Contract Index / D-*` subsection under `十一、QA` or an equivalent final QA subsection. The index table must list every `D-*` anchor used in the document:
 
