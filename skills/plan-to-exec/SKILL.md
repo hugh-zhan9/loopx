@@ -55,7 +55,7 @@ Reviewer independence: degraded
 Residual risk: source-to-plan coverage was not independently reviewed by a separate subagent
 ```
 
-Critical or Important plan-review findings block final plan save and execution handoff. Revise the draft plan, then re-check the affected findings before continuing. If the finding exposes missing or contradictory source decisions, return to `clarify` or `spec` instead of inventing the decision in the plan.
+Critical or Important plan-review findings block final plan save and execution handoff. Revise the draft plan, then re-check the affected findings before continuing. Record the review evidence and recheck evidence in the final plan or handoff. If the finding exposes missing or contradictory source decisions, return to `clarify` or `spec` instead of inventing the decision in the plan.
 
 Minor findings may remain only when they do not risk missed implementation, extra behavior, weak verification, or failed handoff; record the residual risk.
 
@@ -213,6 +213,8 @@ this section.]
 - Plan review mode: subagent | same-context
 - Reviewer independence: independent | degraded
 - Unresolved findings: none | <summary of unresolved findings, or none>
+- Review evidence: <review report path, summary, or inline reviewer result>
+- Recheck evidence: none | <fixed Critical/Important findings and re-check result>
 - Residual risk: none | <concrete residual risk>
 
 ---
