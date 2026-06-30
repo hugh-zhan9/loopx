@@ -744,7 +744,7 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(specFields['metadata.version'], '0.3.9');
-    assert.equal(planFields['metadata.version'], '0.3.9');
+    assert.equal(planFields['metadata.version'], '0.3.10');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
 
     assert.match(specSkill, /D-\*/);
@@ -800,7 +800,7 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.9');
+    assert.equal(planFields['metadata.version'], '0.3.10');
     assert.equal(execFields['metadata.version'], '0.3.6');
     assert.equal(subagentExecFields['metadata.version'], '0.3.8');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
