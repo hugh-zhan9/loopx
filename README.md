@@ -84,9 +84,12 @@ ledger status is `ready_for_fix`.
 | `refactor-plan` | A behavior-preserving refactor needs a scoped plan and tiny commits. |
 
 Support skills are lenses, not workflow states: `tdd`, `debug`, `verify`,
-`doc-readability`, `requirement-analyzer`, `go-style`, `kratos`,
+`doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`,
 `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and
 `lancet`.
+
+`plan-reviewer` is used internally by `plan-to-exec` to audit draft plan
+coverage before the normal execution handoff.
 
 `lancet` is a Codex-only automatic support lens for implementation and review
 work. Use `loopx lancet on`, `loopx lancet off`, or `loopx lancet status` to

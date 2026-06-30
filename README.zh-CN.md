@@ -81,9 +81,12 @@ bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后�
 | `refactor-plan` | 行为保持的重构需要限定范围、拆成 tiny commits。 |
 
 辅助 skills 是 lens，不是 workflow state：`tdd`、`debug`、`verify`、
-`doc-readability`、`requirement-analyzer`、`go-style`、`kratos`、
+`doc-readability`、`requirement-analyzer`、`plan-reviewer`、`go-style`、`kratos`、
 `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` 和
 `lancet`。
+
+`plan-reviewer` 由 `plan-to-exec` 内部使用，用于在正常执行 handoff 前审核
+草稿计划的覆盖质量。
 
 `lancet` 是 Codex-only 的自动辅助 lens，用于实现和评审阶段。使用
 `loopx lancet on`、`loopx lancet off` 或 `loopx lancet status` 控制本机
