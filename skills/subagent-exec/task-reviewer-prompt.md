@@ -10,7 +10,7 @@ downstream tasks to rely on.
 
 ```
 Native subagent:
-  description: "Review Task N (spec + quality)"
+  description: "Review T-001 / Task 1 (spec + quality)"
   model: [MODEL - REQUIRED: choose per SKILL.md Model Selection]
   prompt: |
     You are reviewing one task's implementation. This is a task-scoped gate,
@@ -25,7 +25,9 @@ Native subagent:
 
     ## Anchor Context
 
-    [ANCHOR_CONTEXT plus the implementer's anchor report block]
+    [ANCHOR_CONTEXT plus the implementer's anchor report block, including
+    task_anchor when present]
+    Preserve any `T-*` task anchor from the brief in findings or coverage notes.
 
     ## Surface Change Context
 
@@ -82,11 +84,11 @@ Native subagent:
 
     ## Anchor traceability
 
-    Verify `anchor_coverage`, `implemented_anchor_ids`, `tests_for_anchor_ids`,
-    `extra_behavior`, and `missing_context` against actual diff and test evidence.
-    Do not approve if an implemented/tested anchor lacks evidence, or if product,
-    API, data, or permission behavior is added without an anchor or explicit plan
-    rationale.
+    Verify `task_anchor`, `anchor_coverage`, `implemented_anchor_ids`,
+    `tests_for_anchor_ids`, `extra_behavior`, and `missing_context` against
+    actual diff and test evidence. Do not approve if an implemented/tested
+    anchor lacks evidence, or if product, API, data, or permission behavior is
+    added without an anchor or explicit plan rationale.
 
     ## Surface-change compliance
 

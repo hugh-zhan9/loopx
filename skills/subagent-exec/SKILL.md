@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Subagent Exec
@@ -129,12 +129,18 @@ Batch findings into one question to the user. Show the plan text and the
 conflicting requirement side by side, and ask which governs. If the scan is
 clean, proceed without comment.
 
+- duplicate `T-*` task anchors within the same plan, or missing `T-*` anchors in new-style task headings
+
 ## File Handoffs
 
 Use files for bulky artifacts so controller context stays small:
 
 - Task brief: run `scripts/task-brief PLAN_FILE N`; pass the printed path to
   the implementer.
+- Task anchor: when the task brief contains `T-*`, pass the exact anchor such
+  as `T-001 / Task 1` to the implementer and reviewer. Keep report file names
+  such as `task-N-report.md` for compatibility; the report content must
+  preserve `task_anchor`.
 - Report file: use the same workspace path with `task-N-report.md`; the
   implementer writes the full report there and returns only a short status.
 - Review package: run `scripts/review-package BASE HEAD`; pass the printed path
@@ -158,8 +164,10 @@ If the ledger marks a task complete, do not re-dispatch it. After a clean task
 review, append:
 
 ```text
-Task N: complete (commits <base7>..<head7>, review clean, brief <path>, report <path>, review <path>)
+T-001 / Task 1: complete (commits <base7>..<head7>, review clean, brief <path>, report <path>, review <path>)
 ```
+
+For historical plans without `T-*`, `Task N: complete ...` remains valid.
 
 The progress ledger is gitignored scratch. If `git clean -fdx` removes it,
 recover from `git log` and existing commits.
@@ -170,6 +178,7 @@ Before dispatching an implementer, provide an `ANCHOR_CONTEXT` block:
 
 ```text
 ANCHOR_CONTEXT:
+- task anchor such as T-001 when present
 - anchor ids relevant to this task
 - original anchor text summary
 - coverage rows relevant to this task
@@ -188,6 +197,7 @@ refactor-only
 Implementer and reviewer reports must preserve:
 
 ```yaml
+task_anchor: T-001
 anchor_coverage:
   REQ-001: implemented
 implemented_anchor_ids:

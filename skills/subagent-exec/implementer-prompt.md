@@ -4,9 +4,9 @@ Use this template when dispatching an implementer subagent.
 
 ```
 Native subagent:
-  description: "Implement Task N: [task name]"
+  description: "Implement T-001 / Task 1: [task name]"
   prompt: |
-    You are implementing Task N: [task name]
+    You are implementing T-001 / Task 1: [task name]
 
     ## Task Description
 
@@ -23,6 +23,7 @@ Native subagent:
     [Relevant anchor ids, original anchor text summary, coverage rows relevant to this
     task, and source requirement path. If no anchor applies, include one classification:
     infrastructure, test-only, docs-only, or refactor-only, with rationale.]
+    Preserve any `T-*` task anchor from the brief in status updates and the report YAML.
 
     ## SURFACE_CHANGE_CONTEXT
 
@@ -150,6 +151,7 @@ Native subagent:
     Include this required block:
 
     ```yaml
+    task_anchor: T-001
     anchor_coverage:
       REQ-001: implemented
       REQ-002: tested
