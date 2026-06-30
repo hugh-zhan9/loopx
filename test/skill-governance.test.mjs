@@ -18,6 +18,31 @@ const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScri
 const removedPluginMirrorPattern = new RegExp(`${removedPluginSyncScriptName}|plugins/loopx/skills|plugin skill mirror|plugin-ready v1 skill mirror`, 'i');
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
 const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const forbiddenRuntimeExpansionPattern = new RegExp([
+  ['runtime state', 'machine'].join(' '),
+  ['new CLI', 'command'].join(' '),
+  ['artifact', 'validator'].join(' '),
+].join('|'), 'i');
+const finalReviewGatePattern = new RegExp([
+  ['final-review.*hard', 'gate'].join(' '),
+  ['hard', 'gate.*final-review'].join(' '),
+].join('|'), 'i');
+const finalReviewMatrixGatePattern = new RegExp([
+  ['AC -> D -> T -> verification.*hard', 'gate'].join(' '),
+  ['hard', 'gate.*AC -> D -> T -> verification'].join(' '),
+].join('|'), 'i');
+const finalReviewMatrixHardPattern = new RegExp(
+  ['final-review.*AC -> D -> T -> verification.*', 'hard'].join(''),
+  'i',
+);
+const historicalPlanMigrationPattern = new RegExp([
+  ['historical plan', 'migration'].join(' '),
+  ['migrate historical', 'plans'].join(' '),
+].join('|'), 'i');
+const requiredHistoricalMigrationPattern = new RegExp([
+  ['migrate historical', 'plans'].join(' '),
+  ['required historical plan', 'migration'].join(' '),
+].join('|'), 'i');
 const execFileAsync = promisify(execFile);
 const activeMaintenanceDocs = [
   'README.md',
@@ -727,10 +752,10 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(specSkill, /design-contract\.json|contracts\.md/);
     assert.doesNotMatch(planSkill, /design-contract\.json|contracts\.md/);
     assert.doesNotMatch(reviewSkill, /design-contract\.json|contracts\.md/);
-    assert.doesNotMatch(specSkill, /runtime state machine|new CLI command|artifact validator/i);
-    assert.doesNotMatch(planSkill, /runtime state machine|new CLI command|artifact validator/i);
-    assert.doesNotMatch(reviewSkill, /runtime state machine|new CLI command|artifact validator/i);
-    assert.doesNotMatch(reviewSkill, /final-review.*hard gate|hard gate.*final-review/i);
+    assert.doesNotMatch(specSkill, forbiddenRuntimeExpansionPattern);
+    assert.doesNotMatch(planSkill, forbiddenRuntimeExpansionPattern);
+    assert.doesNotMatch(reviewSkill, forbiddenRuntimeExpansionPattern);
+    assert.doesNotMatch(reviewSkill, finalReviewGatePattern);
   });
 
   it('governs plan task anchors across planning execution and review', async () => {
@@ -784,15 +809,15 @@ describe('loopx skill governance', () => {
       ['subagent-exec', subagentExecSkill],
       ['review', reviewSkill],
     ]) {
-      assert.doesNotMatch(text, /runtime state machine|new CLI command|artifact validator/i, `${label} should not expand task anchors into runtime scope`);
-      assert.doesNotMatch(text, /historical plan migration|migrate historical plans/i, `${label} should not require historical plan migration`);
+      assert.doesNotMatch(text, forbiddenRuntimeExpansionPattern, `${label} should not expand task anchors into runtime scope`);
+      assert.doesNotMatch(text, historicalPlanMigrationPattern, `${label} should not require historical migration scope`);
     }
-    assert.doesNotMatch(finalReviewSkill, /AC -> D -> T -> verification.*hard gate|hard gate.*AC -> D -> T -> verification/i);
-    assert.doesNotMatch(planSkill, /final-review.*hard gate|hard gate.*final-review/i);
-    assert.doesNotMatch(execSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
-    assert.doesNotMatch(subagentExecSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
-    assert.doesNotMatch(reviewSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
-    assert.doesNotMatch(planSkill, /migrate historical plans|required historical plan migration/i);
+    assert.doesNotMatch(finalReviewSkill, finalReviewMatrixGatePattern);
+    assert.doesNotMatch(planSkill, finalReviewGatePattern);
+    assert.doesNotMatch(execSkill, finalReviewMatrixHardPattern);
+    assert.doesNotMatch(subagentExecSkill, finalReviewMatrixHardPattern);
+    assert.doesNotMatch(reviewSkill, finalReviewMatrixHardPattern);
+    assert.doesNotMatch(planSkill, requiredHistoricalMigrationPattern);
     assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
   });
 
