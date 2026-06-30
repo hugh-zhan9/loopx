@@ -545,6 +545,8 @@ describe('loopx skill governance', () => {
     assert.match(brief, /Runtime: Node\.js ESM/);
     assert.match(brief, /Produces: `greet\(name\)`/);
     assert.doesNotMatch(brief, /T-002 \/ Task 2: Use greeting/);
+    assert.doesNotMatch(brief, /Self-Review/);
+    assert.doesNotMatch(brief, /Execution Handoff/);
 
     const finalBriefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['plan.md', '2'], { cwd: wd })).stdout.trim();
     const finalBrief = await readFile(finalBriefPath, 'utf8');
@@ -786,6 +788,12 @@ describe('loopx skill governance', () => {
       assert.doesNotMatch(text, /historical plan migration|migrate historical plans/i, `${label} should not require historical plan migration`);
     }
     assert.doesNotMatch(finalReviewSkill, /AC -> D -> T -> verification.*hard gate|hard gate.*AC -> D -> T -> verification/i);
+    assert.doesNotMatch(planSkill, /final-review.*hard gate|hard gate.*final-review/i);
+    assert.doesNotMatch(execSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
+    assert.doesNotMatch(subagentExecSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
+    assert.doesNotMatch(reviewSkill, /final-review.*AC -> D -> T -> verification.*hard/i);
+    assert.doesNotMatch(planSkill, /migrate historical plans|required historical plan migration/i);
+    assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
   });
 
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
