@@ -676,13 +676,14 @@ describe('loopx skill governance', () => {
     assert.match(specSkill, /final complete index table|complete index table/i);
     assert.match(specSkill, /Source AC/);
     assert.match(specSkill, /contract type/i);
+    assert.match(specSkill, /Boundary or non-goal|Boundary \/ non-goal/i);
     assert.match(specSkill, /downstream expectation/i);
     assert.match(specSkill, /support lenses/i);
     assert.match(specSkill, /separate authoritative contract files/i);
     assert.match(specSkill, /TC-\*/);
 
     assert.match(template, /Design Contract Index \/ D-\*/);
-    assert.match(template, /\| D anchor \| Source AC \| Contract type \| Decision summary \| Downstream expectation \|/);
+    assert.match(template, /\| D anchor \| Source AC \| Contract type \| Decision summary \| Boundary \/ non-goal \| Downstream expectation \|/);
     assert.match(template, /Verification Strategy \/ TC/);
     assert.match(template, /Design anchors: not applicable/);
 

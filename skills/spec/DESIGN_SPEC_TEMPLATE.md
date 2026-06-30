@@ -353,6 +353,6 @@ $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 
 Design anchors: not applicable only when this detailed design has no implementation-relevant decisions, such as proposal-only, research-only, explanatory, or no-implementation-output work. Otherwise list every inline `D-*` anchor used in the document.
 
-| D anchor | Source AC | Contract type | Decision summary | Downstream expectation |
-|---|---|---|---|---|
-| <D-001> | <AC-001 或 not_applicable> | <behavior/data/state/CLI/compatibility/operations/workflow contract> | <简短决策> | <plan-to-exec/review 必须保留的约束> |
+| D anchor | Source AC | Contract type | Decision summary | Boundary / non-goal | Downstream expectation |
+|---|---|---|---|---|---|
+| <D-001> | <AC-001 或 not_applicable> | <behavior/data/state/CLI/compatibility/operations/workflow contract> | <简短决策> | <决策停止适用的边界或非目标> | <plan-to-exec/review 必须保留的约束> |
