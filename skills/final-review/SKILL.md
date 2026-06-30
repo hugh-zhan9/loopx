@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Final Review
@@ -45,26 +45,35 @@ Final review has two scopes for multi-plan packages:
 
 When reviewing a multi-plan package, update `.loopx/multi-plan/<feature-slug>/state.json` after writing the report artifact. Plan-level reviews update the matching `plans[]` row. Spec-level reviews update `spec_final_review.path` and `spec_final_review.ready_for_finish`.
 
+Final review uses a start-anchored current-state model:
+
+- Read `start_commit` from `.loopx/execution-ranges/<slug>.json` when present.
+- If execution range state is missing, derive the start from approved source context or finish baseline fallback and state the fallback in the report.
+- Review current `HEAD` at review time.
+- If tracked staged or unstaged changes exist, include both `git diff` and `git diff --cached` in review inputs and mark `tracked_diff_included: yes`.
+- Do not require or invent an execution end commit before final-review.
+
 ## Required Inputs
 
 Before dispatching the reviewer, collect:
-- Full feature git range: base SHA before implementation, head SHA now
+- `start_commit` from `.loopx/execution-ranges/<slug>.json` when available, plus current `HEAD`
 - Source requirements: spec, plan, issue, PRD, or accepted task brief
 - Implementation summary: what changed and why
 - Verification evidence: commands run and results
+- `git diff` and `git diff --cached` when tracked staged or unstaged changes exist
 - Per-task review artifacts, if available
 
-If the git range or requirements are unclear, stop and ask. A final review without a concrete scope is not useful.
+If the start state or requirements are unclear, stop and ask. A final review without a concrete scope is not useful.
 
 ## Report Artifact
 
-Write the complete final review report to:
+Write the canonical final-review report to:
 
 ```text
 .loopx/final-review/YYYY-MM-DD-<slug>.md
 ```
 
-Use `YYYY-MM-DD` as the date prefix. Derive `<slug>` from the plan, spec, issue, task brief, or feature name. If no source slug is available, use `final-review`.
+Use `YYYY-MM-DD` as the date prefix. Derive `<slug>` from the design artifact when present; otherwise derive it from the source artifact. If no source slug is available, use `final-review`. Repeated final-review for the same design/source updates this same canonical final-review report and appends a `Review Iterations` / `复审记录` entry; do not create `re-review` sibling files.
 
 The report artifact is local workflow state for human inspection before `finish`. It is not repo-tracked by default. Do not move it under `docs/loopx/` unless the user explicitly asks for repo-tracked review records.
 
@@ -275,6 +284,8 @@ Blocking issues: <none | summary>
 ```
 
 Do not proceed to `finish` when the report says `Ready for finish? No` or unresolved Critical/Important findings remain.
+
+For multi-plan child plan-level final-review, run the review process but do not write a `.loopx/final-review/*.md` report. Update `.loopx/multi-plan/<feature-slug>/state.json` for the child row with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`. Child plan-level final-review must not write report artifacts or record child `start_commit`, current `HEAD`, or end commit metadata.
 
 ## Common Mistakes
 
