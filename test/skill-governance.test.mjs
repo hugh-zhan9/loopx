@@ -222,11 +222,13 @@ describe('loopx skill governance', () => {
   it('includes plan-reviewer as a governed bundled support skill', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     const resolver = await readFile(resolverPath, 'utf8');
-    const skill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
-    const fields = parseFrontmatter(skill);
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan-reviewer'), true, 'plan-reviewer must be bundled');
     assert.equal(packageJson.files.includes('skills/plan-reviewer/'), true, 'npm package must include plan-reviewer skill');
+
+    const skill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(skill);
+
     assert.equal(fields.name, 'plan-reviewer');
     assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
     assert.match(fields.description, /not for/i);
@@ -857,13 +859,11 @@ describe('loopx skill governance', () => {
 
   it('governs plan-to-exec internal source-to-plan review', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
-    const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
     const resolver = await readFile(resolverPath, 'utf8');
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.0');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -879,6 +879,9 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Residual risk/);
     assert.match(planSkill, /\.loopx\/plan-to-exec\/<slug>-plan-review\.md/);
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
+
+    const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.0');
 
     assert.match(planReviewerSkill, /Source AC/);
     assert.match(planReviewerSkill, /Design anchors/);
