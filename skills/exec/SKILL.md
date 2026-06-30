@@ -1,16 +1,16 @@
 ---
 name: exec
-description: "Executes a written loopx implementation plan sequentially with spec verification, periodic code review, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
-when_to_use: "written implementation plan, inline execution, sequential plan execution, periodic review, no subagent lane"
+description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
+when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.4"
+  version: "0.3.6"
 ---
 
 # Exec
 
 ## Overview
 
-Load plan, review critically, execute all tasks with spec verification and periodic code review, report when complete.
+Load plan, review critically, execute all tasks with spec verification and mandatory checkpoint reviews, report when complete.
 
 **Announce at start:** "I'm using the exec skill to implement this plan."
 
@@ -47,9 +47,22 @@ If the plan task heading contains a `T-*` task anchor such as `T-001 / Task 1`, 
 2. Follow each step exactly (plan has bite-sized steps)
 3. Run verifications as specified
 4. **Spec check** — verify the implementation matches the task description (see Spec Verification below)
-5. **Code review trigger** — if this task hits a review trigger (see below), request review before continuing
-6. Mark as completed
-7. **Checkpoint** — record progress (see Checkpoint/Resume below)
+5. Record task completion evidence before marking a `T-*` task done. Task completion evidence fields are exactly:
+
+```yaml
+task_anchor: <T-* or Task N>
+source_ac: <AC-* ids or not_applicable>
+design_anchors: <D-* ids or not_applicable>
+test_cases: <TC-* ids, manual checks, or deferred-with-rationale>
+commands_run: <commands and outcomes>
+evidence_summary: <short proof summary tied to Expected execution evidence>
+remaining_risk: <none or concrete residual risk>
+```
+
+6. **Review checkpoint gate** — if this task hits a mandatory review checkpoint (see below), request `loopx:review` before continuing. Include the task completion evidence and review focus triggers.
+7. If checkpoint review finds Critical or Important issues, fix them with `loopx:fix-review`, re-run focused verification, and re-run `loopx:review` for the task or changed range.
+8. Mark as completed only after required checkpoint review for that task is clean or all Critical/Important feedback has been handled and rechecked. If no checkpoint is due, spec self-check plus verification is sufficient for this task.
+9. **Checkpoint** — record progress (see Checkpoint/Resume below)
 
 If the plan names `lancet` as a support lens, use `lancet` discipline before
 editing each task: check deletion, repo reuse, stdlib, native platform, and
@@ -57,9 +70,11 @@ already-installed dependencies before adding new code, files, or dependencies.
 Keep the smallest correct diff that still satisfies validation, error handling,
 security, accessibility, and regression coverage.
 
-### Review Triggers
+### Mandatory Review Checkpoints
 
-Request a `loopx:review` (Stage 1 + Stage 2) between tasks when any of these conditions are met:
+Request `loopx:review` (Stage 1 spec compliance + Stage 2 code quality) when any checkpoint condition below applies. These checkpoints are mandatory, not suggestions. Inline execution may skip review for small mechanical tasks only when no checkpoint condition applies.
+
+Checkpoint conditions:
 
 - The completed task changes a public interface, exported type, or shared utility
 - The completed task removes, replaces, narrows, migrates, or changes compatibility for existing behavior
@@ -70,18 +85,21 @@ Request a `loopx:review` (Stage 1 + Stage 2) between tasks when any of these con
 - The completed task involves security-sensitive code (auth, permissions, crypto, user input)
 - You have completed 3 consecutive tasks without a review
 - The plan explicitly marks a task as a review checkpoint
+- You are about to leave Step 2 because all tasks are implemented. Before announcing all tasks complete or starting `loopx:final-review`, run a final checkpoint `loopx:review` unless the latest clean checkpoint review already covers every change since the previous review.
 
-When no trigger fires, spec self-check (Step 4) is sufficient — you don't need a full review after every task.
+When a checkpoint condition applies, call it out explicitly in the review request. When no checkpoint condition applies, spec self-check (Step 4) plus verification is sufficient; do not spend review tokens on every mechanical task.
+
+The final checkpoint review is an implementation-stage code/spec checkpoint. It does not replace `loopx:final-review`, which still performs whole-feature integration, runtime, and test-gap review in Step 3.
 
 **After review:** If review finds Critical or Important issues, fix them (use `loopx:fix-review`) before continuing to the next task.
 
-Only mark the task complete and update the checkpoint after all triggered review issues for that task are resolved.
+Only mark the task complete and update the checkpoint after all required checkpoint review issues for that task are resolved.
 
 ### Checkpoint Review Questions
 
 For plans with `T-*`, include the relevant task anchor in the review request so findings can reference it directly.
 
-For triggered reviews, include the task text, changed files, test results, and the exact evidence commands you ran. For removal, replacement, compatibility, migration, package, installer, template, hook, or public-surface changes, the review must explicitly answer:
+For checkpoint reviews, include the task text, changed files, test results, and the exact evidence commands you ran. The review handoff must preserve the task anchor, Source AC, Design anchors, Test cases, Expected execution evidence, and task completion evidence. For removal, replacement, compatibility, migration, package, installer, template, hook, or public-surface changes, the review must explicitly answer:
 
 1. **Plan coverage:** Did this task implement every requested removal/addition/update and nothing extra?
 2. **Negative surface:** Do removed commands, APIs, exports, fields, files, templates, docs claims, or package entries still exist in current product paths?
@@ -94,7 +112,7 @@ If any answer is unknown because evidence was not collected, collect the evidenc
 
 ### Step 3: Complete Development
 
-After all tasks complete and verified:
+After Step 2 is complete, including any required final checkpoint `loopx:review`, and all tasks are verified:
 - Announce: "I'm using the final-review skill to review the completed feature."
 - **REQUIRED SUB-SKILL:** Use loopx:final-review
 - If final-review finds Critical or Important issues, use loopx:fix-review to handle feedback before proceeding
@@ -170,6 +188,7 @@ After each task is marked complete, write or update the checkpoint file:
 ## Context for Resume
 
 - Last completed task produced: [key outputs, new files, changed interfaces]
+- Last completed task evidence: [task_anchor, source_ac, design_anchors, test_cases, commands_run, evidence_summary, remaining_risk]
 - Next task depends on: [any context from prior tasks]
 - Open issues: [any unresolved review feedback or known concerns]
 ```
@@ -191,7 +210,7 @@ When resuming an interrupted execution:
 - When status changes (e.g., task becomes blocked)
 - Before any risky operation (migration, large refactor)
 
-If a triggered review sends a task back for fixes, update the checkpoint to reflect that the task is still `in_progress` or `blocked`. Do not leave a reviewed-and-rejected task recorded as completed.
+If a checkpoint review sends a task back for fixes, update the checkpoint to reflect that the task is still `in_progress` or `blocked`. Do not leave a reviewed-and-rejected task recorded as completed.
 
 ## Blocker Escalation
 
@@ -267,6 +286,7 @@ If a previous task's review changed a public interface that this task uses, adap
 - Review plan critically first
 - Follow plan steps exactly
 - Spec-check after every task
+- Request `loopx:review` whenever a mandatory review checkpoint applies
 - Checkpoint after every task
 - Don't skip verifications
 - Reference skills when plan says to
@@ -277,6 +297,7 @@ If a previous task's review changed a public interface that this task uses, adap
 
 **Required workflow skills:**
 - **loopx:plan-to-exec** - Creates the plan this skill executes
+- **loopx:review** - Required at mandatory checkpoint reviews, including before leaving Step 2 unless the latest clean checkpoint review already covers all changes
 - **loopx:final-review** - Final whole-feature runtime and integration risk review
-- **loopx:fix-review** - Handles final-review feedback before finish
+- **loopx:fix-review** - Handles checkpoint review or final-review feedback before finish
 - **loopx:finish** - Complete development after all tasks

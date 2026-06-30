@@ -17,8 +17,14 @@
 ## Runtime Validation Results
 [from Phase 3]
 
+## Test Trust
+**Level:** [High | Medium | Low]
+**Evidence:** [fresh commands, relevant outputs, covered paths]
+**Skipped checks:** [none or explicit skipped checks with rationale]
+**Residual risk:** [remaining confidence gaps]
+
 ## Code Review Findings
-[from Phase 5 - reviewer output]
+[from Phase 6 - reviewer output]
 
 ## Regression Assessment
 [from Phase 4]

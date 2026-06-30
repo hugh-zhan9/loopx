@@ -3,7 +3,7 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Review
@@ -35,6 +35,10 @@ When the formal plan or spec contains `D-*` design anchors, Stage 1 spec complia
 
 When the formal plan contains `T-*` task anchors, Stage 1 spec compliance must preserve those anchors in findings or coverage notes. Use `T-*` to identify which task introduced a missing requirement, extra behavior, changed interface, or downstream mismatch. Historical plans without `T-*` continue to use `Task N` or the task description.
 
+Task execution evidence is a first-class Stage 1 input beside requirement and design anchors. When available, consume `AC-*`, `D-*`, `T-*`, and task verification evidence together: task completion evidence fields, commands run, relevant output summaries, skipped checks, and remaining risk.
+
+Report missing or weak task evidence as a review finding when it affects confidence in the claimed implementation. If commands, outputs, or evidence summaries do not support claimed `AC-*`/`D-*`/`T-*` completion, record the gap in Stage 1 rather than deferring it to code quality review.
+
 **When to use:** After every task completion where a plan, spec, or task description exists.
 
 **When to degrade:** If there is no formal plan or spec (ad-hoc fix, exploratory change, external PR), degrade Stage 1 to an **intent check**:
@@ -62,6 +66,8 @@ Verify:
 6. If `D-*` design anchors exist, findings or coverage notes reference the relevant `D-*`
 7. Any uncovered `D-*` has explicit deferred rationale; otherwise treat it as a spec compliance gap
 8. If `T-*` task anchors exist, findings or coverage notes reference the relevant `T-*`
+9. If task verification evidence exists, commands and outputs support the claimed `AC-*`/`D-*`/`T-*` completion
+10. Missing or weak evidence is reported as a finding when it affects confidence
 ```
 
 **Intent Check (degraded, no formal spec):**

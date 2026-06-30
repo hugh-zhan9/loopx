@@ -35,6 +35,7 @@ const finalReviewMatrixHardPattern = new RegExp(
   ['final-review.*AC -> D -> T -> verification.*', 'hard'].join(''),
   'i',
 );
+const genericArtifactValidatorPattern = new RegExp(['generic', 'artifact', 'validator'].join('\\s+'), 'i');
 const historicalPlanMigrationPattern = new RegExp([
   ['historical plan', 'migration'].join(' '),
   ['migrate historical', 'plans'].join(' '),
@@ -653,6 +654,10 @@ describe('loopx skill governance', () => {
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
     assert.match(specSkill, /boundary scenarios/i);
+    assert.match(specSkill, /Default to producing one detailed design document/);
+    assert.match(specSkill, /proposal trigger applies/);
+    assert.match(specSkill, /skip the proposal to reduce token use and review overhead/);
+    assert.doesNotMatch(specSkill, /Default to producing two documents/);
     assert.match(specSkill, /invalid inputs/);
     assert.match(specSkill, /unchanged behavior/);
     assert.match(specSkill, /intake package directory/);
@@ -670,6 +675,7 @@ describe('loopx skill governance', () => {
     assert.match(specSkill, /kratos/);
     assert.match(proposal, /Boundary Scenarios/);
     assert.match(proposal, /Support Lens Checks/);
+    assert.match(proposal, /Do not treat generic requests for `spec`, `design doc`, `详细设计`, `设计方案`, or `技术方案` as proposal requests by themselves/);
     assert.match(proposal, /invalid, missing, duplicated/);
     assert.match(proposal, /unchanged behavior that must not regress/);
     assert.match(template, /#### 4\.x\.4 边界条件/);
@@ -714,9 +720,9 @@ describe('loopx skill governance', () => {
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.7');
-    assert.equal(planFields['metadata.version'], '0.3.8');
-    assert.equal(reviewFields['metadata.version'], '0.3.6');
+    assert.equal(specFields['metadata.version'], '0.3.9');
+    assert.equal(planFields['metadata.version'], '0.3.9');
+    assert.equal(reviewFields['metadata.version'], '0.3.7');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -771,10 +777,10 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.8');
-    assert.equal(execFields['metadata.version'], '0.3.4');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.7');
-    assert.equal(reviewFields['metadata.version'], '0.3.6');
+    assert.equal(planFields['metadata.version'], '0.3.9');
+    assert.equal(execFields['metadata.version'], '0.3.6');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.8');
+    assert.equal(reviewFields['metadata.version'], '0.3.7');
 
     assert.match(planSkill, /T-\*/);
     assert.match(planSkill, /### T-001 \/ Task 1:/);
@@ -789,6 +795,13 @@ describe('loopx skill governance', () => {
     assert.match(execSkill, /checkpoint/i);
     assert.match(execSkill, /review request/i);
     assert.match(execSkill, /T-001 \/ Task 1/);
+    assert.match(execSkill, /Mandatory Review Checkpoints/);
+    assert.match(execSkill, /These checkpoints are mandatory, not suggestions/);
+    assert.match(execSkill, /3 consecutive tasks without a review/);
+    assert.match(execSkill, /Before announcing all tasks complete or starting `loopx:final-review`/);
+    assert.match(execSkill, /does not replace `loopx:final-review`/);
+    assert.match(execSkill, /small mechanical tasks only when no checkpoint condition applies/);
+    assert.doesNotMatch(execSkill, /after every task, before moving to the next task/);
 
     assert.match(subagentExecSkill, /T-\*/);
     assert.match(subagentExecSkill, /task brief/i);
@@ -821,6 +834,160 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
   });
 
+  it('governs upstream main-chain contract handoff across clarify planning and execution', async () => {
+    const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
+    const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+
+    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.6');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.8');
+
+    assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
+    assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
+
+    for (const contractName of [
+      'Behavior Contract',
+      'Data Contract',
+      'Interface Contract',
+      'Workflow Contract',
+      'Operational Contract',
+    ]) {
+      assert.match(specSkill, new RegExp(contractName));
+    }
+    assert.match(specSkill, /Workflow Contract.*workflow handoffs, artifact fields, stage gates, or downstream skill consumption/is);
+    assert.match(specSkill, /D-\*.*inside contract blocks.*downstream skill consumes a decision/is);
+
+    for (const field of [
+      'Source AC',
+      'Design anchors',
+      'Test cases',
+      'Review focus',
+      'Expected execution evidence',
+      'Task anchor',
+    ]) {
+      assert.match(planSkill, new RegExp(field));
+    }
+    assert.match(planSkill, /### T-001 \/ Task 1:/);
+    assert.match(planSkill, /Expected execution evidence.*`exec`.*`subagent-exec`.*`review`/is);
+
+    const taskEvidenceFields = [
+      'task_anchor',
+      'source_ac',
+      'design_anchors',
+      'test_cases',
+      'commands_run',
+      'evidence_summary',
+      'remaining_risk',
+    ];
+    const exactEvidenceBlockPattern = /task_anchor:\s*<[^>]+>\s*source_ac:\s*<[^>]+>\s*design_anchors:\s*<[^>]+>\s*test_cases:\s*<[^>]+>\s*commands_run:\s*<[^>]+>\s*evidence_summary:\s*<[^>]+>\s*remaining_risk:\s*<[^>]+>/;
+
+    assert.match(execSkill, exactEvidenceBlockPattern);
+    assert.match(execSkill, /Task completion evidence fields are exactly/);
+    assert.match(execSkill, /before marking a `T-\*` task done/);
+    assert.match(execSkill, /checkpoint.*review handoff.*task completion evidence/is);
+
+    for (const [label, text] of [
+      ['subagent-exec', subagentExecSkill],
+      ['implementer prompt', implementerPrompt],
+      ['task reviewer prompt', taskReviewerPrompt],
+    ]) {
+      for (const field of taskEvidenceFields) {
+        assert.match(text, new RegExp(`${field}:|${field}`), `${label} must require ${field}`);
+      }
+    }
+    assert.match(subagentExecSkill, /Expected execution evidence/);
+    assert.match(subagentExecSkill, /merged task reports.*preserve `task_anchor`/is);
+    assert.match(implementerPrompt, /Preserve any `T-\*` task anchor.*task_anchor/is);
+    assert.match(taskReviewerPrompt, /Source AC.*Design anchors.*Test cases.*Expected execution evidence/is);
+  });
+
+  it('governs downstream main-chain review final-review and finish contracts', async () => {
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const finalReviewerPrompt = await readFile(join(repoRoot, 'skills', 'final-review', 'final-reviewer.md'), 'utf8');
+    const enTemplate = await readFile(
+      join(repoRoot, 'skills', 'final-review', 'references', 'report-template.en.md'),
+      'utf8',
+    );
+    const zhTemplate = await readFile(
+      join(repoRoot, 'skills', 'final-review', 'references', 'report-template.zh-CN.md'),
+      'utf8',
+    );
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.6');
+
+    assert.match(reviewSkill, /Check spec compliance first, then code quality/);
+    assert.match(reviewSkill, /Do not skip stage 1/);
+    assert.match(reviewSkill, /execution evidence.*first-class Stage 1 input/is);
+    assert.match(reviewSkill, /AC-\*.*D-\*.*T-\*.*task verification evidence/is);
+    assert.match(reviewSkill, /missing or weak task evidence.*finding/is);
+    assert.match(reviewSkill, /commands, outputs, or evidence summaries.*do not support claimed `AC-\*`\/`D-\*`\/`T-\*` completion/is);
+
+    const phaseMatches = [...finalReviewSkill.matchAll(/^### Phase \d+:/gm)];
+    assert.equal(phaseMatches.length, 6);
+    assert.match(finalReviewSkill, /six phases/);
+    assert.match(finalReviewSkill, /### Phase 5: Test Trust/);
+    assert.match(finalReviewSkill, /independent `Test Trust`/);
+    assert.match(finalReviewSkill, /High.*Medium.*Low/is);
+    assert.match(finalReviewSkill, /evidence freshness.*command specificity.*coverage relevance.*unexplained skips/is);
+    assert.doesNotMatch(finalReviewSkill, genericArtifactValidatorPattern);
+    assert.match(finalReviewSkill, /whole-feature review/i);
+
+    assert.match(finalReviewerPrompt, /Test Trust/);
+    assert.match(finalReviewerPrompt, /concrete commands, outputs, skipped checks, and residual risk/);
+    assert.match(enTemplate, /## Test Trust/);
+    assert.match(zhTemplate, /## 测试可信度/);
+
+    assert.match(finishSkill, /Spec Delta Candidates/);
+    for (const label of ['ADDED', 'MODIFIED', 'REMOVED', 'RENAMED']) {
+      assert.match(finishSkill, new RegExp(label));
+    }
+    assert.match(finishSkill, /preserve accepted and rejected `final-review` gates/i);
+    assert.match(finishSkill, /must not bypass the review outcome/i);
+  });
+
+  it('keeps main-chain exclusions out of current skill contracts', async () => {
+    const currentContractPaths = [
+      join(repoRoot, 'skills', 'clarify', 'SKILL.md'),
+      join(repoRoot, 'skills', 'spec', 'SKILL.md'),
+      join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'),
+      join(repoRoot, 'skills', 'exec', 'SKILL.md'),
+      join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'),
+      join(repoRoot, 'skills', 'review', 'SKILL.md'),
+      join(repoRoot, 'skills', 'final-review', 'SKILL.md'),
+      join(repoRoot, 'skills', 'finish', 'SKILL.md'),
+    ];
+    const excludedCommitmentPatterns = [
+      new RegExp(['\\.loopx', 'metrics', 'events\\.jsonl'].join('/'), 'i'),
+      new RegExp(['local', 'metrics'].join('\\s+'), 'i'),
+      new RegExp(['generic', 'workflow', 'artifact', 'validator'].join('\\s+'), 'i'),
+      new RegExp(['通用', 'workflow', 'artifact', 'validator'].join('\\s+'), 'i'),
+      new RegExp(['migrate', 'historical', 'artifacts'].join('\\s+'), 'i'),
+      new RegExp(['historical', 'artifact', 'migration'].join('\\s+'), 'i'),
+    ];
+
+    for (const filePath of currentContractPaths) {
+      const text = await readFile(filePath, 'utf8');
+      for (const pattern of excludedCommitmentPatterns) {
+        assert.doesNotMatch(text, pattern, `${filePath} should not commit excluded main-chain scope`);
+      }
+    }
+
+    const governanceTest = await readFile(join(repoRoot, 'test', 'skill-governance.test.mjs'), 'utf8');
+    assert.doesNotMatch(governanceTest, new RegExp(['generic', 'workflow', 'artifact', 'validator'].join('\\s+'), 'i'));
+    assert.doesNotMatch(governanceTest, new RegExp(['required', 'historical', 'artifact', 'migration'].join('\\s+'), 'i'));
+  });
+
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
@@ -836,7 +1003,7 @@ describe('loopx skill governance', () => {
     assert.match(reviewSkill, /Support Lens Triggers/);
     assert.match(reviewSkill, /Lens-specific checks/);
     assert.match(finalReviewSkill, /Support Lens Risk Scan/);
-    assert.match(finalReviewSkill, /five phases/);
+    assert.match(finalReviewSkill, /six phases/);
   });
 
   it('final-review persists a human-reviewable report artifact before finish', async () => {
@@ -867,6 +1034,7 @@ describe('loopx skill governance', () => {
     assert.match(zhTemplate, /## 修改摘要/);
     assert.match(zhTemplate, /## 需求 \/ 设计一致性/);
     assert.match(zhTemplate, /## 需求覆盖矩阵/);
+    assert.match(zhTemplate, /## 测试可信度/);
     assert.match(zhTemplate, /## 总体结论/);
     assert.match(zhTemplate, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
 
@@ -874,6 +1042,7 @@ describe('loopx skill governance', () => {
     assert.match(enTemplate, /## Change Summary/);
     assert.match(enTemplate, /## Requirements \/ Design Alignment/);
     assert.match(enTemplate, /## Requirements Coverage Matrix/);
+    assert.match(enTemplate, /## Test Trust/);
     assert.match(enTemplate, /## Overall Assessment/);
     assert.match(enTemplate, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
 

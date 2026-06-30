@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -50,6 +50,8 @@ For new implementation plans, assign every implementation task a stable plan-loc
 For multi-plan packages, each child plan may use plan-local `T-*` anchors starting at `T-001`. Cross-plan references must combine the child plan slug or path with the task anchor, such as `01-auth/T-001`, `01-auth::T-001`, or `docs/loopx/plans/YYYY-MM-DD-feature/01-auth.md#T-001`.
 
 Every task must include `Review focus`. Use concrete bullets that tell reviewers which contract, behavior, surface, or regression risk to check. `Review focus: not_applicable` is allowed only with a concrete rationale such as docs-only wording, test-only coverage, or mechanical synchronization with no product behavior.
+
+Every task must also include `Expected execution evidence`. This is the evidence contract consumed by `exec`, `subagent-exec`, and later by `review`: name the commands, report fields, artifacts, manual checks, or negative assertions that should prove the task completed its Source AC, Design anchors, and Test cases. Do not use `Expected execution evidence` to create new acceptance criteria or design decisions; it translates existing anchors into execution proof.
 
 **Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
@@ -208,6 +210,11 @@ this section.]
 - Design anchors: [exact `D-*` ids, `not_applicable`, or `deferred-with-rationale`]
 - Test cases: [exact `TC-*` ids, manual check, or deferred-with-rationale]
 - Task anchor: `T-001`
+
+**Expected execution evidence:**
+- `commands_run`: [exact commands the executor should run]
+- `evidence_summary`: [what output, artifact, or manual observation should prove completion]
+- `remaining_risk`: [expected residual risk, or `none`]
 
 **Review focus:**
 - Verify `T-001` implements the listed Source AC, Design anchors, and Test cases without extra behavior.

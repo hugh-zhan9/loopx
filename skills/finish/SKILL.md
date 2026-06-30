@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Finish
@@ -100,6 +100,8 @@ If a report exists, read its `Overall Assessment` and capture:
 - `Blocking issues` summary
 
 If `Ready for finish?` is `No`, or if unresolved Critical or Important findings remain, stop and route to `fix-review` instead of presenting finish options.
+
+Preserve accepted and rejected `final-review` gates exactly as reported. `finish` must not bypass the review outcome: accepted gates may proceed only after tests pass, and rejected gates must stop for `fix-review` or an explicit user decision that final review was handled elsewhere.
 
 If no report exists, do not generate one inside `finish`. `finish` must not generate the final-review report or perform requirements/design alignment review. Tell the user no final-review artifact was found and ask whether to run `final-review` first, unless the user explicitly says final review was handled elsewhere.
 
@@ -214,6 +216,15 @@ When accepting an `audit.extraction_candidates[]` item with `kind: "memory"` and
 #### Spec Candidates
 
 Spec extraction is conditional. Run the audit every time, but write spec candidates only when the task produced stable, shared, reusable project rules.
+
+Before accepting or rejecting spec candidates, extract `Spec Delta Candidates` from the implementation evidence, final-review report, plan/spec artifacts, and audit state. Label each candidate as one of:
+
+- `ADDED` — a new durable rule, invariant, interface, workflow contract, or operational constraint.
+- `MODIFIED` — an existing durable rule changed meaningfully.
+- `REMOVED` — an existing durable rule no longer applies.
+- `RENAMED` — the same durable rule moved or changed names without changing meaning.
+
+Each `Spec Delta Candidates` item needs evidence and a disposition: accepted into a repo-tracked spec candidate, rejected with a reason, or deferred with the missing evidence. Do not promote deltas from intuition alone.
 
 Write repo-tracked candidates directly to:
 

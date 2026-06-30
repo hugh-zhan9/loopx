@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # loopx Clarify
@@ -53,13 +53,15 @@ Write to:
 - After each Q&A round, append or update the relevant package files with the confirmed answer and the question that produced it.
 - Mark unresolved sections as `[PENDING]` so a future session or handoff knows what is still open.
 - Preserve the user's exact wording when it captures a decision; quote it directly.
-- The last section of `clarification.md` must always be `## Resume State` and record `current_round`, `unresolved_count`, and `next_question` so state can be resumed.
+- The last section of `clarification.md` must always be `## Resume State` so state can be resumed. Record `current_round`, `ambiguity_score`, `unresolved_count`, `non_goals_resolved`, `decision_boundaries_resolved`, `pressure_pass_complete`, and `next_question`. Keep these values consistent with the frontmatter when frontmatter is present.
 
 Acceptance criteria in `requirements.md` must use stable `AC-*` anchors. Prefer `WHEN / THEN / AND` wording, and do not hand off `direct_to_plan` when material ACs are not testable.
 
 Test cases in `test-cases.md` must use stable `TC-*` anchors. Every `TC-*` must reference at least one `AC-*`. High-risk `AC-*` items need at least one boundary or failure case unless the package records a concrete manual/deferred rationale.
 
 `requirements.md` and `test-cases.md` must share the same `AC-*` anchors. If they conflict, keep the package blocked and continue clarification.
+
+Main-chain handoff rule: `requirements.md` and `test-cases.md` are the canonical `AC-*`/`TC-*` source for downstream chain work. `spec`, `plan-to-exec`, `exec`, `subagent-exec`, `review`, `final-review`, and `finish` consume those anchors as source contract identifiers. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
 
 The completed intake package must preserve the information `spec` or `plan-to-exec` needs:
 

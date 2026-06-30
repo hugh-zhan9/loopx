@@ -22,10 +22,12 @@ Produce a proposal when any of these are true:
 - The change affects public APIs, data schemas, state machines, plugin contracts, install behavior, security boundaries, or operational behavior.
 - The decision is hard to reverse.
 - Compatibility, migration, rollout, or rollback is a first-order concern.
-- The user asks for a design proposal, design doc, technical proposal, 设计提案, 方案取舍, or Go proposal style.
+- The user explicitly asks for a design proposal, technical proposal, 设计提案, 方案取舍, or Go proposal style.
 - The detailed implementation would be premature until reviewers agree on the direction.
 
 For straightforward, low-risk work with settled direction, skip the proposal and write only the detailed design.
+
+Do not treat generic requests for `spec`, `design doc`, `详细设计`, `设计方案`, or `技术方案` as proposal requests by themselves. Those terms may still produce a proposal when another trigger above applies.
 
 ## Input Handling
 

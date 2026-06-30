@@ -152,6 +152,16 @@ Native subagent:
 
     ```yaml
     task_anchor: T-001
+    source_ac:
+      - AC-001
+    design_anchors:
+      - D-001
+    test_cases:
+      - TC-001
+    commands_run:
+      - <command>: <pass/fail and relevant output summary>
+    evidence_summary: <how the result satisfies Expected execution evidence>
+    remaining_risk: <none or concrete residual risk>
     anchor_coverage:
       REQ-001: implemented
       REQ-002: tested

@@ -52,6 +52,17 @@ Native subagent:
     any changed interface, config, or schema that was missed or incorrectly
     marked as backward compatible.
 
+    ## Test Trust Assessment
+
+    {TEST_TRUST}
+
+    Required assessment basis: concrete commands, outputs, skipped checks, and residual risk.
+
+    Verify that the Test Trust assessment is grounded in concrete commands,
+    outputs, skipped checks, and residual risk. Check whether the stated trust
+    level matches the freshness of evidence, command specificity, coverage
+    relevance, and any unexplained skips.
+
     ## Verification Evidence
 
     {VERIFICATION}
@@ -140,6 +151,11 @@ Native subagent:
     [Note any missed interface changes, incorrect compatibility claims, or
     missing migration paths]
 
+    ### Test Trust Audit
+
+    [State whether the Test Trust level is accurate. Reference concrete
+    commands, outputs, skipped checks, and residual risk.]
+
     ### Findings
 
     #### Critical
@@ -196,8 +212,9 @@ Native subagent:
 - `{DESCRIPTION}` - concise summary of the completed feature
 - `{REQUIREMENTS}` - source requirements or plan/spec excerpts
 - `{COVERAGE_MATRIX}` - requirements coverage matrix from Phase 1 (or "not available" if orchestrator skipped)
-- `{RUNTIME_VALIDATION}` - runtime validation results from Phase 2 (or "not performed: [reason]")
+- `{RUNTIME_VALIDATION}` - runtime validation results from Phase 3 (or "not performed: [reason]")
 - `{REGRESSION_CHECKLIST}` - regression checklist from Phase 4 (or "not available")
+- `{TEST_TRUST}` - Test Trust assessment from Phase 5 with level, evidence, skipped checks, and residual risk
 - `{VERIFICATION}` - test commands and results
 - `{PER_TASK_REVIEWS}` - review artifacts or "not available"
 - `{BASE_SHA}` - commit before implementation began
