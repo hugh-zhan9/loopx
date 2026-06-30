@@ -219,6 +219,27 @@ describe('loopx skill governance', () => {
     assert.match(skill, /`clarify` or `spec` planning/);
   });
 
+  it('includes plan-reviewer as a governed bundled support skill', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const resolver = await readFile(resolverPath, 'utf8');
+    const skill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(skill);
+
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan-reviewer'), true, 'plan-reviewer must be bundled');
+    assert.equal(packageJson.files.includes('skills/plan-reviewer/'), true, 'npm package must include plan-reviewer skill');
+    assert.equal(fields.name, 'plan-reviewer');
+    assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
+    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
+    assert.match(skill, /support lens, not a workflow state/i);
+    assert.match(skill, /Do not use this skill for:/);
+    assert.match(skill, /implementation code|code review/i);
+    assert.match(skill, /must not create a workflow state/i);
+    assert.match(skill, /ad-hoc plan audit/i);
+  });
+
   it('governs clarify skill as incremental requirements intake', async () => {
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const fields = parseFrontmatter(clarifySkill);
@@ -832,6 +853,57 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(reviewSkill, finalReviewMatrixHardPattern);
     assert.doesNotMatch(planSkill, requiredHistoricalMigrationPattern);
     assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
+  });
+
+  it('governs plan-to-exec internal source-to-plan review', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
+    const resolver = await readFile(resolverPath, 'utf8');
+    const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
+    const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
+
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.0');
+
+    assert.match(planSkill, /Internal Plan Review/);
+    assert.match(planSkill, /draft plan/i);
+    assert.match(planSkill, /source-to-plan review/i);
+    assert.match(planSkill, /plan-reviewer/);
+    assert.match(planSkill, /subagent/i);
+    assert.match(planSkill, /same-context/i);
+    assert.match(planSkill, /Reviewer independence/);
+    assert.match(planSkill, /degraded/);
+    assert.match(planSkill, /Critical\/Important|Critical or Important/);
+    assert.match(planSkill, /revise.*re-check|re-check.*revise/is);
+    assert.match(planSkill, /Plan review mode/);
+    assert.match(planSkill, /Residual risk/);
+    assert.match(planSkill, /\.loopx\/plan-to-exec\/<slug>-plan-review\.md/);
+    assert.match(planSkill, /not repo-tracked|local workflow state/i);
+
+    assert.match(planReviewerSkill, /Source AC/);
+    assert.match(planReviewerSkill, /Design anchors/);
+    assert.match(planReviewerSkill, /Test cases/);
+    assert.match(planReviewerSkill, /scope drift/i);
+    assert.match(planReviewerSkill, /handoff readiness/i);
+    assert.match(planReviewerSkill, /Critical/);
+    assert.match(planReviewerSkill, /Important/);
+    assert.match(planReviewerSkill, /Minor/);
+    assert.match(planReviewerSkill, /must not redesign|Do not redesign/i);
+    assert.match(planReviewerSkill, /must not review implementation code|Do not review implementation code/i);
+
+    assert.match(resolver, /Plan artifact source-to-plan coverage audit|source-to-plan coverage audit/i);
+    assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
+    assert.match(resolver, /Treat .*plan-reviewer.* as support lenses/is);
+    assert.match(skillsDoc, /\| `plan-reviewer` \|/);
+    assert.match(skillsDocZh, /\| `plan-reviewer` \|/);
+
+    assert.doesNotMatch(planSkill, /\$plan-review|\/plan-review|loopx plan-review/);
+    assert.doesNotMatch(planReviewerSkill, /\$plan-review|\/plan-review|loopx plan-review/);
+    assert.doesNotMatch(resolver, /Core Workflow Skills[\s\S]*plan-reviewer/);
+    assert.doesNotMatch(planSkill, forbiddenRuntimeExpansionPattern);
+    assert.doesNotMatch(planReviewerSkill, forbiddenRuntimeExpansionPattern);
+    assert.doesNotMatch(planSkill, historicalPlanMigrationPattern);
+    assert.doesNotMatch(planReviewerSkill, historicalPlanMigrationPattern);
   });
 
   it('governs upstream main-chain contract handoff across clarify planning and execution', async () => {
