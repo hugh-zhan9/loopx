@@ -19,6 +19,7 @@ const LOOPX_SKILLS = [
   'spec',
   'codebase-spec',
   'plan-to-exec',
+  'plan-reviewer',
   'subagent-exec',
   'exec',
   'review',
