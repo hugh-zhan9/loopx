@@ -213,8 +213,6 @@ this section.]
 - Verify `T-001` implements the listed Source AC, Design anchors, and Test cases without extra behavior.
 - Check downstream interfaces listed in `Produces` still match later task consumers.
 
-**Review focus:** not_applicable - docs-only or mechanical synchronization task with no product behavior.
-
 **Support lenses:** [none, or the subset of source support lenses this task must apply]
 
 - [ ] **Step 1: Write the failing test**
@@ -249,6 +247,10 @@ git add tests/path/test.py src/path/file.py
 git commit -m "feat: add specific feature"
 ```
 ````
+
+Docs-only, test-only, or mechanical synchronization tasks may replace the
+bullet list form with `**Review focus:** not_applicable - <concrete rationale>`
+when they have no product behavior or compatibility risk to inspect.
 
 ## No Placeholders
 
