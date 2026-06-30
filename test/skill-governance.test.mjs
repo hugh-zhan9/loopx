@@ -655,6 +655,47 @@ describe('loopx skill governance', () => {
     }
   });
 
+  it('governs design contract anchors across spec planning and review', async () => {
+    const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
+    const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+
+    assert.match(specSkill, /D-\*/);
+    assert.match(specSkill, /implementation-relevant/i);
+    assert.match(specSkill, /human-reviewed design document|human-readable design document/i);
+    assert.match(specSkill, /Design anchors: not applicable/);
+    assert.match(specSkill, /inline/i);
+    assert.match(specSkill, /final complete index table|complete index table/i);
+    assert.match(specSkill, /Source AC/);
+    assert.match(specSkill, /contract type/i);
+    assert.match(specSkill, /downstream expectation/i);
+    assert.match(specSkill, /support lenses/i);
+    assert.match(specSkill, /separate authoritative contract files/i);
+    assert.match(specSkill, /TC-\*/);
+
+    assert.match(template, /Design Contract Index \/ D-\*/);
+    assert.match(template, /\| D anchor \| Source AC \| Contract type \| Decision summary \| Downstream expectation \|/);
+    assert.match(template, /Verification Strategy \/ TC/);
+    assert.match(template, /Design anchors: not applicable/);
+
+    assert.match(planSkill, /D-\*/);
+    assert.match(planSkill, /Design anchors/);
+    assert.match(planSkill, /design anchor coverage/i);
+    assert.match(planSkill, /deferred-with-rationale/);
+    assert.match(planSkill, /return to `spec`/);
+
+    assert.match(reviewSkill, /D-\*/);
+    assert.match(reviewSkill, /AC-\*/);
+    assert.match(reviewSkill, /Stage 1 spec compliance/i);
+    assert.match(reviewSkill, /deferred rationale/i);
+    assert.match(reviewSkill, /code quality/i);
+
+    assert.doesNotMatch(specSkill, /design-contract\.json|contracts\.md/);
+    assert.doesNotMatch(planSkill, /design-contract\.json|contracts\.md/);
+    assert.doesNotMatch(reviewSkill, /design-contract\.json|contracts\.md/);
+  });
+
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
