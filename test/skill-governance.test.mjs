@@ -660,6 +660,13 @@ describe('loopx skill governance', () => {
     const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const specFields = parseFrontmatter(specSkill);
+    const planFields = parseFrontmatter(planSkill);
+    const reviewFields = parseFrontmatter(reviewSkill);
+
+    assert.equal(specFields['metadata.version'], '0.3.7');
+    assert.equal(planFields['metadata.version'], '0.3.7');
+    assert.equal(reviewFields['metadata.version'], '0.3.5');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -694,6 +701,10 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(specSkill, /design-contract\.json|contracts\.md/);
     assert.doesNotMatch(planSkill, /design-contract\.json|contracts\.md/);
     assert.doesNotMatch(reviewSkill, /design-contract\.json|contracts\.md/);
+    assert.doesNotMatch(specSkill, /runtime state machine|new CLI command|artifact validator/i);
+    assert.doesNotMatch(planSkill, /runtime state machine|new CLI command|artifact validator/i);
+    assert.doesNotMatch(reviewSkill, /runtime state machine|new CLI command|artifact validator/i);
+    assert.doesNotMatch(reviewSkill, /final-review.*hard gate|hard gate.*final-review/i);
   });
 
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
