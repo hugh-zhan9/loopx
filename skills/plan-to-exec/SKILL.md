@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -38,6 +38,8 @@ Do not read every file under `docs/loopx/specs/` by default. Prefer relevant spe
 Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
 
 The plan must preserve `AC-*` anchors from `requirements.md` and cover `TC-*` scenarios from `test-cases.md` through tasks, verification commands, or deferred-with-rationale rows. For legacy clarify bundles or spec source documents, preserve and cover generated requirement anchors from the source. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
+
+When a source design spec contains `D-*` design anchors or a `Design Contract Index / D-*` table, preserve those anchors in the plan. Each implementation-relevant `D-*` must map to at least one task, verification step, review focus, or deferred-with-rationale row. Task briefs should include `Design anchors: D-001, D-002` alongside `Source AC`. If a `D-*` anchor is missing, contradictory, or would require a new design decision to plan safely, return to `spec` instead of inventing the decision in the plan.
 
 **Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
 
@@ -191,6 +193,11 @@ this section.]
 - Consumes: [inputs from previous tasks or existing code, with exact names/signatures]
 - Produces: [outputs later tasks or callers rely on, with exact names/signatures]
 
+**Traceability:**
+- Source AC: [exact `AC-*` ids or `not_applicable` with rationale]
+- Design anchors: [exact `D-*` ids, `not_applicable`, or `deferred-with-rationale`]
+- Test cases: [exact `TC-*` ids, manual check, or deferred-with-rationale]
+
 **Support lenses:** [none, or the subset of source support lenses this task must apply]
 
 - [ ] **Step 1: Write the failing test**
@@ -248,6 +255,7 @@ Every step must contain the actual content an engineer needs. These are plan fai
 - DRY, YAGNI, TDD, frequent commits
 - The approved design spec is binding; do not expand scope
 - Preserve anchor coverage for every generated requirement anchor
+- Preserve design anchor coverage for every `D-*` in the source design spec.
 
 ## Self-Review
 
@@ -257,7 +265,7 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 2. **Placeholder scan:** Search your plan for red flags from the "No Placeholders" section. Fix them.
 3. **Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks?
 4. **Design drift:** Did you introduce a new architecture, API, data model, or business behavior not present in the design spec? If yes, return to `spec`.
-5. **Anchor coverage:** Does each generated requirement anchor map to a task, verification step, or deferred-with-rationale row? If not, fix the plan before handoff.
+5. **Anchor coverage:** Does each generated requirement anchor and each `D-*` design anchor map to a task, verification step, review focus, or deferred-with-rationale row? If not, fix the plan before handoff.
 6. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
 7. **Support lens coverage:** If the source design names support lenses, does each relevant task list them and include verification or review steps that exercise their discipline? If not, add them before handoff.
 8. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints, Interfaces, and Support lenses for an implementer and task reviewer who cannot see the rest of the plan?

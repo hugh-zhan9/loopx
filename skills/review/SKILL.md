@@ -3,7 +3,7 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Review
@@ -31,6 +31,8 @@ Review has two stages. Run them in order. Do not skip stage 1.
 
 **Purpose:** Verify the implementation matches the plan/requirements — nothing missing, nothing extra.
 
+When the formal plan or spec contains `D-*` design anchors, Stage 1 spec compliance must check those anchors alongside `AC-*` requirements. Verify that implemented behavior covers the relevant `D-*`, that uncovered anchors have explicit deferred rationale, and that the diff does not introduce behavior outside the approved `AC-*`/`D-*` contract.
+
 **When to use:** After every task completion where a plan, spec, or task description exists.
 
 **When to degrade:** If there is no formal plan or spec (ad-hoc fix, exploratory change, external PR), degrade Stage 1 to an **intent check**:
@@ -54,6 +56,9 @@ Verify:
 2. Nothing unrequested was added (nothing extra)
 3. Intent matches, not just literal words
 4. Outputs match what downstream tasks expect
+5. If `AC-*` anchors exist, findings or coverage notes reference the relevant `AC-*`
+6. If `D-*` design anchors exist, findings or coverage notes reference the relevant `D-*`
+7. Any uncovered `D-*` has explicit deferred rationale; otherwise treat it as a spec compliance gap
 ```
 
 **Intent Check (degraded, no formal spec):**
