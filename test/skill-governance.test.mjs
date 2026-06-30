@@ -689,7 +689,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(specFields['metadata.version'], '0.3.7');
     assert.equal(planFields['metadata.version'], '0.3.8');
-    assert.equal(reviewFields['metadata.version'], '0.3.5');
+    assert.equal(reviewFields['metadata.version'], '0.3.6');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
