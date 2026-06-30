@@ -487,7 +487,9 @@ describe('loopx skill governance', () => {
       '',
       '- Runtime: Node.js ESM.',
       '',
-      '### Task 1: Add greeting',
+      '### T-001 / Task 1: Add greeting',
+      'Task anchor: T-001',
+      '',
       '',
       '**Interfaces:**',
       '- Consumes: none',
@@ -495,7 +497,8 @@ describe('loopx skill governance', () => {
       '',
       '- [ ] **Step 1: Write file**',
       '',
-      '### Task 2: Use greeting',
+      '### T-002 / Task 2: Use greeting',
+      'Task anchor: T-002',
       '',
       '- [ ] **Step 1: Import function**',
       '',
@@ -537,16 +540,36 @@ describe('loopx skill governance', () => {
     const briefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['plan.md', '1'], { cwd: wd })).stdout.trim();
     const brief = await readFile(briefPath, 'utf8');
     assert.match(brief, /# Task 1 Brief/);
+    assert.match(brief, /T-001 \/ Task 1: Add greeting/);
+    assert.match(brief, /Task anchor: T-001/);
     assert.match(brief, /Runtime: Node\.js ESM/);
     assert.match(brief, /Produces: `greet\(name\)`/);
-    assert.doesNotMatch(brief, /Task 2: Use greeting/);
+    assert.doesNotMatch(brief, /T-002 \/ Task 2: Use greeting/);
 
     const finalBriefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['plan.md', '2'], { cwd: wd })).stdout.trim();
     const finalBrief = await readFile(finalBriefPath, 'utf8');
     assert.match(finalBrief, /# Task 2 Brief/);
-    assert.match(finalBrief, /Task 2: Use greeting/);
+    assert.match(finalBrief, /T-002 \/ Task 2: Use greeting/);
+    assert.match(finalBrief, /Task anchor: T-002/);
     assert.doesNotMatch(finalBrief, /Self-Review/);
     assert.doesNotMatch(finalBrief, /Execution Handoff/);
+
+    await writeFile(join(wd, 'legacy-plan.md'), [
+      '# Legacy Plan',
+      '',
+      '## Global Constraints',
+      '',
+      '- Runtime: Node.js ESM.',
+      '',
+      '### Task 1: Legacy greeting',
+      '',
+      '- [ ] **Step 1: Keep legacy heading support**',
+      '',
+    ].join('\n'));
+    const legacyBriefPath = (await execFileAsync(join(scriptsDir, 'task-brief'), ['legacy-plan.md', '1'], { cwd: wd })).stdout.trim();
+    const legacyBrief = await readFile(legacyBriefPath, 'utf8');
+    assert.match(legacyBrief, /# Task 1 Brief/);
+    assert.match(legacyBrief, /Task 1: Legacy greeting/);
 
     const packagePath = (await execFileAsync(join(scriptsDir, 'review-package'), [base, head], { cwd: wd })).stdout.trim();
     const reviewPackage = await readFile(packagePath, 'utf8');
@@ -706,6 +729,63 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(planSkill, /runtime state machine|new CLI command|artifact validator/i);
     assert.doesNotMatch(reviewSkill, /runtime state machine|new CLI command|artifact validator/i);
     assert.doesNotMatch(reviewSkill, /final-review.*hard gate|hard gate.*final-review/i);
+  });
+
+  it('governs plan task anchors across planning execution and review', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
+    const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+    const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
+    const planFields = parseFrontmatter(planSkill);
+    const execFields = parseFrontmatter(execSkill);
+    const subagentExecFields = parseFrontmatter(subagentExecSkill);
+    const reviewFields = parseFrontmatter(reviewSkill);
+
+    assert.equal(planFields['metadata.version'], '0.3.8');
+    assert.equal(execFields['metadata.version'], '0.3.4');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.7');
+    assert.equal(reviewFields['metadata.version'], '0.3.6');
+
+    assert.match(planSkill, /T-\*/);
+    assert.match(planSkill, /### T-001 \/ Task 1:/);
+    assert.match(planSkill, /plan-local/i);
+    assert.match(planSkill, /append new `T-\*` anchors/i);
+    assert.match(planSkill, /child plan slug|child plan path/i);
+    assert.match(planSkill, /Review focus/);
+    assert.match(planSkill, /not_applicable/);
+    assert.match(planSkill, /Task anchor coverage|T-\*.*coverage/i);
+
+    assert.match(execSkill, /T-\*/);
+    assert.match(execSkill, /checkpoint/i);
+    assert.match(execSkill, /review request/i);
+    assert.match(execSkill, /T-001 \/ Task 1/);
+
+    assert.match(subagentExecSkill, /T-\*/);
+    assert.match(subagentExecSkill, /task brief/i);
+    assert.match(subagentExecSkill, /progress ledger/i);
+    assert.match(subagentExecSkill, /task_anchor/);
+    assert.match(implementerPrompt, /task_anchor/);
+    assert.match(implementerPrompt, /T-\*/);
+    assert.match(taskReviewerPrompt, /task_anchor/);
+    assert.match(taskReviewerPrompt, /T-\*/);
+
+    assert.match(reviewSkill, /T-\*/);
+    assert.match(reviewSkill, /coverage notes/i);
+    assert.match(reviewSkill, /Stage 1 spec compliance/i);
+
+    for (const [label, text] of [
+      ['plan-to-exec', planSkill],
+      ['exec', execSkill],
+      ['subagent-exec', subagentExecSkill],
+      ['review', reviewSkill],
+    ]) {
+      assert.doesNotMatch(text, /runtime state machine|new CLI command|artifact validator/i, `${label} should not expand task anchors into runtime scope`);
+      assert.doesNotMatch(text, /historical plan migration|migrate historical plans/i, `${label} should not require historical plan migration`);
+    }
+    assert.doesNotMatch(finalReviewSkill, /AC -> D -> T -> verification.*hard gate|hard gate.*AC -> D -> T -> verification/i);
   });
 
   it('review and final-review actively trigger support lenses for domain-specific changes', async () => {
