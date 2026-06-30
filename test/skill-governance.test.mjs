@@ -54,6 +54,13 @@ const activeMaintenanceDocs = [
   'docs/loopx/specs/installation.md',
   'skills/RESOLVER.md',
 ];
+const packageLoopxDocs = [
+  'docs/loopx/cli.md',
+  'docs/loopx/cli.zh-CN.md',
+  'docs/loopx/skills.md',
+  'docs/loopx/skills.zh-CN.md',
+  'docs/loopx/specs/installation.md',
+];
 
 function parseFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -152,6 +159,12 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('templates/intake-requirements.md'), true, 'npm package must include clarify intake requirements template');
     assert.equal(packageJson.files.includes('templates/intake-test-cases.md'), true, 'npm package must include clarify intake test cases template');
     assert.equal(packageJson.files.includes('templates/'), false, 'npm package must not include broad runtime templates surface');
+    assert.equal(packageJson.files.includes('docs/loopx/'), false, 'npm package must not include broad docs/loopx surface');
+    assert.deepEqual(
+      packageJson.files.filter((path) => path.startsWith('docs/loopx/')).sort(),
+      [...packageLoopxDocs].sort(),
+      'npm package docs/loopx surface must exactly match public docs whitelist',
+    );
     assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
     assert.deepEqual(
       packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
@@ -895,6 +908,7 @@ describe('loopx skill governance', () => {
     assert.match(planReviewerSkill, /Minor/);
     assert.match(planReviewerSkill, /must not redesign|Do not redesign/i);
     assert.match(planReviewerSkill, /must not review implementation code|Do not review implementation code/i);
+    assert.doesNotMatch(planReviewerSkill, /unless[^.\n]*implementation code|ad-hoc audit after implementation/i);
 
     assert.match(resolver, /Plan artifact source-to-plan coverage audit|source-to-plan coverage audit/i);
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
@@ -1000,7 +1014,7 @@ describe('loopx skill governance', () => {
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
 
     assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.7');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.6');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
@@ -1096,7 +1110,7 @@ describe('loopx skill governance', () => {
     );
 
     assert.match(finalReviewSkill, /\.loopx\/final-review\/YYYY-MM-DD-<slug>\.md/);
-    assert.match(finalReviewSkill, /Write the complete final review report/);
+    assert.match(finalReviewSkill, /Write the canonical final-review report/);
     assert.match(finalReviewSkill, /human/i);
     assert.match(finalReviewSkill, /Ready for finish\?/);
     assert.match(finalReviewSkill, /Match the user's language/);
@@ -1106,6 +1120,15 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /references\/report-template\.en\.md/);
     assert.match(finalReviewSkill, /read the report template matching the user's language/i);
     assert.match(finalReviewSkill, /before writing the final-review artifact/i);
+    assert.match(finalReviewSkill, /start_commit/);
+    assert.match(finalReviewSkill, /current `HEAD`/);
+    assert.match(finalReviewSkill, /git diff/);
+    assert.match(finalReviewSkill, /git diff --cached/);
+    assert.match(finalReviewSkill, /canonical final-review report/);
+    assert.match(finalReviewSkill, /same design|same design solution|same design\/source/);
+    assert.match(finalReviewSkill, /child plan-level final-review must not write/i);
+    assert.match(finalReviewSkill, /plan_review\.status/);
+    assert.doesNotMatch(finalReviewSkill, /concrete git range.*required/i);
 
     assert.match(zhTemplate, /# 最终评审报告/);
     assert.match(zhTemplate, /## 修改摘要/);
