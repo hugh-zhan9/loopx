@@ -340,3 +340,19 @@ $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 | 问题 | 需要谁确认 | 阻塞阶段 | 推荐答案 | 状态 |
 |---|---|---|---|---|
 | <问题> | <角色> | clarify/spec/plan/subagent-exec/exec/review | <建议> | open/closed |
+
+### 11.3 Verification Strategy / TC 覆盖映射
+
+当 source 包含 `test-cases.md` 时，列出每个相关 `TC-*` 如何映射到设计级验证策略、人工检查或 deferred-with-rationale。若本设计包含 `D-*`，在验证策略中体现 `AC-* -> D-* -> TC-*` 的关系。
+
+| TC | Source AC | Related D anchors | 设计级验证策略 | 自动化/人工 | Deferred rationale |
+|---|---|---|---|---|---|
+| <TC-001> | <AC-001> | <D-001 或 not_applicable> | <策略> | <automation/manual> | <无或原因> |
+
+### 11.4 Design Contract Index / D-* 完整索引
+
+Design anchors: not applicable only when this detailed design has no implementation-relevant decisions, such as proposal-only, research-only, explanatory, or no-implementation-output work. Otherwise list every inline `D-*` anchor used in the document.
+
+| D anchor | Source AC | Contract type | Decision summary | Downstream expectation |
+|---|---|---|---|---|
+| <D-001> | <AC-001 或 not_applicable> | <behavior/data/state/CLI/compatibility/operations/workflow contract> | <简短决策> | <plan-to-exec/review 必须保留的约束> |
