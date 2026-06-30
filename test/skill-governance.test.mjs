@@ -688,7 +688,7 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(specFields['metadata.version'], '0.3.7');
-    assert.equal(planFields['metadata.version'], '0.3.7');
+    assert.equal(planFields['metadata.version'], '0.3.8');
     assert.equal(reviewFields['metadata.version'], '0.3.5');
 
     assert.match(specSkill, /D-\*/);
