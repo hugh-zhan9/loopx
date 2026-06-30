@@ -902,7 +902,7 @@ describe('loopx skill governance', () => {
 
     assert.doesNotMatch(planSkill, /\$plan-review|\/plan-review|loopx plan-review/);
     assert.doesNotMatch(planReviewerSkill, /\$plan-review|\/plan-review|loopx plan-review/);
-    assert.doesNotMatch(resolver, /Core Workflow Skills[\s\S]*plan-reviewer/);
+    assert.doesNotMatch(resolver, /Core Workflow Skills[\s\S]*plan-reviewer[\s\S]*Support Skills/);
     assert.doesNotMatch(planSkill, forbiddenRuntimeExpansionPattern);
     assert.doesNotMatch(planReviewerSkill, forbiddenRuntimeExpansionPattern);
     assert.doesNotMatch(planSkill, historicalPlanMigrationPattern);
@@ -920,7 +920,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.6');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.8');
 
