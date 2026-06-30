@@ -814,7 +814,7 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(planFields['metadata.version'], '0.3.10');
-    assert.equal(execFields['metadata.version'], '0.3.6');
+    assert.equal(execFields['metadata.version'], '0.3.7');
     assert.equal(subagentExecFields['metadata.version'], '0.3.8');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
 
@@ -828,14 +828,20 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Task anchor coverage|T-\*.*coverage/i);
 
     assert.match(execSkill, /T-\*/);
+    assert.match(execSkill, /loopx execution-start <slug> --source <plan-path>/);
+    assert.match(execSkill, /loopx finish-start <slug> --source <plan-path>/);
     assert.match(execSkill, /checkpoint/i);
+    assert.match(execSkill, /checkpoint reviews rather than mandatory per-task reviews|checkpoint review/i);
     assert.match(execSkill, /review request/i);
     assert.match(execSkill, /T-001 \/ Task 1/);
     assert.match(execSkill, /Mandatory Review Checkpoints/);
     assert.match(execSkill, /These checkpoints are mandatory, not suggestions/);
     assert.match(execSkill, /3 consecutive tasks without a review/);
     assert.match(execSkill, /Before announcing all tasks complete or starting `loopx:final-review`/);
+    assert.match(execSkill, /final checkpoint.*loopx:review/is);
     assert.match(execSkill, /does not replace `loopx:final-review`/);
+    assert.match(execSkill, /git diff/);
+    assert.match(execSkill, /git diff --cached/);
     assert.match(execSkill, /small mechanical tasks only when no checkpoint condition applies/);
     assert.doesNotMatch(execSkill, /after every task, before moving to the next task/);
 
@@ -937,7 +943,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.6');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.8');
 
     assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
