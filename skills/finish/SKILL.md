@@ -84,7 +84,7 @@ Completion Summary Contract:
 
 - Final review:
   - report path: `.loopx/final-review/<design-date>-<design-slug>.md` or `none`
-  - ready for finish: `Yes`, `No`, `With fixes`, or `externally handled`
+  - ready for finish: `Yes`, `No`, or `With fixes`
   - blocking issues: `none` or summary
 - Final evidence:
   - requirement start commit
