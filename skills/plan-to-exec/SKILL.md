@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.10"
+  version: "0.3.12"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -99,7 +99,10 @@ For a multi-plan package, `00-overview.md` must include:
 - Split rationale for each child plan
 - Execution order and dependencies
 - Which child plans can run in parallel
-- Final gate: every child plan needs plan-level `final-review`; the package needs one spec-level `final-review`; only then may `finish` run
+- Package execution handoff: primary execution uses `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`; inline fallback uses `$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`.
+- Direct child plan execution is targeted/resume/manual-control mode only, such as `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md`.
+- Package mode executes child plans strictly sequentially even when `00-overview.md` says some child plans can run in parallel.
+- Final gate: after each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`; child plan-level review does not create a final-review report artifact. After all child plans are ready, package mode runs one spec-level `final-review`, then `finish`
 
 Each child plan remains independently executable and must not assume the agent can see sibling child plans except through explicit Interfaces and `00-overview.md`.
 
@@ -337,10 +340,24 @@ Do not offer execution choice until the internal plan review gate is complete an
 
 After saving the plan, offer execution choice:
 
-For multi-plan packages, offer execution per child plan. Do not ask one agent to execute the whole directory in a single run. After each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json`. After all child plans are ready, run one spec-level `final-review`, then `finish`.
+For multi-plan packages, offer package mode as the primary execution path. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean.
+
+Direct numbered child plan execution remains available for targeted, resume, or manual-control runs. Do not present direct child plan execution as the primary handoff for a newly generated package.
 
 ```text
 Plan complete and saved to `<plan path>`.
+
+For this multi-plan package, use package mode:
+
+Recommended:
+$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md
+
+Inline fallback:
+$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md
+
+Direct child plan execution is reserved for targeted/resume/manual-control runs:
+$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md
+$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md
 
 Two execution options:
 
