@@ -859,6 +859,29 @@ describe('loopx retained workflow shell', () => {
     );
   });
 
+  it('blocks finish done when package directory source has missing multi-plan state', async () => {
+    for (const sourceSuffix of ['', '/']) {
+      const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-dir-missing-'));
+      await initGitRepo(wd);
+
+      const featureSlug = '2026-06-29-feature';
+      await finishStartStage(wd, featureSlug, {
+        source: `docs/loopx/plans/${featureSlug}${sourceSuffix}`,
+      });
+      const audit = await finishAuditStage(wd, featureSlug);
+      await markFinishAuditReviewed(audit);
+
+      await assert.rejects(
+        () => finishRecordStage(wd, audit.auditId, {
+          action: 'keep',
+          status: 'done',
+          summary: 'Should be blocked.',
+        }),
+        /finish_record_multi_plan_state_missing:\.loopx\/multi-plan\/2026-06-29-feature\/state\.json/,
+      );
+    }
+  });
+
   it('blocks finish done when matching multi-plan state is invalid JSON', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-invalid-'));
     await initGitRepo(wd);
@@ -936,6 +959,52 @@ describe('loopx retained workflow shell', () => {
     });
     assert.equal(recorded.state.status, 'completed');
     assert.equal(recorded.state.choice.status, 'done');
+  });
+
+  it('allows finish done when package directory source has clean multi-plan spec review', async () => {
+    for (const sourceSuffix of ['', '/']) {
+      const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-dir-pass-'));
+      await initGitRepo(wd);
+
+      const featureSlug = '2026-06-29-feature';
+      await finishStartStage(wd, featureSlug, {
+        source: `docs/loopx/plans/${featureSlug}${sourceSuffix}`,
+      });
+      const audit = await finishAuditStage(wd, featureSlug);
+      await markFinishAuditReviewed(audit);
+
+      await writeMultiPlanState(wd, featureSlug, {
+        schema_version: 2,
+        feature_slug: featureSlug,
+        plan_package: `docs/loopx/plans/${featureSlug}`,
+        source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+        status: 'ready_for_finish',
+        plans: [
+          {
+            path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+            status: 'complete',
+            ready_for_spec_review: true,
+            plan_review: {
+              status: 'passed',
+              reviewed_at: '2026-06-30T00:00:00.000Z',
+              summary: 'No blocking issues',
+            },
+          },
+        ],
+        spec_final_review: {
+          path: `.loopx/final-review/${featureSlug}.md`,
+          ready_for_finish: 'Yes',
+        },
+      });
+
+      const recorded = await finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Multi-plan package complete.',
+      });
+      assert.equal(recorded.state.status, 'completed');
+      assert.equal(recorded.state.choice.status, 'done');
+    }
   });
 
   it('blocks finish done when matching multi-plan state uses legacy schema-version-one', async () => {
