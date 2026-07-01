@@ -690,9 +690,9 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /child plan.*does not create a final-review report/is);
     assert.match(planSkill, /spec-level `final-review`/);
     assert.doesNotMatch(planSkill, removedChildReviewPathPattern);
-    assert.match(subagentExecSkill, /Multi-Plan Child Plans/);
-    assert.match(subagentExecSkill, /Do not execute sibling child plans/);
-    assert.match(subagentExecSkill, /Do not proceed to `finish` after the child plan completes/);
+    assert.match(subagentExecSkill, /Direct Child Plan Mode/);
+    assert.match(subagentExecSkill, /not execute sibling child plans from direct child plan mode/);
+    assert.match(subagentExecSkill, /Do not proceed to\s+package-level spec review or `finish` after the child plan completes/);
     assert.match(subagentExecSkill, /loopx execution-start <slug> --source <plan-path>/);
     assert.match(subagentExecSkill, /loopx finish-start <slug> --source <plan-path>/);
     assert.match(subagentExecSkill, /plan_review\.status/);
@@ -720,7 +720,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.7');
 
     assert.match(planSkill, /package mode/i);
@@ -919,7 +919,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.12');
     assert.equal(execFields['metadata.version'], '0.3.7');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.9');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.10');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
 
     assert.match(planSkill, /T-\*/);
@@ -1048,7 +1048,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
 
     assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
