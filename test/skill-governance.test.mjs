@@ -35,6 +35,7 @@ const finalReviewMatrixHardPattern = new RegExp(
   ['final-review.*AC -> D -> T -> verification.*', 'hard'].join(''),
   'i',
 );
+const removedChildReviewPathPattern = new RegExp(['plan', 'final', 'review'].join('_'));
 const genericArtifactValidatorPattern = new RegExp(['generic', 'artifact', 'validator'].join('\\s+'), 'i');
 const historicalPlanMigrationPattern = new RegExp([
   ['historical plan', 'migration'].join(' '),
@@ -685,17 +686,101 @@ describe('loopx skill governance', () => {
     assert.match(clarifySkill, /Multiple plans from one source: `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/`/);
     assert.match(planSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
     assert.match(planSkill, /plan-level `final-review`/);
+    assert.match(planSkill, /plan_review\.status/);
+    assert.match(planSkill, /child plan.*does not create a final-review report/is);
     assert.match(planSkill, /spec-level `final-review`/);
+    assert.doesNotMatch(planSkill, removedChildReviewPathPattern);
     assert.match(subagentExecSkill, /Multi-Plan Child Plans/);
     assert.match(subagentExecSkill, /Do not execute sibling child plans/);
     assert.match(subagentExecSkill, /Do not proceed to `finish` after the child plan completes/);
+    assert.match(subagentExecSkill, /loopx execution-start <slug> --source <plan-path>/);
+    assert.match(subagentExecSkill, /loopx finish-start <slug> --source <plan-path>/);
+    assert.match(subagentExecSkill, /plan_review\.status/);
+    assert.match(subagentExecSkill, /ready_for_spec_review/);
+    assert.match(subagentExecSkill, /must not write.*final-review.*report/is);
+    assert.doesNotMatch(subagentExecSkill, removedChildReviewPathPattern);
     assert.match(finalReviewSkill, /Plan-level final-review/);
     assert.match(finalReviewSkill, /Spec-level final-review/);
     assert.match(finalReviewSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
     assert.match(finishSkill, /Step 4\.5: Check Multi-Plan Finish Gate/);
+    assert.match(finishSkill, /plan_review\.status/);
     assert.match(finishSkill, /spec_final_review\.ready_for_finish/);
+    assert.doesNotMatch(finishSkill, removedChildReviewPathPattern);
     assert.match(resolver, /multiple plans from one source under `docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/`/);
-    assert.match(resolver, /plan-level final-review and the package receives one spec-level final-review/);
+    assert.match(resolver, /plan_review\.status|plan-level final-review/);
+    assert.match(resolver, /package receives one spec-level final-review report/);
+  });
+
+  it('governs multi-plan package execution mode across execution skills', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
+    const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
+
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
+
+    assert.match(planSkill, /package mode/i);
+    assert.match(planSkill, /\$subagent-exec docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/00-overview\.md/);
+    assert.match(planSkill, /\$exec docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/00-overview\.md/);
+    assert.match(planSkill, /primary handoff/i);
+    assert.match(planSkill, /targeted\/resume\/manual-control/i);
+    assert.match(planSkill, /strictly sequential/i);
+    assert.doesNotMatch(planSkill, /Do not ask one agent to execute the whole directory/);
+
+    assert.match(subagentExecSkill, /Multi-Plan Package Mode/);
+    assert.match(subagentExecSkill, /package directory/i);
+    assert.match(subagentExecSkill, /00-overview\.md/);
+    assert.match(subagentExecSkill, /schema v2/i);
+    assert.match(subagentExecSkill, /plan_review\.status/);
+    assert.match(subagentExecSkill, /strictly sequential/i);
+    assert.match(subagentExecSkill, /fresh implementer subagent per task/i);
+    assert.match(subagentExecSkill, /task reviewer subagent/i);
+    assert.match(subagentExecSkill, /spec-level `loopx:final-review`/);
+    assert.match(subagentExecSkill, /enter `loopx:finish`|start `loopx:finish`/i);
+    assert.match(subagentExecSkill, /Direct child plan mode|Targeted child plan mode/i);
+    assert.match(subagentExecSkill, /execute only that child plan/i);
+
+    assert.match(execSkill, /Multi-Plan Package Mode/);
+    assert.match(execSkill, /package directory/i);
+    assert.match(execSkill, /00-overview\.md/);
+    assert.match(execSkill, /same-context/i);
+    assert.match(execSkill, /without subagents/i);
+    assert.match(execSkill, /schema v2/i);
+    assert.match(execSkill, /strictly sequential/i);
+    assert.match(execSkill, /Direct child plan mode|Targeted child plan mode/i);
+    assert.match(execSkill, /plan-level `loopx:final-review`/);
+    assert.match(execSkill, /spec-level `loopx:final-review`/);
+
+    assert.match(finishSkill, /plan_review\.status/);
+    assert.match(finishSkill, /plan_review\.reviewed_at/);
+    assert.match(finishSkill, /plan_review\.summary/);
+    assert.doesNotMatch(finishSkill, removedChildReviewPathPattern);
+
+    assert.match(resolver, /package mode/i);
+    assert.match(resolver, /00-overview\.md/);
+    assert.match(resolver, /targeted\/resume\/manual-control/i);
+
+    const forbiddenSurface = await rgCurrentSurface([
+      'skills',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/loopx/skills.md',
+      'docs/loopx/skills.zh-CN.md',
+      'docs/loopx/cli.md',
+      'docs/loopx/cli.zh-CN.md',
+      'docs/loopx/specs',
+      'src',
+      'scripts',
+      'package.json',
+    ], [
+      'multi-plan-exec',
+      '\\bloopx\\s+multi-plan\\b',
+    ]);
+    assert.equal(forbiddenSurface, '');
   });
 
   it('spec requires boundary scenarios in proposal and detailed design', async () => {
@@ -831,9 +916,9 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.10');
-    assert.equal(execFields['metadata.version'], '0.3.7');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.8');
+    assert.equal(planFields['metadata.version'], '0.3.12');
+    assert.equal(execFields['metadata.version'], '0.3.8');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.10');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
 
     assert.match(planSkill, /T-\*/);
@@ -900,7 +985,7 @@ describe('loopx skill governance', () => {
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -960,9 +1045,9 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.8');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
 
     assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
@@ -1039,7 +1124,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.7');
     assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.6');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
     assert.match(reviewSkill, /Do not skip stage 1/);
