@@ -224,22 +224,32 @@ If any answer is unknown because evidence was not collected, collect the evidenc
 
 After Step 2 is complete, including any required final checkpoint
 `loopx:review`, and all tasks for the current scope are verified:
-- For direct child plan mode, run plan-level `loopx:final-review`, update
+- **Direct child plan mode:** run plan-level `loopx:final-review`, update
   `.loopx/multi-plan/<feature-slug>/state.json`, and stop. Do not run
-  `loopx:finish` for a direct child plan.
-- For package mode, repeat Step 2 and plan-level `loopx:final-review` for each
-  child plan in strict sequence. After all child plans are ready, run
-  spec-level `loopx:final-review`, then `loopx:finish` only when the spec-level
-  review is clean.
-- For single-plan mode, keep the existing single-plan behavior: run
-  `loopx:final-review`, then `loopx:finish` only when clean.
-- Announce: "I'm using the final-review skill to review the completed feature."
-- **REQUIRED SUB-SKILL:** Use loopx:final-review
-- If final-review finds Critical or Important issues, use loopx:fix-review to handle feedback before proceeding
-- Only start `loopx:finish` after `loopx:final-review` is clean or all Critical/Important feedback has been handled and rechecked.
-- Announce: "I'm using the finish skill to complete this work."
-- **REQUIRED SUB-SKILL:** Use loopx:finish
-- Follow finish to verify tests, present options, execute choice
+  package-level spec review or `loopx:finish` for a direct child plan.
+- **Package mode:** repeat Step 2 and plan-level `loopx:final-review` for each
+  child plan in strict sequence. After all child plans are ready:
+  - Announce: "I'm using the final-review skill to review the completed
+    feature."
+  - **REQUIRED SUB-SKILL:** Use loopx:final-review for the spec-level review.
+  - If final-review finds Critical or Important issues, use loopx:fix-review to
+    handle feedback before proceeding.
+  - Only start `loopx:finish` after the spec-level review is clean or all
+    Critical/Important feedback has been handled and rechecked.
+  - Announce: "I'm using the finish skill to complete this work."
+  - **REQUIRED SUB-SKILL:** Use loopx:finish.
+  - Follow finish to verify tests, present options, and execute the choice.
+- **Single-plan mode:** keep the existing single-plan behavior:
+  - Announce: "I'm using the final-review skill to review the completed
+    feature."
+  - **REQUIRED SUB-SKILL:** Use loopx:final-review.
+  - If final-review finds Critical or Important issues, use loopx:fix-review to
+    handle feedback before proceeding.
+  - Only start `loopx:finish` after `loopx:final-review` is clean or all
+    Critical/Important feedback has been handled and rechecked.
+  - Announce: "I'm using the finish skill to complete this work."
+  - **REQUIRED SUB-SKILL:** Use loopx:finish.
+  - Follow finish to verify tests, present options, and execute the choice.
 
 ## Spec Verification
 
