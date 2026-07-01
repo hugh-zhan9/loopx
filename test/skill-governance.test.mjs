@@ -700,8 +700,13 @@ describe('loopx skill governance', () => {
     assert.match(subagentExecSkill, /must not write.*final-review.*report/is);
     assert.doesNotMatch(subagentExecSkill, removedChildReviewPathPattern);
     assert.match(finalReviewSkill, /Plan-level final-review/);
+    assert.match(finalReviewSkill, /Plan-level final-review.*updating state only/is);
+    assert.match(finalReviewSkill, /must not write a report artifact/i);
     assert.match(finalReviewSkill, /Spec-level final-review/);
+    assert.match(finalReviewSkill, /Spec-level final-review.*every child `plan_review\.status`/is);
     assert.match(finalReviewSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
+    assert.doesNotMatch(finalReviewSkill, /every plan-level final-review artifact/);
+    assert.doesNotMatch(finalReviewSkill, /after writing the report artifact\. Plan-level reviews/);
     assert.match(finishSkill, /Step 4\.5: Check Multi-Plan Finish Gate/);
     assert.match(finishSkill, /plan_review\.status/);
     assert.match(finishSkill, /spec_final_review\.ready_for_finish/);
@@ -1242,6 +1247,9 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /same design|same design solution|same design\/source/);
     assert.match(finalReviewSkill, /child plan-level final-review must not write/i);
     assert.match(finalReviewSkill, /plan_review\.status/);
+    assert.match(finalReviewSkill, /plan_review\.reviewed_at/);
+    assert.match(finalReviewSkill, /plan_review\.summary/);
+    assert.match(finalReviewSkill, /Only spec-level final-review writes the persisted package report/);
     assert.doesNotMatch(finalReviewSkill, /concrete git range.*required/i);
 
     assert.match(zhTemplate, /# 最终评审报告/);
