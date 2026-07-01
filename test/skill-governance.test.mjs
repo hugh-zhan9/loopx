@@ -1267,6 +1267,7 @@ describe('loopx skill governance', () => {
       ['execution', 'end', 'commit'].join('_'),
       ['reviewed', 'end commit'].join(' '),
       ['child plan', 'final-review', 'report'].join(' '),
+      ['child plan', 'final review', 'report'].join(' '),
     ]);
     assert.equal(output.trim(), '');
   });
