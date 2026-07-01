@@ -91,7 +91,11 @@ Or ask: "This branch split from main - is that correct?"
 
 ### Step 4: Check Final Review Report
 
-Before presenting completion options, look for the latest `.loopx/final-review/YYYY-MM-DD-<slug>.md` report.
+Before presenting completion options, look for the canonical final-review report recorded by `.loopx/execution-ranges/<slug>.json` or derived from the design/source identity:
+
+```text
+.loopx/final-review/<design-date>-<design-slug>.md
+```
 
 If a report exists, read its `Overall Assessment` and capture:
 
@@ -131,7 +135,7 @@ If the gate is incomplete, stop and report the missing child plan or review gate
 
 Run `finish-audit` before presenting commit, merge, PR, keep, or discard options.
 
-`loopx:exec` and `loopx:subagent-exec` should have run `finish-start` before implementation. `finish-audit` uses that baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean. It may also generate `audit.extraction_candidates` as draft memory/spec review prompts. These drafts are not automatically written to memory or specs.
+`loopx:exec` and `loopx:subagent-exec` should have run `execution-start` and `finish-start` before implementation. `execution-start` preserves the requirement start commit and canonical review identity. `finish-audit` uses the finish baseline to preserve committed `baseline..HEAD` evidence after the working tree is clean. It may also generate `audit.extraction_candidates` as draft memory/spec review prompts. These drafts are not automatically written to memory or specs.
 
 Allowed inputs:
 - `finish-state.json` `audit.change_window`, especially `baseline..HEAD` commits and changed files
@@ -167,6 +171,8 @@ When the audit has no candidates, record `none` with the scanned inputs and a re
 Keep rejected candidates explicit when draft candidates are not accepted.
 Accepted candidates require evidence from the audit state. Rejected candidates require reasons.
 choice recording must persist the user's completion choice through `finish-record` before presenting the final completion outcome.
+
+Before recording completion with `done`, tracked changes from staged or unstaged files must be committed into final `HEAD`. Untracked files count as clean and do not block finish. The finish report must include requirement start commit, final `HEAD`, commit list, changed files, tracked status summary, and untracked summary.
 
 #### Memory
 
@@ -504,9 +510,17 @@ Use this shape:
 
 ```text
 Final review:
-- report path: .loopx/final-review/YYYY-MM-DD-<slug>.md
+- report path: .loopx/final-review/<design-date>-<design-slug>.md
 - ready for finish: <Yes | With fixes | not found / externally handled>
 - blocking issues: <none | summary>
+
+Final evidence:
+- requirement start commit: <sha>
+- final `HEAD`: <sha>
+- commit list: <commits in final evidence window>
+- changed files: <paths>
+- tracked status summary: <clean | summary>
+- untracked summary: <none | paths ignored for finish cleanliness>
 
 Memory:
 - updated: .loopx/memory/MEMORY.md
@@ -570,7 +584,7 @@ If there are no memory changes or spec candidates, report `none`. Do not write `
 
 **Generating the final-review report inside finish**
 - **Problem:** `finish` becomes responsible for requirements/design alignment and duplicates `final-review`.
-- **Fix:** `finish` only reads or cites `.loopx/final-review/YYYY-MM-DD-<slug>.md`; run `final-review` first when the report is missing.
+- **Fix:** `finish` only reads or cites the canonical final-review report; run `final-review` first when the report is missing.
 
 ## Red Flags
 

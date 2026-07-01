@@ -246,13 +246,50 @@ function parseFrontmatter(text) {
   return result;
 }
 
+function parseScalar(value) {
+  const rawValue = String(value ?? '').trim();
+  if (rawValue === 'null') {
+    return null;
+  }
+  if (rawValue === 'true' || rawValue === 'false') {
+    return rawValue === 'true';
+  }
+  if (/^-?\d+(?:\.\d+)?$/.test(rawValue)) {
+    return Number(rawValue);
+  }
+  return rawValue;
+}
+
+function parseResumeState(text) {
+  const lines = String(text || '').split('\n');
+  const start = lines.findLastIndex((line) => /^##\s+Resume State\s*$/i.test(line.trim()));
+  if (start === -1) {
+    return {};
+  }
+  const result = {};
+  for (const line of lines.slice(start + 1)) {
+    if (/^##\s+/.test(line.trim())) {
+      break;
+    }
+    const item = line.match(/^\s*[-*]\s+([A-Za-z0-9_-]+)\s*:\s*(.*?)\s*$/);
+    if (!item) {
+      continue;
+    }
+    result[item[1]] = parseScalar(item[2]);
+  }
+  return result;
+}
+
 async function readClarifySummary(root, state) {
   const path = state?.clarification_path || artifactPath(root, 'spec.md');
   if (!existsSync(path)) {
     return null;
   }
   const text = await readFile(path, 'utf8');
-  const meta = parseFrontmatter(text);
+  const meta = {
+    ...parseFrontmatter(text),
+    ...parseResumeState(text),
+  };
   return {
     path,
     meta,
@@ -264,7 +301,7 @@ function withClarifySummary(state, specSummary) {
     return state;
   }
   const meta = specSummary.meta;
-  const unresolved = Number(meta.unresolved_ambiguity_count ?? state.unresolved_ambiguity_count ?? 0);
+  const unresolved = Number(meta.unresolved_count ?? meta.unresolved_ambiguity_count ?? state.unresolved_ambiguity_count ?? 0);
   const next = {
     ...state,
     clarify_current_round: Number(meta.current_round ?? state.clarify_current_round ?? 0),

@@ -35,7 +35,7 @@ Read:
 2. Draft implementation plan.
 3. Relevant repo specs or memory summaries already selected by the caller.
 
-Do not inspect implementation code unless the caller explicitly asked for an ad-hoc audit after implementation; even then, route code review to `review` or `final-review`.
+Do not inspect implementation code or git diffs. If the caller asks for post-implementation code review, route that work to `review` or `final-review`.
 
 ## Review Rubric
 

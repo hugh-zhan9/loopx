@@ -3,38 +3,53 @@
 ## 修改摘要
 [面向用户说明本次完成的修改，包括主要涉及的文件/模块以及交付的预期行为。]
 
+## 评审范围
+
+- start_commit: `<sha>`
+- review_head: `<sha>`
+- tracked_diff_included: `yes|no`
+- 使用的 diff 命令:
+  - `git diff`
+  - `git diff --cached`
+
 ## 需求 / 设计一致性
 | 设计点 / 需求 | 实现证据 | 状态 | 备注 |
 |---|---|---|---|
-| [需求文本] | [file:function 或测试证据] | 已一致 / 部分一致 / 不一致 | [简短原因] |
+| [需求文本] | [文件:函数 或测试证据] | 已一致 / 部分一致 / 不一致 | [简短原因] |
 
 ## 需求覆盖矩阵
-[来自 Phase 1]
+[来自阶段 1]
 
 ## 支持视角风险扫描
-[来自 Phase 2]
+[来自阶段 2]
 
 ## 运行时验证结果
-[来自 Phase 3]
+[来自阶段 3]
 
 ## 测试可信度
-**等级：** [High | Medium | Low]
+**等级：** [高 | 中 | 低]
 **证据：** [新鲜的命令、相关输出、已覆盖路径]
 **跳过的检查：** [无，或列出跳过项和理由]
 **剩余风险：** [仍然存在的信心缺口]
 
 ## 代码评审发现
-[来自 Phase 6 - reviewer output]
+[来自阶段 6 - 评审输出]
 
 ## 回归评估
-[来自 Phase 4]
+[来自阶段 4]
+
+## 复审记录
+
+| 评审时间 | review_head | 上次结论 | 本次结论 | 已修复问题摘要 |
+|---|---|---|---|---|
+| `<timestamp>` | `<sha>` | `<Yes|No|With fixes>` | `<Yes|No|With fixes>` | `<摘要>` |
 
 ## 总体结论
 
 **Ready for finish?** [Yes | No | With fixes]
 
-**Coverage:** X/Y requirements fully covered
-**Runtime:** [Validated / Not validated + reason]
-**Regression:** [Clean / Issues found]
+**覆盖情况：** X/Y 项需求已完全覆盖
+**运行时验证：** [已验证 / 未验证 + 原因]
+**回归评估：** [无问题 / 发现问题]
 
-**Blocking issues:** [list or "none"]
+**阻塞问题：** [列出问题或“无”]

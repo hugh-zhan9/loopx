@@ -5,6 +5,8 @@ Use this template when dispatching an implementer subagent.
 ```
 Native subagent:
   description: "Implement T-001 / Task 1: [task name]"
+  model: [MODEL - REQUIRED: choose per SKILL.md Model Selection; an omitted
+         model silently inherits the session default]
   prompt: |
     You are implementing T-001 / Task 1: [task name]
 

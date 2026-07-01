@@ -3,14 +3,14 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.7"
+  version: "0.3.9"
 ---
 
 # Review
 
 Dispatch a code reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
 
-**Core principle:** Review early, review often. Check spec compliance first, then code quality.
+**Core principle:** Review early, review often. Check spec compliance first, then code quality. Reviewers are responsible for their own output: findings must be checked against the design and implementation plan before they are returned.
 
 ## When to Request Review
 
@@ -26,6 +26,8 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## Review Stages
 
 Review has two stages. Run them in order. Do not skip stage 1.
+
+When a design proposal, detailed design, implementation plan, task brief, or issue contract exists, include it in the reviewer context. Do not dispatch a code-only review for plan-driven work. If no formal artifact exists, say the review is degraded to intent check and name the source used instead.
 
 ### Stage 1: Spec Compliance
 
@@ -68,6 +70,7 @@ Verify:
 8. If `T-*` task anchors exist, findings or coverage notes reference the relevant `T-*`
 9. If task verification evidence exists, commands and outputs support the claimed `AC-*`/`D-*`/`T-*` completion
 10. Missing or weak evidence is reported as a finding when it affects confidence
+11. Before returning, self-check each finding against the design document, implementation plan, task evidence, and diff; remove findings that are unsupported, duplicate, preference-only, or remedy-only.
 ```
 
 **Intent Check (degraded, no formal spec):**
@@ -81,6 +84,7 @@ Verify:
 1. The change does what it claims
 2. No unrelated changes bundled in
 3. Scope is proportional to the stated intent
+4. Findings are tied to the stated intent and diff, and unsupported preferences are removed before returning
 ```
 
 **If spec check fails:** Fix gaps before proceeding to Stage 2.
@@ -151,6 +155,22 @@ Use the platform's native subagent mechanism when available and fill template at
 - New code only (no existing callers)
 - Test-only changes
 ```
+
+## Review Output Self-Check
+
+Before returning any review result, the reviewer must audit the review output itself. This applies to Stage 1, Stage 2, Stage 3, and task-scoped reviewers.
+
+Check:
+
+- Source basis: design proposal, detailed design, implementation plan, task brief, issue contract, `AC-*`, `D-*`, `T-*`, `TC-*`, review focus, and task evidence were used when available. If they were unavailable, the output says which degraded basis was used.
+- Finding basis: every Critical or Important finding names the plan/design/requirement basis it enforces, or states why a code-only defect is blocking without a plan anchor.
+- Evidence: every finding has concrete code, diff, test, artifact, or command evidence. Do not return speculative findings as blocking.
+- Minimal remedy: separate the underlying problem from the suggested implementation. Do not prescribe broad fallback logic, degraded modes, retry paths, wrappers, compatibility shims, new options, or abstractions unless the current user instruction, clarified source requirements, approved design, implementation plan, or issue contract explicitly requires that behavior.
+- Fallback authorization: treat unanchored fallback, degradation, retry, silent recovery, or compatibility shim logic as a finding when the implementation adds it without source authorization. The reviewer must not suggest new fallback behavior as a remedy unless the source names the failure mode and expected behavior.
+- Deduplication: merge duplicate or one-root-cause findings before output, and calibrate severity by actual user or workflow risk.
+- Scope: remove preference-only, unactionable, or plan-contradicting feedback. If the plan itself appears wrong, label the finding as a plan issue instead of silently rewriting the implementation contract.
+
+The output must include a short `Review Output Self-Check` note stating the source basis used and whether unsupported, duplicate, or overbuilt findings were removed.
 
 ## How to Get Git SHAs
 

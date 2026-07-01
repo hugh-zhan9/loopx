@@ -20,6 +20,11 @@ Native subagent:
 
     {PLAN_OR_REQUIREMENTS}
 
+    Treat this as the source-of-truth package when it includes a design
+    proposal, detailed design, implementation plan, task anchors, acceptance
+    criteria, review focus, or expected evidence. Do not review only the code
+    when formal design or plan context is available.
+
     ## Git Range to Review
 
     **Base:** {BASE_SHA}
@@ -83,6 +88,26 @@ Native subagent:
     If you find issues with the plan itself rather than the implementation,
     say so.
 
+    ## Before Returning: Review Output Self-Check
+
+    Audit your own review output before returning it:
+    - Confirm each Critical or Important finding is grounded in the design,
+      implementation plan, requirement, task evidence, or a concrete code-only
+      defect.
+    - Separate the underlying problem from your suggested implementation.
+      Do not prescribe broad fallback logic, degraded modes, retry paths,
+      wrappers, compatibility shims, new options, or abstractions unless the
+      current user instruction, clarified source requirements, approved design,
+      implementation plan, or issue contract explicitly requires that behavior.
+    - Treat unanchored fallback, degradation, retry, silent recovery, or
+      compatibility shim logic as a finding when the implementation adds it
+      without source authorization. Do not suggest new fallback behavior as a
+      remedy unless the source names the failure mode and expected behavior.
+    - Remove duplicate, preference-only, unactionable, speculative, or
+      plan-contradicting findings. If the plan itself appears wrong, label the
+      issue as a plan issue.
+    - Calibrate severity after this cleanup.
+
     ## Output Format
 
     ### Strengths
@@ -108,6 +133,10 @@ Native subagent:
 
     ### Recommendations
     [Improvements for code quality, architecture, or process]
+
+    ### Review Output Self-Check
+    [State the source basis used, such as design/implementation plan/intent,
+    and whether unsupported, duplicate, or overbuilt findings were removed.]
 
     ### Assessment
 
