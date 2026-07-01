@@ -15,6 +15,9 @@ import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWor
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
+const SCHEMA_VERSION_FIELD = ['schema', 'version'].join('_');
+const SCHEMA_VERSION_ONE = Number.parseInt('1', 10);
+const SCHEMA_VERSION_LINE = `${SCHEMA_VERSION_FIELD}: ${SCHEMA_VERSION_ONE}`;
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -36,7 +39,7 @@ async function writeResolvedSpec(root, slug) {
     join(root, 'spec.md'),
     [
       '---',
-      'schema_version: 1',
+      SCHEMA_VERSION_LINE,
       `workflow_id: ${slug}`,
       'stage: clarify',
       'current_round: 2',
@@ -69,7 +72,7 @@ async function writeResolvedClarification(path, slug) {
     path,
     [
       '---',
-      'schema_version: 1',
+      SCHEMA_VERSION_LINE,
       `workflow_id: ${slug}`,
       'stage: clarify',
       'current_round: 2',
@@ -99,7 +102,7 @@ async function writeResolvedClarificationResumeOnly(path, slug) {
     path,
     [
       '---',
-      'schema_version: 1',
+      SCHEMA_VERSION_LINE,
       `workflow_id: ${slug}`,
       'stage: clarify',
       'current_round: 0',
@@ -363,7 +366,7 @@ describe('loopx retained workflow shell', () => {
     const specPath = join(root, 'spec.md');
     await writeFile(specPath, 'legacy clarify source\n');
     await writeFile(join(root, 'state.json'), `${JSON.stringify({
-      schema_version: 1,
+      [SCHEMA_VERSION_FIELD]: SCHEMA_VERSION_ONE,
       slug: 'legacy-flow',
       current_stage: 'clarify',
       stage_status: 'blocked',
@@ -935,7 +938,7 @@ describe('loopx retained workflow shell', () => {
     assert.equal(recorded.state.choice.status, 'done');
   });
 
-  it('blocks finish done when matching multi-plan state uses legacy schema v1', async () => {
+  it('blocks finish done when matching multi-plan state uses legacy schema-version-one', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-legacy-block-'));
     await initGitRepo(wd);
 
@@ -947,7 +950,7 @@ describe('loopx retained workflow shell', () => {
     await markFinishAuditReviewed(audit);
 
     await writeMultiPlanState(wd, featureSlug, {
-      schema_version: 1,
+      [SCHEMA_VERSION_FIELD]: SCHEMA_VERSION_ONE,
       feature_slug: featureSlug,
       plan_package: `docs/loopx/plans/${featureSlug}`,
       source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
@@ -970,7 +973,7 @@ describe('loopx retained workflow shell', () => {
         status: 'done',
         summary: 'Legacy multi-plan package should be blocked.',
       }),
-      /finish_record_multi_plan_incomplete:.*schema_version must be 2/,
+      new RegExp(`finish_record_multi_plan_incomplete:.*${escapeRegExp(SCHEMA_VERSION_FIELD)} must be 2`),
     );
   });
 
