@@ -102,7 +102,7 @@ For a multi-plan package, `00-overview.md` must include:
 - Package execution handoff: primary execution uses `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`; inline fallback uses `$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`.
 - Direct child plan execution is targeted/resume/manual-control mode only, such as `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md`.
 - Package mode executes child plans strictly sequentially even when `00-overview.md` says some child plans can run in parallel.
-- Final gate: after each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`; child plan-level review does not create a final-review report artifact. After all child plans are ready, package mode runs one spec-level `final-review`, then `finish`
+- Final gate: after each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`; child plan-level review does not create a final-review report artifact. After all child plans are ready, package mode runs one spec-level `final-review`, then `finish`
 
 Each child plan remains independently executable and must not assume the agent can see sibling child plans except through explicit Interfaces and `00-overview.md`.
 
@@ -340,7 +340,7 @@ Do not offer execution choice until the internal plan review gate is complete an
 
 After saving the plan, offer execution choice:
 
-For multi-plan packages, offer package mode as the primary execution path. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean.
+For multi-plan packages, offer package mode as the primary execution path. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean.
 
 Direct numbered child plan execution remains available for targeted, resume, or manual-control runs. Do not present direct child plan execution as the primary handoff for a newly generated package.
 
