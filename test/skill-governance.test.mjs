@@ -90,6 +90,24 @@ function parseFrontmatter(text) {
   return fields;
 }
 
+async function rgCurrentSurface(paths, patterns) {
+  const outputs = [];
+  for (const pattern of patterns) {
+    try {
+      const { stdout } = await execFileAsync('rg', ['-n', pattern, ...paths], { cwd: repoRoot });
+      if (stdout.trim()) {
+        outputs.push(stdout.trim());
+      }
+    } catch (error) {
+      if (error?.code === 1) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  return outputs.join('\n');
+}
+
 function assertNoRemovedRuntimeCommandExposure(text, label) {
   assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
 }
@@ -1230,6 +1248,27 @@ describe('loopx skill governance', () => {
     for (const anchor of ['TC-1', 'TC-2', 'TC-3', 'TC-4', 'TC-5', 'TC-6', 'TC-7', 'TC-7a', 'TC-8', 'TC-9', 'TC-9a', 'TC-9b', 'TC-10', 'TC-11', 'TC-12', 'TC-13', 'TC-14', 'TC-15']) {
       assert.match(combined, new RegExp(`\\b${anchor}\\b`));
     }
+  });
+
+  it('does not expose old execution range contracts in current surface', async () => {
+    const currentSurface = [
+      'src',
+      'scripts',
+      'skills',
+      'templates',
+      'test',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/loopx/specs',
+    ];
+    const output = await rgCurrentSurface(currentSurface, [
+      ['plan', 'final', 'review'].join('_'),
+      ['execution', 'end'].join('-'),
+      ['execution', 'end', 'commit'].join('_'),
+      ['reviewed', 'end commit'].join(' '),
+      ['child plan', 'final-review', 'report'].join(' '),
+    ]);
+    assert.equal(output.trim(), '');
   });
 
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
