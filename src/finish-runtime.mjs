@@ -415,6 +415,18 @@ async function readExecutionRangeState(path) {
   }
 }
 
+async function readExecutionRangeForSlug(cwd, slug) {
+  const path = resolveExecutionRangePath(cwd, slug);
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return null;
+    }
+    throw new Error('execution_range_invalid_state');
+  }
+}
+
 function sameExecutionIdentity(state, expected) {
   return state.schema_version === EXECUTION_RANGE_SCHEMA_VERSION
     && state.slug === expected.slug
@@ -557,6 +569,20 @@ function isLoopxRuntimeStatusLine(line) {
   return path.split('/').includes('.loopx');
 }
 
+function splitStatusShort(lines) {
+  const statusLines = Array.isArray(lines) ? lines : [];
+  const tracked = [];
+  const untracked = [];
+  for (const line of statusLines) {
+    if (String(line).startsWith('?? ')) {
+      untracked.push(line);
+    } else {
+      tracked.push(line);
+    }
+  }
+  return { tracked, untracked };
+}
+
 async function resolveMergeBaseRef(cwd, evidence) {
   const normalizedBaseBranch = normalizeBranchRef(evidence.base_branch);
   const namedBase = normalizedBaseBranch !== 'unknown' && normalizedBaseBranch !== evidence.branch
@@ -675,6 +701,16 @@ async function resolveChangeWindow(cwd, slug, evidence, { baselineRef = null } =
     ? ''
     : await gitOutputAllowFailure(cwd, ['status', '--short']);
   const uncommittedStatus = parseStatusShort(statusText);
+  const statusGroups = splitStatusShort(uncommittedStatus);
+  const executionRange = await readExecutionRangeForSlug(rootCwd, slug);
+  const requirementStartCommit = executionRange?.start_commit || baseline?.head || null;
+  const requirementStartSource = executionRange
+    ? 'execution-range'
+    : baseline?.head
+      ? 'baseline'
+      : 'none';
+  const fullHead = await resolveFullHead(cwd);
+  const finalHead = fullHead === 'unknown' ? evidence.head : fullHead.slice(0, 7);
 
   if (!ref || ref === 'unknown') {
     return {
@@ -686,6 +722,12 @@ async function resolveChangeWindow(cwd, slug, evidence, { baselineRef = null } =
       commits: [],
       changed_files: [],
       diff_stat: '',
+      requirement_start_commit: requirementStartCommit,
+      requirement_start_commit_short: requirementStartCommit ? requirementStartCommit.slice(0, 7) : null,
+      requirement_start_source: requirementStartSource,
+      final_head: finalHead,
+      tracked_status: statusGroups.tracked,
+      untracked_status: statusGroups.untracked,
       uncommitted_status: uncommittedStatus,
       source_artifacts: baseline?.source ? [baseline.source] : [],
     };
@@ -704,9 +746,31 @@ async function resolveChangeWindow(cwd, slug, evidence, { baselineRef = null } =
     commits,
     changed_files: changedFiles,
     diff_stat: diffStat,
+    requirement_start_commit: requirementStartCommit,
+    requirement_start_commit_short: requirementStartCommit ? requirementStartCommit.slice(0, 7) : null,
+    requirement_start_source: requirementStartSource,
+    final_head: finalHead,
+    tracked_status: statusGroups.tracked,
+    untracked_status: statusGroups.untracked,
     uncommitted_status: uncommittedStatus,
     source_artifacts: baseline?.source ? [baseline.source] : [],
   };
+}
+
+async function refreshChangeWindowStatus(cwd, evidence, changeWindow) {
+  const current = plainObject(changeWindow) ? { ...changeWindow } : {};
+  if (evidence.worktree === 'unknown') {
+    return current;
+  }
+  const statusText = await gitOutputAllowFailure(cwd, ['status', '--short']);
+  const uncommittedStatus = parseStatusShort(statusText);
+  const statusGroups = splitStatusShort(uncommittedStatus);
+  const fullHead = await resolveFullHead(cwd);
+  current.final_head = fullHead === 'unknown' ? evidence.head : fullHead.slice(0, 7);
+  current.tracked_status = statusGroups.tracked;
+  current.untracked_status = statusGroups.untracked;
+  current.uncommitted_status = uncommittedStatus;
+  return current;
 }
 
 function singleLineText(value) {
@@ -908,6 +972,12 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
   const uncommitted = Array.isArray(changeWindow.uncommitted_status) && changeWindow.uncommitted_status.length > 0
     ? changeWindow.uncommitted_status.map((item) => `- ${singleLineText(item)}`).join('\n')
     : '- none';
+  const trackedStatus = Array.isArray(changeWindow.tracked_status) && changeWindow.tracked_status.length > 0
+    ? changeWindow.tracked_status.map((item) => `- ${singleLineText(item)}`).join('\n')
+    : '- none';
+  const untrackedStatus = Array.isArray(changeWindow.untracked_status) && changeWindow.untracked_status.length > 0
+    ? changeWindow.untracked_status.map((item) => `- ${singleLineText(item)}`).join('\n')
+    : '- none';
   const sourceArtifacts = Array.isArray(changeWindow.source_artifacts) && changeWindow.source_artifacts.length > 0
     ? changeWindow.source_artifacts.map((item) => `- ${singleLineText(item)}`).join('\n')
     : '- none';
@@ -936,6 +1006,9 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     '',
     `- source: ${singleLineText(changeWindow.source)}`,
     `- baseline_ref: ${singleLineText(changeWindow.baseline_ref_short ?? changeWindow.baseline_ref)}`,
+    `- requirement_start_commit: ${singleLineText(changeWindow.requirement_start_commit_short ?? changeWindow.requirement_start_commit)}`,
+    `- requirement_start_source: ${singleLineText(changeWindow.requirement_start_source)}`,
+    `- final_HEAD: ${singleLineText(changeWindow.final_head)}`,
     `- range: ${singleLineText(changeWindow.range)}`,
     `- committed_change_count: ${singleLineText(changeWindow.commit_count)}`,
     '',
@@ -946,6 +1019,14 @@ function buildFinishReport({ state, evidence, scannedInputs }) {
     '### Changed Files',
     '',
     changedFiles,
+    '',
+    '### Tracked Status',
+    '',
+    trackedStatus,
+    '',
+    '### Untracked Status',
+    '',
+    untrackedStatus,
     '',
     '### Uncommitted Status',
     '',
@@ -1138,6 +1219,12 @@ function isFinishAuditReadyForDone(state) {
     return false;
   }
   if (!extractionCandidatesAreReviewed(state)) {
+    return false;
+  }
+  const trackedStatus = Array.isArray(state?.audit?.change_window?.tracked_status)
+    ? state.audit.change_window.tracked_status
+    : [];
+  if (trackedStatus.length > 0) {
     return false;
   }
   if (acceptedCandidates.length > 0) {
@@ -1380,6 +1467,8 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   const statePath = join(root, 'finish-state.json');
   const state = await readFinishState(statePath);
   validateFinishRecordState(state, root);
+  const currentEvidence = await resolveGitEvidence(cwd);
+  state.audit.change_window = await refreshChangeWindowStatus(cwd, currentEvidence, state.audit.change_window);
   if (normalizedStatus === 'done') {
     await assertMultiPlanReadyForFinish(cwd, state);
   }
@@ -1408,8 +1497,7 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
       ? 'failed'
       : 'choice-recorded';
 
-  const fallbackEvidence = await resolveGitEvidence(cwd);
-  const evidence = evidenceFromState(state, fallbackEvidence);
+  const evidence = evidenceFromState(state, currentEvidence);
   const scannedInputs = Array.isArray(state.inputs?.scanned) ? state.inputs.scanned : [];
   const reportText = buildFinishReport({
     state,

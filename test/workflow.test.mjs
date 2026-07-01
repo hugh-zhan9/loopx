@@ -156,6 +156,15 @@ async function initGitRepo(wd) {
   await execFileAsync('git', ['commit', '-m', 'init'], { cwd: wd });
 }
 
+async function execGit(wd, args) {
+  await execFileAsync('git', args, { cwd: wd });
+}
+
+async function gitOutput(wd, args) {
+  const { stdout } = await execFileAsync('git', args, { cwd: wd });
+  return stdout.trim();
+}
+
 async function markFinishAuditReviewed(audit) {
   const state = JSON.parse(await readFile(audit.statePath, 'utf8'));
   state.status = 'audited';
@@ -581,6 +590,87 @@ describe('loopx retained workflow shell', () => {
     assert.equal(payload.reused, true);
     assert.equal(payload.state.source_artifact, 'docs/loopx/plans/feature-cli.md');
     assert.equal(payload.state.design_artifact, 'docs/loopx/design/2026-06-30-feature-cli/需求设计文档.md');
+  });
+
+  it('finish report includes requirement start commit from execution range', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-execution-range-'));
+    await initGitRepo(wd);
+    await writeFile(join(wd, 'README.md'), '# initial\n');
+    await execGit(wd, ['add', 'README.md']);
+    await execGit(wd, ['commit', '-m', 'initial']);
+    const start = await gitOutput(wd, ['rev-parse', 'HEAD']);
+
+    await executionStartStage(wd, 'feature-a', { source: 'docs/loopx/plans/feature-a.md' });
+    await finishStartStage(wd, 'feature-a', { source: 'docs/loopx/plans/feature-a.md' });
+    await writeFile(join(wd, 'README.md'), '# changed\n');
+    await execGit(wd, ['add', 'README.md']);
+    await execGit(wd, ['commit', '-m', 'implement feature']);
+    const finalHead = await gitOutput(wd, ['rev-parse', 'HEAD']);
+
+    const audit = await finishAuditStage(wd, 'feature-a');
+    const report = await readFile(audit.reportPath, 'utf8');
+    assert.equal(audit.state.audit.change_window.requirement_start_commit, start);
+    assert.equal(audit.state.audit.change_window.requirement_start_source, 'execution-range');
+    assert.equal(audit.state.audit.change_window.final_head, finalHead.slice(0, 7));
+    assert.match(report, new RegExp(`requirement_start_commit: ${escapeRegExp(start.slice(0, 7))}`));
+    assert.match(report, new RegExp(`final_HEAD: ${escapeRegExp(finalHead.slice(0, 7))}`));
+  });
+
+  it('finish report includes requirement start fallback to finish baseline when execution range missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-baseline-fallback-'));
+    await initGitRepo(wd);
+    const baseline = await finishStartStage(wd, 'feature-b', { source: 'docs/loopx/plans/feature-b.md' });
+    await writeFile(join(wd, 'README.md'), '# changed\n');
+    await execGit(wd, ['add', 'README.md']);
+    await execGit(wd, ['commit', '-m', 'baseline fallback']);
+
+    const audit = await finishAuditStage(wd, 'feature-b');
+    const report = await readFile(audit.reportPath, 'utf8');
+    assert.equal(audit.state.audit.change_window.requirement_start_commit, baseline.state.head);
+    assert.equal(audit.state.audit.change_window.requirement_start_source, 'baseline');
+    assert.match(report, new RegExp(`requirement_start_commit: ${escapeRegExp(baseline.state.head_short)}`));
+    assert.match(report, /requirement_start_source: baseline/);
+  });
+
+  it('untracked files do not block finish done', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-untracked-'));
+    await initGitRepo(wd);
+    await finishStartStage(wd, 'feature-c', { source: 'docs/loopx/plans/feature-c.md' });
+    const audit = await finishAuditStage(wd, 'feature-c');
+    await markFinishAuditReviewed(audit);
+
+    await writeFile(join(wd, 'notes.txt'), 'local scratch\n');
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Done with an untracked scratch file.',
+      url: null,
+    });
+    const report = await readFile(recorded.reportPath, 'utf8');
+    assert.equal(recorded.state.status, 'completed');
+    assert.deepEqual(recorded.state.audit.change_window.tracked_status, []);
+    assert.deepEqual(recorded.state.audit.change_window.untracked_status, ['?? notes.txt']);
+    assert.match(report, /### Tracked Status[\s\S]*- none/);
+    assert.match(report, /### Untracked Status[\s\S]*- \?\? notes\.txt/);
+  });
+
+  it('untracked coverage still blocks finish done when tracked files are dirty', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-tracked-dirty-'));
+    await initGitRepo(wd);
+    await finishStartStage(wd, 'feature-d', { source: 'docs/loopx/plans/feature-d.md' });
+    const audit = await finishAuditStage(wd, 'feature-d');
+    await markFinishAuditReviewed(audit);
+
+    await writeFile(join(wd, 'README.md'), 'tracked dirty\n');
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should fail with tracked changes.',
+        url: null,
+      }),
+      /finish_record_audit_incomplete/,
+    );
   });
 
   it('blocks finish done when matching multi-plan state is incomplete', async () => {
