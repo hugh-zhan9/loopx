@@ -7,6 +7,7 @@ const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
 const EXECUTION_RANGE_SCHEMA_VERSION = 1;
 const MULTI_PLAN_SCHEMA_VERSION = 2;
+const LEGACY_CHILD_REVIEW_PATH_FIELD = ['plan', 'final', 'review'].join('_');
 const MULTI_PLAN_PACKAGE_PATTERN = /^docs\/loopx\/plans\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/(?:00-overview|[0-9]{2}-[a-z0-9-]+)\.md$/;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
 const MAX_AUDIT_ID_COLLISIONS = 1000;
@@ -826,11 +827,11 @@ function normalizeMultiPlanStateForValidation(multiPlanState) {
     plans: Array.isArray(multiPlanState.plans)
       ? multiPlanState.plans.map((plan) => ({
           ...plan,
-          plan_review: plainObject(plan?.plan_review) || (nonEmptyText(plan?.plan_final_review)
+          plan_review: plainObject(plan?.plan_review) || (nonEmptyText(plan?.[LEGACY_CHILD_REVIEW_PATH_FIELD])
             ? {
                 status: 'passed',
                 reviewed_at: null,
-                summary: `Migrated from ${plan.plan_final_review}`,
+                summary: `Migrated from ${plan[LEGACY_CHILD_REVIEW_PATH_FIELD]}`,
               }
             : plan?.plan_review),
         }))

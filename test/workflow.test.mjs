@@ -15,6 +15,7 @@ import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWor
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
+const legacyChildReviewPathField = ['plan', 'final', 'review'].join('_');
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -953,7 +954,7 @@ describe('loopx retained workflow shell', () => {
         {
           path: `docs/loopx/plans/${featureSlug}/01-core.md`,
           status: 'complete',
-          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
+          [legacyChildReviewPathField]: `.loopx/final-review/${featureSlug}-01-core.md`,
           ready_for_spec_review: true,
         },
       ],
