@@ -1467,10 +1467,11 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   const statePath = join(root, 'finish-state.json');
   const state = await readFinishState(statePath);
   validateFinishRecordState(state, root);
-  const currentEvidence = await resolveGitEvidence(cwd);
-  state.audit.change_window = await refreshChangeWindowStatus(cwd, currentEvidence, state.audit.change_window);
+  const stateRoot = runtimeStateRoot(cwd, state);
+  const currentEvidence = await resolveGitEvidence(stateRoot);
+  state.audit.change_window = await refreshChangeWindowStatus(stateRoot, currentEvidence, state.audit.change_window);
   if (normalizedStatus === 'done') {
-    await assertMultiPlanReadyForFinish(cwd, state);
+    await assertMultiPlanReadyForFinish(stateRoot, state);
   }
   if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
     throw new Error('finish_record_audit_incomplete');
