@@ -3,18 +3,123 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Exec
 
 ## Overview
 
-Load plan, review critically, execute all tasks with spec verification and mandatory checkpoint reviews, report when complete.
+Load a single plan, direct child plan, or multi-plan package input; review
+critically; execute tasks inline with spec verification and mandatory checkpoint
+reviews; then complete according to input scope. `exec` is the same-context
+execution lane and does not use subagents.
 
 **Announce at start:** "I'm using the exec skill to implement this plan."
 
 **Note:** If subagents are available and the tasks are independent, prefer loopx:subagent-exec instead of this skill.
+
+## Input Scope
+
+Classify the user-provided path before execution:
+
+| Input | Scope | Behavior |
+|---|---|---|
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` | single plan | Execute inline with checkpoint reviews, then run `loopx:final-review` and `loopx:finish` when clean. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` | multi-plan package | Run package mode for the whole package without subagents. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/` | multi-plan package | Resolve `00-overview.md` and run package mode without subagents. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/NN-<plan-slug>.md` | direct child plan mode | Execute only that child plan inline, run plan-level `loopx:final-review`, update `.loopx/multi-plan/<feature-slug>/state.json`, and stop. |
+
+If the input is missing, ambiguous, unreadable, a package directory without
+`00-overview.md`, or an overview without the required package fields, stop and
+report the concrete path defect. Do not guess a scope.
+
+## Multi-Plan Package Mode
+
+Package mode applies when the input is
+`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package
+directory.
+
+Package mode steps:
+
+1. Read `00-overview.md`.
+2. Extract source spec path, package slug, local state path, child plan list,
+   and execution order.
+3. Prepare `.loopx/multi-plan/<feature-slug>/state.json`:
+   - if missing, initialize schema v2 state from the overview and child plan
+     list;
+   - if present, validate feature slug, plan package path, source spec, unique
+     child plan paths, and schema shape;
+   - if JSON is invalid, duplicated, stale, or mismatched with the overview,
+     stop and report the state defect.
+
+```json
+{
+  "schema_version": 2,
+  "feature_slug": "2026-07-01-feature",
+  "plan_package": "docs/loopx/plans/2026-07-01-feature",
+  "source_spec": "docs/loopx/design/2026-07-01-feature/需求设计文档.md",
+  "status": "in_progress",
+  "plans": [
+    {
+      "path": "docs/loopx/plans/2026-07-01-feature/01-core.md",
+      "status": "pending",
+      "plan_review": null,
+      "ready_for_spec_review": false
+    }
+  ],
+  "spec_final_review": null
+}
+```
+
+4. Execute child plans strictly sequentially, even when the overview says some
+   child plans can run in parallel.
+5. For each pending child plan, use the same-context task loop in Step 2,
+   including spec verification, task completion evidence, checkpoints, and
+   mandatory `loopx:review` gates.
+6. After each child plan is complete and checkpoint review obligations are
+   clean, run plan-level `loopx:final-review` and update the matching state row
+   with `plan_review.status`, `plan_review.reviewed_at`,
+   `plan_review.summary`, and `ready_for_spec_review: true`. Child plan-level
+   final-review must not write a `.loopx/final-review/*.md` report.
+7. Skip child plans whose state row already has `status: "complete"`,
+   `plan_review.status: "passed"`, and `ready_for_spec_review: true`.
+8. After every child plan is ready, run one spec-level `loopx:final-review` for
+   the source spec, `00-overview.md`, all child plans, and current repository
+   state.
+9. Only start `loopx:finish` when the spec-level review is clean and all
+   Critical/Important feedback has been handled and rechecked.
+
+Package mode is same-context orchestration. It does not use subagents and does
+not automatically parallelize child plans.
+
+## Direct Child Plan Mode
+
+When the input is a numbered child plan under
+`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do
+not execute sibling child plans from direct child plan mode. Do not proceed to
+package-level spec review or `finish` after the child plan completes. Direct
+child plan mode is for targeted, resume, or manual-control runs.
+
+After all tasks in the child plan pass required checkpoint reviews and
+verification, run plan-level `loopx:final-review` as a process gate. If the
+plan-level review passes, update the matching child row in
+`.loopx/multi-plan/<feature-slug>/state.json` with:
+
+```json
+{
+  "status": "complete",
+  "plan_review": {
+    "status": "passed",
+    "reviewed_at": "2026-07-01T00:00:00.000Z",
+    "summary": "No blocking issues"
+  },
+  "ready_for_spec_review": true
+}
+```
+
+Child plan-level final-review must not write a `.loopx/final-review/*.md`
+report.
 
 ## The Process
 
@@ -117,7 +222,17 @@ If any answer is unknown because evidence was not collected, collect the evidenc
 
 ### Step 3: Complete Development
 
-After Step 2 is complete, including any required final checkpoint `loopx:review`, and all tasks are verified:
+After Step 2 is complete, including any required final checkpoint
+`loopx:review`, and all tasks for the current scope are verified:
+- For direct child plan mode, run plan-level `loopx:final-review`, update
+  `.loopx/multi-plan/<feature-slug>/state.json`, and stop. Do not run
+  `loopx:finish` for a direct child plan.
+- For package mode, repeat Step 2 and plan-level `loopx:final-review` for each
+  child plan in strict sequence. After all child plans are ready, run
+  spec-level `loopx:final-review`, then `loopx:finish` only when the spec-level
+  review is clean.
+- For single-plan mode, keep the existing single-plan behavior: run
+  `loopx:final-review`, then `loopx:finish` only when clean.
 - Announce: "I'm using the final-review skill to review the completed feature."
 - **REQUIRED SUB-SKILL:** Use loopx:final-review
 - If final-review finds Critical or Important issues, use loopx:fix-review to handle feedback before proceeding
