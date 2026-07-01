@@ -3,495 +3,161 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.11"
+  version: "0.3.12"
 ---
 
 # Subagent Exec
 
-Execute approved plans by dispatching a fresh implementer subagent per task,
-one combined task reviewer after each task, and final review according to input
-scope. For single-plan runs, proceed to `loopx:final-review` and
-`loopx:finish`. For numbered multi-plan child runs, execute only that child plan
-and stop after plan-level `loopx:final-review` updates multi-plan state. For
-multi-plan package inputs (`00-overview.md` or a package directory), run package
-mode: execute child plans strictly sequentially through the existing per-task
-subagent flow, run spec-level `loopx:final-review` after all children are ready,
-and enter `loopx:finish` only when the spec-level review is clean.
+Execute an approved plan by running one fresh implementer subagent per task,
+then one task reviewer gate per task, then the required final-review scope for
+the input path. This skill is the orchestration fast path. Keep the controller
+context small and push bulky handoff artifacts into files.
 
-**Why subagents:** You delegate tasks to specialized agents with isolated
-context. You construct exactly what they need: task brief, anchor context,
-surface-change context, report path, and review package path.
+## Fast Path
 
-**Core principle:** Fresh subagent per task + combined task review (spec +
-quality) + final whole-feature review = high quality with fewer subagent turns.
+1. Classify the input path.
+2. Confirm subagent capability on the current platform.
+3. Run required startup:
+   - `loopx execution-start <slug> --source <plan-path> [--design <design-path>]`
+   - `loopx finish-start <slug> --source <plan-path>`
+4. For each task, generate a brief with `scripts/task-brief`, dispatch a fresh
+   implementer subagent, generate a review package with
+   `scripts/review-package`, then dispatch the task reviewer.
+5. Handle Critical and Important findings with `fix-review`, then re-review.
+6. Finish according to scope:
+   - single plan: run plan completion, `spec-level final-review`, then `finish`
+   - direct child plan: run `plan-level final-review`, update multi-plan state,
+     then stop
+   - package mode: execute child plans sequentially, run `spec-level final-review`,
+     then `finish`
 
-**Continuous execution:** Do not pause to check in between tasks. Execute the
-plan without stopping unless you are BLOCKED, real ambiguity prevents progress,
-or all tasks are complete.
+## Subagent Capability
 
-## When to Use
-
-Use this skill for approved implementation plans whose tasks can be executed
-mostly sequentially with isolated subagent context. Use `loopx:exec` when
-subagent support is unavailable or edits are too tightly coupled for safe
-delegation.
+Before falling back to `loopx:exec`, run the current platform's subagent
+capability check from [platform-subagents.md](./platform-subagents.md). Codex
+may expose subagent tools through deferred tool discovery, so do not treat an
+initial visible tool list as final evidence. The platform references contain
+the runtime-specific checks.
 
 ## Input Scope
 
-Classify the user-provided path before execution:
+Classify the user-provided path exactly:
 
 | Input | Scope | Behavior |
 |---|---|---|
-| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` | single plan | Execute the plan with per-task subagents, then run `loopx:final-review` and `loopx:finish` when clean. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` | single plan | Execute tasks, then `spec-level final-review`, then `finish`. |
 | `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` | multi-plan package | Run package mode for the whole package. |
 | `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/` | multi-plan package | Resolve `00-overview.md` and run package mode. |
-| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/NN-<plan-slug>.md` | direct child plan mode | Execute only that child plan, run plan-level `loopx:final-review`, update `.loopx/multi-plan/<feature-slug>/state.json`, and stop. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/NN-<plan-slug>.md` | direct child plan mode | Execute only that child plan, run `plan-level final-review`, update multi-plan state, and stop. |
 
-If the input is missing, ambiguous, unreadable, a package directory without
-`00-overview.md`, or an overview without the required package fields, stop and
-report the concrete path defect. Do not guess a scope.
+If the path is missing, ambiguous, unreadable, or structurally invalid, stop
+and report the concrete defect. Do not guess. Current contract only.
 
-## Multi-Plan Package Mode
+## Required Startup
 
-Package mode applies when the input is
-`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package
-directory.
-
-Package mode steps:
-
-1. Read `00-overview.md`.
-2. Extract source spec path, package slug, local state path, child plan list,
-   and execution order.
-3. Prepare `.loopx/multi-plan/<feature-slug>/state.json`:
-   - if missing, initialize schema v2 state from the overview and child plan
-     list;
-   - if present, validate feature slug, plan package path, source spec, unique
-     child plan paths, and schema shape;
-   - if JSON is invalid, duplicated, stale, or mismatched with the overview,
-     stop and report the state defect.
-
-```json
-{
-  "schema_version": 2,
-  "feature_slug": "2026-07-01-feature",
-  "plan_package": "docs/loopx/plans/2026-07-01-feature",
-  "source_spec": "docs/loopx/design/2026-07-01-feature/需求设计文档.md",
-  "status": "in_progress",
-  "plans": [
-    {
-      "path": "docs/loopx/plans/2026-07-01-feature/01-core.md",
-      "status": "pending",
-      "plan_review": null,
-      "ready_for_spec_review": false
-    }
-  ],
-  "spec_final_review": null
-}
-```
-
-4. Execute child plans strictly sequentially, even when the overview says some
-   child plans can run in parallel.
-5. For each pending child plan, run the existing direct child plan subagent
-   flow. Keep the core rule: fresh implementer subagent per task plus task
-   reviewer subagent after each task.
-6. After each child plan is complete, run plan-level `loopx:final-review` and
-   update the matching state row with `plan_review.status`,
-   `plan_review.reviewed_at`, `plan_review.summary`, and
-   `ready_for_spec_review: true`. Child plan-level final-review must not write
-   a `.loopx/final-review/*.md` report.
-7. Skip child plans whose state row already has `status: "complete"`,
-   `plan_review.status: "passed"`, and `ready_for_spec_review: true`.
-8. After every child plan is ready, run one spec-level `loopx:final-review` for
-   the source spec, `00-overview.md`, all child plans, and current repository
-   state.
-9. Only start `loopx:finish` when the spec-level review is clean and all
-   Critical/Important feedback has been handled and rechecked.
-
-Package mode is not automatic parallel scheduling. Do not dispatch multiple
-child plans concurrently in this version.
-
-## Direct Child Plan Mode
-
-When the input is a numbered child plan under
-`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do
-not execute sibling child plans from direct child plan mode. Do not proceed to
-package-level spec review or `finish` after the child plan completes. Direct
-child plan mode is for targeted, resume, or manual-control runs.
-
-After all tasks in the child plan pass task review, run plan-level `loopx:final-review` for that child plan and update `.loopx/multi-plan/<feature-slug>/state.json`:
-
-```json
-{
-  "path": "docs/loopx/plans/2026-06-30-feature/01-core.md",
-  "status": "complete",
-  "plan_review": {
-    "status": "passed",
-    "reviewed_at": "2026-06-30T00:00:00.000Z",
-    "summary": "No blocking issues"
-  },
-  "ready_for_spec_review": true
-}
-```
-
-For child plans, run plan-level `loopx:final-review` as a process gate but do not write a `.loopx/final-review/*.md` report. Child plan-level final-review must not write final-review report artifacts. The child review result is represented only by the matching `plans[]` row in `.loopx/multi-plan/<feature-slug>/state.json`; `plan_review.status` is the child review gate.
-
-Only after every child plan in the package is complete should an agent run spec-level `loopx:final-review` for the source spec and package overview. `loopx:finish` is allowed only after the spec-level final-review is clean.
-
-## Step -1: Confirm Subagent Capability
-
-Before falling back to `loopx:exec`, run the current platform's subagent
-capability check. Use the matching platform reference from `./platform-subagents.md`.
-Codex may expose multi-agent tools through deferred tool discovery, so do not
-treat an initial visible tool list that omits `spawn_agent`, `wait_agent`, or
-`close_agent` as final evidence. In non-Codex runtimes, use the platform's
-native subagent availability check before declaring subagents unavailable.
-
-## The Process
-
-```dot
-digraph process {
-    rankdir=TB;
-
-    subgraph cluster_per_task {
-        label="Per Task";
-        "Run scripts/task-brief PLAN_FILE N" [shape=box];
-        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
-        "Implementer writes report file and returns short status" [shape=box];
-        "Run scripts/review-package BASE HEAD" [shape=box];
-        "Dispatch task reviewer subagent (./task-reviewer-prompt.md)" [shape=box];
-        "Task reviewer reports spec compliant and task quality approved?" [shape=diamond];
-        "Dispatch one fix subagent for Critical/Important findings" [shape=box];
-        "Mark task complete in update_plan and progress ledger" [shape=box];
-    }
-
-    "Record execution range and finish baseline" [shape=box];
-    "Pre-flight plan review" [shape=box];
-    "More tasks remain?" [shape=diamond];
-    "Use loopx:final-review for completed plan" [shape=box];
-    "Input scope?" [shape=diamond];
-    "Use loopx:finish after clean single-plan final-review" [shape=box style=filled fillcolor=lightgreen];
-    "For direct child plan: update .loopx/multi-plan state and stop" [shape=box];
-    "For package mode: continue to next child or spec-level final-review" [shape=box];
-
-    "Record execution range and finish baseline" -> "Pre-flight plan review";
-    "Pre-flight plan review" -> "Run scripts/task-brief PLAN_FILE N";
-    "Run scripts/task-brief PLAN_FILE N" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer writes report file and returns short status";
-    "Implementer writes report file and returns short status" -> "Run scripts/review-package BASE HEAD";
-    "Run scripts/review-package BASE HEAD" -> "Dispatch task reviewer subagent (./task-reviewer-prompt.md)";
-    "Dispatch task reviewer subagent (./task-reviewer-prompt.md)" -> "Task reviewer reports spec compliant and task quality approved?";
-    "Task reviewer reports spec compliant and task quality approved?" -> "Dispatch one fix subagent for Critical/Important findings" [label="no"];
-    "Dispatch one fix subagent for Critical/Important findings" -> "Run scripts/review-package BASE HEAD" [label="re-review"];
-    "Task reviewer reports spec compliant and task quality approved?" -> "Mark task complete in update_plan and progress ledger" [label="yes"];
-    "Mark task complete in update_plan and progress ledger" -> "More tasks remain?";
-    "More tasks remain?" -> "Run scripts/task-brief PLAN_FILE N" [label="yes"];
-    "More tasks remain?" -> "Use loopx:final-review for completed plan" [label="no"];
-    "Use loopx:final-review for completed plan" -> "Input scope?";
-    "Input scope?" -> "Use loopx:finish after clean single-plan final-review" [label="single plan"];
-    "Input scope?" -> "For direct child plan: update .loopx/multi-plan state and stop" [label="direct child plan"];
-    "Input scope?" -> "For package mode: continue to next child or spec-level final-review" [label="package mode"];
-}
-```
-
-## Step 0: Record Execution Range And Finish Baseline
-
-Before dispatching the first implementer, record both requirement identity and finish audit baseline:
+Before dispatching the first implementer, record both requirement identity and
+finish baseline:
 
 ```bash
 loopx execution-start <slug> --source <plan-path> [--design <design-path>]
 loopx finish-start <slug> --source <plan-path>
 ```
 
-`execution-start` records the requirement start commit and canonical final-review report identity. `finish-start` preserves the committed audit baseline so `finish-audit` can inspect `baseline..HEAD` even after implementers commit their work and the current `git diff` is empty. Use the plan filename slug when no workflow slug is available.
-
-This startup change does not change `subagent-exec` subagent capability detection or launching behavior.
-
-## Pre-Flight Plan Review
-
-Before dispatching Task 1, scan the plan once for conflicts:
-
-- tasks that contradict each other
-- tasks that contradict Global Constraints
-- missing Interfaces that downstream tasks rely on
-- anything the plan explicitly mandates that the task reviewer rubric treats as
-  a defect
-
-Batch findings into one question to the user. Show the plan text and the
-conflicting requirement side by side, and ask which governs. If the scan is
-clean, proceed without comment.
-
-- duplicate `T-*` task anchors within the same plan, or missing `T-*` anchors in new-style task headings
-
-## File Handoffs
-
-Use files for bulky artifacts so controller context stays small:
-
-- Task brief: run `scripts/task-brief PLAN_FILE N`; pass the printed path to
-  the implementer. The task brief must preserve `Source AC`, `Design anchors`,
-  `Test cases`, `Task anchor`, `Review focus`, and `Expected execution evidence`.
-- Task anchor: when the task brief contains `T-*`, pass the exact anchor such
-  as `T-001 / Task 1` to the implementer and reviewer. Keep report file names
-  such as `task-N-report.md` for compatibility; the report content must
-  preserve `task_anchor`.
-- Report file: use the same workspace path with `task-N-report.md`; the
-  implementer writes the full report there and returns only a short status.
-- Review package: run `scripts/review-package BASE HEAD`; pass the printed path
-  to the task reviewer.
-- Reviewer prompt: provide the brief path, report path, review package path,
-  Global Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
-
-Use the BASE commit recorded before dispatching the implementer. Never use
-`HEAD~1` for multi-commit tasks.
-
-## Durable Progress
-
-At skill start, check the progress ledger:
-
-```bash
-workspace=$(scripts/subagent-workspace)
-cat "$workspace/progress.md"
-```
-
-If the ledger marks a task complete, do not re-dispatch it. After a clean task
-review, append:
-
-```text
-T-001 / Task 1: complete (commits <base7>..<head7>, review clean, brief <path>, report <path>, review <path>)
-```
-
-For historical plans without `T-*`, `Task N: complete ...` remains valid.
-
-The progress ledger is gitignored scratch. If `git clean -fdx` removes it,
-recover from `git log` and existing commits.
-
-## Anchor Context Contract
-
-Before dispatching an implementer, provide an `ANCHOR_CONTEXT` block:
-
-```text
-ANCHOR_CONTEXT:
-- task anchor such as T-001 when present
-- anchor ids relevant to this task
-- original anchor text summary
-- coverage rows relevant to this task
-- source requirement path
-```
-
-If a task has no direct anchor, classify it as exactly one of:
-
-```text
-infrastructure
-test-only
-docs-only
-refactor-only
-```
-
-Implementer and reviewer reports must preserve:
-
-```yaml
-task_anchor: T-001
-source_ac:
-  - AC-001
-design_anchors:
-  - D-001
-test_cases:
-  - TC-001
-commands_run:
-  - npm test: pass
-evidence_summary: task proof matched Expected execution evidence
-remaining_risk: none
-anchor_coverage:
-  REQ-001: implemented
-implemented_anchor_ids:
-  - REQ-001
-tests_for_anchor_ids:
-  - REQ-001
-extra_behavior: none
-missing_context: none
-```
-
-Allowed anchor statuses are `implemented`, `tested`, `not_applicable`,
-`blocked`, and `needs_context`.
-
-Merged task reports must preserve `task_anchor`, `source_ac`, `design_anchors`, `test_cases`, `commands_run`, `evidence_summary`, and `remaining_risk` so `review`, `final-review`, and `finish` can trace execution evidence back to Source AC, Design anchors, Test cases, and Expected execution evidence.
-
-## Lancet Context Contract
-
-When a task or source plan names `lancet` as a support lens, provide a
-`LANCET_CONTEXT` block to implementers and reviewers. Use `lancet` discipline:
-check deletion, repo reuse, stdlib, native platform, and already-installed
-dependencies before new code, files, or dependencies. Require the smallest
-correct diff while preserving validation, error handling, security,
-accessibility, and regression coverage.
-
-If `lancet` does not apply, write:
-
-```text
-LANCET_CONTEXT:
-not_applicable
-```
-
-## Surface Change Contract
-
-Use this contract for any task that removes, replaces, narrows, migrates, or
-changes compatibility for existing behavior or public surface. This includes
-commands, APIs, schemas, events, config, package contents, templates, generated
-artifacts, docs, hooks, background jobs, permissions, migrations, and
-user-visible workflows.
-
-Before dispatching an implementer, provide a `SURFACE_CHANGE_CONTEXT` block:
-
-```text
-SURFACE_CHANGE_CONTEXT:
-- surface being changed:
-- strict current product paths to scan:
-- historical/frozen paths that may mention old behavior:
-- caller proof commands from the plan:
-- negative assertion commands from the plan:
-- package/deploy/governance checks required:
-```
-
-If the plan omits caller proof or negative assertions for a surface-changing
-task, stop and treat it as a plan defect. Do not let implementers infer deletion
-scope from prose.
-
-Implementer reports for surface-changing tasks must include:
-
-```yaml
-surface_change:
-  removed_or_changed:
-    - <command/api/module/file/doc claim>
-  retained_with_caller_proof:
-    - item: <item>
-      caller: <current-source caller or none>
-  negative_assertions:
-    - command: <command>
-      result: <expected absence confirmed>
-  package_or_governance_checks:
-    - command: <command>
-      result: <pass/fail>
-```
-
-The task reviewer must check removed behavior against strict current product
-paths. Historical docs, release notes, old plans, and frozen external content do
-not count as retained callers.
-
-## Model Selection
-
-Use the least powerful model that can handle each role to conserve cost and
-increase speed, but bias one tier upward when classification is uncertain. Total
-turn count matters more than nominal per-token price.
-
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2
-files, no cross-file contract changes): use a fast, cheap model only when the
-plan text is complete enough that the work is mostly transcription plus focused
-testing.
-
-**Integration and judgment tasks** (multi-file coordination, pattern matching,
-debugging): use a standard model. Treat prose-driven implementation, test design,
-compatibility work, user-visible behavior, and generated artifact changes as at
-least standard.
-
-**Architecture and final review tasks:** use the most capable available model.
-The final whole-feature review is one of these; dispatch it on the most capable
-available model, not the session default.
-
-**Review tasks:** use a model with enough judgment for the diff's size,
-complexity, and risk. Use a mid-tier floor for reviewers and prose-driven
-implementers; use the cheapest tier only for transcription-level tasks or
-single-file mechanical fixes. Use the most capable model for subtle concurrency,
-security, data-loss, migration, public API, or cross-task invariant risks.
-
-Always specify the model explicitly when dispatching a subagent. An omitted
-model inherits the session default and can silently put cheap review work on the
-most expensive model.
-
-**Task complexity signals (implementation tasks):**
-- Complete spec or exact code, 1-2 files, no integration risk: cheap model.
-- Multiple files, repo pattern matching, tests to design, or prose requirements:
-  standard model.
-- Broad codebase understanding, architecture judgment, hard debugging, or risky
-  compatibility boundaries: most capable model.
-
-If a task sits between cheap and standard, choose standard. If a review sits
-between standard and most capable, choose most capable.
-
-## Handling Implementer Status
-
-**DONE:** Generate the review package with `scripts/review-package BASE HEAD`,
-then dispatch the task reviewer with the printed path.
-
-**DONE_WITH_CONCERNS:** Read the concerns before review. If they affect
-correctness or scope, address them before review. Otherwise note them and
-proceed to review.
-
-**NEEDS_CONTEXT:** Provide the missing context and re-dispatch.
-
-**BLOCKED:** Assess the blocker before retrying:
-
-1. If it is a context problem, provide more context and re-dispatch with the same
-   model.
-2. If the task requires more reasoning, re-dispatch with a more capable model.
-3. If the task is too large, split it into smaller pieces.
-4. If the plan itself is wrong, escalate the plan defect to the user.
-
-Never ignore an escalation or force the same model to retry without changes.
-
-## Handling Task Reviewer Results
-
-The task reviewer returns both required gates:
-
-- Spec Compliance: `SPEC_COMPLIANT` | `ISSUES_FOUND` | `NEEDS_CONTEXT`
-- Task quality: `Approved` | `Needs fixes`
-
-Do not mark a task complete unless spec compliance is `SPEC_COMPLIANT` and task
-quality is `Approved`. Resolve `Cannot verify from diff` items yourself before
-marking the task complete.
-
-Dispatch one fix subagent with all Critical and Important findings. The fixer
-must re-run focused tests covering the amended code and append results to the
-same report file. Then re-run `scripts/review-package` and dispatch the task
-reviewer again.
-
-## Constructing Reviewer Prompts
-
-Do not tell a reviewer what not to flag, do not pre-rate severity, and do not
-paste accumulated history. If your dispatch says "do not flag", "at most
-Minor", or "the plan chose this", stop and remove that pre-judgment. The task
-reviewer gets only the task brief, report file, review package, Global
-Constraints, ANCHOR_CONTEXT, and SURFACE_CHANGE_CONTEXT.
-
-## Prompt Templates
-
-- `./platform-subagents.md` - Choose the platform-specific subagent reference
-- `./codex-subagents.md` - Codex subagent tool mapping and required runtime support
-- `./claude-subagents.md` - Claude Code subagent dispatch and availability rules
-- `./cursor-subagents.md` - Cursor Cloud Agent compatibility and fallback rules
-- `./implementer-prompt.md` - Dispatch implementer subagent
-- `./task-reviewer-prompt.md` - Dispatch task reviewer subagent
-
-## Red Flags
-
-**Never:**
-- Skip task review
-- Proceed with unfixed Critical or Important issues
-- Dispatch multiple implementation subagents in parallel when their write scopes overlap
-- Make a subagent read the whole plan file instead of a task brief
-- Ignore subagent questions
-- Accept "close enough" on spec compliance
-- Move to the next task while the task reviewer has open blocking issues
-- Re-dispatch a task the progress ledger marks complete
-
-## Integration
-
-**Required workflow skills:**
-- **loopx:plan-to-exec** - Creates the plan this skill executes
-- **loopx:final-review** - Final runtime and integration risk review. Single-plan runs use it before `finish`; multi-plan child runs use plan-level final-review and stop after updating multi-plan state.
-- **loopx:fix-review** - Handles findings returned by task review or final review
-- **loopx:finish** - Completes development after verification. Only start `loopx:finish` after single-plan `loopx:final-review` is clean, or for multi-plan packages after the spec-level `loopx:final-review` is clean and all Critical/Important feedback has been handled and rechecked.
-
-**Subagents should use:**
-- **loopx:tdd** - Subagents follow TDD for each task when the plan requires it
-
-**Alternative workflow:**
-- **loopx:exec** - Use when subagents are unavailable or the work must remain in one context
+`execution-start` records the requirement start commit and canonical final-review
+report identity. `finish-start` preserves the committed audit baseline so
+`finish-audit` can inspect `baseline..HEAD` even after implementers commit
+their work.
+
+## Per-Task Orchestration
+
+Keep the task loop strict:
+
+1. Check the progress ledger in `$(scripts/subagent-workspace)/progress.md`.
+   Do not re-dispatch a completed task.
+2. Generate the task brief with `scripts/task-brief PLAN_FILE N`.
+3. Pass the brief path, `ANCHOR_CONTEXT`, `LANCET_CONTEXT` when present,
+   `SURFACE_CHANGE_CONTEXT` when present, and a report path to one fresh
+   implementer subagent.
+4. Model explicitly for every subagent dispatch.
+5. The implementer writes the full report file and returns only short status:
+   `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`.
+6. For `DONE` or acceptable `DONE_WITH_CONCERNS`, generate the review package
+   with `scripts/review-package BASE HEAD`.
+7. Dispatch the task reviewer with the brief path, report path, review package
+   path, Global Constraints, `ANCHOR_CONTEXT`, and `SURFACE_CHANGE_CONTEXT`.
+8. After clean review, append task completion to the progress ledger and move
+   to the next task without pausing.
+
+Detailed task handoff, report fields, review package contract, and reviewer
+expectations are in
+[task-handoff-and-review.md](./references/task-handoff-and-review.md).
+
+## Required Review Gates
+
+Do not mark a task complete unless both gates pass:
+
+- Spec Compliance: `SPEC_COMPLIANT`
+- Task quality: `Approved`
+
+If the reviewer returns `NEEDS_CONTEXT`, supply the missing context and re-run
+review. If the reviewer finds Critical or Important issues, route them through
+`fix-review`, re-run focused verification, rebuild the review package, and
+dispatch the task reviewer again. Never skip task review. Never proceed with
+unfixed Critical or Important findings.
+
+Model selection, uncertainty handling, retry rules, and `DONE` /
+`NEEDS_CONTEXT` / `BLOCKED` handling are in
+[model-selection-and-retry.md](./references/model-selection-and-retry.md).
+
+## Completion By Scope
+
+Follow the completion rule for the classified scope:
+
+- single plan:
+  run `spec-level final-review`; only start `loopx:finish` after the review is
+  clean and all Critical/Important feedback has been handled and rechecked.
+- direct child plan mode:
+  execute only that child plan; do not execute sibling child plans; do not
+  proceed to package-level spec review or `finish` after the child plan
+  completes; run `plan-level final-review`, update
+  `.loopx/multi-plan/<feature-slug>/state.json`, and stop.
+- multi-plan package:
+  execute child plans strictly sequentially through the same per-task flow,
+  update each child row's `plan_review.status`,
+  `plan_review.reviewed_at`, `plan_review.summary`, and
+  `ready_for_spec_review: true`, then run one `spec-level final-review` before
+  `finish`.
+
+For current package mode, schema v2 initialization and validation, direct child
+plan state updates, and spec-level completion rules, use
+[multi-plan-package-mode.md](./references/multi-plan-package-mode.md).
+
+## References
+
+- [platform-subagents.md](./platform-subagents.md)
+- [codex-subagents.md](./codex-subagents.md)
+- [claude-subagents.md](./claude-subagents.md)
+- [cursor-subagents.md](./cursor-subagents.md)
+- [implementer-prompt.md](./implementer-prompt.md)
+- [task-reviewer-prompt.md](./task-reviewer-prompt.md)
+- [multi-plan-package-mode.md](./references/multi-plan-package-mode.md)
+- [task-handoff-and-review.md](./references/task-handoff-and-review.md)
+- [model-selection-and-retry.md](./references/model-selection-and-retry.md)
+
+## Stop Conditions
+
+Stop and report the defect when any of the following is true:
+
+- subagents are unavailable on the current platform and `loopx:exec` is the
+  required fallback
+- the plan path or package structure is invalid
+- the multi-plan state file is invalid, stale, duplicated, or mismatched with
+  the overview
+- required startup commands were not run
+- the plan is ambiguous enough that task review cannot be applied coherently
+- the task reviewer or final-review returns unresolved Critical or Important
+  findings
+- the implementer remains `BLOCKED` after context or model adjustments
+
+Use `loopx:exec` only when subagent support is unavailable or the work cannot
+be delegated safely.
