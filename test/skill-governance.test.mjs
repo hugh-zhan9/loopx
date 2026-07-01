@@ -766,6 +766,7 @@ describe('loopx skill governance', () => {
 
     const forbiddenSurface = await rgCurrentSurface([
       'skills',
+      'templates',
       'README.md',
       'README.zh-CN.md',
       'docs/loopx/skills.md',
