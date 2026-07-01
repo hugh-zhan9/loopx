@@ -47,22 +47,23 @@ Read the selected skill file before acting. If multiple skills match, read every
 2. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they want to design a future change, use `spec`.
 3. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
 4. If remaining questions are local implementation choices, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
-5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, then offers `subagent-exec` or `exec`.
-6. Use `subagent-exec` when subagents are available and the plan has independent tasks.
-7. Use `exec` when the user chooses inline execution or subagents are unavailable.
-8. Use `review` to request code review of completed task or checkpoint work.
-9. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review and the package receives one spec-level final-review before finish.
-10. Use `fix-review` only after feedback exists.
-11. Use `finish` only after implementation, final review, and verification are complete.
-12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
-13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
-14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
-16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
-17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
-18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
-19. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. `plan-to-exec` uses it internally before final plan handoff; direct user invocation is for ad-hoc plan audits only.
-20. `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
+5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`.
+6. For single plans, use `subagent-exec` when subagents are available and tasks are independent; use `exec` for inline execution or when subagents are unavailable.
+7. For multi-plan packages, use package mode with `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package directory. `subagent-exec` is recommended; `exec` is the same-context fallback.
+8. Direct numbered child plan execution is targeted/resume/manual-control mode and must not be presented as the primary package handoff.
+9. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review state with `plan_review.status`, and the package receives one spec-level final-review report before finish.
+10. Use `review` to request code review of completed task or checkpoint work.
+11. Use `fix-review` only after feedback exists.
+12. Use `finish` only after implementation, final review, and verification are complete.
+13. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
+14. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
+15. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
+16. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
+17. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
+18. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
+19. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
+20. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. `plan-to-exec` uses it internally before final plan handoff; direct user invocation is for ad-hoc plan audits only.
+21. Design and domain support lenses such as `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, `go-style`, and `kratos` may add discipline to `spec`, `exec`, `review`, and `final-review`. `lancet` is implementation/review-only: planning may record it as a downstream support lens, but the full contract applies in `exec`, `subagent-exec`, `fix`, `review`, and `final-review`. They do not replace workflow skills or create workflow states.
 
 ## Deterministic Guard
 
