@@ -3,14 +3,14 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
 ---
 
 # Final Review
 
 Run the final whole-feature review after implementation is complete and before `finish`.
 
-**Core principle:** Per-task review catches local issues. Final review hunts integration and runtime risk across the complete feature, verifies all requirements are met, and validates real behavior.
+**Core principle:** Per-task review catches local issues. Final review hunts integration and runtime risk across the complete feature, verifies all requirements are met, and validates real behavior. Claims must be supported by evidence from the same user-facing or system-facing surface they describe.
 
 **Announce at start:** "I'm using the final-review skill to review the completed feature."
 
@@ -109,6 +109,16 @@ Before dispatching the code reviewer, build a requirements coverage matrix to ve
 
 **If any requirement is ⚠️ partial:** This is an Important finding. Assess whether partial coverage is acceptable or must be fixed.
 
+**Evidence surface gate:**
+
+- For each covered requirement, identify the surface being claimed: UI/product surface, CLI behavior, API behavior, persistence/schema behavior, background workflow, internal library behavior, or documentation contract.
+- Evidence must match that surface. Source code and model/unit tests can support implementation evidence, but they do not by themselves prove user-visible UI, CLI, API, persistence, or end-to-end workflow behavior.
+- UI/product-surface claims need user-visible runtime evidence when runnable: screenshot, accessibility tree, UI automation result, recorded manual observation, or equivalent inspection of visible controls, layout, navigation, and states.
+- CLI/API/persistence/workflow claims need representative runtime evidence from the actual command, endpoint, storage state, process, or integration path, not only mocked or model-level checks.
+- For rewrites, parity work, migrations, and "keep existing behavior" requirements, compare against the accepted contract: source spec, current product/reference implementation, compatibility promise, or documented behavior. A narrow implementation plan cannot erase broader accepted requirements.
+- If required surface evidence is missing, mark the row `⚠️ partial` or `❌ missing`; do not mark it covered on lower-level evidence alone.
+- `Ready for finish? Yes` requires zero unresolved Critical/Important findings and no unaccepted partial coverage.
+
 ### Phase 2: Support Lens Risk Scan
 
 Identify domain-specific review lenses from the completed diff, source requirements, and plan. Read only the support skill files that trigger, and use them to sharpen runtime validation, regression checks, and reviewer context.
@@ -161,10 +171,17 @@ When the feature is runnable (has a dev server, CLI, or testable interface), per
 |----------|----------|--------|-------|
 ```
 
+**User-visible and public-surface validation:**
+
+- For UI or product-surface work, exercise the visible screen or app state behind each user-facing claim. Record what was observed and how: screenshot, accessibility tree, UI automation, manual observation, or a clear reason it could not be checked.
+- For CLI/API/public workflow work, run representative commands or calls and capture the observed output, exit code, response, state change, or persisted result.
+- Successful build, app launch, server start, smoke JSON, view-model state, or unit tests can support runtime validation, but cannot replace the surface-specific checks above when the claim is about visible or public behavior.
+
 **When runtime validation is not possible:**
 - State explicitly: "Runtime validation not performed because [reason]"
 - Increase scrutiny on test quality in Phase 5
 - This is acceptable for library code, internal utilities, or CI-only changes
+- Mark any user-visible or public-surface requirement that lacks required runtime evidence as partial unless the source requirements explicitly accepted model-only or non-runtime evidence.
 
 ### Phase 4: Regression Checklist
 
@@ -224,6 +241,8 @@ Classify trust using:
 
 If trust is Low, include an Important or Critical finding unless the source requirements explicitly accepted the remaining risk.
 
+Evidence mismatch lowers trust. If the verification proves only construction-level behavior while the requirement claims product, CLI, API, persistence, or workflow behavior, classify trust as Medium at best for that surface and record the residual risk.
+
 ### Phase 6: Dispatch Code Reviewer
 
 Use the platform's native subagent mechanism when available and fill template at `final-reviewer.md`.
@@ -244,6 +263,7 @@ Use the platform's native subagent mechanism when available and fill template at
 - Any runtime validation findings from Phase 3
 - The regression checklist results from Phase 4
 - The independent Test Trust assessment from Phase 5
+- Any claim-to-evidence gaps where the report can only support partial coverage
 
 ## Review Priority
 
@@ -315,6 +335,10 @@ Child plan-level final-review must not write report artifacts or record child `s
 - Problem: tests pass but feature doesn't actually work (mocking, environment differences)
 - Fix: if it can run, run it. Type checking and tests verify code correctness, not feature correctness
 
+**Treating lower-level evidence as product evidence**
+- Problem: model tests, construction checks, app launch, or server start are used to claim UI, CLI, API, persistence, or workflow parity
+- Fix: require evidence from the claimed surface; if it is missing, mark the requirement partial or missing and block a green finish
+
 **Letting docs hide real risk**
 - Problem: "docs only" findings are ignored even when users would be misled
 - Fix: distinguish pure polish from operationally incorrect or missing documentation
@@ -330,3 +354,7 @@ Child plan-level final-review must not write report artifacts or record child `s
 **Skipping regression checklist for "safe" changes**
 - Problem: "I only changed internal code" but actually broke a public export
 - Fix: always check public interfaces, even for "internal" changes
+
+**Letting narrow plan anchors override accepted scope**
+- Problem: a review uses a narrow implementation plan to ignore broader parity, migration, compatibility, or accepted behavior requirements
+- Fix: compare against the source spec and accepted existing contract; unresolved parity gaps are partial or missing coverage
