@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
 const EXECUTION_RANGE_SCHEMA_VERSION = 1;
-const MULTI_PLAN_SCHEMA_VERSION = 1;
+const MULTI_PLAN_SCHEMA_VERSION = 2;
 const MULTI_PLAN_PACKAGE_PATTERN = /^docs\/loopx\/plans\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/(?:00-overview|[0-9]{2}-[a-z0-9-]+)\.md$/;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
 const MAX_AUDIT_ID_COLLISIONS = 1000;
@@ -349,6 +349,10 @@ function normalizedArtifactPath(path) {
   return String(path || '').trim().replaceAll('\\', '/').replace(/^\.\//, '');
 }
 
+function normalizedPlanPackagePath(path) {
+  return normalizedArtifactPath(path).replace(/\/+$/, '');
+}
+
 function canonicalFinalReviewReportPath({ source, design, slug }) {
   const identity = normalizedArtifactPath(design || source);
   const designMatch = identity.match(/docs\/loopx\/design\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/[^/]+\.md$/);
@@ -366,7 +370,7 @@ function multiPlanPackageFromSourceArtifact(sourceArtifact) {
   const featureSlug = match[1];
   return {
     featureSlug,
-    planPackage: `docs/loopx/plans/${featureSlug}/`,
+    planPackage: `docs/loopx/plans/${featureSlug}`,
     sourceArtifact: normalized,
     statePath: join('.loopx', 'multi-plan', featureSlug, 'state.json'),
   };
@@ -796,13 +800,42 @@ function multiPlanGateIssue(message, details = {}) {
   };
 }
 
+function normalizeMultiPlanStateForValidation(multiPlanState) {
+  if (!plainObject(multiPlanState)) {
+    return multiPlanState;
+  }
+  if (multiPlanState.schema_version === MULTI_PLAN_SCHEMA_VERSION) {
+    return multiPlanState;
+  }
+  if (multiPlanState.schema_version !== 1) {
+    return multiPlanState;
+  }
+  return {
+    ...multiPlanState,
+    schema_version: MULTI_PLAN_SCHEMA_VERSION,
+    plan_package: normalizedPlanPackagePath(multiPlanState.plan_package),
+    plans: Array.isArray(multiPlanState.plans)
+      ? multiPlanState.plans.map((plan) => ({
+          ...plan,
+          plan_review: plainObject(plan?.plan_review) || (nonEmptyText(plan?.plan_final_review)
+            ? {
+                status: 'passed',
+                reviewed_at: null,
+                summary: `Migrated from ${plan.plan_final_review}`,
+              }
+            : plan?.plan_review),
+        }))
+      : multiPlanState.plans,
+  };
+}
+
 function validateMultiPlanState(multiPlanState, expected) {
   const issues = [];
   if (!plainObject(multiPlanState)) {
     return [multiPlanGateIssue('state file must contain a JSON object')];
   }
   if (multiPlanState.schema_version !== MULTI_PLAN_SCHEMA_VERSION) {
-    issues.push(multiPlanGateIssue('schema_version must be 1'));
+    issues.push(multiPlanGateIssue('schema_version must be 2'));
   }
   if (multiPlanState.feature_slug !== expected.featureSlug) {
     issues.push(multiPlanGateIssue('feature_slug must match source path', {
@@ -810,7 +843,7 @@ function validateMultiPlanState(multiPlanState, expected) {
       actual: multiPlanState.feature_slug ?? null,
     }));
   }
-  if (multiPlanState.plan_package !== expected.planPackage) {
+  if (normalizedPlanPackagePath(multiPlanState.plan_package) !== expected.planPackage) {
     issues.push(multiPlanGateIssue('plan_package must match source path', {
       expected: expected.planPackage,
       actual: multiPlanState.plan_package ?? null,
@@ -844,8 +877,15 @@ function validateMultiPlanState(multiPlanState, expected) {
         actual: plan.status ?? null,
       }));
     }
-    if (!nonEmptyText(plan.plan_final_review)) {
-      issues.push(multiPlanGateIssue('plan_final_review is required', {
+    const planReview = plainObject(plan.plan_review);
+    if (!planReview || planReview.status !== 'passed') {
+      issues.push(multiPlanGateIssue('plan_review.status must be passed', {
+        path: path || `(index ${index})`,
+        actual: planReview?.status ?? null,
+      }));
+    }
+    if (planReview && !nonEmptyText(planReview.summary)) {
+      issues.push(multiPlanGateIssue('plan_review.summary is required', {
         path: path || `(index ${index})`,
       }));
     }
@@ -854,6 +894,13 @@ function validateMultiPlanState(multiPlanState, expected) {
         path: path || `(index ${index})`,
         actual: plan.ready_for_spec_review ?? null,
       }));
+    }
+    for (const forbidden of ['start_commit', 'current_head', 'end_commit']) {
+      if (Object.hasOwn(plan, forbidden)) {
+        issues.push(multiPlanGateIssue(`${forbidden} must not be recorded on child plan state`, {
+          path: path || `(index ${index})`,
+        }));
+      }
     }
   }
 
@@ -1281,7 +1328,7 @@ async function assertMultiPlanReadyForFinish(cwd, finishState) {
     throw new Error(`finish_record_multi_plan_state_missing:${multiPlanPackage.statePath}`);
   }
 
-  const issues = validateMultiPlanState(multiPlanState, multiPlanPackage);
+  const issues = validateMultiPlanState(normalizeMultiPlanStateForValidation(multiPlanState), multiPlanPackage);
   if (issues.length > 0) {
     const summary = issues
       .map((issue) => {
@@ -1291,6 +1338,14 @@ async function assertMultiPlanReadyForFinish(cwd, finishState) {
       })
       .join('; ');
     throw new Error(`finish_record_multi_plan_incomplete:${multiPlanPackage.statePath}:${summary}`);
+  }
+}
+
+async function assertNoTrackedDirtyForFinish(cwd) {
+  const statusText = await gitOutputAllowFailure(cwd, ['status', '--short']);
+  const { tracked } = splitStatusShort(parseStatusShort(statusText));
+  if (tracked.length > 0) {
+    throw new Error(`finish_record_tracked_dirty:${tracked.join('; ')}`);
   }
 }
 
@@ -1471,6 +1526,7 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   const currentEvidence = await resolveGitEvidence(stateRoot);
   state.audit.change_window = await refreshChangeWindowStatus(stateRoot, currentEvidence, state.audit.change_window);
   if (normalizedStatus === 'done') {
+    await assertNoTrackedDirtyForFinish(stateRoot);
     await assertMultiPlanReadyForFinish(stateRoot, state);
   }
   if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
