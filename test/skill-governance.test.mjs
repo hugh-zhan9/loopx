@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { appendFile, mkdtemp, readFile, realpath, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
@@ -97,17 +97,46 @@ function assertIncludesLiteral(text, literal, label) {
 
 async function rgCurrentSurface(paths, patterns) {
   const outputs = [];
-  for (const pattern of patterns) {
-    try {
-      const { stdout } = await execFileAsync('rg', ['-n', pattern, ...paths], { cwd: repoRoot });
-      if (stdout.trim()) {
-        outputs.push(stdout.trim());
+  const files = [];
+  async function collectFiles(path) {
+    const absolutePath = join(repoRoot, path);
+    const pathStat = await stat(absolutePath);
+    if (pathStat.isFile()) {
+      files.push(path);
+      return;
+    }
+    if (!pathStat.isDirectory()) {
+      return;
+    }
+    const entries = await readdir(absolutePath, { withFileTypes: true });
+    for (const entry of entries) {
+      const childPath = join(path, entry.name);
+      if (entry.isDirectory()) {
+        await collectFiles(childPath);
+      } else if (entry.isFile()) {
+        files.push(childPath);
       }
-    } catch (error) {
-      if (error?.code === 1) {
+    }
+  }
+  for (const path of paths) {
+    await collectFiles(path);
+  }
+  for (const pattern of patterns) {
+    const regex = new RegExp(pattern);
+    for (const file of files) {
+      let text;
+      try {
+        text = await readFile(join(repoRoot, file), 'utf8');
+      } catch {
         continue;
       }
-      throw error;
+      const lines = text.split('\n');
+      for (const [index, line] of lines.entries()) {
+        regex.lastIndex = 0;
+        if (regex.test(line)) {
+          outputs.push(`${file}:${index + 1}:${line}`);
+        }
+      }
     }
   }
   return outputs.join('\n');
