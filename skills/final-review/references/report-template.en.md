@@ -20,6 +20,11 @@
 ## Requirements Coverage Matrix
 [from Phase 1]
 
+## Claim Evidence Audit
+| Claim / Requirement | Claimed Surface | Required Evidence | Actual Evidence | Conclusion |
+|---|---|---|---|---|
+| [for example user-visible UI, CLI behavior, API behavior, persistence result, workflow behavior] | [surface type] | [screenshot/accessibility tree/real command/API call/storage state/integration path/etc.] | [evidence collected or gap] | supported / partial / unsupported |
+
 ## Support Lens Risk Scan
 [from Phase 2]
 

@@ -1270,7 +1270,7 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
 
     assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.9');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.11');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.9');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
@@ -1301,6 +1301,11 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /independent `Test Trust`/);
     assert.match(finalReviewSkill, /High.*Medium.*Low/is);
     assert.match(finalReviewSkill, /evidence freshness.*command specificity.*coverage relevance.*unexplained skips/is);
+    assert.match(finalReviewSkill, /Evidence surface gate/);
+    assert.match(finalReviewSkill, /Evidence must match that surface/);
+    assert.match(finalReviewSkill, /user-visible runtime evidence/i);
+    assert.match(finalReviewSkill, /narrow implementation plan cannot erase broader accepted requirements/i);
+    assert.match(finalReviewSkill, /Ready for finish\? Yes.*no unaccepted partial coverage/is);
     assert.doesNotMatch(finalReviewSkill, genericArtifactValidatorPattern);
     assert.match(finalReviewSkill, /whole-feature review/i);
 
@@ -1310,12 +1315,17 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewerPrompt, /partial.*Important/is);
     assert.match(finalReviewerPrompt, /Blocking issues/is);
     assert.match(finalReviewerPrompt, /Ready for finish\?.*must be\s*`No` or `With fixes`, never `Yes`/is);
+    assert.match(finalReviewerPrompt, /Claim-to-evidence surface audit/);
+    assert.match(finalReviewerPrompt, /evidence is lower-level than the claim/i);
+    assert.match(finalReviewerPrompt, /Surface Evidence Audit/);
     assert.match(finalReviewerPrompt, /start_commit/);
     assert.match(finalReviewerPrompt, /review_head/);
     assert.match(finalReviewerPrompt, /tracked_diff_included/);
     assert.doesNotMatch(finalReviewerPrompt, /Full Feature Git Range/);
     assert.match(enTemplate, /## Test Trust/);
+    assert.match(enTemplate, /## Claim Evidence Audit/);
     assert.match(zhTemplate, /## 测试可信度/);
+    assert.match(zhTemplate, /## 声明与证据层级审计/);
 
     assert.match(finishSkill, /Spec Delta Candidates/);
     assert.match(finishSkill, /canonical final-review report/);
