@@ -72,6 +72,7 @@ const LOOPX_AGENT_GUIDANCE_CONTENT = [
   '- If `.loopx/memory/index.jsonl` exists, use it only to find relevant active memory cards.',
   '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
 ].join('\n');
+const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
   {
     name: 'loopx-plugin-manifest',
@@ -815,7 +816,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
 
   await writeSkillLock(nextData, env);
   await writeTemplateBaseline(baselinePath, {
-    schema_version: 1,
+    schema_version: TEMPLATE_BASELINE_SCHEMA_VERSION,
     generated_by: 'loopx',
     registry_revision: installOptions.sourceUrl || 'local',
     items: nextTemplateItems,
