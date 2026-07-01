@@ -550,6 +550,20 @@ describe('loopx retained workflow shell', () => {
     );
   });
 
+  it('uses execution-start error namespace when git HEAD is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-no-head-'));
+    await execGit(wd, ['init']);
+    await execGit(wd, ['config', 'user.email', 'loopx@example.com']);
+    await execGit(wd, ['config', 'user.name', 'LoopX']);
+
+    await assert.rejects(
+      () => executionStartStage(wd, 'feature-a', {
+        source: 'docs/loopx/plans/feature-a.md',
+      }),
+      /execution_start_no_valid_head/,
+    );
+  });
+
   it('CLI exposes execution-start in help and prints human and JSON output', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-execution-start-cli-'));
     await initGitRepo(wd);
@@ -707,6 +721,28 @@ describe('loopx retained workflow shell', () => {
     );
   });
 
+  it('blocks finish done when commits land after finish audit', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-stale-audit-'));
+    await initGitRepo(wd);
+    await finishStartStage(wd, 'feature-f', { source: 'docs/loopx/plans/feature-f.md' });
+    const audit = await finishAuditStage(wd, 'feature-f');
+    await markFinishAuditReviewed(audit);
+
+    await writeFile(join(wd, 'README.md'), 'committed after audit\n');
+    await execGit(wd, ['add', 'README.md']);
+    await execGit(wd, ['commit', '-m', 'post-audit change']);
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should fail because committed evidence is stale.',
+        url: null,
+      }),
+      /finish_record_stale_audit_head/,
+    );
+  });
+
   it('blocks finish done when matching multi-plan state is incomplete', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-block-'));
     await initGitRepo(wd);
@@ -751,6 +787,49 @@ describe('loopx retained workflow shell', () => {
         summary: 'Should be blocked.',
       }),
       /finish_record_multi_plan_incomplete:.*plan_review.status must be passed/,
+    );
+  });
+
+  it('blocks finish done when multi-plan v2 child review timestamp is missing', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-review-time-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/01-core.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 2,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${featureSlug}`,
+      source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+      plans: [
+        {
+          path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+          status: 'complete',
+          ready_for_spec_review: true,
+          plan_review: {
+            status: 'passed',
+            summary: 'No blocking issues',
+          },
+        },
+      ],
+      spec_final_review: {
+        path: `.loopx/final-review/${featureSlug}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should be blocked.',
+      }),
+      /finish_record_multi_plan_incomplete:.*plan_review.reviewed_at is required/,
     );
   });
 

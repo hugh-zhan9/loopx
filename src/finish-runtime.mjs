@@ -110,6 +110,14 @@ async function resolveRequiredHead(cwd) {
   return head;
 }
 
+async function resolveRequiredExecutionStartHead(cwd) {
+  const head = await resolveCommitRef(cwd, 'HEAD');
+  if (!head) {
+    throw new Error('execution_start_no_valid_head');
+  }
+  return head;
+}
+
 function normalizeBranchRef(raw) {
   const value = String(raw || '').trim();
   if (!value) {
@@ -812,6 +820,7 @@ function normalizeMultiPlanStateForValidation(multiPlanState) {
   }
   return {
     ...multiPlanState,
+    __normalized_from_schema_version: 1,
     schema_version: MULTI_PLAN_SCHEMA_VERSION,
     plan_package: normalizedPlanPackagePath(multiPlanState.plan_package),
     plans: Array.isArray(multiPlanState.plans)
@@ -886,6 +895,11 @@ function validateMultiPlanState(multiPlanState, expected) {
     }
     if (planReview && !nonEmptyText(planReview.summary)) {
       issues.push(multiPlanGateIssue('plan_review.summary is required', {
+        path: path || `(index ${index})`,
+      }));
+    }
+    if (planReview && multiPlanState.__normalized_from_schema_version !== 1 && !nonEmptyText(planReview.reviewed_at)) {
+      issues.push(multiPlanGateIssue('plan_review.reviewed_at is required', {
         path: path || `(index ${index})`,
       }));
     }
@@ -1349,6 +1363,14 @@ async function assertNoTrackedDirtyForFinish(cwd) {
   }
 }
 
+function assertAuditHeadCurrentForFinish(state, evidence) {
+  const auditHead = String(state?.audit?.head || '').trim();
+  const currentHead = String(evidence?.head || '').trim();
+  if (auditHead && currentHead && auditHead !== 'unknown' && currentHead !== 'unknown' && auditHead !== currentHead) {
+    throw new Error(`finish_record_stale_audit_head:${auditHead}..${currentHead}`);
+  }
+}
+
 export async function finishAuditStage(cwd, slug, { env = process.env, date = new Date(), baselineRef = null } = {}) {
   const auditDate = date instanceof Date ? date : new Date(date);
   const evidence = await resolveGitEvidence(cwd);
@@ -1466,7 +1488,7 @@ export async function executionStartStage(cwd, slug, { source, design = null, da
     throw new Error('execution_start_no_valid_head');
   }
 
-  const fullHead = await resolveRequiredHead(cwd);
+  const fullHead = await resolveRequiredExecutionStartHead(cwd);
   const rootCwd = evidence.worktree;
   const stateDate = date instanceof Date ? date : new Date(date);
   await mkdir(resolveExecutionRangeRoot(rootCwd), { recursive: true });
@@ -1526,6 +1548,7 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   const currentEvidence = await resolveGitEvidence(stateRoot);
   state.audit.change_window = await refreshChangeWindowStatus(stateRoot, currentEvidence, state.audit.change_window);
   if (normalizedStatus === 'done') {
+    assertAuditHeadCurrentForFinish(state, currentEvidence);
     await assertNoTrackedDirtyForFinish(stateRoot);
     await assertMultiPlanReadyForFinish(stateRoot, state);
   }
