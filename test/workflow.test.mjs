@@ -15,8 +15,6 @@ import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWor
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
-const legacyChildReviewPathField = ['plan', 'final', 'review'].join('_');
-
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -937,8 +935,8 @@ describe('loopx retained workflow shell', () => {
     assert.equal(recorded.state.choice.status, 'done');
   });
 
-  it('allows finish done when matching multi-plan state is legacy v1 and normalizes on read', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-legacy-pass-'));
+  it('blocks finish done when matching multi-plan state uses legacy schema v1', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-legacy-block-'));
     await initGitRepo(wd);
 
     const featureSlug = '2026-06-29-feature';
@@ -957,7 +955,6 @@ describe('loopx retained workflow shell', () => {
         {
           path: `docs/loopx/plans/${featureSlug}/01-core.md`,
           status: 'complete',
-          [legacyChildReviewPathField]: `.loopx/final-review/${featureSlug}-01-core.md`,
           ready_for_spec_review: true,
         },
       ],
@@ -967,12 +964,14 @@ describe('loopx retained workflow shell', () => {
       },
     });
 
-    const recorded = await finishRecordStage(wd, audit.auditId, {
-      action: 'keep',
-      status: 'done',
-      summary: 'Legacy multi-plan package complete.',
-    });
-    assert.equal(recorded.state.status, 'completed');
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Legacy multi-plan package should be blocked.',
+      }),
+      /finish_record_multi_plan_incomplete:.*schema_version must be 2/,
+    );
   });
 
   it('blocks finish done when matching multi-plan state records forbidden child commit metadata', async () => {

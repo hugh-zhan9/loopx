@@ -7,7 +7,6 @@ const execFileAsync = promisify(execFile);
 const FINISH_SCHEMA_VERSION = 1;
 const EXECUTION_RANGE_SCHEMA_VERSION = 1;
 const MULTI_PLAN_SCHEMA_VERSION = 2;
-const LEGACY_CHILD_REVIEW_PATH_FIELD = ['plan', 'final', 'review'].join('_');
 const MULTI_PLAN_PACKAGE_PATTERN = /^docs\/loopx\/plans\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\/(?:00-overview|[0-9]{2}-[a-z0-9-]+)\.md$/;
 const DEFAULT_NO_CANDIDATES_REASON = 'No accepted or rejected candidates were recorded at audit start.';
 const MAX_AUDIT_ID_COLLISIONS = 1000;
@@ -809,36 +808,6 @@ function multiPlanGateIssue(message, details = {}) {
   };
 }
 
-function normalizeMultiPlanStateForValidation(multiPlanState) {
-  if (!plainObject(multiPlanState)) {
-    return multiPlanState;
-  }
-  if (multiPlanState.schema_version === MULTI_PLAN_SCHEMA_VERSION) {
-    return multiPlanState;
-  }
-  if (multiPlanState.schema_version !== 1) {
-    return multiPlanState;
-  }
-  return {
-    ...multiPlanState,
-    __normalized_from_schema_version: 1,
-    schema_version: MULTI_PLAN_SCHEMA_VERSION,
-    plan_package: normalizedPlanPackagePath(multiPlanState.plan_package),
-    plans: Array.isArray(multiPlanState.plans)
-      ? multiPlanState.plans.map((plan) => ({
-          ...plan,
-          plan_review: plainObject(plan?.plan_review) || (nonEmptyText(plan?.[LEGACY_CHILD_REVIEW_PATH_FIELD])
-            ? {
-                status: 'passed',
-                reviewed_at: null,
-                summary: `Migrated from ${plan[LEGACY_CHILD_REVIEW_PATH_FIELD]}`,
-              }
-            : plan?.plan_review),
-        }))
-      : multiPlanState.plans,
-  };
-}
-
 function validateMultiPlanState(multiPlanState, expected) {
   const issues = [];
   if (!plainObject(multiPlanState)) {
@@ -899,7 +868,7 @@ function validateMultiPlanState(multiPlanState, expected) {
         path: path || `(index ${index})`,
       }));
     }
-    if (planReview && multiPlanState.__normalized_from_schema_version !== 1 && !nonEmptyText(planReview.reviewed_at)) {
+    if (planReview && !nonEmptyText(planReview.reviewed_at)) {
       issues.push(multiPlanGateIssue('plan_review.reviewed_at is required', {
         path: path || `(index ${index})`,
       }));
@@ -1343,7 +1312,7 @@ async function assertMultiPlanReadyForFinish(cwd, finishState) {
     throw new Error(`finish_record_multi_plan_state_missing:${multiPlanPackage.statePath}`);
   }
 
-  const issues = validateMultiPlanState(normalizeMultiPlanStateForValidation(multiPlanState), multiPlanPackage);
+  const issues = validateMultiPlanState(multiPlanState, multiPlanPackage);
   if (issues.length > 0) {
     const summary = issues
       .map((issue) => {
