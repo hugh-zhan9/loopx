@@ -40,10 +40,10 @@ Do not use this for:
 
 Final review has two scopes for multi-plan packages:
 
-- Plan-level final-review: run after one child plan is implemented and task-reviewed. Source requirements are the child plan plus relevant `00-overview.md` context. The report decides whether that child plan is ready for spec-level review. It must not authorize `finish`.
-- Spec-level final-review: run after all child plans in a multi-plan package are ready. Source requirements include the source spec, `00-overview.md`, every child plan, every plan-level final-review artifact, and the full feature git range. This is the only multi-plan final-review scope that may set the package `Ready for finish? Yes`.
+- Plan-level final-review: run after one child plan is implemented and task-reviewed. Source requirements are the child plan plus relevant `00-overview.md` context. The review decides whether that child plan is ready for spec-level review by updating state only. It must not write a report artifact or authorize `finish`.
+- Spec-level final-review: run after all child plans in a multi-plan package are ready. Source requirements include the source spec, `00-overview.md`, every child plan, every child `plan_review.status`, and the full feature git range. This is the only multi-plan final-review scope that may set the package `Ready for finish? Yes`.
 
-When reviewing a multi-plan package, update `.loopx/multi-plan/<feature-slug>/state.json` after writing the report artifact. Plan-level reviews update the matching `plans[]` row. Spec-level reviews update `spec_final_review.path` and `spec_final_review.ready_for_finish`.
+When reviewing a multi-plan package, plan-level reviews update only the matching `plans[]` row in `.loopx/multi-plan/<feature-slug>/state.json`. Spec-level reviews write the canonical report artifact, then update `spec_final_review.path` and `spec_final_review.ready_for_finish`.
 
 Final review uses a start-anchored current-state model:
 
@@ -285,7 +285,7 @@ Blocking issues: <none | summary>
 
 Do not proceed to `finish` when the report says `Ready for finish? No` or unresolved Critical/Important findings remain.
 
-For multi-plan child plan-level final-review, run the review process but do not write a `.loopx/final-review/*.md` report. Update `.loopx/multi-plan/<feature-slug>/state.json` for the child row with `plan_review.status`, `reviewed_at`, `summary`, and `ready_for_spec_review`. Child plan-level final-review must not write report artifacts or record child `start_commit`, current `HEAD`, or end commit metadata.
+For multi-plan child plan-level final-review, run the review process but do not write a `.loopx/final-review/*.md` report. Update `.loopx/multi-plan/<feature-slug>/state.json` for the child row with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`. Child plan-level final-review must not write report artifacts or record child `start_commit`, current `HEAD`, or end commit metadata. Only spec-level final-review writes the persisted package report.
 
 ## Common Mistakes
 
