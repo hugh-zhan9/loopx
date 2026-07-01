@@ -719,7 +719,7 @@ describe('loopx skill governance', () => {
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.7');
 
@@ -918,7 +918,7 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(planFields['metadata.version'], '0.3.12');
-    assert.equal(execFields['metadata.version'], '0.3.7');
+    assert.equal(execFields['metadata.version'], '0.3.8');
     assert.equal(subagentExecFields['metadata.version'], '0.3.10');
     assert.equal(reviewFields['metadata.version'], '0.3.7');
 
@@ -1047,7 +1047,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
 
     assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
