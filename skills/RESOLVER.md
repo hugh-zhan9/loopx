@@ -63,7 +63,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 18. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
 19. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
 20. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. `plan-to-exec` uses it internally before final plan handoff; direct user invocation is for ad-hoc plan audits only.
-21. `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states.
+21. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `subagent-exec`, `review`, `final-review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard
 

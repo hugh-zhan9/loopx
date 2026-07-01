@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
 ---
 
 # Subagent Exec
@@ -379,24 +379,42 @@ not count as retained callers.
 ## Model Selection
 
 Use the least powerful model that can handle each role to conserve cost and
-increase speed.
+increase speed, but bias one tier upward when classification is uncertain. Total
+turn count matters more than nominal per-token price.
 
 **Mechanical implementation tasks** (isolated functions, clear specs, 1-2
-files): use a fast, cheap model.
+files, no cross-file contract changes): use a fast, cheap model only when the
+plan text is complete enough that the work is mostly transcription plus focused
+testing.
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching,
-debugging): use a standard model.
+debugging): use a standard model. Treat prose-driven implementation, test design,
+compatibility work, user-visible behavior, and generated artifact changes as at
+least standard.
 
 **Architecture and final review tasks:** use the most capable available model.
+The final whole-feature review is one of these; dispatch it on the most capable
+available model, not the session default.
 
 **Review tasks:** use a model with enough judgment for the diff's size,
 complexity, and risk. Use a mid-tier floor for reviewers and prose-driven
 implementers; use the cheapest tier only for transcription-level tasks or
-single-file mechanical fixes.
+single-file mechanical fixes. Use the most capable model for subtle concurrency,
+security, data-loss, migration, public API, or cross-task invariant risks.
 
 Always specify the model explicitly when dispatching a subagent. An omitted
 model inherits the session default and can silently put cheap review work on the
 most expensive model.
+
+**Task complexity signals (implementation tasks):**
+- Complete spec or exact code, 1-2 files, no integration risk: cheap model.
+- Multiple files, repo pattern matching, tests to design, or prose requirements:
+  standard model.
+- Broad codebase understanding, architecture judgment, hard debugging, or risky
+  compatibility boundaries: most capable model.
+
+If a task sits between cheap and standard, choose standard. If a review sits
+between standard and most capable, choose most capable.
 
 ## Handling Implementer Status
 
@@ -409,8 +427,13 @@ proceed to review.
 
 **NEEDS_CONTEXT:** Provide the missing context and re-dispatch.
 
-**BLOCKED:** Assess whether to provide more context, use a stronger model, split
-the task, or escalate a plan defect to the user.
+**BLOCKED:** Assess the blocker before retrying:
+
+1. If it is a context problem, provide more context and re-dispatch with the same
+   model.
+2. If the task requires more reasoning, re-dispatch with a more capable model.
+3. If the task is too large, split it into smaller pieces.
+4. If the plan itself is wrong, escalate the plan defect to the user.
 
 Never ignore an escalation or force the same model to retry without changes.
 

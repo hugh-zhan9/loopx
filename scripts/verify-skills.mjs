@@ -26,6 +26,13 @@ const markdownPaths = [
   'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
   'skills/RESOLVER.md',
 ];
+const packageLoopxDocs = [
+  'docs/loopx/cli.md',
+  'docs/loopx/cli.zh-CN.md',
+  'docs/loopx/skills.md',
+  'docs/loopx/skills.zh-CN.md',
+  'docs/loopx/specs/installation.md',
+];
 const activeMaintenanceDocs = [
   'README.md',
   'README.zh-CN.md',
@@ -229,6 +236,12 @@ assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload director
 assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
 assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
 assert.equal(Object.hasOwn(packageJson.scripts ?? {}, removedPluginSyncScriptName), false, 'npm scripts must exclude removed sync script');
+assert.equal(packageJson.files.includes('docs/loopx/'), false, 'npm package must not include broad docs/loopx surface');
+assert.deepEqual(
+  packageJson.files.filter((path) => path.startsWith('docs/loopx/')).sort(),
+  [...packageLoopxDocs].sort(),
+  'npm package docs/loopx surface must exactly match public docs whitelist',
+);
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {

@@ -71,14 +71,17 @@ Native subagent:
 
     {PER_TASK_REVIEWS}
 
-    ## Full Feature Git Range
+    ## Review Scope
 
-    **Base:** {BASE_SHA}
-    **Head:** {HEAD_SHA}
+    **start_commit:** {START_COMMIT}
+    **review_head:** {REVIEW_HEAD}
+    **tracked_diff_included:** {TRACKED_DIFF_INCLUDED}
 
     ```bash
-    git diff --stat {BASE_SHA}..{HEAD_SHA}
-    git diff {BASE_SHA}..{HEAD_SHA}
+    git diff --stat {START_COMMIT}..{REVIEW_HEAD}
+    git diff {START_COMMIT}..{REVIEW_HEAD}
+    git diff
+    git diff --cached
     ```
 
     ## Review Priority
@@ -106,6 +109,16 @@ Native subagent:
     - Does each "✅ covered" row in the coverage matrix hold up under inspection?
     - Are "⚠️ partial" rows acceptable, or do they hide real gaps?
     - Did any requirement get implemented differently than specified?
+
+    Coverage gaps are blocking findings:
+    - Any requirement marked missing must produce a Critical finding and a
+      matching Blocking issues entry.
+    - Any requirement marked partial must produce an Important finding and a
+      matching Blocking issues entry.
+    - If any missing or partial requirement exists, `Ready for finish?` must be
+      `No` or `With fixes`, never `Yes`.
+    - Do not leave coverage gaps only in the coverage matrix; `fix-review`
+      consumes findings and blocking issues.
 
     **Runtime and state risk:**
     - Can any command crash, hang, silently no-op, or report success incorrectly?
@@ -217,7 +230,8 @@ Native subagent:
 - `{TEST_TRUST}` - Test Trust assessment from Phase 5 with level, evidence, skipped checks, and residual risk
 - `{VERIFICATION}` - test commands and results
 - `{PER_TASK_REVIEWS}` - review artifacts or "not available"
-- `{BASE_SHA}` - commit before implementation began
-- `{HEAD_SHA}` - current commit
+- `{START_COMMIT}` - recorded `start_commit` or stated fallback start
+- `{REVIEW_HEAD}` - current `HEAD` at review time
+- `{TRACKED_DIFF_INCLUDED}` - `yes` when tracked staged or unstaged changes were included, otherwise `no`
 
 **Reviewer returns:** Coverage Matrix Audit, Regression Audit, Findings by severity, Coverage Notes, Assessment.

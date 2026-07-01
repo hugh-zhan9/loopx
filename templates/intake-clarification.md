@@ -43,5 +43,9 @@ unresolved_ambiguity_count: 1
 ## Resume State
 
 - current_round: 0
+- ambiguity_score: 1
 - unresolved_count: 1
+- non_goals_resolved: false
+- decision_boundaries_resolved: false
+- pressure_pass_complete: false
 - next_question: What specific task should loopx execute in this workflow?

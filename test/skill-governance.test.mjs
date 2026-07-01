@@ -91,6 +91,10 @@ function parseFrontmatter(text) {
   return fields;
 }
 
+function assertIncludesLiteral(text, literal, label) {
+  assert.match(text, new RegExp(literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${literal}`);
+}
+
 async function rgCurrentSurface(paths, patterns) {
   const outputs = [];
   for (const pattern of patterns) {
@@ -242,13 +246,16 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /support lens|implementation-layer minimization/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /over-engineering|yagni|implementation/i);
-    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.equal(fields['metadata.version'], '0.1.1');
     assert.match(resolver, /skills\/lancet\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/);
     assert.match(skill, /Codex-only automatic activation/);
     assert.match(skill, /implementation and review layers/i);
     assert.match(skill, /Do not use this skill for:/);
     assert.match(skill, /`clarify` or `spec` planning/);
+    assert.match(skill, /Treat fallback, degradation, retry paths, compatibility shims, and silent\s+recovery as requirement-level behavior/is);
+    assert.match(skill, /current user instruction, clarified source requirements, approved\s+design, implementation plan, or issue contract/is);
+    assert.match(skill, /unanchored fallback, degradation, retry, silent recovery, or compatibility shim logic/is);
   });
 
   it('includes plan-reviewer as a governed bundled support skill', async () => {
@@ -405,6 +412,51 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(fixSkill, /Use `subagent-exec`|Use `loopx:exec`|gh issue close|gh pr merge/);
   });
 
+  it('governs fix-review as a basis-backed feedback closure workflow', async () => {
+    const fixReviewSkill = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
+    const fields = parseFrontmatter(fixReviewSkill);
+
+    assert.equal(fields.name, 'fix-review');
+    assert.match(fields.description, /per-finding basis checks/i);
+    assert.match(fields.description, /re-review gates/i);
+    assert.match(fields.description, /not for/i);
+    assert.match(fields.when_to_use, /review comments|requested changes/i);
+    assert.equal(fields['metadata.version'], '0.3.5');
+    assert.match(fixReviewSkill, /Feedback Ledger/);
+    assert.match(fixReviewSkill, /FR-001/);
+    assert.match(fixReviewSkill, /Basis Check/);
+    assert.match(fixReviewSkill, /plan\/design\/issue\/code\/test source/);
+    assert.match(fixReviewSkill, /Plan or design documents are mandatory when the finding claims missing behavior/);
+    assert.match(fixReviewSkill, /AC-\*/);
+    assert.match(fixReviewSkill, /D-\*/);
+    assert.match(fixReviewSkill, /T-\*/);
+    assert.match(fixReviewSkill, /TC-\*/);
+    assert.match(fixReviewSkill, /D-006/);
+    assert.match(fixReviewSkill, /docs\/loopx\/plans\/2026-06-30-execution-review-ranges\/02-final-review-contracts\.md/);
+    assert.match(fixReviewSkill, /Critical and Important findings are blocking until closed by evidence/);
+    assert.match(fixReviewSkill, /Closure Gate/);
+    assert.match(fixReviewSkill, /accepted_fixed/);
+    assert.match(fixReviewSkill, /accepted_no_code_change/);
+    assert.match(fixReviewSkill, /pushed_back/);
+    assert.match(fixReviewSkill, /needs_clarification/);
+    assert.match(fixReviewSkill, /duplicate_of/);
+    assert.match(fixReviewSkill, /coalesced_with/);
+    assert.match(fixReviewSkill, /deferred_minor/);
+    assert.match(fixReviewSkill, /Feedback Lancet Check/);
+    assert.match(fixReviewSkill, /Apply `lancet` to the review feedback itself/);
+    assert.match(fixReviewSkill, /Separate the underlying problem from the reviewer's proposed implementation/);
+    assert.match(fixReviewSkill, /design document, implementation plan/);
+    assert.match(fixReviewSkill, /Reject broad fallback logic unless the design or implementation plan names the failure mode/);
+    assert.match(fixReviewSkill, /underlying finding is valid but the proposed remedy is overbuilt/);
+    assert.match(fixReviewSkill, /suggested fallback, wrapper, abstraction, option, retry path, or compatibility shim/);
+    assert.match(fixReviewSkill, /`lancet` cannot justify skipping required safeguards/);
+    assert.match(fixReviewSkill, /focused verification/);
+    assert.match(fixReviewSkill, /re-run `final-review`/);
+    assert.match(fixReviewSkill, /Do not claim the review feedback is complete/);
+    assert.match(fixReviewSkill, /Use "complete", "done", "handled", or "fixed" only after the closure gate passes/);
+    assert.doesNotMatch(fixReviewSkill, /Strange things are afoot at the Circle K/);
+  });
+
   it('debug exposes a structured diagnosis summary contract for issue workflow', async () => {
     const debugSkill = await readFile(join(repoRoot, 'skills', 'debug', 'SKILL.md'), 'utf8');
 
@@ -532,6 +584,10 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /read-only/i);
     assert.match(taskReviewer, /Do Not Trust the Report/);
     assert.match(taskReviewer, /Cannot verify from diff/);
+    assert.match(taskReviewer, /Review Output Self-Check/);
+    assert.match(taskReviewer, /Do not review only the code/);
+    assert.match(taskReviewer, /source design anchors, implementation plan/);
+    assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
     assert.match(implementer, /Read your task brief first/);
     assert.match(implementer, /REPORT_FILE/);
     assert.doesNotMatch(implementer, /Native Codex subagent/);
@@ -700,13 +756,8 @@ describe('loopx skill governance', () => {
     assert.match(subagentExecSkill, /must not write.*final-review.*report/is);
     assert.doesNotMatch(subagentExecSkill, removedChildReviewPathPattern);
     assert.match(finalReviewSkill, /Plan-level final-review/);
-    assert.match(finalReviewSkill, /Plan-level final-review.*updating state only/is);
-    assert.match(finalReviewSkill, /must not write a report artifact/i);
     assert.match(finalReviewSkill, /Spec-level final-review/);
-    assert.match(finalReviewSkill, /Spec-level final-review.*every child `plan_review\.status`/is);
     assert.match(finalReviewSkill, /\.loopx\/multi-plan\/<feature-slug>\/state\.json/);
-    assert.doesNotMatch(finalReviewSkill, /every plan-level final-review artifact/);
-    assert.doesNotMatch(finalReviewSkill, /after writing the report artifact\. Plan-level reviews/);
     assert.match(finishSkill, /Step 4\.5: Check Multi-Plan Finish Gate/);
     assert.match(finishSkill, /plan_review\.status/);
     assert.match(finishSkill, /spec_final_review\.ready_for_finish/);
@@ -725,7 +776,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.11');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
 
     assert.match(planSkill, /package mode/i);
@@ -871,7 +922,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(specFields['metadata.version'], '0.3.9');
     assert.equal(planFields['metadata.version'], '0.3.12');
-    assert.equal(reviewFields['metadata.version'], '0.3.7');
+    assert.equal(reviewFields['metadata.version'], '0.3.9');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -928,8 +979,8 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.12');
     assert.equal(execFields['metadata.version'], '0.3.8');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.10');
-    assert.equal(reviewFields['metadata.version'], '0.3.7');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.11');
+    assert.equal(reviewFields['metadata.version'], '0.3.9');
 
     assert.match(planSkill, /T-\*/);
     assert.match(planSkill, /### T-001 \/ Task 1:/);
@@ -1057,7 +1108,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.11');
 
     assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
@@ -1120,6 +1171,7 @@ describe('loopx skill governance', () => {
 
   it('governs downstream main-chain review final-review and finish contracts', async () => {
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
+    const codeReviewerPrompt = await readFile(join(repoRoot, 'skills', 'review', 'code-reviewer.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const finalReviewerPrompt = await readFile(join(repoRoot, 'skills', 'final-review', 'final-reviewer.md'), 'utf8');
     const enTemplate = await readFile(
@@ -1132,7 +1184,7 @@ describe('loopx skill governance', () => {
     );
     const finishSkill = await readFile(join(repoRoot, 'skills', 'finish', 'SKILL.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.9');
     assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
 
@@ -1142,6 +1194,20 @@ describe('loopx skill governance', () => {
     assert.match(reviewSkill, /AC-\*.*D-\*.*T-\*.*task verification evidence/is);
     assert.match(reviewSkill, /missing or weak task evidence.*finding/is);
     assert.match(reviewSkill, /commands, outputs, or evidence summaries.*do not support claimed `AC-\*`\/`D-\*`\/`T-\*` completion/is);
+    assert.match(reviewSkill, /Review Output Self-Check/);
+    assert.match(reviewSkill, /Do not dispatch a code-only review for plan-driven work/);
+    assert.match(reviewSkill, /design proposal, detailed design, implementation plan/);
+    assert.match(reviewSkill, /every Critical or Important finding names the plan\/design\/requirement basis/is);
+    assert.match(reviewSkill, /Do not prescribe broad fallback logic, degraded modes, retry paths, wrappers, compatibility shims/);
+    assert.match(reviewSkill, /current user instruction, clarified source requirements, approved design, implementation plan, or issue contract explicitly requires that behavior/);
+    assert.match(reviewSkill, /treat unanchored fallback, degradation, retry, silent recovery, or compatibility shim logic as a finding/i);
+    assert.match(reviewSkill, /unsupported, duplicate, or overbuilt findings were removed/);
+    assert.match(codeReviewerPrompt, /Review Output Self-Check/);
+    assert.match(codeReviewerPrompt, /Do not review only the code/);
+    assert.match(codeReviewerPrompt, /design\s+proposal, detailed design, implementation plan/is);
+    assert.match(codeReviewerPrompt, /Do not prescribe broad fallback logic, degraded modes, retry paths,\s+wrappers, compatibility shims/is);
+    assert.match(codeReviewerPrompt, /Treat unanchored fallback, degradation, retry, silent recovery, or\s+compatibility shim logic as a finding/is);
+    assert.match(codeReviewerPrompt, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
 
     const phaseMatches = [...finalReviewSkill.matchAll(/^### Phase \d+:/gm)];
     assert.equal(phaseMatches.length, 6);
@@ -1155,10 +1221,34 @@ describe('loopx skill governance', () => {
 
     assert.match(finalReviewerPrompt, /Test Trust/);
     assert.match(finalReviewerPrompt, /concrete commands, outputs, skipped checks, and residual risk/);
+    assert.match(finalReviewerPrompt, /missing.*Critical/is);
+    assert.match(finalReviewerPrompt, /partial.*Important/is);
+    assert.match(finalReviewerPrompt, /Blocking issues/is);
+    assert.match(finalReviewerPrompt, /Ready for finish\?.*must be\s*`No` or `With fixes`, never `Yes`/is);
+    assert.match(finalReviewerPrompt, /start_commit/);
+    assert.match(finalReviewerPrompt, /review_head/);
+    assert.match(finalReviewerPrompt, /tracked_diff_included/);
+    assert.doesNotMatch(finalReviewerPrompt, /Full Feature Git Range/);
     assert.match(enTemplate, /## Test Trust/);
     assert.match(zhTemplate, /## 测试可信度/);
 
     assert.match(finishSkill, /Spec Delta Candidates/);
+    assert.match(finishSkill, /canonical final-review report/);
+    assert.match(finishSkill, /requirement start commit/);
+    assert.match(finishSkill, /final `HEAD`/);
+    assert.match(finishSkill, /commit list/);
+    assert.match(finishSkill, /changed files/);
+    assert.match(finishSkill, /tracked changes.*commit/is);
+    assert.match(finishSkill, /Untracked files count as clean|untracked files.*clean/is);
+    assert.match(finishSkill, /plan_review\.status/);
+    assert.doesNotMatch(finishSkill, removedChildReviewPathPattern);
+    assert.doesNotMatch(
+      finishSkill,
+      new RegExp([
+        ['reviewed', 'end', 'commit'].join(' '),
+        ['current', 'HEAD'].join(' '),
+      ].join('.*'), 'is'),
+    );
     for (const label of ['ADDED', 'MODIFIED', 'REMOVED', 'RENAMED']) {
       assert.match(finishSkill, new RegExp(label));
     }
@@ -1228,7 +1318,7 @@ describe('loopx skill governance', () => {
       'utf8',
     );
 
-    assert.match(finalReviewSkill, /\.loopx\/final-review\/YYYY-MM-DD-<slug>\.md/);
+    assert.match(finalReviewSkill, /\.loopx\/final-review\/<design-date>-<design-slug>\.md/);
     assert.match(finalReviewSkill, /Write the canonical final-review report/);
     assert.match(finalReviewSkill, /human/i);
     assert.match(finalReviewSkill, /Ready for finish\?/);
@@ -1247,10 +1337,11 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /same design|same design solution|same design\/source/);
     assert.match(finalReviewSkill, /child plan-level final-review must not write/i);
     assert.match(finalReviewSkill, /plan_review\.status/);
-    assert.match(finalReviewSkill, /plan_review\.reviewed_at/);
-    assert.match(finalReviewSkill, /plan_review\.summary/);
-    assert.match(finalReviewSkill, /Only spec-level final-review writes the persisted package report/);
     assert.doesNotMatch(finalReviewSkill, /concrete git range.*required/i);
+    assert.doesNotMatch(finalReviewSkill, /full feature git range/i);
+    assert.doesNotMatch(finalReviewSkill, /base\/head SHAs/i);
+    assert.doesNotMatch(finalReviewSkill, /full feature git range/i);
+    assert.doesNotMatch(finalReviewSkill, /base\/head SHAs/i);
 
     assert.match(zhTemplate, /# 最终评审报告/);
     assert.match(zhTemplate, /## 修改摘要/);
@@ -1265,6 +1356,8 @@ describe('loopx skill governance', () => {
     assert.match(enTemplate, /## Requirements \/ Design Alignment/);
     assert.match(enTemplate, /## Requirements Coverage Matrix/);
     assert.match(enTemplate, /## Test Trust/);
+    assert.match(enTemplate, /## Review Scope/);
+    assert.match(enTemplate, /## Review Iterations/);
     assert.match(enTemplate, /## Overall Assessment/);
     assert.match(enTemplate, /\*\*Ready for finish\?\*\* \[Yes \| No \| With fixes\]/);
 
@@ -1273,7 +1366,21 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(finalReviewSkill, /^## 修改摘要/m);
     assert.doesNotMatch(finalReviewSkill, /^## Change Summary/m);
 
-    assert.match(finishSkill, /latest `.loopx\/final-review\/YYYY-MM-DD-<slug>\.md`/);
+    for (const required of ['start_commit', 'review_head', 'tracked_diff_included', 'git diff', 'git diff --cached']) {
+      assertIncludesLiteral(enTemplate, required, 'English final-review template');
+      assertIncludesLiteral(zhTemplate, required, 'Chinese final-review template');
+    }
+    assert.match(zhTemplate, /## 评审范围/);
+    assert.match(zhTemplate, /## 复审记录/);
+    for (const forbidden of ['Blocking issues', 'Coverage:', 'Runtime', 'Regression', 'Critical', 'Important', 'Minor']) {
+      assert.doesNotMatch(zhTemplate, new RegExp(forbidden));
+    }
+    for (const token of ['Ready for finish?', 'Yes', 'No', 'With fixes']) {
+      assertIncludesLiteral(zhTemplate, token, 'Chinese final-review template');
+    }
+
+    assert.match(finishSkill, /canonical final-review report/);
+    assert.match(finishSkill, /\.loopx\/final-review\/<design-date>-<design-slug>\.md/);
     assert.match(finishSkill, /Final review:/);
     assert.match(finishSkill, /report path/);
     assert.match(finishSkill, /blocking issues/);
@@ -1281,6 +1388,7 @@ describe('loopx skill governance', () => {
   });
 
   it('threads lancet through implementation and review contracts without collapsing planning freedom', async () => {
+    const resolver = await readFile(resolverPath, 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
@@ -1290,6 +1398,8 @@ describe('loopx skill governance', () => {
     const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
     const reviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
 
+    assert.match(resolver, /`lancet` is implementation\/review-only/i);
+    assert.doesNotMatch(resolver, /`lancet` add[s]? domain discipline to `spec`/i);
     assert.match(planSkill, /lancet activates at implementation time/i);
     assert.match(planSkill, /not collapse planning-stage analysis/i);
     assert.match(execSkill, /Use `lancet` discipline/i);

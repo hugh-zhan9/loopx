@@ -41,7 +41,7 @@ Do not use this for:
 Final review has two scopes for multi-plan packages:
 
 - Plan-level final-review: run after one child plan is implemented and task-reviewed. Source requirements are the child plan plus relevant `00-overview.md` context. The review decides whether that child plan is ready for spec-level review by updating state only. It must not write a report artifact or authorize `finish`.
-- Spec-level final-review: run after all child plans in a multi-plan package are ready. Source requirements include the source spec, `00-overview.md`, every child plan, every child `plan_review.status`, and the full feature git range. This is the only multi-plan final-review scope that may set the package `Ready for finish? Yes`.
+- Spec-level final-review: run after all child plans in a multi-plan package are ready. Source requirements include the source spec, `00-overview.md`, every child plan, every child `plan_review.status`, and the complete feature scope anchored by the recorded start commit and current repository state. This is the only multi-plan final-review scope that may set the package `Ready for finish? Yes`.
 
 When reviewing a multi-plan package, plan-level reviews update only the matching `plans[]` row in `.loopx/multi-plan/<feature-slug>/state.json`. Spec-level reviews write the canonical report artifact, then update `spec_final_review.path` and `spec_final_review.ready_for_finish`.
 
@@ -67,13 +67,13 @@ If the start state or requirements are unclear, stop and ask. A final review wit
 
 ## Report Artifact
 
-Write the canonical final-review report to:
+Write the canonical final-review report for single-plan and spec-level final-review. These scopes write one canonical final-review report per design/source:
 
 ```text
-.loopx/final-review/YYYY-MM-DD-<slug>.md
+.loopx/final-review/<design-date>-<design-slug>.md
 ```
 
-Use `YYYY-MM-DD` as the date prefix. Derive `<slug>` from the design artifact when present; otherwise derive it from the source artifact. If no source slug is available, use `final-review`. Repeated final-review for the same design/source updates this same canonical final-review report and appends a `Review Iterations` / `复审记录` entry; do not create `re-review` sibling files.
+Derive `<design-date>-<design-slug>` from the design artifact when present; otherwise derive it from the source artifact. If no source slug is available, use `final-review`. Repeated final-review for the same design/source updates this same canonical final-review report and appends a `Review Iterations` / `复审记录` entry; do not create `re-review` sibling files.
 
 The report artifact is local workflow state for human inspection before `finish`. It is not repo-tracked by default. Do not move it under `docs/loopx/` unless the user explicitly asks for repo-tracked review records.
 
@@ -234,8 +234,9 @@ Use the platform's native subagent mechanism when available and fill template at
 - `{VERIFICATION}` - test commands and results + runtime validation results
 - `{TEST_TRUST}` - Test Trust level, evidence, skipped checks, and residual risk
 - `{PER_TASK_REVIEWS}` - review artifacts or "not available"
-- `{BASE_SHA}` - commit before implementation began
-- `{HEAD_SHA}` - current commit
+- `{START_COMMIT}` - recorded `start_commit` or stated fallback start
+- `{REVIEW_HEAD}` - current `HEAD` at review time
+- `{TRACKED_DIFF_INCLUDED}` - `yes` when tracked staged or unstaged changes were included, otherwise `no`
 
 **Additional context to include:**
 - The requirements coverage matrix from Phase 1
@@ -278,14 +279,27 @@ Use the selected template as the complete report structure. Keep `Ready for fini
 After writing the artifact, tell the user:
 
 ```text
-Final review report saved to `.loopx/final-review/YYYY-MM-DD-<slug>.md`.
+Final review report saved to `.loopx/final-review/<design-date>-<design-slug>.md`.
 Ready for finish: <Yes | No | With fixes>
 Blocking issues: <none | summary>
 ```
 
 Do not proceed to `finish` when the report says `Ready for finish? No` or unresolved Critical/Important findings remain.
 
-For multi-plan child plan-level final-review, run the review process but do not write a `.loopx/final-review/*.md` report. Update `.loopx/multi-plan/<feature-slug>/state.json` for the child row with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`. Child plan-level final-review must not write report artifacts or record child `start_commit`, current `HEAD`, or end commit metadata. Only spec-level final-review writes the persisted package report.
+For multi-plan child plan-level final-review, run the review process but do not write a `.loopx/final-review/*.md` report. Update `.loopx/multi-plan/<feature-slug>/state.json` for the child row:
+
+```json
+{
+  "plan_review": {
+    "status": "passed",
+    "reviewed_at": "2026-06-30T00:00:00.000Z",
+    "summary": "No blocking issues"
+  },
+  "ready_for_spec_review": true
+}
+```
+
+Child plan-level final-review must not write report artifacts or record child `start_commit`, current `HEAD`, or end commit metadata. Only spec-level final-review writes the persisted package report.
 
 ## Common Mistakes
 
@@ -305,9 +319,9 @@ For multi-plan child plan-level final-review, run the review process but do not 
 - Problem: "docs only" findings are ignored even when users would be misled
 - Fix: distinguish pure polish from operationally incorrect or missing documentation
 
-**Reviewing without base/head SHAs**
+**Reviewing without a concrete scope**
 - Problem: reviewer sees an unclear or stale diff
-- Fix: provide an exact git range every time
+- Fix: provide the recorded start commit and current repository state every time
 
 **Skipping verification evidence**
 - Problem: reviewer cannot judge whether tests prove real behavior

@@ -63,6 +63,9 @@ Native subagent:
     Treat the implementer's report as unverified claims. Verify claims against
     the diff, task brief, anchor context, surface context, and test evidence. A
     design rationale in the report never downgrades a real finding.
+    Do not review only the code when the task brief, global constraints,
+    source design anchors, implementation plan, review focus, or expected
+    evidence are available.
 
     ## Tests
 
@@ -126,6 +129,22 @@ Native subagent:
     Important and label it plan-mandated; the controller must ask the user which
     governs.
 
+    ## Before Returning: Review Output Self-Check
+
+    Audit your own review output before returning it:
+    - Confirm each Critical or Important finding is grounded in the task brief,
+      global constraints, source design anchors, implementation plan, expected
+      evidence, or a concrete code-only defect.
+    - Separate the underlying problem from your suggested implementation.
+      Do not prescribe broad fallback logic, wrappers, compatibility shims,
+      new options, or abstractions unless the design, plan, observed callers,
+      or a concrete failure mode requires them.
+    - Remove duplicate, preference-only, unactionable, speculative, or
+      plan-contradicting findings. If the plan itself appears wrong, label the
+      issue as plan-mandated or plan-conflicting instead of silently rewriting
+      the task contract.
+    - Calibrate severity after this cleanup.
+
     ## Output Format
 
     ### Spec Compliance
@@ -145,6 +164,12 @@ Native subagent:
     #### Minor
 
     For each issue: file:line, what is wrong, why it matters, how to fix.
+
+    ### Review Output Self-Check
+
+    [State the source basis used, such as task brief/global constraints/design
+    anchors/implementation plan, and whether unsupported, duplicate, or
+    overbuilt findings were removed.]
 
     ### Assessment
 

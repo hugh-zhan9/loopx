@@ -3,6 +3,15 @@
 ## Change Summary
 [User-readable summary of the completed change, including main files/modules touched and the intended behavior delivered.]
 
+## Review Scope
+
+- start_commit: `<sha>`
+- review_head: `<sha>`
+- tracked_diff_included: `yes|no`
+- diff commands used:
+  - `git diff`
+  - `git diff --cached`
+
 ## Requirements / Design Alignment
 | Design Point / Requirement | Implementation Evidence | Status | Notes |
 |---|---|---|---|
@@ -28,6 +37,12 @@
 
 ## Regression Assessment
 [from Phase 4]
+
+## Review Iterations
+
+| reviewed_at | reviewed_head | previous verdict | current verdict | fixed findings summary |
+|---|---|---|---|---|
+| `<timestamp>` | `<sha>` | `<Yes|No|With fixes>` | `<Yes|No|With fixes>` | `<summary>` |
 
 ## Overall Assessment
 

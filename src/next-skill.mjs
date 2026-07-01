@@ -1,5 +1,10 @@
+function shellQuoteArg(value) {
+  const text = String(value ?? '');
+  return /^[A-Za-z0-9_./:@%+=,-]+$/.test(text) ? text : `'${text.replaceAll("'", "'\\''")}'`;
+}
+
 function clarifyHandoffArg(state) {
-  return state.intake_package_path || state.requirements_path || state.spec_artifact_path || state.slug;
+  return shellQuoteArg(state.intake_package_path || state.requirements_path || state.spec_artifact_path || state.slug);
 }
 
 export function nextSkillCommand(state) {
