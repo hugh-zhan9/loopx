@@ -721,7 +721,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.8');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
 
     assert.match(planSkill, /package mode/i);
     assert.match(planSkill, /\$subagent-exec docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/00-overview\.md/);
@@ -756,12 +756,16 @@ describe('loopx skill governance', () => {
     assert.match(execSkill, /spec-level `loopx:final-review`/);
 
     assert.match(finishSkill, /plan_review\.status/);
-    assert.match(finishSkill, /plan_review\.reviewed_at/);
-    assert.match(finishSkill, /plan_review\.summary/);
+    assert.match(finishSkill, /non-empty `plan_review\.reviewed_at`/);
+    assert.match(finishSkill, /non-empty `plan_review\.summary`/);
     assert.doesNotMatch(finishSkill, removedChildReviewPathPattern);
 
     assert.match(resolver, /package mode/i);
+    assert.match(resolver, /call `subagent-exec` or `exec`/);
+    assert.match(resolver, /Package mode executes child plans strictly sequentially/);
+    assert.match(resolver, /one spec-level `final-review` and `finish` only when clean/);
     assert.match(resolver, /00-overview\.md/);
+    assert.match(resolver, /Direct numbered child plan execution is targeted\/resume\/manual-control mode/);
     assert.match(resolver, /targeted\/resume\/manual-control/i);
 
     const forbiddenSurface = await rgCurrentSurface([
@@ -1125,7 +1129,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.7');
     assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.7');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.8');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
     assert.match(reviewSkill, /Do not skip stage 1/);

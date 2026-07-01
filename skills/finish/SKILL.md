@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.6"
+  version: "0.3.8"
 ---
 
 # Finish
@@ -118,7 +118,9 @@ docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-<plan-slug>.md
 
 - `plans[]` is non-empty
 - every child plan has `status: "complete"`
-- every child plan has `plan_final_review`
+- every child plan has `plan_review.status: "passed"`
+- every child plan has non-empty `plan_review.reviewed_at`
+- every child plan has non-empty `plan_review.summary`
 - every child plan has `ready_for_spec_review: true`
 - `spec_final_review.path` is present
 - `spec_final_review.ready_for_finish` is exactly `"Yes"`

@@ -49,7 +49,7 @@ Read the selected skill file before acting. If multiple skills match, read every
 4. If remaining questions are local implementation choices, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
 5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`.
 6. For single plans, use `subagent-exec` when subagents are available and tasks are independent; use `exec` for inline execution or when subagents are unavailable.
-7. For multi-plan packages, use package mode with `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package directory. `subagent-exec` is recommended; `exec` is the same-context fallback.
+7. For multi-plan packages, call `subagent-exec` or `exec` with `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package directory to run package mode. Package mode executes child plans strictly sequentially, then runs one spec-level `final-review` and `finish` only when clean.
 8. Direct numbered child plan execution is targeted/resume/manual-control mode and must not be presented as the primary package handoff.
 9. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review state with `plan_review.status`, and the package receives one spec-level final-review report before finish.
 10. Use `review` to request code review of completed task or checkpoint work.
