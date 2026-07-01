@@ -673,6 +673,40 @@ describe('loopx retained workflow shell', () => {
     );
   });
 
+  it('finish record by audit path refreshes status from the audited repo, not caller cwd', async () => {
+    const auditedRepo = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-path-target-'));
+    await initGitRepo(auditedRepo);
+    await finishStartStage(auditedRepo, 'feature-e', { source: 'docs/loopx/plans/feature-e.md' });
+    const audit = await finishAuditStage(auditedRepo, 'feature-e');
+    await markFinishAuditReviewed(audit);
+
+    const callerRepo = await mkdtemp(join(tmpdir(), 'loopx-finish-audit-path-caller-'));
+    await initGitRepo(callerRepo);
+
+    await writeFile(join(auditedRepo, 'README.md'), 'tracked dirty in audited repo\n');
+    const expectedFinalHead = await gitOutput(auditedRepo, ['rev-parse', '--short', 'HEAD']);
+
+    const pendingRecord = await finishRecordStage(callerRepo, audit.root, {
+      action: 'keep',
+      status: 'pending',
+      summary: 'Refresh evidence from the audited repo.',
+      url: null,
+    });
+    assert.equal(pendingRecord.state.audit.change_window.final_head, expectedFinalHead);
+    assert.deepEqual(pendingRecord.state.audit.change_window.tracked_status, ['M README.md']);
+    assert.deepEqual(pendingRecord.state.audit.change_window.untracked_status, []);
+
+    await assert.rejects(
+      () => finishRecordStage(callerRepo, audit.root, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should fail because the audited repo is dirty.',
+        url: null,
+      }),
+      /finish_record_audit_incomplete/,
+    );
+  });
+
   it('blocks finish done when matching multi-plan state is incomplete', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-block-'));
     await initGitRepo(wd);
