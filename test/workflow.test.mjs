@@ -287,9 +287,12 @@ describe('loopx retained workflow shell', () => {
     assert.doesNotMatch(nextStdout, /next cli:/);
 
     const { stdout: statusStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow'], { cwd: wd });
-    assert.match(statusStdout, new RegExp(`^intake: ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
-    assert.match(statusStdout, new RegExp(`^requirements: ${escapeRegExp(status.state.requirements_path)}$`, 'm'));
-    assert.match(statusStdout, new RegExp(`^test cases: ${escapeRegExp(status.state.test_cases_path)}$`, 'm'));
+    const intakePackageName = status.state.intake_package_path.split(/[/\\]/).at(-1);
+    const pathSeparatorPattern = '(?:/|\\\\)';
+    const intakeDisplayPath = `(?:${escapeRegExp(status.state.intake_package_path)}|\\.loopx${pathSeparatorPattern}intake${pathSeparatorPattern}${escapeRegExp(intakePackageName)})`;
+    assert.match(statusStdout, new RegExp(`^intake: ${intakeDisplayPath}$`, 'm'));
+    assert.match(statusStdout, new RegExp(`^requirements: (?:${escapeRegExp(status.state.requirements_path)}|${intakeDisplayPath}${pathSeparatorPattern}requirements\\.md)$`, 'm'));
+    assert.match(statusStdout, new RegExp(`^test cases: (?:${escapeRegExp(status.state.test_cases_path)}|${intakeDisplayPath}${pathSeparatorPattern}test-cases\\.md)$`, 'm'));
 
     const { stdout: statusJsonStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow', '--json'], { cwd: wd });
     const statusJson = JSON.parse(statusJsonStdout);
