@@ -3,16 +3,20 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.8"
+  version: "0.3.10"
 ---
 
 # Subagent Exec
 
-Execute plan by dispatching a fresh implementer subagent per task, one combined
-task reviewer after each task, and final review according to plan scope. For
-single-plan runs, proceed to `loopx:final-review` and `loopx:finish`. For
-numbered multi-plan child runs, stop after plan-level `loopx:final-review` and
-multi-plan state update.
+Execute approved plans by dispatching a fresh implementer subagent per task,
+one combined task reviewer after each task, and final review according to input
+scope. For single-plan runs, proceed to `loopx:final-review` and
+`loopx:finish`. For numbered multi-plan child runs, execute only that child plan
+and stop after plan-level `loopx:final-review` updates multi-plan state. For
+multi-plan package inputs (`00-overview.md` or a package directory), run package
+mode: execute child plans strictly sequentially through the existing per-task
+subagent flow, run spec-level `loopx:final-review` after all children are ready,
+and enter `loopx:finish` only when the spec-level review is clean.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated
 context. You construct exactly what they need: task brief, anchor context,
@@ -32,20 +36,104 @@ mostly sequentially with isolated subagent context. Use `loopx:exec` when
 subagent support is unavailable or edits are too tightly coupled for safe
 delegation.
 
-## Multi-Plan Child Plans
+## Input Scope
 
-When the plan file is a numbered child plan under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do not execute sibling child plans. Do not proceed to `finish` after the child plan completes.
+Classify the user-provided path before execution:
+
+| Input | Scope | Behavior |
+|---|---|---|
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` | single plan | Execute the plan with per-task subagents, then run `loopx:final-review` and `loopx:finish` when clean. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` | multi-plan package | Run package mode for the whole package. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/` | multi-plan package | Resolve `00-overview.md` and run package mode. |
+| `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/NN-<plan-slug>.md` | direct child plan mode | Execute only that child plan, run plan-level `loopx:final-review`, update `.loopx/multi-plan/<feature-slug>/state.json`, and stop. |
+
+If the input is missing, ambiguous, unreadable, a package directory without
+`00-overview.md`, or an overview without the required package fields, stop and
+report the concrete path defect. Do not guess a scope.
+
+## Multi-Plan Package Mode
+
+Package mode applies when the input is
+`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package
+directory.
+
+Package mode steps:
+
+1. Read `00-overview.md`.
+2. Extract source spec path, package slug, local state path, child plan list,
+   and execution order.
+3. Prepare `.loopx/multi-plan/<feature-slug>/state.json`:
+   - if missing, initialize schema v2 state from the overview and child plan
+     list;
+   - if present, validate feature slug, plan package path, source spec, unique
+     child plan paths, and schema shape;
+   - if JSON is invalid, duplicated, stale, or mismatched with the overview,
+     stop and report the state defect.
+
+```json
+{
+  "schema_version": 2,
+  "feature_slug": "2026-07-01-feature",
+  "plan_package": "docs/loopx/plans/2026-07-01-feature",
+  "source_spec": "docs/loopx/design/2026-07-01-feature/需求设计文档.md",
+  "status": "in_progress",
+  "plans": [
+    {
+      "path": "docs/loopx/plans/2026-07-01-feature/01-core.md",
+      "status": "pending",
+      "plan_review": null,
+      "ready_for_spec_review": false
+    }
+  ],
+  "spec_final_review": null
+}
+```
+
+4. Execute child plans strictly sequentially, even when the overview says some
+   child plans can run in parallel.
+5. For each pending child plan, run the existing direct child plan subagent
+   flow. Keep the core rule: fresh implementer subagent per task plus task
+   reviewer subagent after each task.
+6. After each child plan is complete, run plan-level `loopx:final-review` and
+   update the matching state row with `plan_review.status`,
+   `plan_review.reviewed_at`, `plan_review.summary`, and
+   `ready_for_spec_review: true`. Child plan-level final-review must not write
+   a `.loopx/final-review/*.md` report.
+7. Skip child plans whose state row already has `status: "complete"`,
+   `plan_review.status: "passed"`, and `ready_for_spec_review: true`.
+8. After every child plan is ready, run one spec-level `loopx:final-review` for
+   the source spec, `00-overview.md`, all child plans, and current repository
+   state.
+9. Only start `loopx:finish` when the spec-level review is clean and all
+   Critical/Important feedback has been handled and rechecked.
+
+Package mode is not automatic parallel scheduling. Do not dispatch multiple
+child plans concurrently in this version.
+
+## Direct Child Plan Mode
+
+When the input is a numbered child plan under
+`docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`, execute only that child plan. Do
+not execute sibling child plans from direct child plan mode. Do not proceed to
+package-level spec review or `finish` after the child plan completes. Direct
+child plan mode is for targeted, resume, or manual-control runs.
 
 After all tasks in the child plan pass task review, run plan-level `loopx:final-review` for that child plan and update `.loopx/multi-plan/<feature-slug>/state.json`:
 
 ```json
 {
-  "path": "docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md",
+  "path": "docs/loopx/plans/2026-06-30-feature/01-core.md",
   "status": "complete",
-  "plan_final_review": ".loopx/final-review/YYYY-MM-DD-01-example.md",
+  "plan_review": {
+    "status": "passed",
+    "reviewed_at": "2026-06-30T00:00:00.000Z",
+    "summary": "No blocking issues"
+  },
   "ready_for_spec_review": true
 }
 ```
+
+For child plans, run plan-level `loopx:final-review` as a process gate but do not write a `.loopx/final-review/*.md` report. Child plan-level final-review must not write final-review report artifacts. The child review result is represented only by the matching `plans[]` row in `.loopx/multi-plan/<feature-slug>/state.json`; `plan_review.status` is the child review gate.
 
 Only after every child plan in the package is complete should an agent run spec-level `loopx:final-review` for the source spec and package overview. `loopx:finish` is allowed only after the spec-level final-review is clean.
 
@@ -76,15 +164,16 @@ digraph process {
         "Mark task complete in update_plan and progress ledger" [shape=box];
     }
 
-    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" [shape=box];
+    "Record execution range and finish baseline" [shape=box];
     "Pre-flight plan review" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Use loopx:final-review for completed plan" [shape=box];
-    "Single-plan run?" [shape=diamond];
-    "Use loopx:finish after clean final-review" [shape=box style=filled fillcolor=lightgreen];
-    "For child plan: update .loopx/multi-plan state and stop" [shape=box];
+    "Input scope?" [shape=diamond];
+    "Use loopx:finish after clean single-plan final-review" [shape=box style=filled fillcolor=lightgreen];
+    "For direct child plan: update .loopx/multi-plan state and stop" [shape=box];
+    "For package mode: continue to next child or spec-level final-review" [shape=box];
 
-    "Record finish baseline with loopx finish-start <slug> --source <plan-path>" -> "Pre-flight plan review";
+    "Record execution range and finish baseline" -> "Pre-flight plan review";
     "Pre-flight plan review" -> "Run scripts/task-brief PLAN_FILE N";
     "Run scripts/task-brief PLAN_FILE N" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer writes report file and returns short status";
@@ -97,23 +186,25 @@ digraph process {
     "Mark task complete in update_plan and progress ledger" -> "More tasks remain?";
     "More tasks remain?" -> "Run scripts/task-brief PLAN_FILE N" [label="yes"];
     "More tasks remain?" -> "Use loopx:final-review for completed plan" [label="no"];
-    "Use loopx:final-review for completed plan" -> "Single-plan run?";
-    "Single-plan run?" -> "Use loopx:finish after clean final-review" [label="yes"];
-    "Single-plan run?" -> "For child plan: update .loopx/multi-plan state and stop" [label="no"];
+    "Use loopx:final-review for completed plan" -> "Input scope?";
+    "Input scope?" -> "Use loopx:finish after clean single-plan final-review" [label="single plan"];
+    "Input scope?" -> "For direct child plan: update .loopx/multi-plan state and stop" [label="direct child plan"];
+    "Input scope?" -> "For package mode: continue to next child or spec-level final-review" [label="package mode"];
 }
 ```
 
-## Step 0: Record Finish Baseline
+## Step 0: Record Execution Range And Finish Baseline
 
-Before dispatching the first implementer, run:
+Before dispatching the first implementer, record both requirement identity and finish audit baseline:
 
 ```bash
+loopx execution-start <slug> --source <plan-path> [--design <design-path>]
 loopx finish-start <slug> --source <plan-path>
 ```
 
-Use the plan filename slug when no workflow slug is available. This preserves
-the starting `HEAD` so `finish-audit` can inspect `baseline..HEAD` even after
-implementers commit their work and the current `git diff` is empty.
+`execution-start` records the requirement start commit and canonical final-review report identity. `finish-start` preserves the committed audit baseline so `finish-audit` can inspect `baseline..HEAD` even after implementers commit their work and the current `git diff` is empty. Use the plan filename slug when no workflow slug is available.
+
+This startup change does not change `subagent-exec` subagent capability detection or launching behavior.
 
 ## Pre-Flight Plan Review
 
