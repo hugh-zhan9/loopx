@@ -669,7 +669,7 @@ describe('loopx retained workflow shell', () => {
         summary: 'Should fail with tracked changes.',
         url: null,
       }),
-      /finish_record_audit_incomplete/,
+      /finish_record_tracked_dirty/,
     );
   });
 
@@ -703,7 +703,7 @@ describe('loopx retained workflow shell', () => {
         summary: 'Should fail because the audited repo is dirty.',
         url: null,
       }),
-      /finish_record_audit_incomplete/,
+      /finish_record_tracked_dirty/,
     );
   });
 
@@ -719,23 +719,26 @@ describe('loopx retained workflow shell', () => {
     await markFinishAuditReviewed(audit);
 
     await writeMultiPlanState(wd, featureSlug, {
-      schema_version: 1,
+      schema_version: 2,
       feature_slug: featureSlug,
-      plan_package: `docs/loopx/plans/${featureSlug}/`,
+      plan_package: `docs/loopx/plans/${featureSlug}`,
       source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
       status: 'in_progress',
       plans: [
         {
           path: `docs/loopx/plans/${featureSlug}/01-core.md`,
           status: 'complete',
-          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
           ready_for_spec_review: true,
+          plan_review: {
+            status: 'passed',
+            reviewed_at: '2026-06-30T00:00:00.000Z',
+            summary: 'No blocking issues',
+          },
         },
         {
           path: `docs/loopx/plans/${featureSlug}/02-ui.md`,
-          status: 'in_progress',
-          plan_final_review: null,
-          ready_for_spec_review: false,
+          status: 'complete',
+          ready_for_spec_review: true,
         },
       ],
       spec_final_review: null,
@@ -747,7 +750,7 @@ describe('loopx retained workflow shell', () => {
         status: 'done',
         summary: 'Should be blocked.',
       }),
-      /finish_record_multi_plan_incomplete/,
+      /finish_record_multi_plan_incomplete:.*plan_review.status must be passed/,
     );
   });
 
@@ -809,23 +812,31 @@ describe('loopx retained workflow shell', () => {
     await markFinishAuditReviewed(audit);
 
     await writeMultiPlanState(wd, featureSlug, {
-      schema_version: 1,
+      schema_version: 2,
       feature_slug: featureSlug,
-      plan_package: `docs/loopx/plans/${featureSlug}/`,
+      plan_package: `docs/loopx/plans/${featureSlug}`,
       source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
       status: 'ready_for_finish',
       plans: [
         {
           path: `docs/loopx/plans/${featureSlug}/01-core.md`,
           status: 'complete',
-          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
           ready_for_spec_review: true,
+          plan_review: {
+            status: 'passed',
+            reviewed_at: '2026-06-30T00:00:00.000Z',
+            summary: 'No blocking issues',
+          },
         },
         {
           path: `docs/loopx/plans/${featureSlug}/02-ui.md`,
           status: 'complete',
-          plan_final_review: `.loopx/final-review/${featureSlug}-02-ui.md`,
           ready_for_spec_review: true,
+          plan_review: {
+            status: 'passed',
+            reviewed_at: '2026-06-30T01:00:00.000Z',
+            summary: 'No blocking issues',
+          },
         },
       ],
       spec_final_review: {
@@ -841,6 +852,89 @@ describe('loopx retained workflow shell', () => {
     });
     assert.equal(recorded.state.status, 'completed');
     assert.equal(recorded.state.choice.status, 'done');
+  });
+
+  it('allows finish done when matching multi-plan state is legacy v1 and normalizes on read', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-legacy-pass-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/00-overview.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 1,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${featureSlug}`,
+      source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+      plans: [
+        {
+          path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+          status: 'complete',
+          plan_final_review: `.loopx/final-review/${featureSlug}-01-core.md`,
+          ready_for_spec_review: true,
+        },
+      ],
+      spec_final_review: {
+        path: `.loopx/final-review/${featureSlug}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Legacy multi-plan package complete.',
+    });
+    assert.equal(recorded.state.status, 'completed');
+  });
+
+  it('blocks finish done when matching multi-plan state records forbidden child commit metadata', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-child-commit-'));
+    await initGitRepo(wd);
+
+    const featureSlug = '2026-06-29-feature';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${featureSlug}/01-core.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 2,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${featureSlug}`,
+      source_spec: `docs/loopx/design/${featureSlug}/需求设计文档.md`,
+      plans: [
+        {
+          path: `docs/loopx/plans/${featureSlug}/01-core.md`,
+          status: 'complete',
+          ready_for_spec_review: true,
+          plan_review: {
+            status: 'passed',
+            reviewed_at: '2026-06-30T00:00:00.000Z',
+            summary: 'No blocking issues',
+          },
+          start_commit: 'abc1234',
+        },
+      ],
+      spec_final_review: {
+        path: `.loopx/final-review/${featureSlug}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    await assert.rejects(
+      () => finishRecordStage(wd, audit.auditId, {
+        action: 'keep',
+        status: 'done',
+        summary: 'Should be blocked.',
+      }),
+      /finish_record_multi_plan_incomplete:.*start_commit must not be recorded on child plan state/,
+    );
   });
 
   it('keeps single-plan finish done unchanged when no multi-plan source matches', async () => {
