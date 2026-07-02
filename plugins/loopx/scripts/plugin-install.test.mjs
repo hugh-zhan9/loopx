@@ -84,6 +84,9 @@ describe('loopx plugin shell', () => {
     assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
     assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\//);
     assert.match(planSkill, /loopx:subagent-exec/);
+    assert.match(planSkill, /Plan Boundary Commit Policy|Boundary Commit Policy/);
+    assert.match(planSkill, /single-plan.*one.*commit|one.*commit.*single-plan/is);
+    assert.doesNotMatch(planSkill, /Frequent commits|Step 5: Commit|"Commit" is a step/);
     assert.doesNotMatch(planSkill, /Planner -> Architect -> Critic/);
     assert.doesNotMatch(planSkill, /consensus-first/i);
   });

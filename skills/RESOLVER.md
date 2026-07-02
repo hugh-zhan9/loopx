@@ -12,9 +12,9 @@ Read the selected skill file before acting. If multiple skills match, read every
 | Design方案, technical design, API/data/state/security decisions, or architecture tradeoffs | `skills/spec/SKILL.md` |
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Approved intake package, requirements, or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
-| Approved plan has independent tasks and should run with subagents plus staged review | `skills/subagent-exec/SKILL.md` |
+| Approved plan has independent tasks and should run with subagents plus task-scoped review | `skills/subagent-exec/SKILL.md` |
 | Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
-| Completed task, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
+| Completed task evidence, checkpoint work, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
 | Completed full feature needs final integration, runtime-risk, and test-gap review before finish | `skills/final-review/SKILL.md` |
 | Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
 | Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |

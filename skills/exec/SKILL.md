@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Exec
@@ -49,6 +49,20 @@ loopx finish-start <slug> --source <plan-path>
 `execution-start` records the requirement start commit and canonical final-review
 report identity. `finish-start` preserves the committed audit baseline so
 `finish-audit` can inspect `baseline..HEAD`.
+
+## Commit Policy
+
+Do not create task-level commits or Git-index checkpoints.
+
+- Single plan: create one implementation commit after all tasks and checkpoint
+  obligations are clean, before `loopx:final-review`.
+- Multi-plan package: create one implementation commit after each child plan
+  completes and its plan-level review is clean.
+- Direct child plan: create one implementation commit after that child plan
+  completes and its plan-level review is clean.
+
+Task completion is proven by evidence fields and review results, not by commit
+SHAs.
 
 ## Task Loop
 
@@ -105,11 +119,15 @@ already covers every change since the previous review.
 ## Completion By Scope
 
 - Single plan: after all tasks are complete and checkpoint obligations are
-  clean, run `loopx:final-review`, then `loopx:finish`.
-- Multi-plan package: execute child plans strictly sequentially, update child
-  `plan_review`, then run one spec-level `loopx:final-review` before `loopx:finish`.
-- Direct child plan: run plan-level `loopx:final-review`, update the matching
-  child row in `.loopx/multi-plan/<feature-slug>/state.json`, and stop.
+  clean, create one implementation commit, run `loopx:final-review`, then
+  `loopx:finish`.
+- Multi-plan package: execute child plans strictly sequentially, create one
+  implementation commit after each child plan's plan-level review is clean,
+  update child `plan_review`, then run one spec-level `loopx:final-review`
+  before `loopx:finish`.
+- Direct child plan: after all tasks are complete and the plan-level review is
+  clean, create one implementation commit, update the matching child row in
+  `.loopx/multi-plan/<feature-slug>/state.json`, and stop.
 
 ## References
 

@@ -72,7 +72,7 @@ bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后�
 | `plan-to-exec` | 需求已经清楚，可以拆成小步执行任务。 |
 | `subagent-exec` | 已批准计划需要 fresh subagents 和 combined task review 执行。 |
 | `exec` | 已批准计划需要 inline 顺序执行。 |
-| `review` | 具体 git range 需要独立代码评审。 |
+| `review` | 已完成 task evidence、checkpoint work 或 feature git range 需要独立代码评审。 |
 | `final-review` | 完整 feature 已实现，需要在 finish 前检查集成、运行时和测试缺口风险。 |
 | `fix-review` | review feedback 需要技术评估、反驳或实现。 |
 | `finish` | 工作已验证，需要选择 merge、PR、保留或丢弃。 |

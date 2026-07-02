@@ -1,9 +1,9 @@
 ---
 name: review
-description: "Dispatches a loopx code reviewer subagent against a concrete git range and requirements with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
+description: "Dispatches a loopx code reviewer subagent against task evidence or a feature git range with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Review
@@ -15,6 +15,7 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## When to Request Review
 
 **Mandatory:**
+- After checkpoint task work when the execution skill requires review
 - After completing major feature
 - Before merge to main
 
@@ -40,6 +41,10 @@ When the formal plan contains `T-*` task anchors, Stage 1 spec compliance must p
 Task execution evidence is a first-class Stage 1 input beside requirement and design anchors. When available, consume `AC-*`, `D-*`, `T-*`, and task verification evidence together: task completion evidence fields, commands run, relevant output summaries, skipped checks, and remaining risk.
 
 Report missing or weak task evidence as a review finding when it affects confidence in the claimed implementation. If commands, outputs, or evidence summaries do not support claimed `AC-*`/`D-*`/`T-*` completion, record the gap in Stage 1 rather than deferring it to code quality review.
+
+Task and checkpoint review may use a task brief, implementer report, review
+package, current code, and test evidence as the review basis. Do not require a
+task commit or staged task snapshot when current worktree evidence is provided.
 
 **When to use:** After every task completion where a plan, spec, or task description exists.
 
@@ -125,8 +130,9 @@ Use the platform's native subagent mechanism when available and fill template at
 **Placeholders:**
 - `{DESCRIPTION}` - Brief summary of what you built
 - `{PLAN_OR_REQUIREMENTS}` - What it should do
-- `{BASE_SHA}` - Starting commit
-- `{HEAD_SHA}` - Ending commit
+- `{REVIEW_PACKAGE}` - Task-scoped review package, when available
+- `{BASE_SHA}` - Starting commit for feature, pre-merge, or external PR review
+- `{HEAD_SHA}` - Ending commit for feature, pre-merge, or external PR review
 
 ### Stage 3 (Optional): Impact Scan
 
@@ -172,10 +178,16 @@ Check:
 
 The output must include a short `Review Output Self-Check` note stating the source basis used and whether unsupported, duplicate, or overbuilt findings were removed.
 
-## How to Get Git SHAs
+## Review Evidence Inputs
+
+Task or checkpoint review may use a task brief, implementer report, review
+package, current code, and test evidence.
+
+Feature, pre-merge, final integration, or external PR review may use an
+explicit git range:
 
 ```bash
-BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main, or last task commit
+BASE_SHA=$(git rev-parse origin/main)  # or a recorded baseline
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
@@ -227,7 +239,7 @@ This score is informational. The Critical/Important/Minor severity system still 
 ## Example
 
 ```
-[Just completed Task 2: Add verification function]
+[Just completed T-002: Add verification function]
 
 You: Let me request code review before proceeding.
 
@@ -243,7 +255,7 @@ Spec reviewer: ❌ Extra: repairIndex() not in spec. Missing: report format does
 Spec reviewer: ✅ Spec compliant
 
 --- Stage 2: Code Quality ---
-BASE_SHA=a7981ec HEAD_SHA=3df7661
+Review package: .loopx/subagent-exec/review-T-002-worktree.diff
 
 Code reviewer:
   Strengths: Clean architecture, real tests

@@ -72,14 +72,14 @@ For surface-changing tasks, include a `surface_change` block in the report.
 
 ## Review Package
 
-Generate the review package from the implementer commit range:
+Generate the review package from the current working tree:
 
 ```bash
-scripts/review-package BASE HEAD
+scripts/review-package --worktree T-001
 ```
 
-Use the base commit recorded before dispatching the implementer. Never use
-`HEAD~1` for multi-commit tasks.
+The package must include git status, changed files, diff stat, and full diff
+context. It must not require a task commit, `HEAD~1`, or Git-index checkpoint.
 
 ## Task Reviewer Prompt Expectations
 
@@ -117,10 +117,11 @@ If the ledger marks a task complete, do not re-dispatch it. After a clean task
 review, append:
 
 ```text
-T-001 / Task 1: complete (commits <base7>..<head7>, review clean, brief <path>, report <path>, review <path>)
+T-001 / Task 1: complete (review clean, brief <path>, report <path>, review <path>)
 ```
 
-For historical plans without `T-*`, `Task N: complete ...` remains valid.
+For numeric task headings without `T-*`, preserve `Task N` in the same
+evidence-based ledger format.
 
 ## Critical And Important Findings
 

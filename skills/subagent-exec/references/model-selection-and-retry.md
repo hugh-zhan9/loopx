@@ -29,8 +29,9 @@ count matters more than nominal per-token price.
 
 ### DONE
 
-Generate the review package with `scripts/review-package BASE HEAD`, then
-dispatch the task reviewer.
+Generate the current-worktree review package with
+`scripts/review-package --worktree <task-anchor>`, then dispatch the task
+reviewer.
 
 ### DONE_WITH_CONCERNS
 

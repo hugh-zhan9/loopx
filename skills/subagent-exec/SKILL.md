@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.12"
+  version: "0.3.13"
 ---
 
 # Subagent Exec
@@ -21,8 +21,9 @@ context small and push bulky handoff artifacts into files.
    - `loopx execution-start <slug> --source <plan-path> [--design <design-path>]`
    - `loopx finish-start <slug> --source <plan-path>`
 4. For each task, generate a brief with `scripts/task-brief`, dispatch a fresh
-   implementer subagent, generate a review package with
-   `scripts/review-package`, then dispatch the task reviewer.
+   implementer subagent, generate a current-worktree review package with
+   `scripts/review-package --worktree <task-anchor>`, then dispatch the task
+   reviewer.
 5. Handle Critical and Important findings with `fix-review`, then re-review.
 6. Finish according to scope:
    - single plan: run plan completion, `spec-level final-review`, then `finish`
@@ -65,8 +66,22 @@ loopx finish-start <slug> --source <plan-path>
 
 `execution-start` records the requirement start commit and canonical final-review
 report identity. `finish-start` preserves the committed audit baseline so
-`finish-audit` can inspect `baseline..HEAD` even after implementers commit
-their work.
+`finish-audit` can inspect `baseline..HEAD` while task work remains uncommitted
+until the plan or child-plan boundary.
+
+## Commit Policy
+
+Do not create task-level commits or Git-index checkpoints.
+
+- Single plan: create one implementation commit after all tasks and task-review
+  gates pass, before `spec-level final-review`.
+- Direct child plan: create one implementation commit after that child plan's
+  tasks and plan-level review pass.
+- Multi-plan package: create one implementation commit after each child plan
+  completes and its plan-level review passes.
+
+Task success is proven by implementer reports, commands run, review packages,
+and clean task-review gates, not by commit SHAs.
 
 ## Per-Task Orchestration
 
@@ -81,8 +96,8 @@ Keep the task loop strict:
 4. Model explicitly for every subagent dispatch.
 5. The implementer writes the full report file and returns only short status:
    `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`.
-6. For `DONE` or acceptable `DONE_WITH_CONCERNS`, generate the review package
-   with `scripts/review-package BASE HEAD`.
+6. For `DONE` or acceptable `DONE_WITH_CONCERNS`, generate the current worktree
+   evidence review package with `scripts/review-package --worktree <task-anchor>`.
 7. Dispatch the task reviewer with the brief path, report path, review package
    path, Global Constraints, `ANCHOR_CONTEXT`, and `SURFACE_CHANGE_CONTEXT`.
 8. After clean review, append task completion to the progress ledger and move
@@ -114,16 +129,18 @@ Model selection, uncertainty handling, retry rules, and `DONE` /
 Follow the completion rule for the classified scope:
 
 - single plan:
-  run `spec-level final-review`; only start `loopx:finish` after the review is
-  clean and all Critical/Important feedback has been handled and rechecked.
+  create one implementation commit after all task-review gates pass, then run
+  `spec-level final-review`; only start `loopx:finish` after the review is clean
+  and all Critical/Important feedback has been handled and rechecked.
 - direct child plan mode:
   execute only that child plan; do not execute sibling child plans; do not
   proceed to package-level spec review or `finish` after the child plan
-  completes; run `plan-level final-review`, update
-  `.loopx/multi-plan/<feature-slug>/state.json`, and stop.
+  completes; run `plan-level final-review`, create one implementation commit,
+  update `.loopx/multi-plan/<feature-slug>/state.json`, and stop.
 - multi-plan package:
   execute child plans strictly sequentially through the same per-task flow,
-  update each child row's `plan_review.status`,
+  run plan-level review for each child plan, create one implementation commit
+  per completed child plan, update each child row's `plan_review.status`,
   `plan_review.reviewed_at`, `plan_review.summary`, and
   `ready_for_spec_review: true`, then run one `spec-level final-review` before
   `finish`.
