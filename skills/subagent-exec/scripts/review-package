@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-  echo "usage: review-package BASE HEAD [OUTFILE]" >&2
+usage() {
+  echo "usage: review-package --worktree TASK_ANCHOR [OUTFILE]" >&2
+}
+
+if [ $# -lt 2 ] || [ $# -gt 3 ] || [ "$1" != "--worktree" ]; then
+  usage
   exit 2
 fi
 
-base=$1
-head=$2
-
-git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 1; }
-git rev-parse --verify --quiet "$head" >/dev/null || { echo "bad HEAD: $head" >&2; exit 1; }
+task_anchor=$2
+git rev-parse --show-toplevel >/dev/null || { echo "not a git repository" >&2; exit 1; }
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 if [ $# -eq 3 ]; then
@@ -18,26 +19,32 @@ if [ $# -eq 3 ]; then
   mkdir -p "$(dirname "$out")"
 else
   dir=$("$script_dir/subagent-workspace")
-  out="$dir/review-$(git rev-parse --short "$base")..$(git rev-parse --short "$head").diff"
+  safe_anchor=$(printf '%s' "$task_anchor" | tr -c 'A-Za-z0-9._-' '-')
+  out="$dir/review-${safe_anchor}-worktree.diff"
 fi
 
 {
   echo "# Review Package"
   echo ""
-  echo "Base: $base"
-  echo "Head: $head"
+  echo "Mode: worktree"
+  echo "Task: $task_anchor"
+  echo "Head: $(git rev-parse HEAD)"
   echo ""
-  echo "## Commits"
+  echo "## Git Status"
   echo ""
-  git log --oneline "$base..$head"
+  git status --short
+  echo ""
+  echo "## Changed Files"
+  echo ""
+  git diff --name-only
   echo ""
   echo "## Diff Stat"
   echo ""
-  git diff --stat "$base..$head"
+  git diff --stat
   echo ""
   echo "## Diff"
   echo ""
-  git diff -U10 "$base..$head"
+  git diff -U10
 } > "$out"
 
 cd "$(dirname "$out")" && printf '%s/%s\n' "$(pwd)" "$(basename "$out")"

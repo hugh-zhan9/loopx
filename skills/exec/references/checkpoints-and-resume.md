@@ -37,14 +37,14 @@ Keep a checkpoint file next to the plan:
 
 - Plan: docs/loopx/plans/<slug>.md
 - Baseline SHA: <finish-start SHA>
-- Current SHA: <latest commit>
+- Current status: <git status --short summary or clean>
 - Last updated: YYYY-MM-DD
 
 ## Progress
 
-| Task | Status | Commit | Notes |
+| Task | Status | Evidence | Notes |
 |------|--------|--------|-------|
-| T-001 / Task 1 | completed | abc1234 | |
+| T-001 / Task 1 | completed | task evidence recorded | review clean |
 | T-002 / Task 2 | in_progress | - | |
 | T-003 / Task 3 | pending | - | |
 

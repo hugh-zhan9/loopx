@@ -75,7 +75,7 @@ ledger status is `ready_for_fix`.
 | `plan-to-exec` | Requirements are clear enough to become small executable tasks. |
 | `subagent-exec` | An approved plan should be executed with fresh subagents and combined task review. |
 | `exec` | An approved plan should be executed inline. |
-| `review` | A concrete git range needs independent code review. |
+| `review` | Completed task evidence, checkpoint work, or a feature git range needs independent code review. |
 | `final-review` | The whole feature is implemented and needs integration, runtime, and test-gap review before finishing. |
 | `fix-review` | Review feedback needs technical evaluation, pushback, or implementation. |
 | `finish` | Work is verified and needs a merge, PR, keep, or discard decision. |

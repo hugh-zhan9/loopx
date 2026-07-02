@@ -25,7 +25,15 @@ Native subagent:
     criteria, review focus, or expected evidence. Do not review only the code
     when formal design or plan context is available.
 
-    ## Git Range to Review
+    ## Evidence to Review
+
+    For task-scoped review, the caller may provide a review package instead of
+    a git range. Use that package, the task brief, implementation report,
+    current code, and test evidence as the review basis.
+
+    Task review package: {REVIEW_PACKAGE}
+
+    For feature, pre-merge, or external PR review, use the supplied git range:
 
     **Base:** {BASE_SHA}
     **Head:** {HEAD_SHA}
@@ -164,8 +172,9 @@ Native subagent:
 **Placeholders:**
 - `{DESCRIPTION}` — brief summary of what was built
 - `{PLAN_OR_REQUIREMENTS}` — what it should do (plan file path, task text, or requirements)
-- `{BASE_SHA}` — starting commit
-- `{HEAD_SHA}` — ending commit
+- `{REVIEW_PACKAGE}` — task-scoped review package, when available
+- `{BASE_SHA}` — starting commit for feature, pre-merge, or external PR review
+- `{HEAD_SHA}` — ending commit for feature, pre-merge, or external PR review
 
 **Reviewer returns:** Strengths, Issues (Critical / Important / Minor), Recommendations, Assessment
 

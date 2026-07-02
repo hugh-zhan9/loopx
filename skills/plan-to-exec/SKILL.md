@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.12"
+  version: "0.3.13"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -11,7 +11,7 @@ argument-hint: "<design spec path or feature name>"
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, and how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, and how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Plan-boundary commits.
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
@@ -131,6 +131,17 @@ fresh reviewer's gate. Fold setup, configuration, scaffolding, and documentation
 into the task whose deliverable needs them. Split only where a reviewer could
 meaningfully reject one task while approving its neighbor.
 
+## Plan Boundary Commit Policy
+
+New plans must not put `git add` or `git commit` inside individual task steps by default.
+Task execution evidence proves task completion; Git commits are created only at the execution boundary.
+
+- Single-plan execution: create one implementation commit after all tasks and required reviews pass.
+- Multi-plan package execution: create one implementation commit after each child plan completes and its plan-level review passes.
+- Direct child plan execution: create one implementation commit after that child plan completes and its plan-level review passes.
+
+Do not use the Git index as a task boundary. Do not add historical-plan compatibility tasks.
+
 ## High-Risk Change Planning
 
 Use this section for any plan that removes, replaces, narrows, migrates, or changes compatibility for an existing behavior or public surface. This is not project-specific; it applies to CLI commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
@@ -183,7 +194,8 @@ Each step is one action, normally 2-5 minutes:
 - "Run it to make sure it fails" is a step.
 - "Implement the minimal code to make the test pass" is a step.
 - "Run the tests and make sure they pass" is a step.
-- "Commit" is a step.
+- "Record task evidence" is a step.
+- Plan-boundary commit instructions belong in the execution handoff, not inside individual task steps.
 
 ## Plan Document Header
 
@@ -279,11 +291,22 @@ def function(input):
 Run: `pytest tests/path/test.py::test_name -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Record task evidence**
 
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
+Record the task evidence fields expected by `exec` or `subagent-exec`:
+
+```yaml
+task_anchor: T-001
+source_ac:
+  - AC-001
+design_anchors:
+  - D-001
+test_cases:
+  - TC-001
+commands_run:
+  - pytest tests/path/test.py::test_name -v: PASS
+evidence_summary: specific behavior is implemented and verified
+remaining_risk: none
 ```
 ````
 
@@ -310,7 +333,8 @@ Every step must contain the actual content an engineer needs. These are plan fai
 - Exact file paths always
 - Complete code in every step when a step changes code
 - Exact commands with expected output
-- DRY, YAGNI, TDD, frequent commits
+- DRY, YAGNI, TDD, plan-boundary commits
+- Never require per-task commits or Git-index checkpoints unless a future approved design explicitly changes the commit policy.
 - The approved design spec is binding; do not expand scope
 - Preserve anchor coverage for every generated requirement anchor
 - Preserve design anchor coverage for every `D-*` in the source design spec.
@@ -339,6 +363,12 @@ If you find issues, fix them inline. If you find a design requirement with no ta
 Do not offer execution choice until the internal plan review gate is complete and no Critical or Important findings remain unresolved.
 
 After saving the plan, offer execution choice:
+
+Commit policy for generated plans:
+
+- Single-plan execution creates one implementation commit after all tasks and required reviews pass.
+- Multi-plan package execution creates one implementation commit after each child plan completes and its plan-level review passes.
+- Task-level reviews use task evidence and review packages; they do not require task-level commits or Git-index checkpoints.
 
 For multi-plan packages, offer package mode as the primary execution path. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean.
 

@@ -1,7 +1,7 @@
 # Task Reviewer Prompt Template
 
 Use this template when dispatching a task reviewer subagent. The reviewer reads
-one task's brief, implementer report, and diff package once, then returns two
+one task's brief, implementer report, and review package once, then returns two
 verdicts: spec compliance and task quality.
 
 **Purpose:** Verify one task's implementation matches its requirements,
@@ -42,16 +42,17 @@ Native subagent:
 
     Read the implementer's report: [REPORT_FILE]
 
-    ## Diff Under Review
+    ## Current Code Under Review
 
-    **Base:** [BASE_SHA]
-    **Head:** [HEAD_SHA]
-    **Diff file:** [DIFF_FILE]
+    **Task:** [TASK_ANCHOR]
+    **Review package:** [REVIEW_PACKAGE_FILE]
 
-    Read the diff file once. It contains the commit list, diff stat, and full
-    diff with context. Do not re-run broad git commands unless the diff file is
-    missing. Inspect code outside the diff only for a concrete named risk, and
-    name the risk and the file you checked.
+    Read the review package once. It contains current HEAD, git status, changed
+    files, diff stat, and full working-tree diff with context. This is
+    task-scoped review evidence, not a task commit range. Do not re-run broad
+    git commands unless the review package is missing. Inspect code outside the
+    package only for a concrete named risk, and name the risk and the file you
+    checked.
 
     ## Read-Only Review
 
@@ -61,8 +62,9 @@ Native subagent:
     ## Do Not Trust the Report
 
     Treat the implementer's report as unverified claims. Verify claims against
-    the diff, task brief, anchor context, surface context, and test evidence. A
-    design rationale in the report never downgrades a real finding.
+    the review package, current code, task brief, anchor context, surface
+    context, and test evidence. A design rationale in the report never
+    downgrades a real finding.
     Do not review only the code when the task brief, global constraints,
     source design anchors, implementation plan, review focus, or expected
     evidence are available.
@@ -76,22 +78,22 @@ Native subagent:
 
     ## Part 1: Spec Compliance
 
-    Compare the diff against the task brief, global constraints, anchor context,
-    and surface-change context:
+    Compare the review package and current code against the task brief, global
+    constraints, anchor context, and surface-change context:
 
     - Missing: requirements skipped, claimed without implementation, or not evidenced
     - Extra: unrequested behavior or scope expansion
     - Misunderstood: right feature implemented with wrong names, signatures,
       paths, formats, state, or behavior
-    - Cannot verify from diff: requirements that live in unchanged code or span tasks
+    - Cannot verify from review package: requirements that live in unchanged code or span tasks
 
     ## Anchor traceability
 
     Verify `task_anchor`, `anchor_coverage`, `implemented_anchor_ids`,
     `tests_for_anchor_ids`, `extra_behavior`, and `missing_context` against
-    actual diff and test evidence. Do not approve if an implemented/tested
-    anchor lacks evidence, or if product, API, data, or permission behavior is
-    added without an anchor or explicit plan rationale.
+    the review package, current code, and test evidence. Do not approve if an
+    implemented/tested anchor lacks evidence, or if product, API, data, or
+    permission behavior is added without an anchor or explicit plan rationale.
 
     Verify task completion evidence against Source AC, Design anchors, Test cases,
     and Expected execution evidence from the task brief. The implementer report
@@ -151,7 +153,7 @@ Native subagent:
 
     - Status: SPEC_COMPLIANT | ISSUES_FOUND | NEEDS_CONTEXT
     - Verdict: [short verdict with file:line evidence]
-    - Cannot verify from diff: [items or "none"]
+    - Cannot verify from review package: [items or "none"]
 
     ### Strengths
 
@@ -185,9 +187,8 @@ Native subagent:
 - `[ANCHOR_CONTEXT]` - task anchor block and implementer anchor report
 - `[SURFACE_CHANGE_CONTEXT]` - task surface block and implementer surface report
 - `[REPORT_FILE]` - implementer report file
-- `[BASE_SHA]` - commit before this task
-- `[HEAD_SHA]` - current commit
-- `[DIFF_FILE]` - path from `scripts/review-package BASE HEAD`
+- `[TASK_ANCHOR]` - task anchor under review
+- `[REVIEW_PACKAGE_FILE]` - path from `scripts/review-package --worktree <task-anchor>`
 
 **Reviewer returns:** spec compliance status, cannot-verify items, strengths,
 issues by severity, and task quality verdict.

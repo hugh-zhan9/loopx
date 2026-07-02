@@ -60,14 +60,18 @@ Native subagent:
     1. Implement exactly what the task specifies
     2. Write tests (following TDD if task says to)
     3. Verify implementation works
-    4. Commit your work
+    4. Do not commit or stage your work; leave changes in the working tree for task review
     5. Self-review (see below)
     6. Report back
+
+    Do not stage task work. Do not run `git add` or `git commit` for task
+    completion. Task completion is proven through the report fields and review
+    package.
 
     Work from: [directory]
 
     Write your detailed report to: [REPORT_FILE]
-    Return only status, commits, a one-line test summary, concerns, and the
+    Return only status, changed files, a one-line test summary, concerns, and the
     report file path.
 
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
@@ -204,7 +208,7 @@ Native subagent:
     Then report back with ONLY (under 15 lines — the detail lives in the report
     file):
     - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
-    - Commits created (short SHA + subject)
+    - Changed files
     - One-line test summary
     - Concerns, if any
     - Report file path
