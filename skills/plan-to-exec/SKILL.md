@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.14"
+  version: "0.3.15"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -357,6 +357,23 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 11. **Internal plan review readiness:** Is the draft complete enough for `plan-reviewer` to audit source-to-plan coverage, and does the final plan record `Plan review mode`, `Reviewer independence`, `Unresolved findings`, and `Residual risk`?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
+
+## STOP Conditions
+
+Stop before saving or handing off the plan when:
+
+- Critical or Important plan-review findings remain unresolved.
+- Any source `AC-*`, `D-*`, or `TC-*` lacks task coverage, verification, review focus, or deferred-with-rationale treatment.
+- The plan introduces product, API, data, permission, workflow, runtime, or compatibility behavior not present in the source.
+- A task cannot be executed independently from its stated context, interfaces, support lenses, and expected evidence.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Source lacks implementation-ready decisions | Return to `clarify` or `spec` with the missing decision list | Do not fill product or design gaps inside the plan |
+| Internal review finds uncovered anchors | Revise the affected tasks and rerun the review gate | Do not offer execution choices until findings are closed |
+| Multi-plan split creates cross-plan coupling | Add explicit Interfaces and overview coordination | Keep the coupled work in one child plan if isolation cannot be proven |
 
 ## Execution Handoff
 

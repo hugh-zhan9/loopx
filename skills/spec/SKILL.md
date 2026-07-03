@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.11"
+  version: "0.3.12"
 ---
 
 # loopx Spec
@@ -13,6 +13,14 @@ Turn clarified requirements into design documents. Do not invent missing require
 ## Inputs
 
 Start from an approved requirements source, intake package, PRD, or external requirements document. Treat missing material decisions as a reason to route back to `clarify`, not as design freedom.
+
+## STOP Conditions
+
+Stop before writing or handing off a design when:
+
+- The source lacks testable `AC-*` or equivalent acceptance criteria needed for implementation.
+- Product behavior, API, data, permission, migration, compatibility, rollout, or operational ownership is still unresolved.
+- The proposed design would require a proposal review but only a detailed design has been produced.
 
 ## Repo Specs And Memory Context
 
@@ -196,3 +204,18 @@ $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 ```
 
 Use `plan-to-exec` only after the design document is internally consistent and all material requirements questions are resolved.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Source requirement is contradictory | Name the conflicting source lines or artifacts | Route back to `clarify`; do not choose a side silently |
+| Support lens conflicts with the base design | Fold the conflict into tradeoffs or open risks | Stop before planning if the conflict changes implementation behavior |
+| Design anchor cannot be assigned safely | Identify the decision that lacks a stable contract | Resolve the design before handoff instead of inventing a weak `D-*` |
+
+## Red Flags
+
+- Do not turn a design into implementation tasks.
+- Do not create new product behavior while filling out the template.
+- Do not omit proposal review for hard-to-reverse public, data, security, or workflow decisions.
+- Do not hand off to planning with unresolved material questions.

@@ -4,7 +4,7 @@ description: "Applies loopx architecture discipline for system boundaries, ADRs,
 when_to_use: "architecture-designer, architecture, system design, ADR, NFR, scalability, failure modes, technology tradeoff, 架构设计"
 license: MIT
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/architecture-designer
   maintained_by: loopx
 ---
@@ -31,6 +31,14 @@ Use this lens when work involves:
 - Selecting database or storage technology as part of a broader architecture decision.
 
 Do not use it for code-level refactoring, API shape alone, issue triage, task planning, or workflow state transitions unless those activities expose architecture decisions.
+
+## STOP Conditions
+
+Stop before producing a recommendation when:
+
+- Functional goals, excluded goals, or non-functional priorities are missing and the choice would change materially based on them.
+- The design would create a long-lived technology, data ownership, deployment, or operational decision without an approved `spec` path.
+- The available evidence only supports code-level cleanup rather than an architecture decision.
 
 ## Architecture Discipline
 
@@ -77,6 +85,14 @@ Load detailed guidance only when the context needs it:
 - Treating diagrams as proof of a good design.
 - Hiding tradeoffs behind generic "scalable" or "cloud-native" claims.
 - Finalizing unapproved architecture decisions outside the `spec` flow.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Requirements conflict | Name the conflict and compare the affected options | Route back to `clarify` or `spec`; do not choose by preference |
+| NFRs are absent | State the architecture cannot be ranked by quality attributes yet | Provide options and the exact NFR questions that would decide them |
+| Operational owner is unknown | Treat runbook, monitoring, incident, and cost assumptions as unresolved | Do not recommend infrastructure that requires an unnamed owner |
 
 ## Output Shape
 

@@ -3,7 +3,7 @@ name: doc-readability
 description: "Use when evaluating, rewriting, or editing documents for human readability, unclear viewpoints, AI-like prose, bloated specs, PRDs, requirements docs, meeting notes, strategy docs, or internal knowledge-base articles. Not for code review, implementation planning, or file-format conversion."
 when_to_use: "document readability, PRD assessment, requirements gaps, AI-like prose, unclear viewpoint, rewrite docs, editing docs, 文档可读性, 去AI味, 需求文档评估"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Doc Readability
@@ -94,6 +94,17 @@ Which strictness should I use?
 If strictness is not worth asking, choose a sensible default and state it briefly.
 
 When the confirmed document type is `Requirements document / PRD`, read `references/prd.md` before assessment or rewrite. Use it to check requirement completeness and testability, not just prose clarity.
+
+## STOP Conditions
+
+Stop before rewriting when:
+
+- The document type is unclear and the wrong lens would change the verdict or rewrite structure.
+- The user asked for assessment only.
+- The available input is only a short excerpt and the requested rewrite depends on missing context.
+- A PRD or requirements document lacks enough business facts to preserve intent.
+
+If the user explicitly says "quick assessment", "use your judgment", or "don't ask", proceed with stated assumptions and keep the output scoped to the available evidence.
 
 ## Document Types
 
@@ -198,6 +209,22 @@ For long documents, do not polish in place first. Extract the spine:
 5. Which repeated sections can share one template.
 
 Then rewrite only within the user-approved action mode.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Source meaning is ambiguous | Preserve the original claim and flag the ambiguity | Do not rewrite ambiguity into a stronger invented claim |
+| Document mixes multiple types | Name the primary and secondary lenses before judging | Ask for the primary lens only when it changes the result |
+| Requested rewrite would remove requirements | Keep the requirement and improve placement or wording | Mark the sentence as retained for semantic preservation |
+
+## Anti-Patterns
+
+- Do not rewrite before reading the actual document or excerpt.
+- Do not turn every assessment into a full rewrite.
+- Do not remove domain terms just to make prose sound simpler.
+- Do not make formal documents chatty to make them sound human.
+- Do not preserve AI-like filler because it sounds polite.
 
 ## Output Rules
 

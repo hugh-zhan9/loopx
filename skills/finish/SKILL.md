@@ -3,7 +3,7 @@ name: finish
 description: "Finishes completed loopx development work after tests pass by choosing normal-repo commit placement or worktree merge/PR/keep/discard handling. Not for unfinished work or failing verification."
 when_to_use: "implementation complete, tests pass, finish branch, commit current branch, create new branch, create pull request, merge locally, keep branch, discard work"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Finish
@@ -111,7 +111,7 @@ The completion summary must list the concrete evidence fields above. Do not sile
 - Read [references/branch-worktree-and-recording.md](references/branch-worktree-and-recording.md) for normal repo versus worktree choices, exact `finish-record` usage, stale audit head handling, and dirty tracked status handling.
 - Read [references/memory-and-spec-candidates.md](references/memory-and-spec-candidates.md) for accepted/rejected/no-candidate handling, shared versus local memory, and spec delta candidate disposition.
 
-## Stop Conditions
+## STOP Conditions
 
 - Stop when implementation or verification is incomplete.
 - Stop when the canonical final-review report is missing, blocked, or not ready for finish.
