@@ -29,6 +29,10 @@ const CLARIFY_PROFILES = {
   },
 };
 
+const REMOVED_WORKFLOW_STATE_KEYS = new Set([
+  ['test', 'cases', 'path'].join('_'),
+]);
+
 function normalizeSlug(raw) {
   const slug = String(raw || '')
     .trim()
@@ -115,7 +119,6 @@ function intakeChildPaths(packagePath) {
   return {
     clarification_path: join(packagePath, 'clarification.md'),
     requirements_path: join(packagePath, 'requirements.md'),
-    test_cases_path: join(packagePath, 'test-cases.md'),
   };
 }
 
@@ -131,12 +134,21 @@ export async function readWorkspaceConfig(cwd) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
+function currentWorkflowState(raw) {
+  if (!raw) {
+    return raw;
+  }
+  return Object.fromEntries(
+    Object.entries(raw).filter(([key]) => !REMOVED_WORKFLOW_STATE_KEYS.has(key)),
+  );
+}
+
 export async function readState(cwd, slug) {
   const path = statePath(resolveWorkflowRoot(cwd, slug));
   if (!existsSync(path)) {
     return null;
   }
-  return JSON.parse(await readFile(path, 'utf8'));
+  return currentWorkflowState(JSON.parse(await readFile(path, 'utf8')));
 }
 
 function buildWorkspaceReadme() {
@@ -166,7 +178,7 @@ function buildWorkspaceReadme() {
     '',
     '- `workflows/<slug>/state.json`',
     '- `workflows/<slug>/spec.md`',
-    '- `intake/YYYY-MM-DD-<slug>/` clarify intake packages (`clarification.md`, `requirements.md`, `test-cases.md`)',
+    '- `intake/YYYY-MM-DD-<slug>/` clarify intake packages (`clarification.md`, `requirements.md`)',
     '- historical `intake/clarify-*.md` clarify snapshots may exist from older loopx versions',
     '- `context/domain.md` and `agents/*.md` for project context and collaboration guidance',
     '- `finish/` audit state',
@@ -201,7 +213,6 @@ function createInitialState(slug, profile) {
     intake_package_path: null,
     clarification_path: null,
     requirements_path: null,
-    test_cases_path: null,
     spec_artifact_path: null,
     recommended_next_action: `Run $clarify ${slug} until the spec is handoff-ready.`,
   };
@@ -381,7 +392,6 @@ async function createIntakePackage(cwd, slug, replacements) {
   const childPaths = intakeChildPaths(packagePath);
   await writeTemplateToPath(childPaths.clarification_path, 'intake-clarification.md', replacements);
   await writeTemplateToPath(childPaths.requirements_path, 'intake-requirements.md', replacements);
-  await writeTemplateToPath(childPaths.test_cases_path, 'intake-test-cases.md', replacements);
 
   return {
     intake_package_path: packagePath,
@@ -394,7 +404,6 @@ function workflowArtifactStatus(root, state) {
   const intakePackagePath = state?.intake_package_path || null;
   const clarificationPath = state?.clarification_path || null;
   const requirementsPath = state?.requirements_path || specPath;
-  const testCasesPath = state?.test_cases_path || null;
   const artifacts = {
     'spec.md': existsSync(join(root, 'spec.md')),
     requirements_path: requirementsPath,
@@ -409,10 +418,6 @@ function workflowArtifactStatus(root, state) {
   if (clarificationPath) {
     artifacts.clarification_path = clarificationPath;
     artifacts.clarification_exists = existsSync(clarificationPath);
-  }
-  if (testCasesPath) {
-    artifacts.test_cases_path = testCasesPath;
-    artifacts.test_cases_exists = existsSync(testCasesPath);
   }
   return artifacts;
 }
@@ -515,7 +520,6 @@ export async function clarifyStage(cwd, slug, { profile = 'standard' } = {}) {
     intake_package_path: intakePackage.intake_package_path,
     clarification_path: intakePackage.clarification_path,
     requirements_path: intakePackage.requirements_path,
-    test_cases_path: intakePackage.test_cases_path,
     spec_artifact_path: intakePackage.requirements_path,
   });
   await writeText(statePath(root), JSON.stringify(state, null, 2));
@@ -573,7 +577,6 @@ export async function statusSummary(cwd, slug) {
     intake_package_path: statusState?.intake_package_path ?? null,
     clarification_path: statusState?.clarification_path ?? null,
     requirements_path: statusState?.requirements_path ?? null,
-    test_cases_path: statusState?.test_cases_path ?? null,
     spec_artifact_path: statusState?.spec_artifact_path ?? null,
     next_action: statusState ? recommendedAction(statusState) : 'Run loopx clarify to start a workflow.',
   };

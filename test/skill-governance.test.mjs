@@ -15,6 +15,10 @@ const verifyScriptPath = join(repoRoot, 'scripts', 'verify-skills.mjs');
 const removedPluginPayloadDir = join(repoRoot, 'plugins', 'loopx', 'skills');
 const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
 const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
+const removedStandaloneArtifactName = `${['test', 'cases'].join('-')}.md`;
+const removedTestCasesPathKey = ['test', 'cases', 'path'].join('_');
+const removedHumanTestCasesLabel = `${['test', 'cases'].join(' ')}:`;
+const removedIntakeArtifactTemplate = `templates/intake-${['test-cases', 'md'].join('.')}`;
 const removedPluginMirrorPattern = new RegExp(`${removedPluginSyncScriptName}|plugins/loopx/skills|plugin skill mirror|plugin-ready v1 skill mirror`, 'i');
 const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
 const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -66,6 +70,16 @@ const removedPlanFinalReviewPattern = new RegExp(['plan', 'final', 'review'].joi
 const removedSchemaVersion1Pattern = new RegExp(['schema_version', '1'].join(':\\s*'));
 const removedLegacyV1Pattern = new RegExp(['legacy', 'v1'].join('\\s+'), 'i');
 const removedNormalizeOnReadPattern = new RegExp(['normalizes', 'on', 'read'].join('\\s+'), 'i');
+const removedStandaloneArtifactPattern = new RegExp(escapeRegex(removedStandaloneArtifactName));
+const removedRequirementsStandaloneArtifactOrderPattern = new RegExp([
+  escapeRegex('requirements.md'),
+  '.*',
+  escapeRegex(removedStandaloneArtifactName),
+  '|',
+  escapeRegex(removedStandaloneArtifactName),
+  '.*',
+  escapeRegex('requirements.md'),
+].join(''));
 
 function parseFrontmatter(text) {
   if (!text.startsWith('---\n')) {
@@ -95,8 +109,12 @@ function parseFrontmatter(text) {
   return fields;
 }
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function assertIncludesLiteral(text, literal, label) {
-  assert.match(text, new RegExp(literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${literal}`);
+  assert.match(text, new RegExp(escapeRegex(literal)), `${label} missing ${literal}`);
 }
 
 async function readSkillSurface(skillName, referenceFiles = []) {
@@ -111,12 +129,12 @@ async function readSkillSurface(skillName, referenceFiles = []) {
 
 async function rgCurrentSurface(paths, patterns) {
   const outputs = [];
-  const files = [];
+  const files = new Set();
   async function collectFiles(path) {
     const absolutePath = join(repoRoot, path);
     const pathStat = await stat(absolutePath);
     if (pathStat.isFile()) {
-      files.push(path);
+      files.add(path);
       return;
     }
     if (!pathStat.isDirectory()) {
@@ -128,7 +146,7 @@ async function rgCurrentSurface(paths, patterns) {
       if (entry.isDirectory()) {
         await collectFiles(childPath);
       } else if (entry.isFile()) {
-        files.push(childPath);
+        files.add(childPath);
       }
     }
   }
@@ -181,6 +199,56 @@ function assertMarkdownStructure(text, label) {
   assert.deepEqual(fences, [], `${label} has unclosed fenced blocks`);
 }
 
+function markdownHeadings(text) {
+  const headings = [];
+  let fence = null;
+  text.split('\n').forEach((line, index) => {
+    const fenceMatch = line.match(/^(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1];
+      if (fence && marker[0] === fence.char && marker.length >= fence.length) {
+        fence = null;
+      } else if (!fence) {
+        fence = { char: marker[0], length: marker.length };
+      }
+      return;
+    }
+    if (fence) {
+      return;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (headingMatch) {
+      headings.push({
+        line: index + 1,
+        level: headingMatch[1].length,
+        title: headingMatch[2],
+      });
+    }
+  });
+  return headings;
+}
+
+function assertNoEmptyMarkdownSections(text, label) {
+  const lines = text.split('\n');
+  const headings = markdownHeadings(text);
+  for (const [index, heading] of headings.entries()) {
+    const nextPeerOrParent = headings
+      .slice(index + 1)
+      .find((nextHeading) => nextHeading.level <= heading.level);
+    const sectionEnd = nextPeerOrParent?.line ?? lines.length + 1;
+    const sectionBody = lines
+      .slice(heading.line, sectionEnd - 1)
+      .some((line) => line.trim() !== '');
+
+    assert.equal(
+      sectionBody,
+      true,
+      `${label}:${heading.line}: heading "${heading.title}" must have section content before the next peer heading`,
+    );
+  }
+}
+
 function assertSkillHandoffFormat(text, label) {
   assert.match(text, /## Skill Handoff Format/, `${label} must document agent-native handoff rendering`);
   assert.match(text, /Codex: `\$<skill> <args>`/, `${label} missing Codex handoff form`);
@@ -209,6 +277,13 @@ describe('loopx skill governance', () => {
     }
   });
 
+  it('keeps bundled skill sections operationally non-empty', async () => {
+    for (const skillName of LOOPX_BUNDLED_SKILLS) {
+      const rootSkill = await readFile(join(repoRoot, 'skills', skillName, 'SKILL.md'), 'utf8');
+      assertNoEmptyMarkdownSections(rootSkill, `skills/${skillName}/SKILL.md`);
+    }
+  });
+
   it('keeps package files skill surface explicit and verifier packaged', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md must exist');
@@ -223,7 +298,8 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('templates/spec.md'), true, 'npm package must include retained clarify spec template');
     assert.equal(packageJson.files.includes('templates/intake-clarification.md'), true, 'npm package must include clarify intake clarification template');
     assert.equal(packageJson.files.includes('templates/intake-requirements.md'), true, 'npm package must include clarify intake requirements template');
-    assert.equal(packageJson.files.includes('templates/intake-test-cases.md'), true, 'npm package must include clarify intake test cases template');
+    assert.equal(packageJson.files.includes(removedIntakeArtifactTemplate), false, 'npm package must exclude deleted clarify intake test cases template');
+    assert.equal(existsSync(join(repoRoot, removedIntakeArtifactTemplate)), false, 'deleted clarify intake test cases template must not exist');
     assert.equal(packageJson.files.includes('templates/'), false, 'npm package must not include broad runtime templates surface');
     assert.equal(packageJson.files.includes('docs/loopx/'), false, 'npm package must not include broad docs/loopx surface');
     assert.deepEqual(
@@ -315,7 +391,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.match(fields['metadata.version'] ?? '', semverPattern);
+    assert.equal(fields['metadata.version'], '0.1.1');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/i);
     assert.match(skill, /Do not use this skill for:/);
@@ -338,11 +414,13 @@ describe('loopx skill governance', () => {
     assert.match(clarifySkill, /\.loopx\/intake\/YYYY-MM-DD-<slug>\//);
     assert.match(clarifySkill, /clarification\.md/);
     assert.match(clarifySkill, /requirements\.md/);
-    assert.match(clarifySkill, /test-cases\.md/);
+    assert.doesNotMatch(clarifySkill, removedStandaloneArtifactPattern);
     assert.match(clarifySkill, /AC-\*/);
     assert.match(clarifySkill, /TC-\*/);
-    assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` must share the same `AC-\*` anchors/);
-    assert.match(clarifySkill, /black-box acceptance\/integration/i);
+    assert.match(clarifySkill, /Acceptance Scenarios/);
+    assert.match(clarifySkill, /canonical requirement contract/i);
+    assert.match(clarifySkill, /supporting process evidence/i);
+    assert.doesNotMatch(clarifySkill, /shared the same `AC-\*` anchors|share the same `AC-\*` anchors/);
     assert.match(clarifySkill, /first material answer/);
     assert.match(clarifySkill, /\[PENDING\]/);
     assert.match(clarifySkill, /## Resume State/);
@@ -863,7 +941,7 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.13');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.9');
@@ -975,10 +1053,12 @@ describe('loopx skill governance', () => {
     assert.match(specSkill, /unchanged behavior/);
     assert.match(specSkill, /intake package directory/);
     assert.match(specSkill, /requirements\.md/);
-    assert.match(specSkill, /test-cases\.md/);
+    assert.doesNotMatch(specSkill, removedStandaloneArtifactPattern);
     assert.match(planToExecSkill, /intake package directory/);
     assert.match(planToExecSkill, /requirements\.md/);
-    assert.match(planToExecSkill, /test-cases\.md/);
+    assert.doesNotMatch(planToExecSkill, removedStandaloneArtifactPattern);
+    assert.match(specSkill, /Acceptance Scenarios/);
+    assert.match(planToExecSkill, /source `TC-\*` scenarios|source `TC-\*`/);
     assert.match(specSkill, /Support Lens Activation/);
     assert.match(specSkill, /api-designer/);
     assert.match(specSkill, /architecture-designer/);
@@ -1033,8 +1113,8 @@ describe('loopx skill governance', () => {
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.9');
-    assert.equal(planFields['metadata.version'], '0.3.13');
+    assert.equal(specFields['metadata.version'], '0.3.11');
+    assert.equal(planFields['metadata.version'], '0.3.14');
     assert.equal(reviewFields['metadata.version'], '0.3.10');
 
     assert.match(specSkill, /D-\*/);
@@ -1090,7 +1170,7 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.13');
+    assert.equal(planFields['metadata.version'], '0.3.14');
     assert.equal(execFields['metadata.version'], '0.3.10');
     assert.equal(subagentExecFields['metadata.version'], '0.3.13');
     assert.equal(reviewFields['metadata.version'], '0.3.10');
@@ -1158,7 +1238,7 @@ describe('loopx skill governance', () => {
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -1178,7 +1258,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
 
     const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
-    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.0');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.1');
 
     assert.match(planReviewerSkill, /Source AC/);
     assert.match(planReviewerSkill, /Design anchors/);
@@ -1216,13 +1296,13 @@ describe('loopx skill governance', () => {
     const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
     const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.9');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.11');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.10');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.13');
 
-    assert.match(clarifySkill, /`requirements\.md` and `test-cases\.md` are the canonical `AC-\*`\/`TC-\*` source/);
+    assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
 
     for (const contractName of [
@@ -1297,7 +1377,7 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
 
     assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.11');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.9');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
@@ -1335,6 +1415,8 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /Ready for finish\? Yes.*no unaccepted partial coverage/is);
     assert.doesNotMatch(finalReviewSkill, genericArtifactValidatorPattern);
     assert.match(finalReviewSkill, /whole-feature review/i);
+    assert.match(finalReviewSkill, /Match the report language for human-readable checklist headings/);
+    assert.match(finalReviewSkill, /公共接口变更/);
 
     assert.match(finalReviewerPrompt, /Test Trust/);
     assert.match(finalReviewerPrompt, /concrete commands, outputs, skipped checks, and residual risk/);
@@ -1345,6 +1427,14 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewerPrompt, /Claim-to-evidence surface audit/);
     assert.match(finalReviewerPrompt, /evidence is lower-level than the claim/i);
     assert.match(finalReviewerPrompt, /Surface Evidence Audit/);
+    assert.match(finalReviewerPrompt, /\{REPORT_LANGUAGE\}/);
+    assert.match(finalReviewerPrompt, /### 覆盖矩阵审计/);
+    assert.match(finalReviewerPrompt, /### 回归审计/);
+    assert.match(finalReviewerPrompt, /### 测试可信度审计/);
+    assert.match(finalReviewerPrompt, /### 证据表面审计/);
+    assert.match(finalReviewerPrompt, /#### 严重/);
+    assert.match(finalReviewerPrompt, /#### 重要/);
+    assert.match(finalReviewerPrompt, /#### 次要/);
     assert.match(finalReviewerPrompt, /start_commit/);
     assert.match(finalReviewerPrompt, /review_head/);
     assert.match(finalReviewerPrompt, /tracked_diff_included/);
@@ -1630,5 +1720,45 @@ describe('loopx skill governance', () => {
     assert.match(execSkill, /run `loopx:final-review` and `loopx:finish` when clean|run `loopx:final-review`, then `loopx:finish`/);
     assert.match(subagentExecSkill, /`spec-level final-review`, then `finish`/);
     assert.match(subagentExecSkill, /before\s+`finish`/i);
+  });
+
+  it('keeps standalone clarify test-cases artifact out of current surfaces', async () => {
+    const currentSurface = [
+      'src',
+      'scripts',
+      'test',
+      'templates',
+      'skills',
+      'package.json',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/loopx/cli.md',
+      'docs/loopx/cli.zh-CN.md',
+      'docs/loopx/skills.md',
+      'docs/loopx/skills.zh-CN.md',
+      'docs/loopx/specs/installation.md',
+      'docs/loopx/design/loopx-skill-suite-v1-design.md',
+    ];
+    const output = await rgCurrentSurface(currentSurface, [
+      removedTestCasesPathKey,
+      escapeRegex(removedHumanTestCasesLabel),
+      escapeRegex(removedStandaloneArtifactName),
+      escapeRegex(removedIntakeArtifactTemplate.replace('templates/', '')),
+    ]);
+    assert.equal(output.trim(), '');
+
+    const requirementsContractOutput = await rgCurrentSurface([
+      'skills',
+      'README.md',
+      'README.zh-CN.md',
+      'docs/loopx/cli.md',
+      'docs/loopx/cli.zh-CN.md',
+      'docs/loopx/skills.md',
+      'docs/loopx/skills.zh-CN.md',
+      'docs/loopx/specs/installation.md',
+    ], [
+      removedRequirementsStandaloneArtifactOrderPattern.source,
+    ]);
+    assert.equal(requirementsContractOutput.trim(), '');
   });
 });

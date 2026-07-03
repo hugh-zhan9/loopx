@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.10"
+  version: "0.3.12"
 ---
 
 # loopx Clarify
@@ -11,6 +11,8 @@ metadata:
 Do not accept vague answers. Do not optimize for speed. The goal is shared understanding: every material question that could change scope, design, verification, rollout, safety, or ownership must be answered before handoff.
 
 ## Core Loop
+
+First load only relevant repo context, then alternate between evidence gathering and one-question-at-a-time user clarification until every material requirement boundary is resolved. Keep the intake package current after each confirmed answer.
 
 ## Repo Specs And Memory Context
 
@@ -39,13 +41,10 @@ Write to:
 
 - `.loopx/intake/YYYY-MM-DD-<slug>/clarification.md`
 - `.loopx/intake/YYYY-MM-DD-<slug>/requirements.md`
-- `.loopx/intake/YYYY-MM-DD-<slug>/test-cases.md`
 
-`clarification.md` records the Q&A process, exact user wording, assumptions challenged, rejected alternatives, brownfield evidence, and `## Resume State`.
+`clarification.md` records supporting process evidence: the Q&A process, exact user wording, assumptions challenged, rejected alternatives, brownfield evidence, and `## Resume State`. Downstream skills read it only for exact user wording, unresolved-history context, or resume information.
 
-`requirements.md` records the confirmed requirement contract: source facts, intent, scope, non-goals, decisions, constraints, acceptance criteria, open questions, and handoff recommendation.
-
-`test-cases.md` records requirement-stage black-box acceptance/integration scenarios. It is not a unit test implementation plan.
+`requirements.md` records the confirmed canonical requirement contract: source facts, intent, scope, non-goals, decisions, constraints, acceptance criteria, acceptance scenarios, open questions, and handoff recommendation.
 
 **Incremental writing rules:**
 
@@ -57,11 +56,11 @@ Write to:
 
 Acceptance criteria in `requirements.md` must use stable `AC-*` anchors. Prefer `WHEN / THEN / AND` wording, and do not hand off `direct_to_plan` when material ACs are not testable.
 
-Test cases in `test-cases.md` must use stable `TC-*` anchors. Every `TC-*` must reference at least one `AC-*`. High-risk `AC-*` items need at least one boundary or failure case unless the package records a concrete manual/deferred rationale.
+Acceptance scenarios in `requirements.md` must use stable `TC-*` anchors under an `Acceptance Scenarios` section. Every `TC-*` must reference at least one `AC-*`. High-risk `AC-*` items need at least one boundary or failure case unless the package records a concrete manual/deferred rationale.
 
-`requirements.md` and `test-cases.md` must share the same `AC-*` anchors. If they conflict, keep the package blocked and continue clarification.
+`requirements.md` is the canonical `AC-*` and `TC-*` source. If AC/TC anchors are missing, contradictory, or not testable, keep the package blocked and continue clarification.
 
-Main-chain handoff rule: `requirements.md` and `test-cases.md` are the canonical `AC-*`/`TC-*` source for downstream chain work. `spec`, `plan-to-exec`, `exec`, `subagent-exec`, `review`, `final-review`, and `finish` consume those anchors as source contract identifiers. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
+Main-chain handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for downstream chain work. `spec`, `plan-to-exec`, `exec`, `subagent-exec`, `review`, `final-review`, and `finish` consume those anchors as source contract identifiers. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
 
 The completed intake package must preserve the information `spec` or `plan-to-exec` needs:
 
@@ -80,6 +79,8 @@ The completed intake package must preserve the information `spec` or `plan-to-ex
 - next handoff recommendation
 
 ## Handoff Decision
+
+Choose the next skill from the completed intake package, not from a guess about implementation size. `needs_spec`, `direct_to_plan`, and `blocked` are the only valid outcomes.
 
 ## Skill Handoff Format
 

@@ -106,6 +106,56 @@ async function assertMarkdownStructure(relativePath) {
   assert.deepEqual(fenceStack, [], `${relativePath} has unclosed fenced block`);
 }
 
+function markdownHeadings(text) {
+  const headings = [];
+  let fence = null;
+  text.split('\n').forEach((line, index) => {
+    const fenceMatch = line.match(/^(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1];
+      if (fence && marker[0] === fence.char && marker.length >= fence.length) {
+        fence = null;
+      } else if (!fence) {
+        fence = { char: marker[0], length: marker.length };
+      }
+      return;
+    }
+    if (fence) {
+      return;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (headingMatch) {
+      headings.push({
+        line: index + 1,
+        level: headingMatch[1].length,
+        title: headingMatch[2],
+      });
+    }
+  });
+  return headings;
+}
+
+function assertNoEmptyMarkdownSections(text, label) {
+  const lines = text.split('\n');
+  const headings = markdownHeadings(text);
+  for (const [index, heading] of headings.entries()) {
+    const nextPeerOrParent = headings
+      .slice(index + 1)
+      .find((nextHeading) => nextHeading.level <= heading.level);
+    const sectionEnd = nextPeerOrParent?.line ?? lines.length + 1;
+    const sectionBody = lines
+      .slice(heading.line, sectionEnd - 1)
+      .some((line) => line.trim() !== '');
+
+    assert.equal(
+      sectionBody,
+      true,
+      `${label}:${heading.line}: heading "${heading.title}" must have section content before the next peer heading`,
+    );
+  }
+}
+
 function assertContains(text, value, label) {
   assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
 }
@@ -214,6 +264,7 @@ async function assertSkill(skillName, resolverText) {
 
   const rootText = await readFile(rootPath, 'utf8');
   assert.equal(personalPathPattern.test(rootText), false, `${skillName} contains a personal absolute path`);
+  assertNoEmptyMarkdownSections(rootText, `skills/${skillName}/SKILL.md`);
 
   const fields = parseFrontmatter(rootPath, rootText);
   assert.equal(fields.name, skillName, `${skillName} frontmatter name mismatch`);

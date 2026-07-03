@@ -9,7 +9,7 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 - Public `lancet` controls are `loopx lancet on`, `loopx lancet off`, and `loopx lancet status`.
 - Removed early runtime commands must not appear in current public docs, default help, next-step helpers, workflow hooks, or installer guidance.
 - `loopx next` returns a skill handoff, not a runtime command handoff.
-- `loopx clarify` writes local runtime intake packages under `.loopx/intake/YYYY-MM-DD-<slug>/`; `loopx status --json` exposes package and child artifact paths while preserving `spec_artifact_path` for compatibility.
+- `loopx clarify` writes local runtime intake packages under `.loopx/intake/YYYY-MM-DD-<slug>/`; `loopx status --json` exposes `intake_package_path`, `requirements_path`, and `clarification_path`, with `spec_artifact_path` pointing to `requirements_path` for compatibility.
 
 ## Human And JSON Output
 

@@ -17,6 +17,7 @@
 - 目标用户/使用方：
 - 需求链接：
 - 关联原始材料：
+- Intake package contract：`requirements.md`（canonical `AC-*` / `TC-*`）；`clarification.md`（supporting evidence，仅按需引用）
 
 ### 2.2 需求范围
 
@@ -343,7 +344,7 @@ $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 
 ### 11.3 Verification Strategy / TC 覆盖映射
 
-当 source 包含 `test-cases.md` 时，列出每个相关 `TC-*` 如何映射到设计级验证策略、人工检查或 deferred-with-rationale。若本设计包含 `D-*`，在验证策略中体现 `AC-* -> D-* -> TC-*` 的关系。
+当 source 包含 intake package `requirements.md` 中的 `Acceptance Scenarios` 或其他来源中的 `TC-*` 时，列出每个相关 `TC-*` 如何映射到设计级验证策略、人工检查或 deferred-with-rationale。若本设计包含 `D-*`，在验证策略中体现 `AC-* -> D-* -> TC-*` 的关系。
 
 | TC | Source AC | Related D anchors | 设计级验证策略 | 自动化/人工 | Deferred rationale |
 |---|---|---|---|---|---|

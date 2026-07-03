@@ -18,6 +18,11 @@ const cliPath = resolve(repoRoot, 'src/cli.mjs');
 const SCHEMA_VERSION_FIELD = ['schema', 'version'].join('_');
 const SCHEMA_VERSION_ONE = Number.parseInt('1', 10);
 const SCHEMA_VERSION_LINE = `${SCHEMA_VERSION_FIELD}: ${SCHEMA_VERSION_ONE}`;
+const removedIntakeArtifactKey = ['test', 'cases', 'path'].join('_');
+const removedIntakeArtifactExistsKey = ['test', 'cases', 'exists'].join('_');
+const removedMissingArtifactName = ['test', 'cases'].join('_');
+const removedIntakeArtifactFile = `${['test', 'cases'].join('-')}.md`;
+const removedHumanTestCasesLinePattern = new RegExp(`^${['test', 'cases:'].join(' ')}`, 'm');
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -219,19 +224,17 @@ describe('loopx retained workflow shell', () => {
     assert.equal(existsSync(result.state.intake_package_path), true);
     assert.equal(result.state.clarification_path, join(result.state.intake_package_path, 'clarification.md'));
     assert.equal(result.state.requirements_path, join(result.state.intake_package_path, 'requirements.md'));
-    assert.equal(result.state.test_cases_path, join(result.state.intake_package_path, 'test-cases.md'));
+    assert.equal(Object.hasOwn(result.state, removedIntakeArtifactKey), false);
     assert.equal(result.state.spec_artifact_path, result.state.requirements_path);
     assert.equal(existsSync(result.state.clarification_path), true);
     assert.equal(existsSync(result.state.requirements_path), true);
-    assert.equal(existsSync(result.state.test_cases_path), true);
 
     const requirements = await readFile(result.state.requirements_path, 'utf8');
-    const testCases = await readFile(result.state.test_cases_path, 'utf8');
     assert.match(requirements, /## Acceptance Criteria/);
     assert.match(requirements, /### AC-001/);
-    assert.match(testCases, /## Coverage Summary/);
-    assert.match(testCases, /### TC-001/);
-    assert.match(testCases, /Source AC: AC-001/);
+    assert.match(requirements, /## Acceptance Scenarios/);
+    assert.match(requirements, /### TC-001/);
+    assert.match(requirements, /Source AC: AC-001/);
   });
 
   it('status exposes clarify intake package paths', async () => {
@@ -241,16 +244,17 @@ describe('loopx retained workflow shell', () => {
     const status = await statusSummary(wd, 'package-status');
     assert.equal(status.intake_package_path, status.state.intake_package_path);
     assert.equal(status.requirements_path, status.state.requirements_path);
-    assert.equal(status.test_cases_path, status.state.test_cases_path);
+    assert.equal(Object.hasOwn(status, removedIntakeArtifactKey), false);
+    assert.equal(Object.hasOwn(status.state, removedIntakeArtifactKey), false);
     assert.equal(status.spec_artifact_path, status.state.requirements_path);
     assert.equal(status.artifacts.intake_package_exists, true);
     assert.equal(status.artifacts.requirements_exists, true);
-    assert.equal(status.artifacts.test_cases_exists, true);
+    assert.equal(Object.hasOwn(status.artifacts, removedIntakeArtifactExistsKey), false);
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'package-status'], { cwd: wd });
     assert.match(stdout, /^intake: .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-package-status/m);
     assert.match(stdout, /^requirements: .*requirements\.md$/m);
-    assert.match(stdout, /^test cases: .*test-cases\.md$/m);
+    assert.doesNotMatch(stdout, removedHumanTestCasesLinePattern);
 
     assert.equal(existsSync(clarified.state.requirements_path), true);
   });
@@ -263,6 +267,22 @@ describe('loopx retained workflow shell', () => {
     assert.notEqual(first.state.intake_package_path, second.state.intake_package_path);
     assert.equal(existsSync(first.state.requirements_path), true);
     assert.equal(existsSync(second.state.requirements_path), true);
+  });
+
+  it('clarify drops removed intake artifact fields from existing state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-removed-intake-state-'));
+    const first = await clarifyStage(wd, 'removed-state');
+    await writeFile(join(first.root, 'state.json'), `${JSON.stringify({
+      ...first.state,
+      [removedIntakeArtifactKey]: join(first.state.intake_package_path, removedIntakeArtifactFile),
+    }, null, 2)}\n`);
+
+    const second = await clarifyStage(wd, 'removed-state');
+    const status = await statusSummary(wd, 'removed-state');
+
+    assert.equal(Object.hasOwn(second.state, removedIntakeArtifactKey), false);
+    assert.equal(Object.hasOwn(status.state, removedIntakeArtifactKey), false);
+    assert.equal(Object.hasOwn(status, removedIntakeArtifactKey), false);
   });
 
   it('status and next recommend plan-to-exec when clarify is handoff-ready', async () => {
@@ -293,13 +313,13 @@ describe('loopx retained workflow shell', () => {
     const intakeDisplayPath = `(?:${escapeRegExp(status.state.intake_package_path)}|\\.loopx${pathSeparatorPattern}intake${pathSeparatorPattern}${escapeRegExp(intakePackageName)})`;
     assert.match(statusStdout, new RegExp(`^intake: ${intakeDisplayPath}$`, 'm'));
     assert.match(statusStdout, new RegExp(`^requirements: (?:${escapeRegExp(status.state.requirements_path)}|${intakeDisplayPath}${pathSeparatorPattern}requirements\\.md)$`, 'm'));
-    assert.match(statusStdout, new RegExp(`^test cases: (?:${escapeRegExp(status.state.test_cases_path)}|${intakeDisplayPath}${pathSeparatorPattern}test-cases\\.md)$`, 'm'));
+    assert.doesNotMatch(statusStdout, removedHumanTestCasesLinePattern);
 
     const { stdout: statusJsonStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow', '--json'], { cwd: wd });
     const statusJson = JSON.parse(statusJsonStdout);
     assert.equal(statusJson.state.intake_package_path, status.state.intake_package_path);
     assert.equal(statusJson.state.requirements_path, status.state.requirements_path);
-    assert.equal(statusJson.state.test_cases_path, status.state.test_cases_path);
+    assert.equal(Object.hasOwn(statusJson.state, removedIntakeArtifactKey), false);
   });
 
   it('status derives clarify readiness from Resume State when frontmatter is stale', async () => {
@@ -348,7 +368,6 @@ describe('loopx retained workflow shell', () => {
       clarification_path: null,
       intake_package_path: null,
       requirements_path: null,
-      test_cases_path: null,
       spec_artifact_path: join(clarified.root, 'spec.md'),
     }, null, 2)}\n`);
     await writeResolvedSpec(clarified.root, 'legacy-ready');
@@ -377,10 +396,9 @@ describe('loopx retained workflow shell', () => {
     assert.equal(status.artifacts.spec_artifact_exists, true);
     assert.equal(status.artifacts.intake_package_exists, undefined);
     assert.equal(status.artifacts.clarification_exists, undefined);
-    assert.equal(status.artifacts.test_cases_exists, undefined);
     assert.equal(status.missing_artifacts.includes('intake_package'), false);
     assert.equal(status.missing_artifacts.includes('clarification'), false);
-    assert.equal(status.missing_artifacts.includes('test_cases'), false);
+    assert.equal(status.missing_artifacts.includes(removedMissingArtifactName), false);
 
     await rm(specPath);
     const missingSpecStatus = await statusSummary(wd, 'legacy-flow');

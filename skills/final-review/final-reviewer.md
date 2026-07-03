@@ -13,6 +13,9 @@ Native subagent:
     find whole-feature risks that can still break users, corrupt state, lose
     data, or leave important behavior untested. A claim is only covered when
     the evidence comes from the same surface the claim describes.
+    Match the human-readable output headings and labels to this report
+    language: {REPORT_LANGUAGE}. Keep `Ready for finish?` and exact status
+    values `Yes`, `No`, and `With fixes` unchanged.
 
     ## What Was Implemented
 
@@ -179,6 +182,55 @@ Native subagent:
 
     ## Output Format
 
+    If `{REPORT_LANGUAGE}` is `zh-CN`, use this exact heading structure:
+
+    ### 覆盖矩阵审计
+
+    [指出你不同意的矩阵行：实现不匹配、测试不足，或状态应调整。]
+
+    ### 回归审计
+
+    [指出遗漏的接口变更、错误的兼容性判断，或缺失的迁移路径。]
+
+    ### 测试可信度审计
+
+    [说明 Test Trust 等级是否准确。引用具体命令、输出、跳过项和剩余风险。]
+
+    ### 证据表面审计
+
+    [说明主要用户可见、公共接口、持久化和工作流声明是否有同表面证据支撑。列出只由低层证据支撑的声明。]
+
+    ### 发现
+
+    #### 严重
+    [finish 前必须修复：数据丢失、状态损坏、工作流中断、安全问题、稳定运行时失败，或需求未满足。]
+
+    #### 重要
+    [finish 前应修复：集成问题、未覆盖的边界条件、证明力不足的弱测试、影响使用或维护的误导文档、回归风险。]
+
+    #### 次要
+    [低风险可维护性或清晰度问题。不要报告纯文字润色。]
+
+    每个发现都要包含：
+    - 文件:行引用
+    - 问题是什么
+    - 为什么重要
+    - 如何修复，或需要什么证据才能关闭
+
+    ### 覆盖说明
+    [简要说明你检查过的运行时路径和测试。]
+
+    ### 评估
+
+    **Ready for finish?** [Yes | No | With fixes]
+
+    **覆盖情况：** X/Y 项需求已验证为覆盖
+    **回归评估：** [无问题 / 发现问题]
+
+    **判断依据：** [用 1-2 句说明基于风险的结论。]
+
+    If `{REPORT_LANGUAGE}` is not `zh-CN`, use this exact heading structure:
+
     ### Coverage Matrix Audit
 
     [Note any rows you disagree with — implementation doesn't match, test is
@@ -267,5 +319,6 @@ Native subagent:
 - `{START_COMMIT}` - recorded `start_commit` or stated fallback start
 - `{REVIEW_HEAD}` - current `HEAD` at review time
 - `{TRACKED_DIFF_INCLUDED}` - `yes` when tracked staged or unstaged changes were included, otherwise `no`
+- `{REPORT_LANGUAGE}` - `zh-CN` for Chinese reports, otherwise `en`
 
-**Reviewer returns:** Coverage Matrix Audit, Regression Audit, Test Trust Audit, Surface Evidence Audit, Findings by severity, Coverage Notes, Assessment.
+**Reviewer returns:** localized headings for coverage matrix audit, regression audit, test trust audit, surface evidence audit, findings by severity, coverage notes, and assessment.

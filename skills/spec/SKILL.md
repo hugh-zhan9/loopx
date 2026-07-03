@@ -3,7 +3,7 @@ name: spec
 description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
 when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
 metadata:
-  version: "0.3.9"
+  version: "0.3.11"
 ---
 
 # loopx Spec
@@ -11,6 +11,8 @@ metadata:
 Turn clarified requirements into design documents. Do not invent missing requirements. Do not write an implementation plan. Do not change code.
 
 ## Inputs
+
+Start from an approved requirements source, intake package, PRD, or external requirements document. Treat missing material decisions as a reason to route back to `clarify`, not as design freedom.
 
 ## Repo Specs And Memory Context
 
@@ -31,11 +33,10 @@ The source may be an intake package directory:
 
 When the source is an intake package directory, read:
 
-1. `requirements.md` as the requirement contract.
-2. `test-cases.md` as requirement-stage acceptance/integration scenarios.
-3. `clarification.md` only as process evidence and exact user wording.
+1. `requirements.md` as the canonical requirement contract, including `AC-*` acceptance criteria and `TC-*` acceptance scenarios.
+2. `clarification.md` only as supporting process evidence, exact user wording, unresolved-history context, and resume information when needed.
 
-If `requirements.md` and `test-cases.md` disagree about `AC-*`, stop and route back to `clarify`.
+If `requirements.md` lacks material `AC-*` or `TC-*`, contains contradictions, or leaves material pending questions unresolved, stop and route back to `clarify`.
 
 Legacy `.loopx/intake/clarify-*.md` clarify bundles remain readable compatibility inputs. Do not migrate or rewrite them; use the package directory contract for new `clarify` output.
 
@@ -140,7 +141,7 @@ Cover:
 
 For brownfield work, distinguish repo evidence from inference.
 
-When the source is an intake package directory, the detailed design must reference the intake package path and its `requirements.md` and `test-cases.md` files. The verification strategy must preserve `TC-*` coverage by mapping requirement-stage acceptance/integration scenarios to design-level test strategy, manual checks, or deferred-with-rationale items. If the detailed design also contains `D-*` anchors, the verification strategy should make the `AC-* -> D-* -> TC-*` relationship visible where that helps downstream planning.
+When the source is an intake package directory, the detailed design must reference the intake package path and its canonical `requirements.md` file, and mention `clarification.md` only when supporting process evidence or exact wording matters. The verification strategy must preserve `TC-*` coverage from the `Acceptance Scenarios` section in `requirements.md` by mapping requirement-stage scenarios to design-level test strategy, manual checks, or deferred-with-rationale items. If the detailed design also contains `D-*` anchors, the verification strategy should make the `AC-* -> D-* -> TC-*` relationship visible where that helps downstream planning.
 
 ## Output
 

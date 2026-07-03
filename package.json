@@ -64,7 +64,6 @@
     "templates/spec.md",
     "templates/intake-clarification.md",
     "templates/intake-requirements.md",
-    "templates/intake-test-cases.md",
     "plugins/loopx/",
     "!plugins/loopx/scripts/plugin-install.test.mjs"
   ],

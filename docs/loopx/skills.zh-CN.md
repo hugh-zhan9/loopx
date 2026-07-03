@@ -30,7 +30,7 @@ issue -> fix -> finish
 
 | Skill | 什么时候用 | 产出 |
 |---|---|---|
-| `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | `.loopx/intake/YYYY-MM-DD-<slug>/` 下的 intake package，包含 `clarification.md`、`requirements.md`、`test-cases.md`，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
+| `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | `.loopx/intake/YYYY-MM-DD-<slug>/` 下的 intake package，包含 canonical `requirements.md`、supporting `clarification.md`，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
 | `spec` | 产品行为、API、数据、状态、权限、迁移、兼容、边界场景或架构决策需要先固定。 | 默认产出 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`；只有需要 proposal 级取舍或评审时才额外产出 `设计提案.md`。 |
 | `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 | `docs/loopx/codebase-specs/` 下的详细 codebase spec。 |
 | `plan-to-exec` | 需求或 spec 已批准，需要拆成可执行任务。 | `docs/loopx/plans/` 下的小步实施计划。 |

@@ -44,7 +44,7 @@ clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-revie
 
 `spec` is a conditional design gate. `clarify` may route directly to `plan-to-exec` when the remaining questions are local implementation choices. It routes to `spec` when product behavior, APIs, state, data, permissions, migration, compatibility, or architecture decisions need to be fixed before implementation planning.
 
-New `clarify` workflow output is an intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` containing `clarification.md`, `requirements.md`, and `test-cases.md`. Downstream `spec` and `plan-to-exec` consume the package directory; legacy `.loopx/intake/clarify-*.md` files remain readable compatibility inputs and are not migrated.
+New `clarify` workflow output is an intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` containing canonical `requirements.md` and supporting `clarification.md`. Downstream `spec` and `plan-to-exec` consume the package directory; legacy `.loopx/intake/clarify-*.md` files remain readable compatibility inputs and are not migrated.
 
 `plan-to-exec` is the superpowers `writing-plans` workflow under the loopx name. It writes executable plans and offers two execution options: `subagent-exec` recommended, or `exec` inline.
 
@@ -70,7 +70,7 @@ Human-maintained v1 skill-suite artifacts use `docs/loopx/`:
 
 Runtime state, hook diagnostics, installer metadata, generated HTML views, and runtime JSON use `.loopx/`.
 
-Clarify intake packages are runtime workflow artifacts under `.loopx/intake/`, with `requirements.md` as the requirement contract and `test-cases.md` as black-box acceptance/integration scenario input for downstream planning and review.
+Clarify intake packages are runtime workflow artifacts under `.loopx/intake/`, with `requirements.md` as the canonical requirement contract carrying both `AC-*` and `TC-*`, and `clarification.md` as supporting process evidence and resume context for downstream work.
 
 Local agent memory uses `.loopx/memory/`. `.loopx/memory/MEMORY.md` is bounded curated project memory. `.loopx/memory/index.jsonl` is a curated active index for agent file-search. Stable shared rules belong in `docs/loopx/specs/<domain>.md`, with `docs/loopx/specs/inbox.md` as the fallback domain.
 
