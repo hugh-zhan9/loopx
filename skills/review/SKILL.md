@@ -3,7 +3,7 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against task evidence or a feature git range with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
 ---
 
 # Review
@@ -27,6 +27,10 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## Review Stages
 
 Review has two stages. Run them in order. Do not skip stage 1.
+
+## STOP Conditions
+
+Stop before Stage 2 when Stage 1 spec compliance fails. Stop before approval when any Critical or Important finding lacks concrete closure evidence.
 
 When a design proposal, detailed design, implementation plan, task brief, or issue contract exists, include it in the reviewer context. Do not dispatch a code-only review for plan-driven work. If no formal artifact exists, say the review is degraded to intent check and name the source used instead.
 

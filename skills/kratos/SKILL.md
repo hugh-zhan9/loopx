@@ -3,7 +3,7 @@ name: kratos
 description: "Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone."
 when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Kratos
@@ -26,6 +26,14 @@ Before applying Kratos-specific patterns, inspect for these signals:
 - imports containing `github.com/go-kratos/kratos/v2`
 
 If signals are weak, ask whether to proceed with Kratos conventions before creating framework-specific structure.
+
+## STOP Conditions
+
+Stop before applying this skill when:
+
+- The repository has no Kratos, proto, buf, or `internal/{service,biz,data}` signals and the user did not explicitly ask for Kratos.
+- The requested change is generic Go cleanup with no framework boundary; use `go-style` instead.
+- API, permission, migration, or rollout behavior is unresolved; route those decisions through `clarify` or `spec`.
 
 ## Decision Map
 
@@ -62,6 +70,21 @@ Use only the reference file needed for the current task:
 - MySQL column definitions in `CREATE TABLE` or `ALTER TABLE ... ADD COLUMN` statements must include column-level `COMMENT`.
 - When using Ent schema for MySQL tables, add `.Comment(...)` to fields that are persisted as columns.
 - Use `sql-style` for broader SQL/database discipline: schema semantics, migrations, indexes, dialect behavior, query plans, and performance-sensitive data access.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Generated code does not match source `.proto` files | Inspect the repository's documented generation command and rerun it | Stop and report the missing or failing generator command instead of editing generated files by hand |
+| Layer ownership is unclear | Read nearby `internal/service`, `internal/biz`, and `internal/data` examples | Route the ownership decision through `architecture-designer` or `spec` |
+| Middleware/auth behavior is order-sensitive | Trace existing registration order and tests before changing code | Use `debug` to establish the failing request path before patching |
+
+## Do Not
+
+- Do not create Kratos layout in a non-Kratos repository without explicit user direction.
+- Do not edit generated `.pb.go`, `.pb.validate.go`, or generated OpenAPI files as the canonical source.
+- Do not move business rules into transport handlers to make a quick fix.
+- Do not introduce new dependency-injection frameworks when the project already has one.
 
 ## Integration With Other loopx Skills
 

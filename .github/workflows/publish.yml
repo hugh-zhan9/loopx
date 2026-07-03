@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   detect-version-change:
+    if: github.ref_name != 'darwin'
     runs-on: ubuntu-latest
 
     outputs:
@@ -56,7 +57,7 @@ jobs:
 
   publish:
     needs: detect-version-change
-    if: needs.detect-version-change.outputs.changed == 'true'
+    if: github.ref_name != 'darwin' && needs.detect-version-change.outputs.changed == 'true'
     runs-on: ubuntu-latest
 
     steps:

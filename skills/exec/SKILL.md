@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
 ---
 
 # Exec
@@ -134,9 +134,16 @@ already covers every change since the previous review.
 - [Multi-Plan Package Mode](references/multi-plan-package-mode.md)
 - [Checkpoints and Resume](references/checkpoints-and-resume.md)
 
-## Stop Conditions
+## STOP Conditions
 
 Stop and report the concrete blocker if the plan is ambiguous, the required
 input path is missing, a checkpoint review returns Critical or Important issues
 that cannot be fixed immediately, verification fails repeatedly, or execution is
 blocked by a dependency or environment issue.
+
+## Red Flags
+
+- Do not execute an unreadable, ambiguous, or anchor-broken plan.
+- Do not skip checkpoint review because local tests passed.
+- Do not create task-level commits or use the Git index as task state.
+- Do not start `final-review` until diffs and checkpoint obligations are clean.

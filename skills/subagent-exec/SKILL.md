@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.13"
+  version: "0.3.14"
 ---
 
 # Subagent Exec
@@ -161,7 +161,7 @@ plan state updates, and spec-level completion rules, use
 - [task-handoff-and-review.md](./references/task-handoff-and-review.md)
 - [model-selection-and-retry.md](./references/model-selection-and-retry.md)
 
-## Stop Conditions
+## STOP Conditions
 
 Stop and report the defect when any of the following is true:
 
@@ -178,3 +178,10 @@ Stop and report the defect when any of the following is true:
 
 Use `loopx:exec` only when subagent support is unavailable or the work cannot
 be delegated safely.
+
+## Red Flags
+
+- Do not dispatch overlapping write scopes to parallel subagents.
+- Do not mark a task complete without both execution evidence and task review.
+- Do not redispatch completed tasks during resume.
+- Do not use task-level commits or Git-index checkpoints as proof of task state.

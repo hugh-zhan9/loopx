@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Issue
@@ -35,6 +35,10 @@ clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review ->
 `issue` does not perform lasting product code changes. It may read code, run commands, and inspect git history. Temporary diagnostic edits are allowed only on a clean worktree by default. If the worktree is dirty, do not create temporary diagnostic edits unless the user explicitly allows them; when allowed, record a baseline diff first, then roll back the diagnostic diff or record it as a diagnostic patch for `fix`.
 
 Do not use issue tracker automation. If the source is an external issue, the user must provide the issue text, a local file, or pasted output.
+
+## STOP Conditions
+
+Stop before marking an issue `ready_for_fix` when reproduction, root cause, expected behavior, affected files, forbidden scope, or verification commands are missing. A vague report must remain in diagnosis, not become a fix brief.
 
 ## Inputs
 

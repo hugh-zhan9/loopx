@@ -4,7 +4,7 @@ description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, re
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---
@@ -27,6 +27,14 @@ This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `fin
 4. **Specify contract** — For REST, create OpenAPI 3.1 and validate with `npx @redocly/cli lint openapi.yaml`. For GraphQL, define the schema and run the project's schema validation or code generation checks.
 5. **Mock and verify** — For REST, use a mock server such as `npx @stoplight/prism-cli mock openapi.yaml`. For GraphQL, exercise representative operations against the project schema or a local GraphQL test server.
 6. **Plan evolution** — Design versioning, deprecation, and backward-compatibility strategy
+
+## STOP Conditions
+
+Stop before finalizing an API contract when:
+
+- Product behavior, authorization, compatibility, or migration rules are unresolved.
+- The request needs implementation planning rather than contract design; route to `plan-to-exec` after `spec`.
+- Existing clients or public schemas may break and no approved deprecation or migration path exists.
 
 ## Reference Guide
 
@@ -73,6 +81,14 @@ When designing GraphQL APIs, provide the same contract rigor as REST:
 - Avoid unbounded nested queries; plan depth, complexity, batching, and caching controls.
 - Version by additive schema evolution and documented deprecation, not parallel endpoint versions unless the product contract requires it.
 - Specify error shape, partial-success behavior, and resolver-level authorization failures.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| REST resource model is unclear | Name candidate resources and the business operation each supports | Route unresolved product semantics through `clarify` or `spec` |
+| OpenAPI or schema validation fails | Fix the contract artifact before treating examples as authoritative | Report validation errors with the command used |
+| Compatibility impact is unknown | Inventory existing endpoints, clients, schemas, or SDKs from repo evidence | Do not approve breaking changes without migration notes |
 
 ## Templates
 
