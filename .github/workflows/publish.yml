@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - package.json
+      - plugins/loopx/.codex-plugin/plugin.json
+      - docs/release-notes/**
 
 permissions:
   contents: read
@@ -14,7 +18,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-version-change:
+    runs-on: ubuntu-latest
+
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
+      current: ${{ steps.version.outputs.current }}
+      previous: ${{ steps.version.outputs.previous }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect package version change
+        id: version
+        shell: bash
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          PREVIOUS_VERSION=""
+
+          if git cat-file -e "${{ github.event.before }}:package.json" 2>/dev/null; then
+            PREVIOUS_VERSION=$(git show "${{ github.event.before }}:package.json" | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => console.log(JSON.parse(input).version));")
+          fi
+
+          echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "package.json version changed: ${PREVIOUS_VERSION:-<none>} -> $CURRENT_VERSION"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "package.json version did not change: $CURRENT_VERSION"
+          fi
+
   publish:
+    needs: detect-version-change
+    if: needs.detect-version-change.outputs.changed == 'true'
     runs-on: ubuntu-latest
 
     steps:
