@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.13"
+  version: "0.3.14"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -22,7 +22,7 @@ Use this skill after requirements are clear. The source may be:
 - legacy `.loopx/intake/clarify-*.md` clarify bundles
 - an issue, PRD, or requirements document that already fixes material decisions
 
-When the source is an intake package directory, read `requirements.md` and `test-cases.md` before planning. Use `clarification.md` only for process evidence, exact user wording, and unresolved-history context.
+When the source is an intake package directory, read canonical `requirements.md` before planning. Use `clarification.md` only for supporting process evidence, exact user wording, and unresolved-history context.
 
 ## Repo Specs And Memory Context
 
@@ -37,7 +37,7 @@ Do not read every file under `docs/loopx/specs/` by default. Prefer relevant spe
 
 Do not re-decide product or architecture. If the source is incomplete, contradictory, or missing product behavior, API, data, state, permission, migration, compatibility, or architecture decisions, return to `clarify` or `spec` instead of filling those gaps inside `plan`.
 
-The plan must preserve `AC-*` anchors from `requirements.md` and cover `TC-*` scenarios from `test-cases.md` through tasks, verification commands, or deferred-with-rationale rows. For legacy clarify bundles or spec source documents, preserve and cover generated requirement anchors from the source. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
+The plan must preserve source `AC-*` anchors and cover source `TC-*` scenarios through tasks, verification commands, or deferred-with-rationale rows. For intake package sources, read both from canonical `requirements.md`. For design document sources, read the design document and preserve carried `D-*`, `AC-*`, and `TC-*` anchors from that document. For legacy clarify bundles or other approved source documents, preserve and cover generated requirement anchors from the source. It must not introduce uncovered product/API/data/permission behavior; add explicit rationale for non-product infrastructure, docs-only, test-only, or refactor-only work that has no direct anchor.
 
 When a source design spec contains `D-*` design anchors or a `Design Contract Index / D-*` table, preserve those anchors in the plan. Each implementation-relevant `D-*` must map to at least one task, verification step, review focus, or deferred-with-rationale row. Task briefs should include `Design anchors: D-001, D-002` alongside `Source AC`. If a `D-*` anchor is missing, contradictory, or would require a new design decision to plan safely, return to `spec` instead of inventing the decision in the plan.
 
@@ -353,7 +353,7 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 7. **Surface-change coverage:** If this plan removes, replaces, narrows, migrates, or changes compatibility, does it include a Surface Inventory, Caller Proof commands, Negative Assertions, and package/deployment checks? If not, add them before handoff.
 8. **Support lens coverage:** If the source design names support lenses, does each relevant task list them and include verification or review steps that exercise their discipline? If not, add them before handoff.
 9. **Subagent handoff readiness:** Does every task brief carry enough Global Constraints, Interfaces, and Support lenses for an implementer and task reviewer who cannot see the rest of the plan?
-10. **Test-case coverage:** If the source includes `test-cases.md`, does each `TC-*` map to a task verification step, integration/e2e/API/CLI/manual check, or deferred-with-rationale row?
+10. **Test-case coverage:** Does each source `TC-*` map to a task verification step, integration/e2e/API/CLI/manual check, or deferred-with-rationale row?
 11. **Internal plan review readiness:** Is the draft complete enough for `plan-reviewer` to audit source-to-plan coverage, and does the final plan record `Plan review mode`, `Reviewer independence`, `Unresolved findings`, and `Residual risk`?
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.

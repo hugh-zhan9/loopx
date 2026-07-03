@@ -30,7 +30,7 @@ issue -> fix -> finish
 
 | Skill | Use when | Output |
 |---|---|---|
-| `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | An intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with `clarification.md`, `requirements.md`, `test-cases.md`, and a route to `spec` or `plan-to-exec`. |
+| `clarify` | The request is ambiguous, scope is unclear, or decisions/non-goals are missing. | An intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with canonical `requirements.md`, supporting `clarification.md`, and a route to `spec` or `plan-to-exec`. |
 | `spec` | Product behavior, API, data, state, permission, migration, compatibility, boundary scenarios, or architecture decisions must be fixed before planning. | By default, `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`; add `设计提案.md` only when proposal-level tradeoffs or review are needed. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. | A detailed codebase spec under `docs/loopx/codebase-specs/`. |
 | `plan-to-exec` | Requirements or a spec are approved and need executable tasks. | A bite-sized implementation plan under `docs/loopx/plans/`. |

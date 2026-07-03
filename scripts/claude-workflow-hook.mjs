@@ -129,7 +129,6 @@ try {
     `next skill: ${nextSkill(state) || 'none'}`,
     `intake package: ${state.intake_package_path || 'none'}`,
     `requirements: ${state.requirements_path || state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')}`,
-    `test cases: ${state.test_cases_path || 'none'}`,
     'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
     '</loopx_advisory>',
   ];

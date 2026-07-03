@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.11"
+  version: "0.3.12"
 ---
 
 # Final Review
@@ -186,6 +186,8 @@ When the feature is runnable (has a dev server, CLI, or testable interface), per
 ### Phase 4: Regression Checklist
 
 Check whether the implementation introduced unintended changes to existing behavior.
+Match the report language for human-readable checklist headings and table labels.
+For Chinese reports, use `回归清单`, `公共接口变更`, `配置变更`, `Schema / 数据变更`, `行为变更`, and `依赖变更` instead of the English headings below.
 
 ```markdown
 ## Regression Checklist
@@ -256,6 +258,7 @@ Use the platform's native subagent mechanism when available and fill template at
 - `{START_COMMIT}` - recorded `start_commit` or stated fallback start
 - `{REVIEW_HEAD}` - current `HEAD` at review time
 - `{TRACKED_DIFF_INCLUDED}` - `yes` when tracked staged or unstaged changes were included, otherwise `no`
+- `{REPORT_LANGUAGE}` - `zh-CN` for Chinese reports, otherwise `en`
 
 **Additional context to include:**
 - The requirements coverage matrix from Phase 1

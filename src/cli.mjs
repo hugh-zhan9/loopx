@@ -273,9 +273,6 @@ function printHumanStatus(status) {
   if (status.state?.requirements_path) {
     console.log(`requirements: ${displayPathFromCwd(status.state.requirements_path)}`);
   }
-  if (status.state?.test_cases_path) {
-    console.log(`test cases: ${displayPathFromCwd(status.state.test_cases_path)}`);
-  }
   printNext(status, { fallback: false });
   console.log(`next: ${humanNextAction(status)}`);
 }
@@ -318,9 +315,6 @@ function printHumanClarify(result) {
   console.log(`intake: ${displayPathFromCwd(state.intake_package_path || state.spec_artifact_path)}`);
   if (state.requirements_path) {
     console.log(`requirements: ${displayPathFromCwd(state.requirements_path)}`);
-  }
-  if (state.test_cases_path) {
-    console.log(`test cases: ${displayPathFromCwd(state.test_cases_path)}`);
   }
   if (payload.next_skill_command) {
     console.log(`next skill: ${payload.next_skill_command}`);

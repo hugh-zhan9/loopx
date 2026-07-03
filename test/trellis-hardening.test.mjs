@@ -23,6 +23,7 @@ const repoRoot = resolve(process.cwd());
 const workflowHookScript = resolve(repoRoot, 'scripts/codex-workflow-hook.mjs');
 const claudeWorkflowHookScript = resolve(repoRoot, 'scripts/claude-workflow-hook.mjs');
 const removedSpecArtifactLinePattern = new RegExp(['spec', 'artifact:'].join(' '));
+const removedTestCasesAdvisoryPattern = new RegExp(['test', 'cases:'].join(' '));
 
 describe('loopx retained hardening', () => {
   it('classifies template drift without overwriting user changes', async () => {
@@ -113,7 +114,7 @@ describe('loopx retained hardening', () => {
       assert.match(stdout, /next skill: \$plan-to-exec .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-hook-flow/);
       assert.match(stdout, /intake package:/);
       assert.match(stdout, /requirements:/);
-      assert.match(stdout, /test cases:/);
+      assert.doesNotMatch(stdout, removedTestCasesAdvisoryPattern);
       assert.doesNotMatch(stdout, removedSpecArtifactLinePattern);
       assert.doesNotMatch(stdout, /next cli:/);
       assert.doesNotMatch(stdout, /loopx build|loopx approve/);

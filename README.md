@@ -69,7 +69,7 @@ ledger status is `ready_for_fix`.
 
 | Skill | Use it when |
 |---|---|
-| `clarify` | Scope, non-goals, constraints, or decision boundaries are still unclear; produces `.loopx/intake/YYYY-MM-DD-<slug>/` with `clarification.md`, `requirements.md`, and `test-cases.md`. |
+| `clarify` | Scope, non-goals, constraints, or decision boundaries are still unclear; produces `.loopx/intake/YYYY-MM-DD-<slug>/` with canonical `requirements.md` and supporting `clarification.md`. |
 | `spec` | API, data, state, permission, migration, compatibility, product behavior, or architecture decisions must be fixed before planning. |
 | `codebase-spec` | An existing repository, module, or interface needs an evidence-backed current-state specification. |
 | `plan-to-exec` | Requirements are clear enough to become small executable tasks. |

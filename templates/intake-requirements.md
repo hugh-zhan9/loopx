@@ -36,6 +36,17 @@ Evidence target: manual
 Risk: medium
 Status: pending
 
+## Acceptance Scenarios
+
+### TC-001
+
+Source AC: AC-001
+
+GIVEN the requirement is clarified
+WHEN the work is handed off
+THEN the observable behavior for AC-001 is captured here
+AND the evidence target remains explicit for downstream execution
+
 ## Open Questions
 
 - [PENDING] What concrete task should loopx execute in this workflow?

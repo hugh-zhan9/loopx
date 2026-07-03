@@ -7,12 +7,11 @@ import { statusSummary } from './workflow.mjs';
 const WORKFLOW_ARTIFACTS = [
   { id: 'clarification', stateKey: 'clarification_path', name: 'clarification.md', label: '澄清记录', page: 'intake.html' },
   { id: 'requirements', stateKey: 'requirements_path', name: 'requirements.md', label: '需求契约', page: 'intake.html' },
-  { id: 'test-cases', stateKey: 'test_cases_path', name: 'test-cases.md', label: '验收测试场景', page: 'intake.html' },
   { id: 'spec', name: 'spec.md', label: '需求工作副本', page: 'intake.html', legacy: true },
 ];
 
 const PAGE_GROUPS = [
-  { file: 'intake.html', title: '需求澄清', artifacts: ['clarification', 'requirements', 'test-cases', 'spec'] },
+  { file: 'intake.html', title: '需求澄清', artifacts: ['clarification', 'requirements', 'spec'] },
 ];
 
 function escapeHtml(value) {

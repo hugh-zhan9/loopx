@@ -66,7 +66,7 @@ bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后�
 
 | Skill | 什么时候用 |
 |---|---|
-| `clarify` | 范围、非目标、约束或决策边界仍不清楚；产出包含 `clarification.md`、`requirements.md`、`test-cases.md` 的 `.loopx/intake/YYYY-MM-DD-<slug>/`。 |
+| `clarify` | 范围、非目标、约束或决策边界仍不清楚；产出 `.loopx/intake/YYYY-MM-DD-<slug>/`，包含 canonical `requirements.md` 和 supporting `clarification.md`。 |
 | `spec` | API、数据、状态、权限、迁移、兼容、产品行为或架构决策必须先固定。 |
 | `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 |
 | `plan-to-exec` | 需求已经清楚，可以拆成小步执行任务。 |

@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews draft implementation plans for source-to-plan coverage, scope drift, verification gaps, and task handoff readiness. Not for writing plans, reviewing implementation code, changing workflow state, or redesigning approved requirements."
 when_to_use: "plan review, source-to-plan review, plan artifact audit, coverage audit, implementation plan quality, draft plan review, 计划审核, 计划覆盖检查"
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Plan Reviewer
@@ -30,7 +30,7 @@ It must not create a workflow state.
 Read:
 
 1. Source artifact:
-   - intake package directory with `requirements.md` and `test-cases.md`, or
+   - intake package directory with canonical `requirements.md` and supporting `clarification.md`, or
    - design spec with Source AC, Design anchors, Test cases, `AC-*`, `D-*`, `TC-*`, and verification strategy.
 2. Draft implementation plan.
 3. Relevant repo specs or memory summaries already selected by the caller.
