@@ -228,10 +228,10 @@ function humanNextAction(status) {
   const state = status.state || null;
   if (state?.current_stage === 'clarify') {
     const nextCommand = nextSkillCommand(state);
-    if (nextCommand?.startsWith('$plan-to-exec ')) {
+    if (nextCommand) {
       return `Follow ${nextCommand}.`;
     }
-    return 'Finish clarification, then follow $plan-to-exec when ready.';
+    return 'Finish clarification and record a handoff decision before continuing.';
   }
   const payload = nextPayloadFromStatus(status, { human: true });
   if (payload.next_skill_command) {

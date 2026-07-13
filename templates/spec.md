@@ -1,5 +1,5 @@
 ---
-schema_version: 1
+schema_version: 2
 workflow_id: <workflow id>
 stage: clarify
 profile: <profile>
@@ -10,6 +10,7 @@ ambiguity_score: 1
 non_goals_resolved: false
 decision_boundaries_resolved: false
 pressure_pass_complete: false
+handoff_decision: blocked
 approval_status: requested
 unresolved_ambiguity_count: 1
 ---

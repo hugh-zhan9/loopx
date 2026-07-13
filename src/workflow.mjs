@@ -11,7 +11,7 @@ import { nextSkillCommand } from './next-skill.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_SCHEMA_VERSION = 1;
-const WORKFLOW_SCHEMA_VERSION = 1;
+const WORKFLOW_SCHEMA_VERSION = 2;
 
 export const STAGES = {
   CLARIFY: 'clarify',
@@ -29,9 +29,7 @@ const CLARIFY_PROFILES = {
   },
 };
 
-const REMOVED_WORKFLOW_STATE_KEYS = new Set([
-  ['test', 'cases', 'path'].join('_'),
-]);
+const CLARIFY_HANDOFF_DECISIONS = new Set(['needs_spec', 'direct_to_plan', 'blocked']);
 
 function normalizeSlug(raw) {
   const slug = String(raw || '')
@@ -134,21 +132,16 @@ export async function readWorkspaceConfig(cwd) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
-function currentWorkflowState(raw) {
-  if (!raw) {
-    return raw;
-  }
-  return Object.fromEntries(
-    Object.entries(raw).filter(([key]) => !REMOVED_WORKFLOW_STATE_KEYS.has(key)),
-  );
-}
-
 export async function readState(cwd, slug) {
   const path = statePath(resolveWorkflowRoot(cwd, slug));
   if (!existsSync(path)) {
     return null;
   }
-  return currentWorkflowState(JSON.parse(await readFile(path, 'utf8')));
+  const state = JSON.parse(await readFile(path, 'utf8'));
+  if (state.schema_version !== WORKFLOW_SCHEMA_VERSION) {
+    throw new Error(`unsupported_workflow_schema:${state.schema_version ?? 'missing'}:restart_required`);
+  }
+  return state;
 }
 
 function buildWorkspaceReadme() {
@@ -214,6 +207,7 @@ function createInitialState(slug, profile) {
     clarification_path: null,
     requirements_path: null,
     spec_artifact_path: null,
+    handoff_decision: 'blocked',
     recommended_next_action: `Run $clarify ${slug} until the spec is handoff-ready.`,
   };
   return withRecommendedAction(state);
@@ -321,10 +315,13 @@ function withClarifySummary(state, specSummary) {
     clarify_decision_boundaries_resolved: Boolean(meta.decision_boundaries_resolved ?? state.clarify_decision_boundaries_resolved),
     clarify_pressure_pass_complete: Boolean(meta.pressure_pass_complete ?? state.clarify_pressure_pass_complete),
     unresolved_ambiguity_count: Number.isFinite(unresolved) ? unresolved : state.unresolved_ambiguity_count,
+    handoff_decision: CLARIFY_HANDOFF_DECISIONS.has(meta.handoff_decision)
+      ? meta.handoff_decision
+      : 'blocked',
   };
   return withRecommendedAction({
     ...next,
-    stage_status: clarifyReady(next) ? 'ready' : 'blocked',
+    stage_status: clarifyReady(next) && next.handoff_decision !== 'blocked' ? 'ready' : 'blocked',
   });
 }
 
@@ -434,6 +431,9 @@ async function listWorkflowSummaries(workflowsRoot) {
     }
     const stateFile = join(workflowsRoot, entry.name, 'state.json');
     const state = existsSync(stateFile) ? JSON.parse(await readFile(stateFile, 'utf8')) : null;
+    if (state && state.schema_version !== WORKFLOW_SCHEMA_VERSION) {
+      throw new Error(`unsupported_workflow_schema:${state.schema_version ?? 'missing'}:restart_required`);
+    }
     workflows.push({
       slug: entry.name,
       current_stage: state?.current_stage ?? null,

@@ -102,6 +102,7 @@ describe('loopx retained hardening', () => {
       clarify_decision_boundaries_resolved: true,
       clarify_pressure_pass_complete: true,
       stage_status: 'ready',
+      handoff_decision: 'direct_to_plan',
     }, null, 2)}\n`);
 
     for (const hookScript of [workflowHookScript, claudeWorkflowHookScript]) {

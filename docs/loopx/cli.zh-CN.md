@@ -3,6 +3,14 @@
 CLI 是 loopx 的安装、诊断、上下文初始化和本地 runtime 支撑入口。主要产品表面仍然是
 在 agent 中使用的 installed skill suite。
 
+## 当前工作流状态合同
+
+新的 clarify 工作流使用 schema v2，并将 `handoff_decision` 持久化为
+`needs_spec`、`direct_to_plan` 或 `blocked`。`loopx status` 与 `loopx next`
+只根据该决策路由，ready 本身不再代表可以直接规划。pre-v2 运行状态不受
+支持，CLI 不会迁移或删除旧文件；出现
+`unsupported_workflow_schema:<version>:restart_required` 时应创建新的当前合同工作流。
+
 ## 快速开始
 
 ```bash

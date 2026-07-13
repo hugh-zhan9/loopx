@@ -1348,7 +1348,7 @@ describe('loopx skill governance', () => {
     const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
     const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.14');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.11');
