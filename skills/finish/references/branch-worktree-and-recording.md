@@ -1,5 +1,18 @@
 # Branch Worktree And Recording
 
+## Partial Failure Reconciliation
+
+Treat completion as `prepare -> perform -> record -> reconcile`.
+
+- Record the intended action before a destructive or externally visible Git
+  operation.
+- If the Git action succeeds but `finish-record` fails, do not repeat the Git
+  action. Inspect repository state and retry only the recording step.
+- If recording succeeds but cleanup fails, keep the recorded outcome and report
+  cleanup as a separate incomplete operation.
+- Before retrying, compare the recorded action, current branch/worktree state,
+  and audit ID. Never guess whether merge, discard, or branch deletion ran.
+
 ## Detect Repo Shape
 
 Collect:

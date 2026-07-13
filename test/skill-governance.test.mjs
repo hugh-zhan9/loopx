@@ -356,6 +356,21 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(codexReference, /spawn_agent`, `wait_agent`, and `close_agent` are directly available/);
   });
 
+  it('keeps workflow recovery and planning detail in owned contracts', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const fixReview = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
+    const finishRecording = await readFile(join(repoRoot, 'skills', 'finish', 'references', 'branch-worktree-and-recording.md'), 'utf8');
+    for (const reference of ['plan-schema.md', 'internal-plan-review.md', 'surface-change-planning.md']) {
+      assert.equal(existsSync(join(repoRoot, 'skills', 'plan-to-exec', 'references', reference)), true);
+      assert.match(planSkill, new RegExp(reference.replace('.', '\\.')));
+    }
+    assert.match(execSkill, /\.loopx\/exec\/<slug>\/progress\.md/);
+    assert.match(fixReview, /\.loopx\/fix-review\/<scope-slug>\/feedback\.md/);
+    assert.match(finishRecording, /prepare -> perform -> record -> reconcile/);
+    assert.match(finishRecording, /Git action succeeds but `finish-record` fails/);
+  });
+
   it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
     for (const relativePath of activeMaintenanceDocs) {
       const text = await readFile(join(repoRoot, relativePath), 'utf8');
@@ -584,7 +599,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /re-review gates/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /review comments|requested changes/i);
-    assert.equal(fields['metadata.version'], '0.3.5');
+    assert.equal(fields['metadata.version'], '0.3.6');
     assert.match(fixReviewSkill, /Feedback Ledger/);
     assert.match(fixReviewSkill, /FR-001/);
     assert.match(fixReviewSkill, /Basis Check/);
@@ -993,10 +1008,10 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.11');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
     assert.match(planSkill, /\$subagent-exec docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/00-overview\.md/);
@@ -1166,8 +1181,8 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(specFields['metadata.version'], '0.3.12');
-    assert.equal(planFields['metadata.version'], '0.3.16');
-    assert.equal(reviewFields['metadata.version'], '0.3.12');
+    assert.equal(planFields['metadata.version'], '0.3.17');
+    assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -1222,10 +1237,10 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.16');
-    assert.equal(execFields['metadata.version'], '0.3.11');
+    assert.equal(planFields['metadata.version'], '0.3.17');
+    assert.equal(execFields['metadata.version'], '0.3.12');
     assert.equal(subagentExecFields['metadata.version'], '0.3.17');
-    assert.equal(reviewFields['metadata.version'], '0.3.12');
+    assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
     assert.match(planSkill, /### T-001 \/ Task 1:/);
@@ -1290,7 +1305,7 @@ describe('loopx skill governance', () => {
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -1350,8 +1365,8 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.14');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.11');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
@@ -1428,9 +1443,9 @@ describe('loopx skill governance', () => {
     );
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
 
-    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.13');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.10');
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
     assert.match(reviewSkill, /Do not skip stage 1/);

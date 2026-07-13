@@ -3,7 +3,7 @@ name: exec
 description: "Executes a written loopx implementation plan sequentially with spec verification, mandatory checkpoint reviews, and checkpoint-based resume. Not for unclear plans, missing requirements, or subagent-first execution."
 when_to_use: "written implementation plan, inline execution, sequential plan execution, mandatory checkpoint review, no subagent lane"
 metadata:
-  version: "0.3.11"
+  version: "0.3.12"
 ---
 
 # Exec
@@ -65,6 +65,11 @@ Task completion is proven by evidence fields and review results, not by commit
 SHAs.
 
 ## Task Loop
+
+Use `.loopx/exec/<slug>/progress.md` as the canonical same-context progress
+ledger. Record the active plan path, current task, task evidence, last clean
+checkpoint review, and next dependency after every task. Resume from this file;
+do not infer completion from conversation memory or the Git index.
 
 For each task:
 

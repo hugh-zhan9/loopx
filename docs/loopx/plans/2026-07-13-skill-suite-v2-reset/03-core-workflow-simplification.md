@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Root workflow skills target 120–220 lines unless a documented operational reason requires more.
+- Root workflow skills ultimately target 120–220 lines unless a documented operational reason requires more. This child establishes owned references and removes obvious blocking-path bulk; child plan 06 applies the final line guard after semantic governance replaces phrase-coupled assertions.
 - One invariant has one owner.
 - Do not weaken stop conditions, source anchors, runtime evidence, or finish gates.
 - Do not preserve old wording for compatibility.
@@ -30,7 +30,7 @@
 
 **Interfaces:** preserve AC/TC ownership in clarify, D ownership in spec, T ownership in planning, and shared evidence consumption in execution.
 
-**Expected execution evidence:** governance tests assert required contracts through root plus routed references; line-count guard rejects renewed root bloat.
+**Expected execution evidence:** governance tests assert required contracts through root plus routed references; child plan 06 owns the final line-count guard after its semantic matrix lands.
 
 **Review focus:** remove the duplicate `Internal Plan Review` section and upstream disparaging/manifesto prose.
 
@@ -66,4 +66,3 @@
 - [ ] Define `prepare → perform → record → reconcile` behavior for finish actions.
 - [ ] Specify recovery when git action and `finish-record` do not both succeed.
 - [ ] Run focused tests, `node scripts/verify-skills.mjs`, and `npm test`.
-
