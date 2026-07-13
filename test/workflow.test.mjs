@@ -954,6 +954,47 @@ describe('loopx retained workflow shell', () => {
     assert.equal(recorded.state.choice.status, 'done');
   });
 
+  it('resolves multi-plan state by plan_package when package directory and feature slug differ', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-declared-slug-'));
+    await initGitRepo(wd);
+
+    const packageDir = '2026-07-13-feature-reset';
+    const featureSlug = 'feature-reset';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${packageDir}/00-overview.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 2,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${packageDir}`,
+      source_spec: `docs/loopx/design/${packageDir}/需求设计文档.md`,
+      status: 'complete',
+      plans: [{
+        path: `docs/loopx/plans/${packageDir}/01-core.md`,
+        status: 'complete',
+        ready_for_spec_review: true,
+        plan_review: {
+          status: 'passed',
+          reviewed_at: '2026-07-13T00:00:00.000Z',
+          summary: 'No blocking issues',
+        },
+      }],
+      spec_final_review: {
+        path: `.loopx/final-review/${packageDir}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Declared package slug resolved.',
+    });
+    assert.equal(recorded.state.status, 'completed');
+  });
+
   it('allows finish done when package directory source has clean multi-plan spec review', async () => {
     for (const sourceSuffix of ['', '/']) {
       const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-dir-pass-'));
