@@ -35,6 +35,7 @@
     "src/",
     "skills/RESOLVER.md",
     "skills/shared/",
+    "test/fixtures/skill-contract-matrix.json",
     "skills/api-designer/",
     "skills/architecture-designer/",
     "skills/clarify/",

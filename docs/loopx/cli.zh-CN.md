@@ -11,6 +11,9 @@ CLI 是 loopx 的安装、诊断、上下文初始化和本地 runtime 支撑入
 支持，CLI 不会迁移或删除旧文件；出现
 `unsupported_workflow_schema:<version>:restart_required` 时应创建新的当前合同工作流。
 
+只有顶层 controller 管理 agent 生命周期。loopx skill 派发的 worker 都是 leaf
+worker，不得继续创建或等待其他 agent。
+
 ## 快速开始
 
 ```bash
