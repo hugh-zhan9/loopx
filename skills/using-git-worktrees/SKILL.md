@@ -3,7 +3,7 @@ name: using-git-worktrees
 description: "Sets up or verifies an isolated workspace for implementation work using native worktree support first and git worktree fallback only when needed. Not for ordinary read-only tasks, existing isolated worktrees, issue-ledger fix parallel worktrees, finish branch placement, or committing workflow changes."
 when_to_use: "using-git-worktrees, isolated workspace, git worktree, worktree setup, feature branch isolation, implementation workspace, 隔离工作区"
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Using Git Worktrees
@@ -120,24 +120,11 @@ If `git worktree add` fails with a permission error or environment denial, tell 
 
 ## Step 2: Project Setup
 
-Run the minimum project setup needed for the target repository. Prefer commands documented by the repo over generic defaults.
-
-```bash
-# Node.js
-if [ -f package.json ]; then npm install; fi
-
-# Rust
-if [ -f Cargo.toml ]; then cargo build; fi
-
-# Python
-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-if [ -f pyproject.toml ]; then poetry install; fi
-
-# Go
-if [ -f go.mod ]; then go mod download; fi
-```
-
-Do not install dependencies when the repository already has documented no-install or frozen-dependency instructions.
+Run only the repository-documented setup needed for the target. Prefer
+lockfile-safe commands such as `npm ci` when supported. Preview and obtain
+confirmation before setup that can run postinstall hooks, modify user-level
+agent state, or access external services. Do not auto-detect and execute generic
+setup commands. Respect documented no-install or frozen-dependency rules.
 
 ## Step 3: Verify Clean Baseline
 

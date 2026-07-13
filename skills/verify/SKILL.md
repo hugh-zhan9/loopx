@@ -3,14 +3,14 @@ name: verify
 description: "Requires fresh verification evidence before claiming work is complete, fixed, passing, review-ready, or ready to commit. Not for speculative confidence or stale results."
 when_to_use: "verify, completion claim, fixed claim, tests pass, review-ready, commit, fresh evidence, 验证, 完成前检查"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Verification Before Completion
 
 ## Overview
 
-Claiming work is complete without verification is dishonesty, not efficiency.
+Completion claims require fresh, relevant verification evidence.
 
 **Core principle:** Evidence before claims, always.
 
@@ -37,7 +37,7 @@ BEFORE claiming any status or expressing satisfaction:
    - If YES: State claim WITH evidence
 5. ONLY THEN: Make the claim
 
-Skip any step = lying, not verifying
+Skipping a step means the claim is not verified.
 ```
 
 ## Common Failures
@@ -134,6 +134,11 @@ From 24 failure memories:
 - ANY communication suggesting completion/correctness
 
 ## The Bottom Line
+
+Record durable command evidence using
+[`../shared/evidence-contract.md`](../shared/evidence-contract.md). Distinguish
+focused from full verification and record environment-blocked checks instead of
+silently skipping them.
 
 **No shortcuts for verification.**
 

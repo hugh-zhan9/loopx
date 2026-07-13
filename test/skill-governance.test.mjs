@@ -371,6 +371,24 @@ describe('loopx skill governance', () => {
     assert.match(finishRecording, /Git action succeeds but `finish-record` fails/);
   });
 
+  it('governs diagnosis TDD verification and worktree safety', async () => {
+    const diagnosis = await readFile(join(repoRoot, 'skills', 'debug', 'references', 'diagnosis-contract.md'), 'utf8');
+    const issue = await readFile(join(repoRoot, 'skills', 'issue', 'SKILL.md'), 'utf8');
+    const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
+    const verify = await readFile(join(repoRoot, 'skills', 'verify', 'SKILL.md'), 'utf8');
+    const worktrees = await readFile(join(repoRoot, 'skills', 'using-git-worktrees', 'SKILL.md'), 'utf8');
+    for (const field of ['classification', 'reproduction_status', 'root_cause_status', 'root_cause', 'hypotheses_rejected', 'fix_mode', 'regression_test_required', 'risk_triggers']) {
+      assert.match(diagnosis, new RegExp(`\\b${field}\\b`));
+      assert.match(issue, new RegExp(`\\b${field}\\b`));
+    }
+    assert.doesNotMatch(issue, /root_cause_hypothesis/);
+    assert.doesNotMatch(tdd, /Delete it\. Start over/i);
+    assert.match(tdd, /preserve it.*characterization or regression/is);
+    assert.match(verify, /shared\/evidence-contract\.md/);
+    assert.doesNotMatch(worktrees, /npm install/);
+    assert.match(worktrees, /postinstall hooks/);
+  });
+
   it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
     for (const relativePath of activeMaintenanceDocs) {
       const text = await readFile(join(repoRoot, relativePath), 'utf8');
@@ -504,7 +522,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /bug-class/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
-    assert.equal(fields['metadata.version'], '0.3.6');
+    assert.equal(fields['metadata.version'], '0.3.7');
     assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-YYYY-MM-DD\.md/);
     assert.match(issueSkill, /phase/);
     assert.match(issueSkill, /status/);
@@ -516,7 +534,8 @@ describe('loopx skill governance', () => {
     assert.match(issueSkill, /Evidence Log/);
     assert.match(issueSkill, /Diagnosis Summary/);
     assert.match(issueSkill, /Diagnosis Minimum Standard/);
-    assert.match(issueSkill, /root_cause_hypothesis/);
+    assert.match(issueSkill, /root_cause/);
+    assert.doesNotMatch(issueSkill, /root_cause_hypothesis/);
     assert.match(issueSkill, /at least one `hypotheses_rejected` entry with evidence/);
     assert.match(issueSkill, /Fix Brief/);
     assert.match(issueSkill, /Response Draft/);
