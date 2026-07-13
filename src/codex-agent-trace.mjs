@@ -39,6 +39,70 @@ export async function findCodexRollouts(sessionsRoot, rootThreadId) {
   return rollouts;
 }
 
+function finalAgentMessage(records) {
+  let message = '';
+  for (const record of records) {
+    const payload = record.payload ?? {};
+    if (payload.type === 'task_complete' && typeof payload.last_agent_message === 'string') {
+      message = payload.last_agent_message;
+    }
+    if (record.type === 'response_item' && payload.type === 'agent_message') {
+      const candidate = payload.message ?? payload.text ?? payload.content;
+      if (typeof candidate === 'string') {
+        message = candidate;
+      }
+    }
+  }
+  return message;
+}
+
+function embeddedLeafMessages(rollouts) {
+  const messages = [];
+  for (const rollout of rollouts) {
+    for (const record of rollout.records) {
+      const payload = record.payload ?? {};
+      if (record.type !== 'response_item' || payload.type !== 'agent_message' || payload.recipient !== '/root') {
+        continue;
+      }
+      const text = payload.content
+        ?.filter((item) => item.type === 'input_text')
+        .map((item) => item.text)
+        .join('\n') ?? '';
+      if (!text) {
+        continue;
+      }
+      messages.push({
+        threadId: payload.author ?? null,
+        message: text.replace(/^Message Type: FINAL_ANSWER[\s\S]*?Payload:\n/, ''),
+        completedAt: timestampMs(record) ?? -Infinity,
+      });
+    }
+  }
+  return messages;
+}
+
+export function extractCodexLeafFinalMessage(rollouts, rootThreadId) {
+  const children = rollouts.filter((rollout) => rollout.ids[0] && rollout.ids[0] !== rootThreadId);
+  const completed = [
+    ...embeddedLeafMessages(rollouts),
+    ...children
+    .map((rollout) => ({
+      threadId: rollout.ids[0],
+      message: finalAgentMessage(rollout.records),
+      completedAt: Math.max(
+        ...rollout.records
+          .filter((record) => record.payload?.type === 'task_complete')
+          .map(timestampMs)
+          .filter(Number.isFinite),
+        -Infinity,
+      ),
+    }))
+    .filter((result) => result.message),
+  ];
+  completed.sort((left, right) => right.completedAt - left.completedAt);
+  return completed[0] ?? { threadId: null, message: '' };
+}
+
 export function normalizeCodexRollouts(rollouts, options) {
   const rootThreadId = options.rootThreadId;
   const runId = options.runId ?? rootThreadId;
@@ -80,6 +144,7 @@ export function normalizeCodexRollouts(rollouts, options) {
   }
 
   let inputTokens = 0;
+  let cachedInputTokens = 0;
   let outputTokens = 0;
   let tokenEvidence = false;
   for (const rollout of rollouts) {
@@ -108,6 +173,7 @@ export function normalizeCodexRollouts(rollouts, options) {
     if (finalUsage) {
       tokenEvidence = true;
       inputTokens += finalUsage.input_tokens ?? 0;
+      cachedInputTokens += finalUsage.cached_input_tokens ?? 0;
       outputTokens += finalUsage.output_tokens ?? 0;
     }
     if (actorId !== rootThreadId && completedAt !== null) {
@@ -121,6 +187,7 @@ export function normalizeCodexRollouts(rollouts, options) {
     outcome: allRecords.some((record) => record.payload?.type === 'task_complete') ? 'passed' : 'failed',
     tests_passed: null,
     input_tokens: tokenEvidence ? inputTokens : null,
+    cached_input_tokens: tokenEvidence ? cachedInputTokens : null,
     output_tokens: tokenEvidence ? outputTokens : null,
     latency_ms: Number.isFinite(startedAt) && Number.isFinite(endedAt) ? endedAt - startedAt : null,
     at_ms: Number.isFinite(startedAt) && Number.isFinite(endedAt) ? endedAt - startedAt : 0,
