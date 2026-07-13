@@ -2,6 +2,10 @@
 
 This file records stable loopx product-surface rules for first-use CLI output, installer behavior, hook guidance, and packaged skill scope.
 
+Installed skills expose only the v2 current contract. Existing pre-v2 running
+`.loopx` state is not migrated and must restart. Agent lifecycle is
+controller-only: workers dispatched by loopx skills are leaf workers.
+
 ## Public CLI Surface
 
 - `loopx --help` must start with a short quickstart path: install skills, init, clarify, status.
@@ -31,8 +35,8 @@ This file records stable loopx product-surface rules for first-use CLI output, i
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 rm -rf ~/.loopx/lancet
 ```

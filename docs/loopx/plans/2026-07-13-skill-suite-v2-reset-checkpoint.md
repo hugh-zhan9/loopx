@@ -2,7 +2,7 @@
 
 - Plan: `docs/loopx/plans/2026-07-13-skill-suite-v2-reset/00-overview.md`
 - Baseline SHA: `ebe5e53`
-- Current status: child plans 01–05 complete and reviewed; child plan 06 pending
+- Current status: child plans 01–06 complete and reviewed; spec-level final-review pending
 - Last updated: 2026-07-13
 
 ## Progress
@@ -21,7 +21,9 @@
 | 05 / T-001 | completed | factual-trap governance + repository-first API/architecture/CLI contracts | review clean |
 | 05 / T-002 | completed | optional maturity, inferred readability lens, provenance and preservation contracts | review clean |
 | 05 / T-003 | completed | Go/SQL/Kratos/lancet safety contracts + `npm test` 88/88 | plan-level final-review passed |
-| 06 | pending | - | governance/docs/release |
+| 06 / T-001 | completed | 27/27 semantic matrix, metadata/reference/root-line guards | review clean |
+| 06 / T-002 | completed | resolver, bilingual docs, install and package surface aligned | review clean |
+| 06 / T-003 | completed | strict negative scan, `npm test` 89/89, package dry-run closure | plan-level final-review passed |
 
 ## Context for Resume
 
@@ -32,5 +34,6 @@
 - Last completed task evidence: `AC-003`; `D-002`, `D-003`, `D-006`; owned references and recovery ledgers verified.
 - Last completed task evidence: `AC-004`; `D-007`; `TC-004`, `TC-005`; all focused and full tests passed.
 - Last completed task evidence: `AC-005`; `TC-006`; domain and analysis skills now use conditional repository-first guidance, preserve behavior/provenance, and reject known factual traps; `npm test` passed 88/88.
-- Next task depends on: semantic governance matrix, current public-surface alignment, and release closure.
+- Last completed task evidence: `AC-006`, `AC-007`, `AC-008`; `TC-007`, `TC-008`; 27/27 semantic contract parity, v2 public docs, package closure, controller-only agent budget, and outcome-first worker prompt verified; `npm test` passed 89/89.
+- Next task depends on: spec-level final-review across `ebe5e53..HEAD`, then finish.
 - Open issues: none.

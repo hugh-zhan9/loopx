@@ -13,6 +13,9 @@ running workflow state is unsupported and is not migrated or deleted. Start a
 new current-contract workflow when the CLI reports
 `unsupported_workflow_schema:<version>:restart_required`.
 
+Only the top-level controller owns agent lifecycle. Workers dispatched by
+loopx skills are leaf workers and must not create or wait for other agents.
+
 ## Quick start
 
 ```bash

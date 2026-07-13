@@ -24,10 +24,19 @@ capability is absent or automatic.
 An empty wait window is not a failure. Keep the same running worker and avoid
 an unbounded `wait -> message -> wait` polling loop.
 
+## Agent Budget And Stop Rule
+
+The approved plan defines the agent budget: one implementer and one combined
+task reviewer for each task that actually reaches those stages. Do not create
+exploratory helpers, duplicate reviewers, speculative parallel workers, or a
+replacement merely because a worker is slow. A new worker is justified only by
+the next planned stage or a terminal replacement condition from the hard rules.
+When the current stage has sufficient evidence for its required output, record
+the result and stop dispatching.
+
 ## Dispatch Clause
 
 Every worker-visible prompt must say:
 
 > You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
 > Complete this assignment directly and report blockers to the controller.
-

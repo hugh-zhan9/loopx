@@ -259,6 +259,23 @@ function assertSkillHandoffFormat(text, label) {
 }
 
 describe('loopx skill governance', () => {
+  it('governs every bundled skill through one semantic contract matrix entry', async () => {
+    const matrix = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json'), 'utf8'));
+    const names = matrix.skills.map((entry) => entry.skill);
+
+    assert.deepEqual([...names].sort(), [...LOOPX_BUNDLED_SKILLS].sort());
+    assert.equal(new Set(names).size, names.length);
+    for (const entry of matrix.skills) {
+      assert.match(entry.role, /^(workflow|support)$/);
+      assert.ok(entry.boundary);
+      assert.ok(entry.required_outputs.length > 0);
+      assert.ok(entry.safety_invariants.length > 0);
+      assert.ok(entry.integrations.length > 0);
+      assert.ok(Array.isArray(entry.required_references));
+      assert.match(entry.version, /^\d+\.\d+\.\d+/);
+    }
+  });
+
   it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
@@ -323,6 +340,8 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/shared/'), true);
     assert.match(agentTopology, /controller is the only orchestration owner/i);
     assert.match(agentTopology, /leaf worker/i);
+    assert.match(agentTopology, /Agent Budget And Stop Rule/);
+    assert.match(agentTopology, /Do not create\s+exploratory helpers, duplicate reviewers, speculative parallel workers/is);
     assert.match(agentTopology, /required capabilities.*create.*await/is);
     assert.match(agentTopology, /optional capabilities.*inspect.*message.*release/is);
     assert.match(reviewContract, /Task review/);
@@ -813,6 +832,10 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /source design anchors, implementation plan/);
     assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
     assert.match(implementer, /Read your task brief first/);
+    assert.match(implementer, /# Goal/);
+    assert.match(implementer, /# Success Criteria/);
+    assert.match(implementer, /# Stop Rules/);
+    assert.match(implementer, /Once the success criteria have fresh evidence.*stop/is);
     assert.match(implementer, /REPORT_FILE/);
     assert.match(implementer, /leaf worker/i);
     assert.match(implementer, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i);
@@ -1056,7 +1079,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.18');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
@@ -1285,7 +1308,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.17');
     assert.equal(execFields['metadata.version'], '0.3.12');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.17');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.18');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
@@ -1413,7 +1436,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.18');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
