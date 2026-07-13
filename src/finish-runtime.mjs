@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -1306,13 +1306,47 @@ async function assertMultiPlanReadyForFinish(cwd, finishState) {
   }
 
   const stateRoot = runtimeStateRoot(cwd, finishState);
-  const absoluteStatePath = join(stateRoot, multiPlanPackage.statePath);
-  const multiPlanState = await readMultiPlanStateIfExists(absoluteStatePath, multiPlanPackage.statePath);
+  let resolvedPackage = multiPlanPackage;
+  let absoluteStatePath = join(stateRoot, resolvedPackage.statePath);
+  let multiPlanState = await readMultiPlanStateIfExists(absoluteStatePath, resolvedPackage.statePath);
+  if (!multiPlanState) {
+    const multiPlanRoot = join(stateRoot, '.loopx', 'multi-plan');
+    let entries = [];
+    try {
+      entries = await readdir(multiPlanRoot, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const candidateStatePath = join('.loopx', 'multi-plan', entry.name, 'state.json');
+      const candidateAbsolutePath = join(stateRoot, candidateStatePath);
+      let candidateState;
+      try {
+        candidateState = await readMultiPlanStateIfExists(candidateAbsolutePath, candidateStatePath);
+      } catch {
+        continue;
+      }
+      if (normalizedPlanPackagePath(candidateState?.plan_package) !== multiPlanPackage.planPackage) {
+        continue;
+      }
+      resolvedPackage = {
+        ...multiPlanPackage,
+        featureSlug: candidateState.feature_slug,
+        statePath: candidateStatePath,
+      };
+      absoluteStatePath = candidateAbsolutePath;
+      multiPlanState = candidateState;
+      break;
+    }
+  }
   if (!multiPlanState) {
     throw new Error(`finish_record_multi_plan_state_missing:${multiPlanPackage.statePath}`);
   }
 
-  const issues = validateMultiPlanState(multiPlanState, multiPlanPackage);
+  const issues = validateMultiPlanState(multiPlanState, resolvedPackage);
   if (issues.length > 0) {
     const summary = issues
       .map((issue) => {
@@ -1321,7 +1355,7 @@ async function assertMultiPlanReadyForFinish(cwd, finishState) {
         return `${issue.message}${path}${actual}`;
       })
       .join('; ');
-    throw new Error(`finish_record_multi_plan_incomplete:${multiPlanPackage.statePath}:${summary}`);
+    throw new Error(`finish_record_multi_plan_incomplete:${resolvedPackage.statePath}:${summary}`);
   }
 }
 
