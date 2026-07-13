@@ -1,0 +1,136 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it } from 'node:test';
+import { promisify } from 'node:util';
+
+import { applyAgentEvalPolicies, compareAgentEvalRuns, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
+
+const execFileAsync = promisify(execFile);
+const repoRoot = new URL('..', import.meta.url).pathname;
+
+const baselineEvents = [
+  { event: 'run_start', run_id: 'r1', case_id: 'case-1', variant: 'baseline', at_ms: 0 },
+  { event: 'agent_spawn', actor_id: 'worker-1', parent_actor_id: 'controller', at_ms: 10 },
+  { event: 'agent_spawn', actor_id: 'nested-1', parent_actor_id: 'worker-1', at_ms: 20 },
+  { event: 'tool_call', actor_id: 'worker-1', tool: 'read_file', at_ms: 30 },
+  { event: 'agent_wait', actor_id: 'controller', target_actor_id: 'worker-1', at_ms: 40 },
+  { event: 'review_finding', actor_id: 'reviewer-1', finding_id: 'F-1', finding_valid: false, at_ms: 50 },
+  { event: 'agent_release', actor_id: 'nested-1', at_ms: 60 },
+  { event: 'agent_release', actor_id: 'worker-1', at_ms: 70 },
+  { event: 'run_end', outcome: 'passed', tests_passed: true, input_tokens: 1200, output_tokens: 400, latency_ms: 900, at_ms: 900 },
+];
+
+const v2Events = [
+  { event: 'run_start', run_id: 'r2', case_id: 'case-1', variant: 'v2', at_ms: 0 },
+  { event: 'agent_spawn', actor_id: 'worker-1', parent_actor_id: 'controller', at_ms: 10 },
+  { event: 'tool_call', actor_id: 'worker-1', tool: 'read_file', at_ms: 20 },
+  { event: 'agent_release', actor_id: 'worker-1', at_ms: 40 },
+  { event: 'run_end', outcome: 'passed', tests_passed: true, input_tokens: 700, output_tokens: 200, latency_ms: 500, at_ms: 500 },
+];
+
+describe('agent eval metrics', () => {
+  it('detects nested agents and computes orchestration and quality metrics', () => {
+    const summary = summarizeAgentEvalRun(baselineEvents);
+
+    assert.equal(summary.case_id, 'case-1');
+    assert.equal(summary.agent_count, 2);
+    assert.equal(summary.peak_active_agents, 2);
+    assert.equal(summary.nested_agent_count, 1);
+    assert.equal(summary.tool_call_count, 1);
+    assert.equal(summary.wait_count, 1);
+    assert.equal(summary.review_finding_count, 1);
+    assert.equal(summary.review_false_positive_count, 1);
+    assert.equal(summary.total_tokens, 1600);
+    assert.equal(summary.hard_invariants_passed, false);
+  });
+
+  it('compares matched baseline and candidate runs without treating lower usage as a win when quality regresses', () => {
+    const comparison = compareAgentEvalRuns([
+      summarizeAgentEvalRun(baselineEvents),
+      summarizeAgentEvalRun(v2Events),
+    ]);
+
+    assert.equal(comparison.cases.length, 1);
+    assert.equal(comparison.cases[0].agent_count_delta, -1);
+    assert.equal(comparison.cases[0].nested_agent_count_delta, -1);
+    assert.equal(comparison.cases[0].total_tokens_delta, -700);
+    assert.equal(comparison.cases[0].candidate_quality_passed, true);
+    assert.equal(comparison.cases[0].improved, true);
+    assert.equal(comparison.overall.improved_cases, 1);
+    const markdown = renderAgentEvalMarkdown(comparison);
+    assert.match(markdown, /# Agent Eval Report/);
+    assert.match(markdown, /case-1/);
+    assert.match(markdown, /Nested agent delta/);
+  });
+
+  it('writes reproducible JSON and Markdown reports from NDJSON traces', async () => {
+    const out = join(tmpdir(), `loopx-agent-eval-${process.pid}-${Date.now()}`);
+    const trace = join(repoRoot, 'test', 'fixtures', 'agent-eval-sample.jsonl');
+    const { stdout } = await execFileAsync(process.execPath, [
+      join(repoRoot, 'scripts', 'run-agent-evals.mjs'),
+      '--trace', trace,
+      '--out', out,
+    ]);
+    const result = JSON.parse(stdout);
+    const comparison = JSON.parse(await readFile(result.comparison, 'utf8'));
+    const report = await readFile(result.report, 'utf8');
+
+    assert.equal(comparison.overall.compared_cases, 1);
+    assert.equal(comparison.overall.improved_cases, 1);
+    assert.match(report, /leaf-worker-control/);
+  });
+
+  it('enforces manifest agent budgets independently from outcome success', () => {
+    const [summary] = applyAgentEvalPolicies([summarizeAgentEvalRun(v2Events)], {
+      default_limits: { max_nested_agents: 0, max_agent_count: 0 },
+      cases: [{ id: 'case-1', limits: { max_agent_count: 1 } }],
+    });
+
+    assert.equal(summary.policy_passed, true);
+    assert.deepEqual(summary.policy_violations, []);
+
+    const [failed] = applyAgentEvalPolicies([summarizeAgentEvalRun(v2Events)], {
+      default_limits: { max_nested_agents: 0, max_agent_count: 0 },
+      cases: [{ id: 'case-1' }],
+    });
+    assert.equal(failed.policy_passed, false);
+    assert.match(failed.policy_violations[0], /agent_count/);
+  });
+
+  it('does not treat missing usage or latency as zero-cost improvement evidence', () => {
+    const missing = summarizeAgentEvalRun([
+      { event: 'run_start', run_id: 'r3', case_id: 'case-1', variant: 'v2', at_ms: 0 },
+      { event: 'run_end', run_id: 'r3', outcome: 'passed', tests_passed: true, at_ms: 10 },
+    ]);
+    const comparison = compareAgentEvalRuns([summarizeAgentEvalRun(baselineEvents), missing]);
+
+    assert.equal(missing.total_tokens, null);
+    assert.equal(missing.latency_ms, null);
+    assert.equal(comparison.cases[0].total_tokens_delta, null);
+    assert.equal(comparison.cases[0].improved, false);
+  });
+
+  it('normalizes native Codex parent and child rollout traces', async () => {
+    const rollouts = await findCodexRollouts(join(repoRoot, 'test', 'fixtures', 'codex-rollouts'), 'root-thread');
+    const events = normalizeCodexRollouts(rollouts, {
+      rootThreadId: 'root-thread',
+      caseId: 'leaf-worker-control',
+      variant: 'v2',
+      model: 'gpt-5.6-sol',
+      reasoningEffort: 'high',
+    });
+    const summary = summarizeAgentEvalRun(events);
+
+    assert.equal(rollouts.length, 2);
+    assert.equal(summary.agent_count, 1);
+    assert.equal(summary.nested_agent_count, 0);
+    assert.equal(summary.wait_count, 1);
+    assert.equal(summary.tool_call_count, 1);
+    assert.equal(summary.total_tokens, 190);
+    assert.equal(summary.outcome, 'passed');
+  });
+});

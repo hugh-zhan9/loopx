@@ -276,6 +276,24 @@ describe('loopx skill governance', () => {
     }
   });
 
+  it('packages the GPT-5.6 trace-first agent eval harness', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const cases = JSON.parse(await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'cases.json'), 'utf8'));
+    const schema = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'TRACE_SCHEMA.md'), 'utf8');
+    const guide = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'README.md'), 'utf8');
+
+    assert.equal(cases.cases.length, 12);
+    assert.equal(new Set(cases.cases.map((item) => item.id)).size, 12);
+    assert.match(schema, /parent_actor_id.*controller/is);
+    assert.match(guide, /Change one prompt group at a time/);
+    assert.match(guide, /Synthetic traces.*not for claiming GPT-5\.6 performance/is);
+    assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true);
+    assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
+    assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
+    assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
+  });
+
   it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
