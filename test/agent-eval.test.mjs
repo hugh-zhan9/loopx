@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
-import { applyAgentEvalPolicies, compareAgentEvalRuns, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
-import { findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
+import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = new URL('..', import.meta.url).pathname;
@@ -131,6 +131,28 @@ describe('agent eval metrics', () => {
     assert.equal(summary.wait_count, 1);
     assert.equal(summary.tool_call_count, 1);
     assert.equal(summary.total_tokens, 190);
+    assert.equal(summary.cached_input_tokens, 0);
+    assert.equal(summary.uncached_input_tokens, 160);
     assert.equal(summary.outcome, 'passed');
+  });
+
+  it('extracts the leaf worker final message without using the controller paraphrase', async () => {
+    const rollouts = await findCodexRollouts(join(repoRoot, 'test', 'fixtures', 'codex-rollouts'), 'root-thread');
+    const result = extractCodexLeafFinalMessage(rollouts, 'root-thread');
+
+    assert.equal(result.threadId, '/root/task_reviewer');
+    assert.equal(result.message, 'ISSUES_FOUND\nImportant\nNeeds fixes');
+  });
+
+  it('aggregates crossover replicates by median and requires every replicate to pass quality', () => {
+    const first = summarizeAgentEvalRun(v2Events);
+    const second = { ...first, run_id: 'r4', total_tokens: 1100, latency_ms: 700, quality_passed: false };
+    const [aggregate] = aggregateAgentEvalReplicates([first, second]);
+
+    assert.equal(aggregate.replicate_count, 2);
+    assert.equal(aggregate.total_tokens, 1000);
+    assert.equal(aggregate.latency_ms, 600);
+    assert.equal(aggregate.quality_passed, false);
+    assert.equal(aggregate.quality_pass_rate, 0.5);
   });
 });

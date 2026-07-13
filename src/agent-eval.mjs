@@ -48,6 +48,8 @@ export function summarizeAgentEvalRun(events) {
   const reviewFindings = events.filter((event) => event.event === 'review_finding');
   const inputTokens = numberOrNull(end.input_tokens);
   const outputTokens = numberOrNull(end.output_tokens);
+  const cachedInputTokens = inputTokens === null ? null : numberOrNull(end.cached_input_tokens) ?? 0;
+  const uncachedInputTokens = inputTokens === null || cachedInputTokens === null ? null : inputTokens - cachedInputTokens;
   const totalTokens = inputTokens === null || outputTokens === null ? null : inputTokens + outputTokens;
   const hardInvariantsPassed = nestedAgentCount === 0;
   const outcomePassed = end.outcome === 'passed' && end.tests_passed !== false;
@@ -71,6 +73,8 @@ export function summarizeAgentEvalRun(events) {
     review_false_positive_count: reviewFindings.filter((event) => event.finding_valid === false).length,
     review_duplicate_count: duplicateFindingCount,
     input_tokens: inputTokens,
+    cached_input_tokens: cachedInputTokens,
+    uncached_input_tokens: uncachedInputTokens,
     output_tokens: outputTokens,
     total_tokens: totalTokens,
     latency_ms: numberOrNull(end.latency_ms),
@@ -106,6 +110,44 @@ export function applyAgentEvalPolicies(summaries, manifest) {
   });
 }
 
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
+  if (sorted.length === 0) {
+    return null;
+  }
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+export function aggregateAgentEvalReplicates(summaries) {
+  const groups = Map.groupBy(summaries, (summary) => `${summary.case_id}\u0000${summary.variant}`);
+  return [...groups.values()].map((runs) => {
+    const first = runs[0];
+    const numericFields = [
+      'agent_count', 'peak_active_agents', 'nested_agent_count', 'tool_call_count',
+      'wait_count', 'retry_count', 'replacement_count', 'review_finding_count',
+      'review_false_positive_count', 'review_duplicate_count', 'input_tokens',
+      'cached_input_tokens', 'uncached_input_tokens', 'output_tokens', 'total_tokens',
+      'latency_ms',
+    ];
+    const aggregate = Object.fromEntries(numericFields.map((field) => [field, median(runs.map((run) => run[field]))]));
+    return {
+      ...aggregate,
+      run_id: `${first.case_id}-${first.variant}-aggregate`,
+      case_id: first.case_id,
+      variant: first.variant,
+      outcome: runs.every((run) => run.outcome === 'passed') ? 'passed' : 'failed',
+      tests_passed: runs.every((run) => run.tests_passed !== false),
+      quality_passed: runs.every((run) => run.quality_passed === true),
+      hard_invariants_passed: runs.every((run) => run.hard_invariants_passed === true),
+      policy_passed: runs.every((run) => run.policy_passed !== false),
+      policy_violations: [...new Set(runs.flatMap((run) => run.policy_violations ?? []))],
+      replicate_count: runs.length,
+      quality_pass_rate: runs.filter((run) => run.quality_passed === true).length / runs.length,
+    };
+  });
+}
+
 export function compareAgentEvalRuns(summaries, options = {}) {
   const baselineVariant = options.baselineVariant ?? 'baseline';
   const candidateVariant = options.candidateVariant ?? 'v2';
@@ -127,6 +169,7 @@ export function compareAgentEvalRuns(summaries, options = {}) {
     }
     const comparableTokens = Number.isFinite(candidate.total_tokens) && Number.isFinite(baseline.total_tokens);
     const comparableLatency = Number.isFinite(candidate.latency_ms) && Number.isFinite(baseline.latency_ms);
+    const comparableUncached = Number.isFinite(candidate.uncached_input_tokens) && Number.isFinite(baseline.uncached_input_tokens);
     const resourceImproved = candidate.agent_count <= baseline.agent_count
       && comparableTokens && candidate.total_tokens <= baseline.total_tokens
       && comparableLatency && candidate.latency_ms <= baseline.latency_ms;
@@ -144,6 +187,8 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       review_false_positive_delta: candidate.review_false_positive_count - baseline.review_false_positive_count,
       total_tokens_delta: comparableTokens ? candidate.total_tokens - baseline.total_tokens : null,
       total_tokens_percent_delta: percentDelta(baseline.total_tokens, candidate.total_tokens),
+      uncached_input_tokens_delta: comparableUncached ? candidate.uncached_input_tokens - baseline.uncached_input_tokens : null,
+      uncached_input_tokens_percent_delta: percentDelta(baseline.uncached_input_tokens, candidate.uncached_input_tokens),
       latency_ms_delta: comparableLatency ? candidate.latency_ms - baseline.latency_ms : null,
       latency_percent_delta: percentDelta(baseline.latency_ms, candidate.latency_ms),
       improved: candidateQualityPassed && resourceImproved,

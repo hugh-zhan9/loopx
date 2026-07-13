@@ -34,6 +34,34 @@ npm run eval:codex-normalize -- \
 The normalizer reads Codex rollout files from `~/.codex/sessions`, preserves
 native parent/child thread identity, and aggregates parent plus child usage.
 
+Run the paired native Codex suite with the model and authentication from the
+current Codex configuration:
+
+```bash
+npm run eval:codex-live -- \
+  --model gpt-5.6-sol \
+  --reasoning-effort high \
+  --out .loopx/evals/gpt-5.6/live
+```
+
+Use `--case <id>` for one paired case. The runner resolves the baseline prompt
+from its pinned git ref and the candidate prompt from `HEAD`, invokes Codex in
+read-only mode, normalizes native parent/child rollouts, validates the final
+message, applies case budgets, and writes the standard comparison report.
+
+Run a second replicate with `--order candidate-first` to control for prompt
+cache and warm-start ordering. Do not use a single fixed-order pair as the sole
+basis for a prompt change.
+
+Aggregate both orders with median metrics and an all-replicates quality gate:
+
+```bash
+npm run eval:aggregate -- \
+  --input .loopx/evals/gpt-5.6/run-a/run-summaries.json \
+  --input .loopx/evals/gpt-5.6/run-b/run-summaries.json \
+  --out .loopx/evals/gpt-5.6/aggregate
+```
+
 ## Evaluation Discipline
 
 1. Run the same case, repository fixture, model, and reasoning effort for both

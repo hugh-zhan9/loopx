@@ -289,9 +289,13 @@ describe('loopx skill governance', () => {
     assert.match(guide, /Synthetic traces.*not for claiming GPT-5\.6 performance/is);
     assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
     assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
+    assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');
+    assert.equal(packageJson.scripts['eval:aggregate'], 'node scripts/aggregate-agent-evals.mjs');
   });
 
   it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
@@ -1097,7 +1101,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.18');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.19');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
@@ -1326,7 +1330,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.17');
     assert.equal(execFields['metadata.version'], '0.3.12');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.18');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.19');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
@@ -1454,7 +1458,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.18');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.19');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);

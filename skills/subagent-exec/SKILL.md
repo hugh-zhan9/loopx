@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.18"
+  version: "0.3.19"
 ---
 
 # Subagent Exec

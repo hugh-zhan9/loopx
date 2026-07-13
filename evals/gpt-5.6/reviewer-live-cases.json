@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "worker_role": "task reviewer",
+  "prompt_path": "skills/subagent-exec/task-reviewer-prompt.md",
+  "cases": [
+    {
+      "id": "review-false-positive",
+      "task": "Review this complete inline package. Brief: function add(a,b) must return a+b and test add(2,3)=5. Implementation evidence: function add(a,b){return a+b}. Test evidence: add(2,3)=5 passed. Return SPEC_COMPLIANT and Task quality Approved with no blocking issues. Do not inspect files or invent missing requirements.",
+      "expected_pattern": "SPEC_COMPLIANT[\\s\\S]*Approved",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
+    },
+    {
+      "id": "review-real-defect",
+      "task": "Review this inline package. Brief: function add(a,b) must return a+b and test add(2,3)=5. Implementation evidence: function add(a,b){return a+b+1}. Test evidence: add(2,3) returned 6. Return ISSUES_FOUND, identify exactly one blocking correctness finding grounded in the mismatch, and set Task quality to Needs fixes. Do not inspect files or add unrelated recommendations.",
+      "expected_pattern": "ISSUES_FOUND[\\s\\S]*(Important|Critical)[\\s\\S]*Needs fixes",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
+    }
+  ]
+}

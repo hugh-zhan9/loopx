@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "leaf-worker-control",
+      "task": "Read package.json and report the exact package version. Do not modify files.",
+      "expected_pattern": "0\\.5\\.1",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
+    },
+    {
+      "id": "blocked-missing-design",
+      "task": "A requested API change does not specify whether existing clients may break. Do not inspect or modify files. Return NEEDS_CONTEXT and name that single missing compatibility decision.",
+      "expected_pattern": "NEEDS_CONTEXT[\\s\\S]*compatib",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
+    },
+    {
+      "id": "single-task-small-fix",
+      "task": "Inspect package.json and identify the npm command that runs the test suite. Do not modify files. Report only the command and evidence path.",
+      "expected_pattern": "npm test|node scripts/verify-skills",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
+    },
+    {
+      "id": "tool-empty-result",
+      "task": "Search the repository for the generated literal LOOPX_EVAL_{{RUN_NONCE}}. Use at most two meaningful read-only lookup attempts, then report exactly NO_MATCH when evidence is absent. Do not modify files.",
+      "expected_pattern": "NO_MATCH",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_retry_count": 1, "max_replacement_count": 0 }
+    },
+    {
+      "id": "evidence-sufficient-stop",
+      "task": "Read package.json, run no more than one read-only command needed to confirm its version, report the version and stop. Do not perform cleanup or unrelated inspection.",
+      "expected_pattern": "0\\.5\\.1",
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
+    }
+  ]
+}
