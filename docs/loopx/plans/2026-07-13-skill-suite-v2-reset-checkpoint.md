@@ -2,7 +2,7 @@
 
 - Plan: `docs/loopx/plans/2026-07-13-skill-suite-v2-reset/00-overview.md`
 - Baseline SHA: `ebe5e53`
-- Current status: child plans 01–06 complete and reviewed; spec-level final-review pending
+- Current status: child plans 01–06 complete; spec-level final-review passed; ready for finish
 - Last updated: 2026-07-13
 
 ## Progress
@@ -35,5 +35,6 @@
 - Last completed task evidence: `AC-004`; `D-007`; `TC-004`, `TC-005`; all focused and full tests passed.
 - Last completed task evidence: `AC-005`; `TC-006`; domain and analysis skills now use conditional repository-first guidance, preserve behavior/provenance, and reject known factual traps; `npm test` passed 88/88.
 - Last completed task evidence: `AC-006`, `AC-007`, `AC-008`; `TC-007`, `TC-008`; 27/27 semantic contract parity, v2 public docs, package closure, controller-only agent budget, and outcome-first worker prompt verified; `npm test` passed 89/89.
-- Next task depends on: spec-level final-review across `ebe5e53..HEAD`, then finish.
+- Spec-level final-review: `.loopx/final-review/2026-07-13-skill-suite-v2-reset.md`, `Ready for finish? Yes`, 8/8 requirements covered.
+- Next task depends on: finish audit and branch placement.
 - Open issues: none.
