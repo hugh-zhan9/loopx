@@ -3,7 +3,7 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.12"
+  version: "0.3.13"
 ---
 
 # Final Review

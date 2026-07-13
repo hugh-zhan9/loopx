@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.15"
+  version: "0.3.16"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -46,6 +46,8 @@ When a source design spec contains `D-*` design anchors or a `Design Contract In
 After drafting the complete plan and before saving the final plan or offering execution handoff, run the `plan-reviewer` support lens as a source-to-plan review gate.
 
 Use a reviewer subagent when the platform supports subagents. Give the reviewer only the source artifact, the draft plan, relevant repo spec or memory context already selected for planning, and the `plan-reviewer` rubric. The reviewer must not inspect implementation code, because implementation has not started.
+
+The reviewer is a leaf worker. Its worker-visible prompt must say: "Do not spawn, delegate to, or wait for other agents." Agent lifecycle remains owned by the top-level controller under `skills/shared/agent-topology.md`.
 
 If subagents are unavailable, run the same `plan-reviewer` rubric in the current context. Mark this as degraded independence in the final plan or handoff:
 

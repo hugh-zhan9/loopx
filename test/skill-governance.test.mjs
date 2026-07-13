@@ -310,8 +310,50 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
     assert.deepEqual(
       packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
-      ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
+      ['skills/RESOLVER.md', 'skills/shared/', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
     );
+  });
+
+  it('governs shared agent review and evidence contracts', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const agentTopology = await readFile(join(repoRoot, 'skills', 'shared', 'agent-topology.md'), 'utf8');
+    const reviewContract = await readFile(join(repoRoot, 'skills', 'shared', 'review-contract.md'), 'utf8');
+    const evidenceContract = await readFile(join(repoRoot, 'skills', 'shared', 'evidence-contract.md'), 'utf8');
+
+    assert.equal(packageJson.files.includes('skills/shared/'), true);
+    assert.match(agentTopology, /controller is the only orchestration owner/i);
+    assert.match(agentTopology, /leaf worker/i);
+    assert.match(agentTopology, /required capabilities.*create.*await/is);
+    assert.match(agentTopology, /optional capabilities.*inspect.*message.*release/is);
+    assert.match(reviewContract, /Task review/);
+    assert.match(reviewContract, /Checkpoint review/);
+    assert.match(reviewContract, /Plan-level final-review/);
+    assert.match(reviewContract, /Spec-level final-review/);
+    assert.match(reviewContract, /Critical.*Important.*Minor/is);
+    for (const field of ['command', 'cwd', 'timestamp', 'exit_code', 'scope', 'result', 'output_summary', 'skipped_checks', 'environment_constraints']) {
+      assert.match(evidenceContract, new RegExp(`\\b${field}\\b`), `evidence contract missing ${field}`);
+    }
+  });
+
+  it('keeps every loopx-dispatched worker as a leaf worker', async () => {
+    const dispatchSurfaces = [
+      'skills/plan-to-exec/SKILL.md',
+      'skills/plan-reviewer/SKILL.md',
+      'skills/subagent-exec/implementer-prompt.md',
+      'skills/subagent-exec/task-reviewer-prompt.md',
+      'skills/review/code-reviewer.md',
+      'skills/final-review/final-reviewer.md',
+      'skills/fix/SKILL.md',
+    ];
+    for (const relativePath of dispatchSurfaces) {
+      const text = await readFile(join(repoRoot, relativePath), 'utf8');
+      assert.match(text, /leaf worker/i, `${relativePath} must identify dispatched workers as leaf workers`);
+      assert.match(text, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i, `${relativePath} must prohibit nested delegation`);
+    }
+    const codexReference = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'codex-subagents.md'), 'utf8');
+    assert.match(codexReference, /Required capabilities.*create.*await/is);
+    assert.match(codexReference, /Optional capabilities.*inspect.*message.*release/is);
+    assert.doesNotMatch(codexReference, /spawn_agent`, `wait_agent`, and `close_agent` are directly available/);
   });
 
   it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
@@ -391,7 +433,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.1.2');
+    assert.equal(fields['metadata.version'], '0.1.3');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/i);
     assert.match(skill, /Do not use this skill for:/);
@@ -711,7 +753,11 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
     assert.match(implementer, /Read your task brief first/);
     assert.match(implementer, /REPORT_FILE/);
+    assert.match(implementer, /leaf worker/i);
+    assert.match(implementer, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i);
     assert.doesNotMatch(implementer, /Native Codex subagent/);
+    assert.match(taskReviewer, /leaf worker/i);
+    assert.match(taskReviewer, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i);
     assert.match(platformReference, /Codex/);
     assert.match(platformReference, /Claude Code/);
     assert.match(platformReference, /Cursor/);
@@ -723,6 +769,12 @@ describe('loopx skill governance', () => {
     assert.match(codexReference, /tool_search/);
     assert.match(codexReference, /multi_agent_v1\.spawn_agent/);
     assert.match(codexReference, /Only after direct lookup and available discovery both fail/);
+    assert.match(codexReference, /controller is the only orchestration owner/i);
+    assert.match(codexReference, /leaf workers/i);
+    assert.match(codexReference, /include this leaf-worker constraint in every dispatch/i);
+    assert.match(codexReference, /No agents completed yet.*not\s+a\s+failure/is);
+    assert.match(codexReference, /Do not form an unbounded.*wait/is);
+    assert.match(codexReference, /Do not spawn a replacement.*still running/is);
     assert.match(claudeReference, /Agent tool/);
     assert.match(claudeReference, /\/agents/);
     assert.match(claudeReference, /@agent-/);
@@ -941,9 +993,9 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.15');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.11');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.10');
 
     assert.match(planSkill, /package mode/i);
@@ -1114,8 +1166,8 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(specFields['metadata.version'], '0.3.12');
-    assert.equal(planFields['metadata.version'], '0.3.15');
-    assert.equal(reviewFields['metadata.version'], '0.3.11');
+    assert.equal(planFields['metadata.version'], '0.3.16');
+    assert.equal(reviewFields['metadata.version'], '0.3.12');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -1170,10 +1222,10 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.15');
+    assert.equal(planFields['metadata.version'], '0.3.16');
     assert.equal(execFields['metadata.version'], '0.3.11');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.14');
-    assert.equal(reviewFields['metadata.version'], '0.3.11');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.17');
+    assert.equal(reviewFields['metadata.version'], '0.3.12');
 
     assert.match(planSkill, /T-\*/);
     assert.match(planSkill, /### T-001 \/ Task 1:/);
@@ -1238,7 +1290,7 @@ describe('loopx skill governance', () => {
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.15');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -1258,7 +1310,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
 
     const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
-    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.2');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.3');
 
     assert.match(planReviewerSkill, /Source AC/);
     assert.match(planReviewerSkill, /Design anchors/);
@@ -1298,9 +1350,9 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.13');
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.15');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.16');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.11');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.17');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
@@ -1376,8 +1428,8 @@ describe('loopx skill governance', () => {
     );
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
 
-    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.11');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.13');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.10');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
