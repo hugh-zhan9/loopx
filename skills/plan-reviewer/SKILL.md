@@ -3,12 +3,14 @@ name: plan-reviewer
 description: "Reviews draft implementation plans for source-to-plan coverage, scope drift, verification gaps, and task handoff readiness. Not for writing plans, reviewing implementation code, changing workflow state, or redesigning approved requirements."
 when_to_use: "plan review, source-to-plan review, plan artifact audit, coverage audit, implementation plan quality, draft plan review, 计划审核, 计划覆盖检查"
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Plan Reviewer
 
 `plan-reviewer` is a support lens, not a workflow state. It reviews a draft implementation plan against its approved source artifact before execution starts.
+
+When dispatched independently, you are a leaf worker. Do not spawn, delegate to, or wait for other agents. Complete the review directly and return findings to the controller.
 
 Use it inside `plan-to-exec` after a draft plan exists and before the final plan is saved or execution handoff is offered. It may also be invoked directly for an ad-hoc plan audit.
 

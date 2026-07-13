@@ -34,6 +34,7 @@
     "assets/logo.svg",
     "src/",
     "skills/RESOLVER.md",
+    "skills/shared/",
     "skills/api-designer/",
     "skills/architecture-designer/",
     "skills/clarify/",

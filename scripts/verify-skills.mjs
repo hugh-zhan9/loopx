@@ -295,13 +295,14 @@ assert.deepEqual(
 );
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
+assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }
 assert.deepEqual(
   packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
-  ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
-  'npm package skills/ surface must exactly match bundled skills plus resolver',
+  ['skills/RESOLVER.md', 'skills/shared/', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
+  'npm package skills/ surface must exactly match bundled skills plus resolver and shared contracts',
 );
 
 for (const relativePath of markdownPaths) {

@@ -178,6 +178,14 @@ function installedSkillDir(skillName, env = process.env) {
   return join(getInstalledSkillsRoot(env), skillName);
 }
 
+function sharedContractsSourceDir(env = process.env, skillSourceRoot = getSkillSourceRoot(env)) {
+  return join(skillSourceRoot, 'shared');
+}
+
+function installedSharedContractsDir(env = process.env) {
+  return join(getInstalledSkillsRoot(env), 'shared');
+}
+
 function installedManagedScriptPath(item, env = process.env) {
   return join(installTemplateRoot(env), item.targetRelativePath);
 }
@@ -199,6 +207,20 @@ async function fileHash(path) {
   }
 
   hash.update(await readFile(path));
+  return hash.digest('hex');
+}
+
+async function sharedContractsHash(path) {
+  const hash = createHash('sha1');
+  for (const entry of (await readdir(path)).sort()) {
+    const entryPath = join(path, entry);
+    const stat = await lstat(entryPath);
+    if (!stat.isFile()) {
+      continue;
+    }
+    hash.update(entry);
+    hash.update(await readFile(entryPath));
+  }
   return hash.digest('hex');
 }
 
@@ -677,11 +699,24 @@ export async function inspectInstallState(env = process.env) {
     };
   }
 
+  const sharedSource = sharedContractsSourceDir(env);
+  const sharedTarget = installedSharedContractsDir(env);
+  const sharedContracts = {
+    sourcePath: sharedSource,
+    installedPath: sharedTarget,
+    available: existsSync(sharedSource),
+    installed: existsSync(sharedTarget),
+    discovered: existsSync(sharedSource)
+      && existsSync(sharedTarget)
+      && await sharedContractsHash(sharedSource) === await sharedContractsHash(sharedTarget),
+  };
+
   return {
     projectRoot: getProjectRoot(env),
     installedSkillsRoot: installedRoot,
     skillLockPath: getSkillLockPath(env),
     skills: bySkill,
+    sharedContracts,
     managedArtifacts,
   };
 }
@@ -701,6 +736,12 @@ export async function verifyInstallState(env = process.env) {
     if (!info.discovered) {
       failures.push(`discovery_incomplete:${skillName}`);
     }
+  }
+
+  if (inspection.sharedContracts.available && !inspection.sharedContracts.installed) {
+    failures.push('missing_shared_contracts');
+  } else if (inspection.sharedContracts.available && !inspection.sharedContracts.discovered) {
+    failures.push('shared_contracts_drifted');
   }
 
   for (const item of managedScriptItemsForTarget(env.LOOPX_INSTALL_TARGET || 'codex')) {
@@ -737,6 +778,21 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const conflicts = [];
   const skipped = [];
   const nextTemplateItems = [];
+  const sharedSource = sharedContractsSourceDir(env, installOptions.skillSourceRoot);
+  const sharedTarget = installedSharedContractsDir(env);
+  if (existsSync(sharedSource)) {
+    if (existsSync(sharedTarget) && await sharedContractsHash(sharedTarget) !== await sharedContractsHash(sharedSource)) {
+      conflicts.push({
+        skillName: 'shared-contracts',
+        reason: 'foreign_or_modified_shared_contracts',
+        installedPath: sharedTarget,
+      });
+    } else {
+      await removeInstalledSkill(sharedTarget);
+      await ensureDir(dirname(sharedTarget));
+      await cp(sharedSource, sharedTarget, { recursive: true });
+    }
+  }
   for (const skillName of LOOPX_SKILLS) {
     const current = nextData.skills[skillName];
     const ownership = await assertLoopxOwnedTarget(skillName, current, env, installOptions);

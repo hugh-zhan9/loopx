@@ -485,6 +485,7 @@ describe('loopx retained workflow shell', () => {
     const result = await installBundledSkills(loopxEnv(home), { yes: true });
     assert.equal(result.ok, true);
     assert.equal(result.installed.length, LOOPX_BUNDLED_SKILLS.length);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'agent-topology.md')), true);
 
     const verification = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(verification.ok, true);

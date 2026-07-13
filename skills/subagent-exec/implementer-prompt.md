@@ -10,6 +10,9 @@ Native subagent:
   prompt: |
     You are implementing T-001 / Task 1: [task name]
 
+    You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
+    Complete this assignment directly and report blockers to the controller.
+
     ## Task Description
 
     Read your task brief first: [BRIEF_FILE]
