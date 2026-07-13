@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.13"
+  version: "0.3.14"
 ---
 
 # loopx Clarify
@@ -85,6 +85,10 @@ The completed intake package must preserve the information `spec` or `plan-to-ex
 ## Handoff Decision
 
 Choose the next skill from the completed intake package, not from a guess about implementation size. `needs_spec`, `direct_to_plan`, and `blocked` are the only valid outcomes.
+
+Persist the chosen value as `handoff_decision` in the final `Resume State`.
+Current clarify workflow state uses schema v2. Pre-v2 running state is not
+migrated or normalized; restart it as a new current-contract workflow.
 
 ## Failure Handling
 
