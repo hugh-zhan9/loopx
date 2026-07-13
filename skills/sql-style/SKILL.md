@@ -4,7 +4,7 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---
@@ -61,6 +61,9 @@ Route unresolved product and compatibility decisions through `clarify` or `spec`
 - Prefer `EXISTS` over `COUNT(*)` for existence checks when only existence matters.
 - Make ordering deterministic for paginated or user-visible results.
 - Use transactions deliberately. State the isolation assumptions when correctness depends on them.
+- For online schema changes, prefer expand/contract sequencing. Backfills need
+  resumable checkpoints, progress observability, reconciliation, and a rollback
+  or stop rule. Review privileges and PII exposure for every new data path.
 - Keep query intent readable with names, structure, or short comments for non-obvious logic.
 
 ## Index Discipline

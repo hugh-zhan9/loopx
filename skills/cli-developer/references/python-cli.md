@@ -1,6 +1,6 @@
 # Python CLI Development
 
-## Typer (Recommended - Modern)
+## Typer Example
 
 FastAPI-style CLI framework with automatic help generation.
 
@@ -277,10 +277,10 @@ def deploy():
     except PermissionError as e:
         typer.secho("Permission denied", fg=typer.colors.RED, err=True)
         typer.echo("Try running with sudo or check file permissions")
-        raise typer.Exit(code=77)
+        raise typer.Exit(code=4)
     except FileNotFoundError as e:
         typer.secho(f"File not found: {e.filename}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=127)
+        raise typer.Exit(code=5)
     except Exception as e:
         typer.secho(f"Deployment failed: {e}", fg=typer.colors.RED, err=True)
         if os.getenv('DEBUG'):

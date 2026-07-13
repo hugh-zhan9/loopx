@@ -157,16 +157,9 @@ reply.Data = payload
 
 **Note:** This adds `@type` field to response.
 
-### Option 3: Remove omitempty from pb.go
-
-```bash
-# Makefile
-ifeq ($(GOHOSTOS), darwin)
-    find ./api -name '*.pb.go' -exec sed -i "" -e "s/,omitempty/,optional/g" {} \;
-else
-    find ./api -name '*.pb.go' -exec sed -i -e "s/,omitempty/,optional/g" {} \;
-endif
-```
+Do not patch generated `.pb.go` tags. Change the `.proto`, generator options,
+or handwritten response encoder, then rerun the repository-documented
+generation command.
 
 ---
 

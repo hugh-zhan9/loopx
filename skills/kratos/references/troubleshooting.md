@@ -94,12 +94,9 @@ reply.Data = payload
 
 **Note:** Adds `@type` field: `{"@type": "type.googleapis.com/...", "value": {...}}`
 
-### Solution 3: Remove omitempty
-
-```bash
-# Makefile - remove omitempty from pb.go tags
-find ./api -name '*.pb.go' -exec sed -i -e "s/,omitempty/,optional/g" {} \;
-```
+Do not edit generated `.pb.go` tags. Fix the source `.proto`, generator
+configuration, or handwritten encoding layer and regenerate with the
+repository-owned command.
 
 ---
 

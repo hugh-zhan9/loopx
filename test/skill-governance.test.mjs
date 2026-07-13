@@ -389,6 +389,33 @@ describe('loopx skill governance', () => {
     assert.match(worktrees, /postinstall hooks/);
   });
 
+  it('guards domain and analysis skills against factual and boundary regressions', async () => {
+    const api = await readFile(join(repoRoot, 'skills', 'api-designer', 'SKILL.md'), 'utf8');
+    const apiVersioning = await readFile(join(repoRoot, 'skills', 'api-designer', 'references', 'versioning.md'), 'utf8');
+    const architecturePatterns = await readFile(join(repoRoot, 'skills', 'architecture-designer', 'references', 'architecture-patterns.md'), 'utf8');
+    const cliRefs = await Promise.all(['design-patterns.md', 'node-cli.md', 'python-cli.md', 'go-cli.md'].map((name) => readFile(join(repoRoot, 'skills', 'cli-developer', 'references', name), 'utf8')));
+    const kratosRefs = await Promise.all(['http-customization.md', 'troubleshooting.md'].map((name) => readFile(join(repoRoot, 'skills', 'kratos', 'references', name), 'utf8')));
+    const requirements = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'SKILL.md'), 'utf8');
+    const readability = await readFile(join(repoRoot, 'skills', 'doc-readability', 'SKILL.md'), 'utf8');
+    assert.doesNotMatch(api, /nullable:\s*true/);
+    assert.match(api, /type: \[string, 'null'\]/);
+    assert.match(api, /Decide pagination, rate limiting, and endpoint versioning from product needs/);
+    assert.doesNotMatch(api, /Implement pagination for all collection/);
+    assert.doesNotMatch(api, /validate with `npx|use a mock server such as `npx/);
+    assert.doesNotMatch(apiVersioning, /URI versioning is recommended for most APIs/);
+    assert.match(apiVersioning, /Do not add endpoint versions by default/);
+    assert.doesNotMatch(architecturePatterns, /Quick Decision Guide/);
+    for (const text of cliRefs) {
+      assert.doesNotMatch(text, /(?:exit|code|DENIED|NOT_FOUND)[^\n]*(?:77|127)/i);
+    }
+    for (const text of kratosRefs) {
+      assert.doesNotMatch(text, /find .*\.pb\.go.*sed/);
+      assert.match(text, /Do not (?:patch|edit) generated `\.pb\.go`/);
+    }
+    assert.match(requirements, /Optional maturity score/);
+    assert.match(readability, /Ask only when competing document lenses/);
+  });
+
   it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
     for (const relativePath of activeMaintenanceDocs) {
       const text = await readFile(join(repoRoot, relativePath), 'utf8');
@@ -440,7 +467,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /support lens|implementation-layer minimization/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /over-engineering|yagni|implementation/i);
-    assert.equal(fields['metadata.version'], '0.1.2');
+    assert.equal(fields['metadata.version'], '0.1.3');
     assert.match(resolver, /skills\/lancet\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/);
     assert.match(skill, /Codex-only automatic activation/);
@@ -466,7 +493,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.1.3');
+    assert.equal(fields['metadata.version'], '0.1.4');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/i);
     assert.match(skill, /Do not use this skill for:/);
@@ -1344,7 +1371,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
 
     const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
-    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.3');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.4');
 
     assert.match(planReviewerSkill, /Source AC/);
     assert.match(planReviewerSkill, /Design anchors/);

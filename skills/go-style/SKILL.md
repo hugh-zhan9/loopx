@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Go Style
@@ -111,3 +111,10 @@ Use project-specific commands when present, such as `make test`, `make lint`, `g
 - Do not replace local idioms with generic Go advice when nearby code is consistent.
 - Do not add abstraction around a single implementation unless current callers need it.
 - Do not edit generated Go files as the source of truth.
+- Preserve build constraints and platform-specific file selection. When adding
+  or changing `//go:build` lines, verify the affected target combinations and
+  keep the legacy `+build` form only when the repository's supported Go version
+  requires it.
+- When concurrency, goroutines, locks, channels, or cancellation behavior
+  changes, run focused `go test -race` where the environment supports it and
+  record goroutine ownership and shutdown behavior.
