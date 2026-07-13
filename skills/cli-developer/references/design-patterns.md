@@ -70,8 +70,8 @@ const EXIT_CODES = {
   SUCCESS: 0,
   GENERAL_ERROR: 1,
   MISUSE: 2,              // Invalid arguments
-  PERMISSION_DENIED: 77,
-  NOT_FOUND: 127,
+  PERMISSION_DENIED: 4,
+  NOT_FOUND: 5,
   SIGINT: 130,            // Ctrl+C
 };
 ```

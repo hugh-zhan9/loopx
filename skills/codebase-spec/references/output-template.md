@@ -7,6 +7,14 @@ Use this structure for the final Markdown unless the user requested another form
 
 Generated from repository evidence on YYYY-MM-DD.
 
+## Provenance
+
+- Inspected commit/hash:
+- Generation timestamp:
+- Commands and tools used:
+- Sampling coverage and known omissions:
+- Secret-redaction rule applied:
+
 ## 1. Executive Summary
 
 ### 1.1 Current Purpose

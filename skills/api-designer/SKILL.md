@@ -4,7 +4,7 @@ description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, re
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---
@@ -24,9 +24,9 @@ This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `fin
 1. **Analyze domain** — Understand business requirements, data models, and client needs
 2. **Choose API style** — State whether the contract is REST, GraphQL, or mixed, and why that style fits the client and evolution needs
 3. **Model contract surface** — For REST, identify resources, relationships, URI patterns, HTTP methods, and request/response schemas. For GraphQL, identify object types, operations, inputs, resolver boundaries, and schema evolution rules.
-4. **Specify contract** — For REST, create OpenAPI 3.1 and validate with `npx @redocly/cli lint openapi.yaml`. For GraphQL, define the schema and run the project's schema validation or code generation checks.
-5. **Mock and verify** — For REST, use a mock server such as `npx @stoplight/prism-cli mock openapi.yaml`. For GraphQL, exercise representative operations against the project schema or a local GraphQL test server.
-6. **Plan evolution** — Design versioning, deprecation, and backward-compatibility strategy
+4. **Specify contract** — For REST, create OpenAPI 3.1 and validate it with repository-pinned tooling. For GraphQL, define the schema and run the project's schema validation or code generation checks. If the repository has no validator, report degraded validation instead of fetching one without authorization.
+5. **Mock and verify** — Exercise representative operations with the project's existing mock or local test facilities. If none exist, describe the verification gap; do not fetch a mock server with `npx` without explicit authorization.
+6. **Plan evolution** — Decide whether endpoint versioning, additive evolution, deprecation, or a compatibility plan is required by the observed contract and callers.
 
 ## STOP Conditions
 
@@ -56,20 +56,33 @@ Load detailed guidance based on context:
 - For GraphQL contracts, include schema definitions, resolver boundaries, operation examples, and validation or code generation checks.
 - Use consistent naming conventions within each contract style.
 - Design proper error responses with actionable messages: RFC 7807 for REST, and explicit GraphQL error shape and partial-success rules for GraphQL.
-- Implement pagination for all collection endpoints or collection fields.
-- Version APIs with clear deprecation policies
+- Decide pagination, rate limiting, and endpoint versioning from product needs,
+  expected cardinality, abuse risk, compatibility constraints, and observed
+  callers. Document the decision, including when a mechanism is unnecessary.
+- Prefer repository-pinned OpenAPI tooling. If it is unavailable, report
+  degraded validation; do not use `npx` to fetch tooling without explicit
+  authorization.
 - Document authentication and authorization
 - Provide request/response examples
+- For state-changing operations, decide idempotency, duplicate suppression, and
+  concurrent-update behavior. Use conditional requests or explicit version
+  fields when lost updates are a material risk.
+- For webhooks, define signature verification, replay protection, retry,
+  ordering, deduplication, and delivery observability.
+- Classify response-field changes by compatibility impact, including required
+  fields, nullability, enum expansion, defaults, and unknown-field handling.
 
 ### MUST NOT DO
 - For REST contracts, use verb-style resource URIs (use `/users/{id}`, not `/getUser/{id}`)
 - Return inconsistent response structures
 - Skip error code documentation
 - For REST contracts, ignore HTTP status code semantics.
-- Design APIs without a versioning strategy
+- Leave compatibility and evolution behavior implicit when clients or public
+  schemas may be affected
 - Expose implementation details in the API surface
 - Create breaking changes without a migration path
-- Omit rate limiting considerations
+- Omit abuse, capacity, pagination, or rate-limit analysis when the observed
+  surface makes those concerns material
 
 ## GraphQL Discipline
 
@@ -163,7 +176,7 @@ components:
       type: object
       required: [next_cursor, has_more]
       properties:
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
         has_more:    { type: boolean }
 
     Problem:                       # RFC 7807 Problem Details
@@ -241,7 +254,7 @@ When delivering an API design, provide:
 6. Error response catalog: 4xx/5xx responses with stable `type` URIs for REST, or GraphQL error shape, partial-success behavior, and resolver authorization failures
 7. Pagination and filtering patterns
 8. Versioning and deprecation strategy
-9. Validation result: `npx @redocly/cli lint openapi.yaml` passes with no errors for OpenAPI contracts, or project GraphQL schema validation passes for GraphQL contracts
+9. Validation result: the repository-pinned OpenAPI or GraphQL validation command passes; if no such tool exists, record degraded validation and the missing check
 
 ## Knowledge Reference
 

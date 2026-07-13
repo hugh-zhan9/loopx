@@ -3,7 +3,7 @@ name: codebase-spec
 description: "Reverse-engineers a detailed, evidence-backed specification from an existing codebase, including behavior, architecture, contracts, data, operations, tests, and gaps. Not for writing a forward design from unresolved requirements, planning implementation, or changing code."
 when_to_use: "codebase-spec, reverse spec, reverse-engineer spec, code to spec, document existing project, extract architecture from code, 逆向规格, 生成现状规格, 从代码生成规格文档"
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Codebase Spec
@@ -27,6 +27,10 @@ Do not:
 - Treat README claims as authoritative when code contradicts them. Prefer implementation evidence and call out the conflict.
 
 ## Evidence Standard
+
+Record the inspected commit/hash when available, generation timestamp, major
+commands/tools used, and sampling limits. Never print secret values; name only
+the file, variable, or secret-bearing surface inspected.
 
 Every material claim should have one of these evidence labels:
 

@@ -1,5 +1,9 @@
 # Non-Functional Requirements Checklist
 
+The numbers below are examples for elicitation, not defaults. Derive accepted
+targets from product requirements, production evidence, budgets, and repository
+constraints, then record how each target will be measured.
+
 ## NFR Categories
 
 ### Scalability

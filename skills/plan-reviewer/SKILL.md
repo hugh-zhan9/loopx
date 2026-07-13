@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews draft implementation plans for source-to-plan coverage, scope drift, verification gaps, and task handoff readiness. Not for writing plans, reviewing implementation code, changing workflow state, or redesigning approved requirements."
 when_to_use: "plan review, source-to-plan review, plan artifact audit, coverage audit, implementation plan quality, draft plan review, 计划审核, 计划覆盖检查"
 metadata:
-  version: "0.1.3"
+  version: "0.1.4"
 ---
 
 # Plan Reviewer
@@ -51,6 +51,9 @@ Build a source-to-plan coverage matrix:
 - Every Design anchors row maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
 - Every Test cases row maps to an automated command, integration/e2e/API/CLI/manual check, or deferred-with-rationale row.
 - Non-goals, compatibility rules, surface boundaries, and unchanged behaviors from the source remain preserved in the plan.
+- For refactor plans, the Behavior Preservation Contract inventories current
+  observable behavior, callers, data/config/schema surfaces, generated
+  artifacts, and verification evidence; every planned unit maps back to it.
 - The plan does not add product, API, data, permission, workflow, runtime, or compatibility behavior not justified by the source.
 - Each task has enough interfaces, context, support lenses, and expected evidence for an `exec` or `subagent-exec` implementer and reviewer to work independently.
 

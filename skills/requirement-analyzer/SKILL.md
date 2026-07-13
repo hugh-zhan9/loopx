@@ -3,7 +3,7 @@ name: requirement-analyzer
 description: "Use when reviewing existing requirements, PRDs, specs, or feature briefs for ambiguity, missing business closure, state/workflow behavior, data mutations, traceability, implementation fit, feasibility, or development readiness. Not for changing workflow state, inventing business decisions, writing implementation plans, or editing code."
 when_to_use: "requirement-analyzer, PRD review, requirement gaps, feasibility review, ambiguity analysis, development readiness, 需求分析, 需求缺口, 需求评审, 状态机分析, 行为模型"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Requirement Analyzer
@@ -78,7 +78,10 @@ This skill analyzes requirements. It does NOT:
 9. **Resolve what can be resolved by evidence** — For each ambiguity, check whether the primary requirement, referenced documents, examples, or nearby repo implementation already imply an answer. Mark the result as `resolved by evidence`, `likely but needs confirmation`, or `unresolved decision`.
 10. **Compare with existing implementation** (conditional) — When a repository root is provided and behavioral model was extracted, compare each state, transition, operation, and mutation against existing code. Output coverage status.
 11. **Prioritize issues** — Assign P0/P1/P2 using the priority rules below. Do not inflate every missing implementation detail into a requirement blocker.
-12. **Compute maturity score** — Calculate the diagnostic maturity scorecard from all analysis dimensions. Use it to explain confidence, not to override P0/P1 routing.
+12. **Optional maturity score** — Calculate the diagnostic scorecard only when
+    the user requests it or deep analysis benefits from it. The qualitative
+    evidence-backed verdict remains authoritative; avoid double-counting the
+    same gap across completeness, testability, and behavior.
 13. **Recommend next step** — Recommend `clarify`, `spec`, `plan-to-exec`, or blocked pending owner decisions. This is only a recommendation; do not create workflow artifacts unless separately asked.
 
 ## Reference Guide

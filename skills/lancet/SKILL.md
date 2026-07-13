@@ -3,7 +3,7 @@ name: lancet
 description: "Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state."
 when_to_use: "lancet, over-engineering, YAGNI, unnecessary dependency, simplest diff, implementation minimization, review minimization, Codex implementation discipline"
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Lancet
@@ -55,6 +55,9 @@ Stop using `lancet` as the deciding lens when the smaller change would weaken va
 ## Implementation Discipline
 
 - Prefer the smallest correct diff and fewest touched files.
+- Prove sufficiency against every applicable `AC-*`, `D-*`, `T-*`, issue
+  anchor, validation rule, and regression check. "Smaller" is not correct when
+  it drops required behavior or evidence.
 - Fix root cause, not symptom.
 - Treat new abstractions as a cost that must be justified by repeated use or a real boundary.
 - Avoid speculative extensibility, placeholder layers, fallback or degraded modes, retry paths, compatibility shims, and boilerplate wrappers unless the task requires them now from an approved source.

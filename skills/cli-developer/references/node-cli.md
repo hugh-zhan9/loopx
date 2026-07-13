@@ -1,6 +1,6 @@
 # Node.js CLI Development
 
-## Commander.js (Recommended)
+## Commander.js Example
 
 Modern, elegant CLI framework with TypeScript support.
 
@@ -309,10 +309,10 @@ program
       if (error.code === 'EACCES') {
         console.error(chalk.red('Permission denied'));
         console.error('Try running with sudo or check file permissions');
-        process.exit(77);
+        process.exit(4);
       } else if (error.code === 'ENOENT') {
         console.error(chalk.red('File not found:'), error.path);
-        process.exit(127);
+        process.exit(5);
       } else {
         console.error(chalk.red('Deployment failed:'), error.message);
         if (process.env.DEBUG) {

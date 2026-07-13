@@ -133,13 +133,13 @@ Accept: application/vnd.myapi+json; version=2
 - Less intuitive for developers
 - Harder to test
 
-## Recommended Approach
+## Selection Guidance
 
-**URI versioning is recommended for most APIs** because:
-- It's the most explicit and discoverable
-- Easy to understand and debug
-- Simple to implement and maintain
-- Clear separation between versions
+Do not add endpoint versions by default. First inspect the repository's current
+public contract, client compatibility needs, gateway constraints, and existing
+evolution convention. When parallel major versions are actually required, URI
+versioning is one explicit and discoverable option, but header negotiation or
+additive unversioned evolution may better match the existing surface.
 
 ```
 /v1/users

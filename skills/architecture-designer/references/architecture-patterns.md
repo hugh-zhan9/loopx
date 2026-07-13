@@ -320,10 +320,13 @@ OrderSaga (orchestrator):
 - Vendor lock-in risk; abstract business logic from provider APIs
 - Monitoring and debugging is harder than traditional servers
 
-## Quick Decision Guide
+## Comparison Signals
 
-| Requirement | Recommended Pattern |
-|-------------|---------------------|
+Use these only as investigation prompts. Repository constraints, quantified
+NFRs, team ownership, failure recovery, and rollout cost decide the pattern.
+
+| Signal | Candidate To Evaluate |
+|--------|-----------------------|
 | Simple CRUD app | Monolith |
 | Growing startup | Modular Monolith |
 | Enterprise scale | Microservices |
