@@ -1,0 +1,10 @@
+{"event":"run_start","run_id":"sample-baseline","case_id":"leaf-worker-control","variant":"baseline","at_ms":0}
+{"event":"agent_spawn","run_id":"sample-baseline","actor_id":"worker-1","parent_actor_id":"controller","at_ms":10}
+{"event":"agent_spawn","run_id":"sample-baseline","actor_id":"nested-1","parent_actor_id":"worker-1","at_ms":20}
+{"event":"agent_release","run_id":"sample-baseline","actor_id":"nested-1","at_ms":50}
+{"event":"agent_release","run_id":"sample-baseline","actor_id":"worker-1","at_ms":60}
+{"event":"run_end","run_id":"sample-baseline","outcome":"passed","tests_passed":true,"input_tokens":1000,"output_tokens":300,"latency_ms":800,"at_ms":800}
+{"event":"run_start","run_id":"sample-v2","case_id":"leaf-worker-control","variant":"v2","at_ms":0}
+{"event":"agent_spawn","run_id":"sample-v2","actor_id":"worker-1","parent_actor_id":"controller","at_ms":10}
+{"event":"agent_release","run_id":"sample-v2","actor_id":"worker-1","at_ms":40}
+{"event":"run_end","run_id":"sample-v2","outcome":"passed","tests_passed":true,"input_tokens":600,"output_tokens":200,"latency_ms":450,"at_ms":450}
