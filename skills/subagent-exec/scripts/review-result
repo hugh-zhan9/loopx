@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { parseReviewResult } from './review-result-lib.mjs';
+
+function usage() {
+  console.error('usage: review-result --task TASK_ANCHOR --input REVIEWER_MESSAGE [OUTFILE]');
+}
+
+function option(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? null : process.argv[index + 1];
+}
+
+const taskAnchor = option('--task');
+const input = option('--input');
+const positional = process.argv.slice(2).filter((value, index, values) =>
+  !['--task', '--input'].includes(value) && !['--task', '--input'].includes(values[index - 1]));
+if (!taskAnchor || !input || positional.length > 1) {
+  usage();
+  process.exit(2);
+}
+
+const result = parseReviewResult(await readFile(resolve(input), 'utf8'));
+if (!result) {
+  throw new Error('review_result_block_missing');
+}
+if (result.task_anchor !== null && result.task_anchor !== taskAnchor) {
+  throw new Error(`review_result_task_anchor_mismatch:${result.task_anchor}:${taskAnchor}`);
+}
+
+let output = positional[0] ? resolve(positional[0]) : null;
+if (!output) {
+  const stdout = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' });
+  const safeAnchor = taskAnchor.replace(/[^A-Za-z0-9._-]/g, '-');
+  output = join(stdout.trim(), '.loopx', 'subagent-exec', 'reviews', safeAnchor, 'review-result.json');
+}
+
+await mkdir(dirname(output), { recursive: true });
+const temporary = `${output}.tmp-${process.pid}`;
+await writeFile(temporary, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
+await rename(temporary, output);
+console.log(output);

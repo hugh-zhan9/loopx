@@ -18,6 +18,7 @@ Store traces as NDJSON with one event per line. Every event requires `event` and
 | `run_end` | `outcome`, `tests_passed`, `input_tokens`, `output_tokens`, `latency_ms`, `at_ms` | Record quality and resource outcome |
 
 Structured reviewer runs may also record `integration_passed`,
+`leaf_review_result_valid`, `controller_review_result_valid`,
 `status_preserved`, `task_quality_preserved`, `task_anchor_preserved`,
 `finding_recall`, `finding_precision`, `severity_fidelity`, `anchor_recall`,
 `cannot_verify_recall`, `unsafe_context_promotion`, `blocking_finding_loss`, and

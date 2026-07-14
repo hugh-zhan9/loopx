@@ -2,23 +2,34 @@
   "schema_version": 1,
   "worker_role": "task reviewer",
   "prompt_path": "skills/subagent-exec/task-reviewer-prompt.md",
+  "require_review_result": true,
   "cases": [
     {
       "id": "review-false-positive",
       "task": "Review task T-001 from this complete inline package. Brief: function add(a,b) must return a+b and test add(2,3)=5. Implementation evidence: function add(a,b){return a+b}. Test evidence: add(2,3)=5 passed. Return SPEC_COMPLIANT and Task quality Approved with no findings. Do not inspect files or invent missing requirements.",
       "expected_pattern": "SPEC_COMPLIANT[\\s\\S]*Approved",
+      "expected_review_result": { "status": "SPEC_COMPLIANT", "task_quality": "Approved", "task_anchor": "T-001", "cannot_verify_count": 0, "findings": [] },
       "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
     },
     {
       "id": "review-real-defect",
-      "task": "Review task T-002 from this inline package. Brief: function add(a,b) must return a+b and test add(2,3)=5. Implementation evidence: function add(a,b){return a+b+1}. Test evidence: add(2,3) returned 6. Return ISSUES_FOUND, identify exactly one blocking correctness finding grounded in the mismatch, and set Task quality to Needs fixes. Do not inspect files or add unrelated recommendations.",
-      "expected_pattern": "ISSUES_FOUND[\\s\\S]*(Important|Critical)[\\s\\S]*Needs fixes",
+      "task": "Review task T-002 from this inline package. Brief: function add(a,b) must return a+b and test add(2,3)=5. Implementation evidence: function add(a,b){return a+b+1}. Test evidence: add(2,3) returned 6. Return ISSUES_FOUND, identify exactly one Critical correctness finding grounded in the mismatch, and set Task quality to Needs fixes. Do not inspect files or add unrelated recommendations.",
+      "expected_pattern": "ISSUES_FOUND[\\s\\S]*Critical[\\s\\S]*Needs fixes",
+      "expected_review_result": { "status": "ISSUES_FOUND", "task_quality": "Needs fixes", "task_anchor": "T-002", "cannot_verify_count": 0, "findings": [{ "severity": "Critical", "anchor_ids": ["T-002"] }] },
       "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
     },
     {
       "id": "review-needs-context",
       "task": "Review task T-003. Brief: choose whether the public API must reject or normalize duplicate identifiers, but the product decision is absent. Implementation and test evidence intentionally do not resolve that policy. Return NEEDS_CONTEXT, Task quality Needs fixes, no findings, and list the missing product decision in cannot_verify. Do not choose a policy or inspect files.",
       "expected_pattern": "NEEDS_CONTEXT[\\s\\S]*Needs fixes",
+      "expected_review_result": { "status": "NEEDS_CONTEXT", "task_quality": "Needs fixes", "task_anchor": "T-003", "min_cannot_verify": 1, "findings": [] },
+      "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
+    },
+    {
+      "id": "review-multiple-findings",
+      "task": "Review task T-004. Brief anchors: AC-001 requires authenticate(token) to reject an absent token; AC-002 requires logout() to clear the session. Implementation evidence: authenticate(undefined) returns success, logout() leaves the session active, and an internal variable is misspelled without behavior impact. Test evidence confirms both behavioral failures. Return ISSUES_FOUND and Needs fixes with exactly three findings in this order: F-001 Critical for AC-001, F-002 Important for AC-002, and F-003 Minor with no anchor for the spelling issue. Do not inspect files or add other findings.",
+      "expected_pattern": "ISSUES_FOUND[\\s\\S]*F-001[\\s\\S]*Critical[\\s\\S]*F-002[\\s\\S]*Important[\\s\\S]*F-003[\\s\\S]*Minor[\\s\\S]*Needs fixes",
+      "expected_review_result": { "status": "ISSUES_FOUND", "task_quality": "Needs fixes", "task_anchor": "T-004", "cannot_verify_count": 0, "findings": [{ "severity": "Critical", "anchor_ids": ["AC-001"] }, { "severity": "Important", "anchor_ids": ["AC-002"] }, { "severity": "Minor", "anchor_ids": [] }] },
       "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_review_false_positives": 0, "max_review_duplicates": 0 }
     }
   ]

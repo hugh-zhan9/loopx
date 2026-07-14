@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
-import { applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -98,15 +98,41 @@ async function runOne({ repoRoot, sessionsRoot, outDir, testCase, variant, varia
   await writeFile(leafMessagePath, finalMessage);
   const expected = new RegExp(testCase.expected_pattern, 'i');
   const end = events.at(-1);
-  const leafReviewResult = parseReviewResult(finalMessage);
-  const controllerReviewResult = parseReviewResult(controllerFinalMessage);
+  let leafReviewResult = null;
+  let controllerReviewResult = null;
+  let leafReviewResultError = null;
+  let controllerReviewResultError = null;
+  try {
+    leafReviewResult = parseReviewResult(finalMessage);
+  } catch (error) {
+    leafReviewResultError = error.message;
+  }
+  try {
+    controllerReviewResult = parseReviewResult(controllerFinalMessage);
+  } catch (error) {
+    controllerReviewResultError = error.message;
+  }
   const integration = leafReviewResult
     ? evaluateControllerIntegration(leafReviewResult, controllerReviewResult)
     : null;
-  end.outcome = !commandFailed && expected.test(finalMessage) ? 'passed' : 'failed';
-  end.tests_passed = expected.test(finalMessage);
+  const reviewResultRequired = testCase.require_review_result === true;
+  const leafReviewResultValid = reviewResultRequired ? Boolean(leafReviewResult) : leafReviewResultError === null;
+  const structuredQuality = leafReviewResult && testCase.expected_review_result
+    ? evaluateLeafReviewResult(leafReviewResult, testCase.expected_review_result)
+    : null;
+  const expectedPassed = leafReviewResultValid
+    && (structuredQuality ? structuredQuality.passed : expected.test(finalMessage));
+  end.outcome = !commandFailed && expectedPassed ? 'passed' : 'failed';
+  end.tests_passed = expectedPassed;
+  end.leaf_review_result_valid = leafReviewResultValid;
+  end.controller_review_result_valid = controllerReviewResultError === null && (!leafReviewResult || Boolean(controllerReviewResult));
+  end.leaf_review_result_error = leafReviewResultError;
+  end.controller_review_result_error = controllerReviewResultError;
+  end.leaf_quality_violations = structuredQuality?.violations ?? [];
   if (integration) {
     Object.assign(end, integration);
+  } else if (reviewResultRequired) {
+    end.integration_passed = false;
   }
   end.latency_ms = Date.now() - startedAt;
   end.at_ms = end.latency_ms;
@@ -130,6 +156,7 @@ const model = option('--model', 'gpt-5.6-sol');
 const reasoningEffort = option('--reasoning-effort', 'high');
 const selected = option('--case');
 const order = option('--order', 'baseline-first');
+const onlyVariant = option('--variant');
 const sessionsRoot = resolve(option('--sessions', `${process.env.HOME}/.codex/sessions`));
 const liveCases = JSON.parse(await readFile(casesPath, 'utf8'));
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -144,12 +171,18 @@ for (const testCase of cases) {
   const runNonce = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   const resolvedCase = {
     ...testCase,
+    require_review_result: liveCases.require_review_result === true,
     task: testCase.task.replaceAll('{{RUN_NONCE}}', runNonce),
   };
-  const variants = order === 'candidate-first'
-    ? [manifest.candidate_variant, manifest.baseline_variant]
-    : [manifest.baseline_variant, manifest.candidate_variant];
+  const variants = onlyVariant
+    ? [onlyVariant]
+    : order === 'candidate-first'
+      ? [manifest.candidate_variant, manifest.baseline_variant]
+      : [manifest.baseline_variant, manifest.candidate_variant];
   for (const variant of variants) {
+    if (!manifest.variants[variant]) {
+      throw new Error(`codex_live_eval_variant_not_found:${variant}`);
+    }
     const variantConfig = {
       ...manifest.variants[variant],
       prompt_path: liveCases.prompt_path ?? manifest.variants[variant].prompt_path,

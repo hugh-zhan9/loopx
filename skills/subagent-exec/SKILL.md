@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.20"
+  version: "0.3.21"
 ---
 
 # Subagent Exec
@@ -101,8 +101,9 @@ Keep the task loop strict:
 7. Dispatch the task reviewer with the brief path, report path, review package
    path, Global Constraints, `ANCHOR_CONTEXT`, and `SURFACE_CHANGE_CONTEXT`.
 8. Treat the reviewer's canonical review result as the source of truth. Preserve
-   its `loopx-review-result` block verbatim in task-review evidence and use it
-   for gate decisions. The controller must not reconstruct status, task quality,
+   the complete final response unchanged, then run `scripts/review-result --task
+   <task-anchor> --input <reviewer-message-file>`. Use the persisted JSON for
+   gate decisions. The controller must not reconstruct status, task quality,
    finding IDs, severity, anchors, or cannot-verify items from prose.
 9. After clean review, append task completion to the progress ledger and move
    to the next task without pausing.
@@ -125,8 +126,11 @@ dispatch the task reviewer again. Never skip task review. Never proceed with
 unfixed Critical or Important findings.
 
 The Markdown review explains the decision; the canonical result block controls
-the gate. When summarizing a review, preserve that block verbatim. A missing or
-invalid block is `NEEDS_CONTEXT`, not approval.
+the gate. When summarizing a review, preserve that block verbatim. A missing,
+invalid, unknown-version, or task-anchor-mismatched block is `NEEDS_CONTEXT`,
+not approval. Use
+[review-result-contract.md](./references/review-result-contract.md) for the
+schema, persistence command, state combinations, and evolution rule.
 
 Model selection, uncertainty handling, retry rules, and `DONE` /
 `NEEDS_CONTEXT` / `BLOCKED` handling are in
@@ -167,6 +171,7 @@ plan state updates, and spec-level completion rules, use
 - [task-reviewer-prompt.md](./task-reviewer-prompt.md)
 - [multi-plan-package-mode.md](./references/multi-plan-package-mode.md)
 - [task-handoff-and-review.md](./references/task-handoff-and-review.md)
+- [review-result-contract.md](./references/review-result-contract.md)
 - [model-selection-and-retry.md](./references/model-selection-and-retry.md)
 
 ## STOP Conditions

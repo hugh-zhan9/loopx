@@ -825,6 +825,7 @@ describe('loopx skill governance', () => {
     const codexReference = await readFile(join(rootSkillDir, 'codex-subagents.md'), 'utf8');
     const claudeReference = await readFile(join(rootSkillDir, 'claude-subagents.md'), 'utf8');
     const cursorReference = await readFile(join(rootSkillDir, 'cursor-subagents.md'), 'utf8');
+    const reviewResultContract = await readFile(join(rootSkillDir, 'references', 'review-result-contract.md'), 'utf8');
 
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
     assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
@@ -856,6 +857,11 @@ describe('loopx skill governance', () => {
     assert.match(rootSkill, /canonical review result.*source of truth/is);
     assert.match(rootSkill, /preserve.*verbatim/is);
     assert.match(rootSkill, /must not reconstruct.*status.*severity/is);
+    assert.match(rootSkill, /scripts\/review-result/);
+    assert.match(reviewResultContract, /unknown schema versions are invalid/i);
+    assert.match(reviewResultContract, /writes atomically/i);
+    assert.match(reviewResultContract, /NEEDS_CONTEXT.*Needs fixes/is);
+    assert.match(reviewResultContract, /new schema identifier/i);
     assert.match(taskReviewer, /Do not review only the code/);
     assert.match(taskReviewer, /source design anchors, implementation plan/);
     assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
@@ -939,7 +945,7 @@ describe('loopx skill governance', () => {
     await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
 
     const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
-    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package']) {
+    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package', 'review-result']) {
       const mode = (await stat(join(scriptsDir, scriptName))).mode;
       assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
     }
@@ -1001,6 +1007,44 @@ describe('loopx skill governance', () => {
     assert.match(reviewPackage, /## Diff/);
     assert.match(reviewPackage, /two/);
     assert.doesNotMatch(reviewPackage, /## Commits/);
+
+    const reviewerMessage = join(wd, 'reviewer-message.md');
+    await writeFile(reviewerMessage, [
+      '### Spec Compliance',
+      '- Status: SPEC_COMPLIANT',
+      '',
+      '```loopx-review-result',
+      JSON.stringify({
+        schema: 'loopx.review-result.v1',
+        status: 'SPEC_COMPLIANT',
+        task_quality: 'Approved',
+        task_anchor: 'T-001',
+        cannot_verify: [],
+        findings: [],
+      }, null, 2),
+      '```',
+    ].join('\n'));
+    const resultPath = (await execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-001', '--input', reviewerMessage], { cwd: wd })).stdout.trim();
+    assert.equal(resultPath, join(workspace, 'reviews', 'T-001', 'review-result.json'));
+    assert.deepEqual(JSON.parse(await readFile(resultPath, 'utf8')), {
+      schema: 'loopx.review-result.v1',
+      status: 'SPEC_COMPLIANT',
+      task_quality: 'Approved',
+      task_anchor: 'T-001',
+      cannot_verify: [],
+      findings: [],
+    });
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-999', '--input', reviewerMessage], { cwd: wd }),
+      /review_result_task_anchor_mismatch:T-001:T-999/,
+    );
+
+    const invalidMessage = join(wd, 'invalid-reviewer-message.md');
+    await writeFile(invalidMessage, '```loopx-review-result\n{"schema":"loopx.review-result.v2"}\n```\n');
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-001', '--input', invalidMessage], { cwd: wd }),
+      /review_result_schema_unsupported/,
+    );
   });
 
   it('governs boundary commit policy and task review worktree evidence', async () => {
@@ -1107,7 +1151,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.20');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.21');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
@@ -1336,7 +1380,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.17');
     assert.equal(execFields['metadata.version'], '0.3.12');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.20');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.21');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
@@ -1464,7 +1508,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.20');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.21');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);

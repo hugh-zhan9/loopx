@@ -1,3 +1,7 @@
+import { parseReviewResult, validateReviewResult } from '../skills/subagent-exec/scripts/review-result-lib.mjs';
+
+export { parseReviewResult };
+
 function numberOrNull(value) {
   return Number.isFinite(value) ? value : null;
 }
@@ -22,46 +26,6 @@ function stringSet(values) {
 
 function reviewAnchors(result) {
   return stringSet((result?.findings ?? []).flatMap((finding) => finding.anchor_ids ?? []));
-}
-
-function validateReviewResult(result) {
-  if (!result || result.schema !== 'loopx.review-result.v1') {
-    throw new Error('review_result_schema_invalid');
-  }
-  if (!['SPEC_COMPLIANT', 'ISSUES_FOUND', 'NEEDS_CONTEXT'].includes(result.status)) {
-    throw new Error('review_result_status_invalid');
-  }
-  if (!['Approved', 'Needs fixes'].includes(result.task_quality)) {
-    throw new Error('review_result_task_quality_invalid');
-  }
-  if (!Array.isArray(result.cannot_verify) || !Array.isArray(result.findings)) {
-    throw new Error('review_result_arrays_required');
-  }
-  if (result.task_anchor !== null && typeof result.task_anchor !== 'string') {
-    throw new Error('review_result_task_anchor_invalid');
-  }
-  const ids = new Set();
-  for (const finding of result.findings) {
-    if (!/^F-\d{3}$/.test(finding.id ?? '') || ids.has(finding.id)) {
-      throw new Error('review_result_finding_id_invalid');
-    }
-    if (!['Critical', 'Important', 'Minor'].includes(finding.severity)) {
-      throw new Error('review_result_finding_severity_invalid');
-    }
-    if (!Array.isArray(finding.anchor_ids) || typeof finding.summary !== 'string') {
-      throw new Error('review_result_finding_shape_invalid');
-    }
-    ids.add(finding.id);
-  }
-  return result;
-}
-
-export function parseReviewResult(message) {
-  const match = String(message ?? '').match(/```loopx-review-result\s*\n([\s\S]*?)\n```/i);
-  if (!match) {
-    return null;
-  }
-  return validateReviewResult(JSON.parse(match[1]));
 }
 
 export function evaluateControllerIntegration(leaf, controller) {
@@ -118,6 +82,41 @@ export function evaluateControllerIntegration(leaf, controller) {
   };
 }
 
+export function evaluateLeafReviewResult(result, expected) {
+  validateReviewResult(result);
+  const violations = [];
+  for (const field of ['status', 'task_quality', 'task_anchor']) {
+    if (Object.hasOwn(expected, field) && result[field] !== expected[field]) {
+      violations.push(`${field}_mismatch`);
+    }
+  }
+  if (Number.isFinite(expected.cannot_verify_count) && result.cannot_verify.length !== expected.cannot_verify_count) {
+    violations.push('cannot_verify_count_mismatch');
+  }
+  if (Number.isFinite(expected.min_cannot_verify) && result.cannot_verify.length < expected.min_cannot_verify) {
+    violations.push('cannot_verify_missing');
+  }
+  if (Array.isArray(expected.findings)) {
+    if (result.findings.length !== expected.findings.length) {
+      violations.push('finding_count_mismatch');
+    }
+    expected.findings.forEach((finding, index) => {
+      const actual = result.findings[index];
+      if (!actual) {
+        return;
+      }
+      if (finding.severity && actual.severity !== finding.severity) {
+        violations.push(`finding_${index + 1}_severity_mismatch`);
+      }
+      if (Array.isArray(finding.anchor_ids)
+          && JSON.stringify(actual.anchor_ids) !== JSON.stringify(finding.anchor_ids)) {
+        violations.push(`finding_${index + 1}_anchors_mismatch`);
+      }
+    });
+  }
+  return { passed: violations.length === 0, violations };
+}
+
 export function summarizeAgentEvalRun(events) {
   if (!Array.isArray(events) || events.length === 0) {
     throw new Error('agent_eval_events_required');
@@ -170,6 +169,8 @@ export function summarizeAgentEvalRun(events) {
     quality_passed: outcomePassed && hardInvariantsPassed,
     hard_invariants_passed: hardInvariantsPassed,
     integration_passed: integrationPassed,
+    leaf_review_result_valid: end.leaf_review_result_valid ?? null,
+    controller_review_result_valid: end.controller_review_result_valid ?? null,
     status_preserved: end.status_preserved ?? null,
     task_quality_preserved: end.task_quality_preserved ?? null,
     task_anchor_preserved: end.task_anchor_preserved ?? null,
