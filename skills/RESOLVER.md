@@ -26,6 +26,17 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
 
+## Manual And Experimental Skills
+
+| Explicit invocation only | Skill |
+|---|---|
+| Strict parallel plan or complete package with machine-readable DAG metadata, requested explicitly by the user | `skills/parallel-subagent-exec/SKILL.md` |
+
+`parallel-subagent-exec` is not a core automatic route. Missing or legacy
+parallel metadata and direct numbered-child input stop with the same-path
+`subagent-exec` handoff. Missing runtime capability stops with exit `5` and no
+fallback.
+
 ## Support Skills
 
 | Trigger | Skill |

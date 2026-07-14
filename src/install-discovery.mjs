@@ -21,6 +21,7 @@ const LOOPX_SKILLS = [
   'plan-to-exec',
   'plan-reviewer',
   'subagent-exec',
+  'parallel-subagent-exec',
   'exec',
   'review',
   'final-review',
@@ -212,15 +213,25 @@ async function fileHash(path) {
 
 async function sharedContractsHash(path) {
   const hash = createHash('sha1');
-  for (const entry of (await readdir(path)).sort()) {
-    const entryPath = join(path, entry);
-    const stat = await lstat(entryPath);
-    if (!stat.isFile()) {
-      continue;
+  async function visit(currentPath, relativePath) {
+    const metadata = await lstat(currentPath);
+    const normalized = relativePath.split('\\').join('/');
+    if (metadata.isDirectory()) {
+      hash.update(`directory\0${normalized}\0`);
+      for (const entry of (await readdir(currentPath)).sort()) {
+        await visit(join(currentPath, entry), normalized ? `${normalized}/${entry}` : entry);
+      }
+      return;
     }
-    hash.update(entry);
-    hash.update(await readFile(entryPath));
+    if (metadata.isSymbolicLink()) {
+      hash.update(`symlink\0${normalized}\0${await readlink(currentPath)}\0`);
+      return;
+    }
+    hash.update(`file\0${normalized}\0`);
+    hash.update(await readFile(currentPath));
+    hash.update('\0');
   }
+  await visit(path, '');
   return hash.digest('hex');
 }
 

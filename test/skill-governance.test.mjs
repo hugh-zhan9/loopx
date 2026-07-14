@@ -382,6 +382,7 @@ describe('loopx skill governance', () => {
       'skills/plan-reviewer/SKILL.md',
       'skills/subagent-exec/implementer-prompt.md',
       'skills/subagent-exec/task-reviewer-prompt.md',
+      'skills/parallel-subagent-exec/reconciliation-prompt.md',
       'skills/review/code-reviewer.md',
       'skills/final-review/final-reviewer.md',
       'skills/fix/SKILL.md',
@@ -2050,5 +2051,51 @@ describe('loopx skill governance', () => {
       removedRequirementsStandaloneArtifactOrderPattern.source,
     ]);
     assert.equal(requirementsContractOutput.trim(), '');
+  });
+
+  it('governs parallel-subagent-exec as a manual bounded controller', async () => {
+    const referenceSurface = await readSkillSurface('parallel-subagent-exec', [
+      'task-pipeline.md',
+      'scheduler-and-state.md',
+      'worktree-integration.md',
+      'package-mode.md',
+    ]);
+    const rootDir = join(repoRoot, 'skills', 'parallel-subagent-exec');
+    const skill = [
+      referenceSurface,
+      ...await Promise.all([
+        'platform-subagents.md',
+        'codex-subagents.md',
+        'claude-subagents.md',
+        'cursor-subagents.md',
+        'reconciliation-prompt.md',
+      ].map((path) => readFile(join(rootDir, path), 'utf8'))),
+    ].join('\n');
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const exactLeaf = 'You are a leaf worker. Do not spawn, delegate to, or wait for other agents.';
+
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
+    assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
+    assert.match(skill, /version:\s*"0\.1\.0"/);
+    assert.match(skill, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
+    assert.match(skill, /scripts\/parallel-exec\.mjs/);
+    assert.match(skill, new RegExp(exactLeaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(skill, /default.*4|defaults? to `4`/is);
+    assert.match(skill, /review.*before.*integrat/is);
+    assert.match(skill, /controller alone|controller-only/is);
+    assert.match(skill, /at most two reconciliation attempts|maximum of two reconciliation attempts/i);
+    assert.match(skill, /\$subagent-exec <same-input-path>/);
+    assert.match(skill, /exit `5`/);
+    assert.match(skill, /zero dispatch/i);
+    assert.match(skill, /execution-start.*finish-start.*before the first reservation/is);
+    assert.match(skill, /schema v2/);
+    assert.match(skill, /byte-identical/);
+    assert.match(skill, /one formal commit per child/i);
+    assert.match(skill, /no package commit/i);
+    assert.match(skill, /blocked.*interrupted.*preserve/is);
+    assert.match(resolver, /Manual And Experimental Skills[\s\S]*parallel-subagent-exec/);
+    assert.doesNotMatch(planSkill, /\$parallel-subagent-exec docs\/loopx\/plans/);
   });
 });

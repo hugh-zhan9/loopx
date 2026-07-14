@@ -1,0 +1,143 @@
+---
+name: parallel-subagent-exec
+description: "Executes strict loopx plans with bounded parallel leaf subagents, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans, direct child execution, or runtimes without native subagents."
+when_to_use: "manual experimental execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
+metadata:
+  version: "0.1.0"
+---
+
+# Parallel Subagent Exec
+
+Manually execute a strict plan DAG with isolated task and child worktrees. The
+controller alone owns lifecycle, state, Git, retries, review gates, integration,
+resume, and cleanup. Invoke only as:
+
+```text
+$parallel-subagent-exec <plan-or-package> [--max-parallel N]
+```
+
+This is an experimental, explicit executor. Do not auto-route to it.
+
+## Input Gate
+
+Accept only a strict single-plan file or a package `00-overview.md` validated by
+`scripts/parallel-exec.mjs manifest inspect`. The metadata must use
+`loopx.parallel-plan.v1`, `loopx.parallel-task.v1`, and for packages
+`loopx.parallel-package.v1`.
+
+For missing, legacy, or invalid parallel metadata, or a direct numbered child
+plan, stop and print this same-path handoff exactly:
+
+```text
+$subagent-exec <same-input-path>
+```
+
+Do not execute the input and do not silently degrade inside this skill.
+
+## Capability Gate
+
+Read [platform-subagents.md](./platform-subagents.md), then verify native create
+worker and observe-or-wait capabilities before state initialization. Missing
+required capability exits `5`, records zero dispatch, names the missing
+capability, and does not invoke or recommend another executor.
+
+The configured worker budget defaults to `4`; `--max-parallel N` overrides it.
+The effective budget is the lower of configured and observed runtime capacity.
+Capacity zero is backpressure, not task failure.
+
+## Startup
+
+1. Validate the normalized manifest and Git topology before dispatch.
+2. Create the controller-owned root integration worktree.
+3. Resolve source and design to canonical absolute paths.
+4. From the root integration worktree run `loopx execution-start`, then
+   `loopx finish-start`, before the first reservation.
+5. Persist the requirement-start commit, finish baseline, artifact paths,
+   canonical final-review report, root HEAD, index tree, branch, and worktree.
+
+Any startup failure leaves zero reservations and zero dispatches.
+
+## Controller Loop
+
+Use [references/scheduler-and-state.md](./references/scheduler-and-state.md).
+
+1. Strictly resume or initialize owner-only state under
+   `.loopx/parallel-subagent-exec/<run-id>/`.
+2. Compute ready stages from the normalized DAG and reserve them atomically.
+3. Dispatch within one global budget using the platform adapter.
+4. Every dispatch includes exactly:
+   `You are a leaf worker. Do not spawn, delegate to, or wait for other agents.`
+5. Require task review before integration; Critical or Important findings go
+   through a fixer and re-review within the same budget.
+6. The controller alone creates ephemeral commits, snapshots integration state,
+   applies task commits with `cherry-pick --no-commit`, and creates boundaries.
+7. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
+   A third attempt is forbidden; mark the affected branch blocked.
+
+Implementers, reviewers, fixers, reconciliation workers, plan reviewers, and
+final reviewers never update controller state, create commits, cherry-pick,
+remove worktrees, or own refs.
+
+## Task And Review Pipeline
+
+Follow [references/task-pipeline.md](./references/task-pipeline.md) and
+[references/worktree-integration.md](./references/worktree-integration.md).
+Consume these existing `subagent-exec` assets read-only:
+
+- `../subagent-exec/implementer-prompt.md`
+- `../subagent-exec/task-reviewer-prompt.md`
+- `../subagent-exec/scripts/task-brief.mjs`
+- `../subagent-exec/scripts/review-package.mjs`
+- `../subagent-exec/scripts/review-result.mjs`
+
+Do not modify files under `skills/subagent-exec/`.
+
+## Completion By Scope
+
+Single plan: integrate tasks in declared order, create one formal plan commit,
+run one spec-level final review, then run `finish` only when clean.
+
+Package: follow [references/package-mode.md](./references/package-mode.md).
+Run child plans by the overview DAG and `can_run_in_parallel`, with task
+worktrees plus one integration worktree per child. Each clean child receives
+one formal commit after plan-level review. Apply child commits to the root in
+overview order, retaining exactly one formal commit per child and no package
+commit. The package root owns one spec-level final review and `finish`.
+
+Before child review, copy the exact multi-plan schema v2 state into the child
+and save a controller-owned before snapshot. The reviewer may change only its
+matching row. Sibling rows must remain byte-identical, and the child must not
+write the canonical package report. Merge the accepted row serially with CAS.
+
+## Resume And Cleanup
+
+Resume only when source hash, manifest hash, baseline, control root, state
+schema, startup artifacts, worktree paths, HEADs, index trees, and owned refs
+match. A repeated complete invocation returns `completion.json`.
+
+On success, remove owned task, retry, and child worktrees plus temporary and
+ephemeral refs. Retain reports, reviews, conflict evidence, compact `state.json`,
+`completion.json`, and the root integration worktree for `finish`.
+
+Blocked and interrupted runs preserve all state, evidence, worktrees, and refs,
+then print the exact resume command. Never call `finish` after a blocking task,
+plan-level, or spec-level review.
+
+## References
+
+- [platform-subagents.md](./platform-subagents.md)
+- [codex-subagents.md](./codex-subagents.md)
+- [claude-subagents.md](./claude-subagents.md)
+- [cursor-subagents.md](./cursor-subagents.md)
+- [reconciliation-prompt.md](./reconciliation-prompt.md)
+- [references/task-pipeline.md](./references/task-pipeline.md)
+- [references/scheduler-and-state.md](./references/scheduler-and-state.md)
+- [references/worktree-integration.md](./references/worktree-integration.md)
+- [references/package-mode.md](./references/package-mode.md)
+
+## STOP Conditions
+
+Stop on unsupported input, missing native capability, identity mismatch,
+unowned or dirty integration state, invalid review artifact, two failed
+reconciliation attempts, sibling-row mutation, canonical report ownership
+violation, or any unresolved Critical or Important finding.

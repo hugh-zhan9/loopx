@@ -463,6 +463,13 @@ describe('loopx retained workflow shell', () => {
 
     const verification = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(verification.ok, true);
+
+    const nestedValidator = join(home, '.agents', 'skills', 'shared', 'scripts', 'parallel-plan-contract.mjs');
+    assert.equal(existsSync(nestedValidator), true);
+    await writeFile(nestedValidator, '// drifted\n');
+    const drifted = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
+    assert.equal(drifted.ok, false);
+    assert.ok(drifted.failures.includes('shared_contracts_drifted'));
   });
 
   it('finish audit lifecycle records a local decision', async () => {

@@ -59,6 +59,7 @@
     "skills/lancet/",
     "skills/plan-to-exec/",
     "skills/plan-reviewer/",
+    "skills/parallel-subagent-exec/",
     "skills/refactor-plan/",
     "skills/requirement-analyzer/",
     "skills/review/",

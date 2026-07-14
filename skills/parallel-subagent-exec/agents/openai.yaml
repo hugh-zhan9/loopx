@@ -1,0 +1,3 @@
+interface:
+  display_name: "Parallel Subagent Exec"
+  short_description: "Run strict plan DAGs with bounded parallel workers"
