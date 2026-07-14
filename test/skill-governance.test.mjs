@@ -850,6 +850,12 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /Do Not Trust the Report/);
     assert.match(taskReviewer, /Cannot verify from (diff|review package)/);
     assert.match(taskReviewer, /Review Output Self-Check/);
+    assert.match(taskReviewer, /loopx\.review-result\.v1/);
+    assert.match(taskReviewer, /loopx-review-result/);
+    assert.match(taskReviewer, /finding.*stable.*F-001/is);
+    assert.match(rootSkill, /canonical review result.*source of truth/is);
+    assert.match(rootSkill, /preserve.*verbatim/is);
+    assert.match(rootSkill, /must not reconstruct.*status.*severity/is);
     assert.match(taskReviewer, /Do not review only the code/);
     assert.match(taskReviewer, /source design anchors, implementation plan/);
     assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
@@ -1101,7 +1107,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.19');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.20');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
@@ -1330,7 +1336,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.17');
     assert.equal(execFields['metadata.version'], '0.3.12');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.19');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.20');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
@@ -1458,7 +1464,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.19');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.20');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);

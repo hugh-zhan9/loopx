@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.19"
+  version: "0.3.20"
 ---
 
 # Subagent Exec
@@ -100,7 +100,11 @@ Keep the task loop strict:
    evidence review package with `scripts/review-package --worktree <task-anchor>`.
 7. Dispatch the task reviewer with the brief path, report path, review package
    path, Global Constraints, `ANCHOR_CONTEXT`, and `SURFACE_CHANGE_CONTEXT`.
-8. After clean review, append task completion to the progress ledger and move
+8. Treat the reviewer's canonical review result as the source of truth. Preserve
+   its `loopx-review-result` block verbatim in task-review evidence and use it
+   for gate decisions. The controller must not reconstruct status, task quality,
+   finding IDs, severity, anchors, or cannot-verify items from prose.
+9. After clean review, append task completion to the progress ledger and move
    to the next task without pausing.
 
 Detailed task handoff, report fields, review package contract, and reviewer
@@ -119,6 +123,10 @@ review. If the reviewer finds Critical or Important issues, route them through
 `fix-review`, re-run focused verification, rebuild the review package, and
 dispatch the task reviewer again. Never skip task review. Never proceed with
 unfixed Critical or Important findings.
+
+The Markdown review explains the decision; the canonical result block controls
+the gate. When summarizing a review, preserve that block verbatim. A missing or
+invalid block is `NEEDS_CONTEXT`, not approval.
 
 Model selection, uncertainty handling, retry rules, and `DONE` /
 `NEEDS_CONTEXT` / `BLOCKED` handling are in

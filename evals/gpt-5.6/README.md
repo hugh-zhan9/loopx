@@ -34,6 +34,12 @@ npm run eval:codex-normalize -- \
 The normalizer reads Codex rollout files from `~/.codex/sessions`, preserves
 native parent/child thread identity, and aggregates parent plus child usage.
 
+Reviewer prompts end with a canonical `loopx.review-result.v1` block. Live runs
+score leaf-review quality from the leaf message and controller integration from
+the separately captured controller message. Status, task quality, task anchor,
+blocking findings, severities, and cannot-verify context are hard fidelity
+requirements; finding precision/recall and anchor recall remain visible metrics.
+
 Run the paired native Codex suite with the model and authentication from the
 current Codex configuration:
 
