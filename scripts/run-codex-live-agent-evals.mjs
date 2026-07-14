@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
-import { applyAgentEvalPolicies, compareAgentEvalRuns, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -28,6 +28,7 @@ function controllerPrompt(testCase, workerPrompt, workerRole = 'implementer') {
     `Create exactly one ${workerRole} subagent for the bounded task below. Do not perform the task yourself.`,
     'Pass the worker the task plus the worker contract below. The worker must remain a leaf agent.',
     'After the worker returns, report its result concisely and stop. Do not create a reviewer or replacement.',
+    'If the worker returns a loopx-review-result block, reproduce that block verbatim in your final response. Do not reconstruct its status, severities, finding IDs, anchors, or cannot-verify items.',
     '',
     `TASK: ${testCase.task}`,
     '',
@@ -97,8 +98,16 @@ async function runOne({ repoRoot, sessionsRoot, outDir, testCase, variant, varia
   await writeFile(leafMessagePath, finalMessage);
   const expected = new RegExp(testCase.expected_pattern, 'i');
   const end = events.at(-1);
+  const leafReviewResult = parseReviewResult(finalMessage);
+  const controllerReviewResult = parseReviewResult(controllerFinalMessage);
+  const integration = leafReviewResult
+    ? evaluateControllerIntegration(leafReviewResult, controllerReviewResult)
+    : null;
   end.outcome = !commandFailed && expected.test(finalMessage) ? 'passed' : 'failed';
   end.tests_passed = expected.test(finalMessage);
+  if (integration) {
+    Object.assign(end, integration);
+  }
   end.latency_ms = Date.now() - startedAt;
   end.at_ms = end.latency_ms;
   return {

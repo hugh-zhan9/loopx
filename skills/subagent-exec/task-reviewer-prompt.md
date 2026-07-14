@@ -3,7 +3,7 @@
 Use this outcome-first template for one task gate. The brief, implementer
 report, review package, and routed contracts own detail; do not restate them.
 
-```text
+````text
 Native subagent:
   description: "Review [TASK_ANCHOR] (spec + quality)"
   model: [MODEL - REQUIRED]
@@ -104,7 +104,8 @@ Native subagent:
     #### Critical
     #### Important
     #### Minor
-    For each issue: evidence location, defect, impact, and minimal remedy.
+    Give every finding one stable task-local ID in order (`F-001`, `F-002`, ...).
+    For each issue: ID, evidence location, defect, impact, and minimal remedy.
 
     ### Review Output Self-Check
     [Source basis and removed unsupported/duplicate feedback.]
@@ -112,7 +113,30 @@ Native subagent:
     ### Assessment
     **Task quality:** Approved | Needs fixes
     **Reasoning:** [one or two sentences]
-```
+
+    End with exactly one machine-readable block. Keep it consistent with the
+    Markdown verdict and findings. Use an empty array when there are no findings
+    or cannot-verify items. Preserve the supplied task anchor; use null only when
+    the brief has no task anchor.
+
+    ```loopx-review-result
+    {
+      "schema": "loopx.review-result.v1",
+      "status": "SPEC_COMPLIANT | ISSUES_FOUND | NEEDS_CONTEXT",
+      "task_quality": "Approved | Needs fixes",
+      "task_anchor": "T-001",
+      "cannot_verify": [],
+      "findings": [
+        {
+          "id": "F-001",
+          "severity": "Critical | Important | Minor",
+          "anchor_ids": ["AC-001"],
+          "summary": "One-sentence defect summary"
+        }
+      ]
+    }
+    ```
+````
 
 The controller supplies task-specific contracts. This prompt must stay generic,
 bounded, read-only, and leaf-worker safe.

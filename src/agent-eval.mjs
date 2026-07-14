@@ -12,6 +12,112 @@ function percentDelta(baseline, candidate) {
   return ((candidate - baseline) / baseline) * 100;
 }
 
+function ratio(numerator, denominator) {
+  return denominator === 0 ? 1 : numerator / denominator;
+}
+
+function stringSet(values) {
+  return new Set((values ?? []).filter((value) => typeof value === 'string' && value));
+}
+
+function reviewAnchors(result) {
+  return stringSet((result?.findings ?? []).flatMap((finding) => finding.anchor_ids ?? []));
+}
+
+function validateReviewResult(result) {
+  if (!result || result.schema !== 'loopx.review-result.v1') {
+    throw new Error('review_result_schema_invalid');
+  }
+  if (!['SPEC_COMPLIANT', 'ISSUES_FOUND', 'NEEDS_CONTEXT'].includes(result.status)) {
+    throw new Error('review_result_status_invalid');
+  }
+  if (!['Approved', 'Needs fixes'].includes(result.task_quality)) {
+    throw new Error('review_result_task_quality_invalid');
+  }
+  if (!Array.isArray(result.cannot_verify) || !Array.isArray(result.findings)) {
+    throw new Error('review_result_arrays_required');
+  }
+  if (result.task_anchor !== null && typeof result.task_anchor !== 'string') {
+    throw new Error('review_result_task_anchor_invalid');
+  }
+  const ids = new Set();
+  for (const finding of result.findings) {
+    if (!/^F-\d{3}$/.test(finding.id ?? '') || ids.has(finding.id)) {
+      throw new Error('review_result_finding_id_invalid');
+    }
+    if (!['Critical', 'Important', 'Minor'].includes(finding.severity)) {
+      throw new Error('review_result_finding_severity_invalid');
+    }
+    if (!Array.isArray(finding.anchor_ids) || typeof finding.summary !== 'string') {
+      throw new Error('review_result_finding_shape_invalid');
+    }
+    ids.add(finding.id);
+  }
+  return result;
+}
+
+export function parseReviewResult(message) {
+  const match = String(message ?? '').match(/```loopx-review-result\s*\n([\s\S]*?)\n```/i);
+  if (!match) {
+    return null;
+  }
+  return validateReviewResult(JSON.parse(match[1]));
+}
+
+export function evaluateControllerIntegration(leaf, controller) {
+  validateReviewResult(leaf);
+  const controllerValid = Boolean(controller);
+  if (controllerValid) {
+    validateReviewResult(controller);
+  }
+  const leafFindings = new Map(leaf.findings.map((finding) => [finding.id, finding]));
+  const controllerFindings = new Map((controller?.findings ?? []).map((finding) => [finding.id, finding]));
+  const matchedIds = [...leafFindings.keys()].filter((id) => controllerFindings.has(id));
+  const exactSeverity = matchedIds.filter((id) => leafFindings.get(id).severity === controllerFindings.get(id).severity);
+  const leafAnchors = reviewAnchors(leaf);
+  const controllerAnchors = reviewAnchors(controller);
+  const preservedAnchors = [...leafAnchors].filter((anchor) => controllerAnchors.has(anchor));
+  const cannotVerify = stringSet(leaf.cannot_verify);
+  const controllerCannotVerify = stringSet(controller?.cannot_verify);
+  const blocking = new Set(leaf.findings.filter((finding) => ['Critical', 'Important'].includes(finding.severity)).map((finding) => finding.id));
+  const blockingFindingLoss = [...blocking].some((id) => {
+    const candidate = controllerFindings.get(id);
+    return !candidate || candidate.severity !== leafFindings.get(id).severity;
+  });
+  const inventedBlocking = [...controllerFindings.values()].filter((finding) =>
+    !leafFindings.has(finding.id) && ['Critical', 'Important'].includes(finding.severity)).length;
+  const statusPreserved = controller?.status === leaf.status;
+  const taskQualityPreserved = controller?.task_quality === leaf.task_quality;
+  const unsafeContextPromotion = leaf.status === 'NEEDS_CONTEXT' && controller?.status !== 'NEEDS_CONTEXT';
+  const taskAnchorPreserved = controller?.task_anchor === leaf.task_anchor;
+  const cannotVerifyRecall = ratio(
+    [...cannotVerify].filter((item) => controllerCannotVerify.has(item)).length,
+    cannotVerify.size,
+  );
+  return {
+    controller_result_present: controllerValid,
+    status_preserved: statusPreserved,
+    task_quality_preserved: taskQualityPreserved,
+    task_anchor_preserved: taskAnchorPreserved,
+    finding_recall: ratio(matchedIds.length, leafFindings.size),
+    finding_precision: ratio(matchedIds.length, controllerFindings.size),
+    severity_fidelity: ratio(exactSeverity.length, matchedIds.length),
+    anchor_recall: ratio(preservedAnchors.length, leafAnchors.size),
+    cannot_verify_recall: cannotVerifyRecall,
+    unsafe_context_promotion: unsafeContextPromotion,
+    blocking_finding_loss: blockingFindingLoss,
+    controller_invented_blocking_findings: inventedBlocking,
+    integration_passed: controllerValid
+      && statusPreserved
+      && taskQualityPreserved
+      && taskAnchorPreserved
+      && !unsafeContextPromotion
+      && !blockingFindingLoss
+      && inventedBlocking === 0
+      && cannotVerifyRecall === 1,
+  };
+}
+
 export function summarizeAgentEvalRun(events) {
   if (!Array.isArray(events) || events.length === 0) {
     throw new Error('agent_eval_events_required');
@@ -52,7 +158,8 @@ export function summarizeAgentEvalRun(events) {
   const uncachedInputTokens = inputTokens === null || cachedInputTokens === null ? null : inputTokens - cachedInputTokens;
   const totalTokens = inputTokens === null || outputTokens === null ? null : inputTokens + outputTokens;
   const hardInvariantsPassed = nestedAgentCount === 0;
-  const outcomePassed = end.outcome === 'passed' && end.tests_passed !== false;
+  const integrationPassed = end.integration_passed ?? null;
+  const outcomePassed = end.outcome === 'passed' && end.tests_passed !== false && integrationPassed !== false;
 
   return {
     run_id: start.run_id ?? null,
@@ -62,6 +169,18 @@ export function summarizeAgentEvalRun(events) {
     tests_passed: end.tests_passed ?? null,
     quality_passed: outcomePassed && hardInvariantsPassed,
     hard_invariants_passed: hardInvariantsPassed,
+    integration_passed: integrationPassed,
+    status_preserved: end.status_preserved ?? null,
+    task_quality_preserved: end.task_quality_preserved ?? null,
+    task_anchor_preserved: end.task_anchor_preserved ?? null,
+    finding_recall: numberOrNull(end.finding_recall),
+    finding_precision: numberOrNull(end.finding_precision),
+    severity_fidelity: numberOrNull(end.severity_fidelity),
+    anchor_recall: numberOrNull(end.anchor_recall),
+    cannot_verify_recall: numberOrNull(end.cannot_verify_recall),
+    unsafe_context_promotion: end.unsafe_context_promotion ?? null,
+    blocking_finding_loss: end.blocking_finding_loss ?? null,
+    controller_invented_blocking_findings: numberOrNull(end.controller_invented_blocking_findings),
     agent_count: spawned.size,
     peak_active_agents: peakActiveAgents,
     nested_agent_count: nestedAgentCount,
@@ -129,6 +248,8 @@ export function aggregateAgentEvalReplicates(summaries) {
       'review_false_positive_count', 'review_duplicate_count', 'input_tokens',
       'cached_input_tokens', 'uncached_input_tokens', 'output_tokens', 'total_tokens',
       'latency_ms',
+      'finding_recall', 'finding_precision', 'severity_fidelity', 'anchor_recall',
+      'cannot_verify_recall', 'controller_invented_blocking_findings',
     ];
     const aggregate = Object.fromEntries(numericFields.map((field) => [field, median(runs.map((run) => run[field]))]));
     return {
@@ -140,6 +261,12 @@ export function aggregateAgentEvalReplicates(summaries) {
       tests_passed: runs.every((run) => run.tests_passed !== false),
       quality_passed: runs.every((run) => run.quality_passed === true),
       hard_invariants_passed: runs.every((run) => run.hard_invariants_passed === true),
+      integration_passed: runs.every((run) => run.integration_passed !== false),
+      status_preserved: runs.every((run) => run.status_preserved !== false),
+      task_quality_preserved: runs.every((run) => run.task_quality_preserved !== false),
+      task_anchor_preserved: runs.every((run) => run.task_anchor_preserved !== false),
+      unsafe_context_promotion: runs.some((run) => run.unsafe_context_promotion === true),
+      blocking_finding_loss: runs.some((run) => run.blocking_finding_loss === true),
       policy_passed: runs.every((run) => run.policy_passed !== false),
       policy_violations: [...new Set(runs.flatMap((run) => run.policy_violations ?? []))],
       replicate_count: runs.length,
@@ -180,6 +307,12 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       candidate_variant: candidateVariant,
       baseline_quality_passed: baseline.quality_passed,
       candidate_quality_passed: candidateQualityPassed,
+      candidate_integration_passed: candidate.integration_passed,
+      status_preserved: candidate.status_preserved,
+      finding_recall: candidate.finding_recall,
+      finding_precision: candidate.finding_precision,
+      severity_fidelity: candidate.severity_fidelity,
+      anchor_recall: candidate.anchor_recall,
       agent_count_delta: candidate.agent_count - baseline.agent_count,
       nested_agent_count_delta: candidate.nested_agent_count - baseline.nested_agent_count,
       tool_call_count_delta: candidate.tool_call_count - baseline.tool_call_count,
@@ -204,6 +337,8 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       improved_cases: cases.filter((item) => item.improved).length,
       candidate_quality_passed_cases: cases.filter((item) => item.candidate_quality_passed).length,
       nested_agent_free_cases: cases.filter((item) => item.nested_agent_count_delta <= 0).length,
+      controller_integration_evaluated_cases: cases.filter((item) => item.candidate_integration_passed !== null && item.candidate_integration_passed !== undefined).length,
+      controller_integration_passed_cases: cases.filter((item) => item.candidate_integration_passed === true).length,
     },
   };
 }
@@ -225,13 +360,14 @@ export function renderAgentEvalMarkdown(comparison) {
     `- Compared cases: ${comparison.overall.compared_cases}`,
     `- Improved cases: ${comparison.overall.improved_cases}`,
     `- Candidate quality passed: ${comparison.overall.candidate_quality_passed_cases}`,
+    `- Controller integration passed: ${comparison.overall.controller_integration_passed_cases}/${comparison.overall.controller_integration_evaluated_cases}`,
     '',
-    '| Case | Quality | Agent delta | Nested agent delta | Tool delta | Wait delta | False-positive delta | Token delta | Latency delta | Improved |',
-    '|---|---|---:|---:|---:|---:|---:|---:|---:|---|',
+    '| Case | Quality | Integration | Finding recall | Severity fidelity | Agent delta | Nested agent delta | Token delta | Latency delta | Improved |',
+    '|---|---|---|---:|---:|---:|---:|---:|---:|---|',
   ];
 
   for (const item of comparison.cases) {
-    lines.push(`| ${item.case_id} | ${item.candidate_quality_passed ? 'pass' : 'fail'} | ${item.agent_count_delta} | ${item.nested_agent_count_delta} | ${item.tool_call_count_delta} | ${item.wait_count_delta} | ${item.review_false_positive_delta} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.improved ? 'yes' : 'no'} |`);
+    lines.push(`| ${item.case_id} | ${item.candidate_quality_passed ? 'pass' : 'fail'} | ${item.candidate_integration_passed === null || item.candidate_integration_passed === undefined ? 'n/a' : item.candidate_integration_passed ? 'pass' : 'fail'} | ${formatPercent(item.finding_recall === null ? null : item.finding_recall * 100)} | ${formatPercent(item.severity_fidelity === null ? null : item.severity_fidelity * 100)} | ${item.agent_count_delta} | ${item.nested_agent_count_delta} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.improved ? 'yes' : 'no'} |`);
   }
 
   lines.push(
@@ -240,6 +376,7 @@ export function renderAgentEvalMarkdown(comparison) {
     '',
     '- Lower agent, tool, token, or latency counts are improvements only when candidate quality and hard invariants pass.',
     '- Any nested agent created by a non-controller actor fails the hard topology invariant.',
+    '- A structured reviewer run fails quality when the controller loses status, task quality, task anchor, blocking severity, cannot-verify context, or invents a blocking finding.',
     '- Investigate per-case traces before changing another prompt group.',
     '',
   );

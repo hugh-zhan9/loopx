@@ -21,6 +21,10 @@ events defined in `TRACE_SCHEMA.md`. The scorer does not depend on a provider.
   content in traces.
 - Emit `run_end` even for timeout, blocked, failed, or cancelled runs.
 - Treat missing usage or latency as unavailable data, not zero-cost evidence.
+- Preserve the leaf final message and controller final message separately. When
+  the leaf emits `loopx.review-result.v1`, parse both and emit controller
+  integration fidelity metrics without scoring the controller paraphrase as the
+  leaf result.
 
 ## Suggested Adapter Outputs
 

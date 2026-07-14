@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
-import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -154,5 +154,69 @@ describe('agent eval metrics', () => {
     assert.equal(aggregate.latency_ms, 600);
     assert.equal(aggregate.quality_passed, false);
     assert.equal(aggregate.quality_pass_rate, 0.5);
+  });
+
+  it('parses the canonical review result block independently from reviewer prose', () => {
+    const result = parseReviewResult(`Review prose.\n\n\`\`\`loopx-review-result\n{
+      "schema": "loopx.review-result.v1",
+      "status": "ISSUES_FOUND",
+      "task_quality": "Needs fixes",
+      "task_anchor": "T-003",
+      "cannot_verify": [],
+      "findings": [{"id":"F-001","severity":"Important","anchor_ids":["AC-002"],"summary":"Routing mismatch"}]
+    }\n\`\`\``);
+
+    assert.equal(result.status, 'ISSUES_FOUND');
+    assert.equal(result.findings[0].id, 'F-001');
+    assert.deepEqual(result.findings[0].anchor_ids, ['AC-002']);
+  });
+
+  it('measures controller integration fidelity and rejects unsafe semantic loss', () => {
+    const leaf = {
+      schema: 'loopx.review-result.v1', status: 'ISSUES_FOUND', task_quality: 'Needs fixes', task_anchor: 'T-003', cannot_verify: [],
+      findings: [
+        { id: 'F-001', severity: 'Critical', anchor_ids: ['AC-001'], summary: 'Critical defect' },
+        { id: 'F-002', severity: 'Minor', anchor_ids: ['AC-002'], summary: 'Minor defect' },
+      ],
+    };
+    const controller = {
+      ...leaf,
+      findings: [
+        { ...leaf.findings[0], severity: 'Important' },
+        { id: 'F-999', severity: 'Important', anchor_ids: [], summary: 'Invented defect' },
+      ],
+    };
+    const fidelity = evaluateControllerIntegration(leaf, controller);
+
+    assert.equal(fidelity.status_preserved, true);
+    assert.equal(fidelity.finding_recall, 0.5);
+    assert.equal(fidelity.finding_precision, 0.5);
+    assert.equal(fidelity.severity_fidelity, 0);
+    assert.equal(fidelity.anchor_recall, 0.5);
+    assert.equal(fidelity.blocking_finding_loss, true);
+    assert.equal(fidelity.controller_invented_blocking_findings, 1);
+    assert.equal(fidelity.integration_passed, false);
+  });
+
+  it('treats NEEDS_CONTEXT promotion as a hard integration failure', () => {
+    const leaf = {
+      schema: 'loopx.review-result.v1', status: 'NEEDS_CONTEXT', task_quality: 'Needs fixes', task_anchor: 'T-004',
+      cannot_verify: ['API contract'], findings: [],
+    };
+    const controller = { ...leaf, status: 'SPEC_COMPLIANT', task_quality: 'Approved', cannot_verify: [] };
+    const fidelity = evaluateControllerIntegration(leaf, controller);
+
+    assert.equal(fidelity.unsafe_context_promotion, true);
+    assert.equal(fidelity.integration_passed, false);
+  });
+
+  it('includes controller integration failure in run quality', () => {
+    const summary = summarizeAgentEvalRun([
+      { event: 'run_start', run_id: 'integration', case_id: 'review', variant: 'v2', at_ms: 0 },
+      { event: 'run_end', outcome: 'passed', tests_passed: true, integration_passed: false, at_ms: 10 },
+    ]);
+
+    assert.equal(summary.integration_passed, false);
+    assert.equal(summary.quality_passed, false);
   });
 });

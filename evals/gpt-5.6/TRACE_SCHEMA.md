@@ -17,8 +17,18 @@ Store traces as NDJSON with one event per line. Every event requires `event` and
 | `review_finding` | `finding_id`, `finding_valid`, `at_ms` | Measure review accuracy and duplicates |
 | `run_end` | `outcome`, `tests_passed`, `input_tokens`, `output_tokens`, `latency_ms`, `at_ms` | Record quality and resource outcome |
 
+Structured reviewer runs may also record `integration_passed`,
+`status_preserved`, `task_quality_preserved`, `task_anchor_preserved`,
+`finding_recall`, `finding_precision`, `severity_fidelity`, `anchor_recall`,
+`cannot_verify_recall`, `unsafe_context_promotion`, `blocking_finding_loss`, and
+`controller_invented_blocking_findings` on `run_end`.
+
 `parent_actor_id` must be `controller` for every `agent_spawn`. Any other value
 is a hard nested-agent failure.
 
 Resource reduction counts as an improvement only when the candidate run passes
 tests, reports `outcome: "passed"`, and satisfies hard topology invariants.
+When a leaf reviewer returns `loopx.review-result.v1`, controller integration is
+also a hard quality gate. Missing structured controller output, unsafe promotion
+of `NEEDS_CONTEXT`, blocking-finding loss, severity loss, or invented blocking
+findings fails the run independently from leaf-review quality.
