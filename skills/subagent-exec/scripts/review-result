@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { parseReviewResult } from './review-result-lib.mjs';
 
 function usage() {
-  console.error('usage: review-result --task TASK_ANCHOR --input REVIEWER_MESSAGE [OUTFILE]');
+  console.error('usage: review-result --task TASK --reviewer-thread ID --model MODEL --attempt N --brief FILE --review-package FILE --implementer-report FILE (--input MESSAGE --platform NAME | --codex-rollout JSONL --root-thread ID) [OUTFILE]');
 }
 
 function option(name) {
@@ -16,16 +16,82 @@ function option(name) {
   return index === -1 ? null : process.argv[index + 1];
 }
 
-const taskAnchor = option('--task');
-const input = option('--input');
+function sha256(content) {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+function parseJsonl(text) {
+  return text.split(/\r?\n/).flatMap((line) => line.trim() ? [JSON.parse(line)] : []);
+}
+
+function codexLeafMessage(records, rootThreadId, reviewerThreadId) {
+  const rootIds = records
+    .filter((record) => record.type === 'session_meta')
+    .map((record) => record.payload?.session_id ?? record.payload?.id);
+  if (!rootIds.includes(rootThreadId)) {
+    throw new Error('review_artifact_root_thread_not_in_rollout');
+  }
+  const activity = records.find((record) => record.payload?.type === 'sub_agent_activity'
+    && record.payload?.kind === 'started'
+    && record.payload?.agent_thread_id === reviewerThreadId);
+  const agentPath = activity?.payload?.agent_path;
+  if (!activity) {
+    throw new Error('review_artifact_reviewer_invocation_not_found');
+  }
+  const embedded = records
+    .filter((record) => record.type === 'response_item'
+      && record.payload?.type === 'agent_message'
+      && record.payload?.recipient === '/root'
+      && (!agentPath || record.payload?.author === agentPath))
+    .map((record) => record.payload.content
+      ?.filter((item) => item.type === 'input_text')
+      .map((item) => item.text)
+      .join('\n'))
+    .filter(Boolean)
+    .at(-1);
+  if (!embedded) {
+    throw new Error('review_artifact_leaf_message_not_found');
+  }
+  return embedded.replace(/^Message Type: FINAL_ANSWER[\s\S]*?Payload:\n/, '');
+}
+
+const names = ['--task', '--reviewer-thread', '--model', '--attempt', '--brief', '--review-package', '--implementer-report', '--input', '--platform', '--codex-rollout', '--root-thread'];
 const positional = process.argv.slice(2).filter((value, index, values) =>
-  !['--task', '--input'].includes(value) && !['--task', '--input'].includes(values[index - 1]));
-if (!taskAnchor || !input || positional.length > 1) {
+  !names.includes(value) && !names.includes(values[index - 1]));
+const taskAnchor = option('--task');
+const reviewerThreadId = option('--reviewer-thread');
+const model = option('--model');
+const attempt = Number(option('--attempt'));
+const briefPath = option('--brief');
+const reviewPackagePath = option('--review-package');
+const implementerReportPath = option('--implementer-report');
+const inputPath = option('--input');
+const platform = option('--platform');
+const rolloutPath = option('--codex-rollout');
+const rootThreadId = option('--root-thread');
+const codexMode = Boolean(rolloutPath || rootThreadId);
+if (!taskAnchor || !reviewerThreadId || !model || !Number.isInteger(attempt) || attempt < 1
+    || !briefPath || !reviewPackagePath || !implementerReportPath || positional.length > 1
+    || (codexMode ? !rolloutPath || !rootThreadId || inputPath || platform : !inputPath || !platform)) {
   usage();
   process.exit(2);
 }
 
-const result = parseReviewResult(await readFile(resolve(input), 'utf8'));
+const [brief, reviewPackage, implementerReport] = await Promise.all([
+  readFile(resolve(briefPath)),
+  readFile(resolve(reviewPackagePath)),
+  readFile(resolve(implementerReportPath)),
+]);
+let rawMessage;
+let sourceRolloutSha256 = null;
+if (codexMode) {
+  const rollout = await readFile(resolve(rolloutPath), 'utf8');
+  rawMessage = codexLeafMessage(parseJsonl(rollout), rootThreadId, reviewerThreadId);
+  sourceRolloutSha256 = sha256(rollout);
+} else {
+  rawMessage = await readFile(resolve(inputPath), 'utf8');
+}
+const result = parseReviewResult(rawMessage);
 if (!result) {
   throw new Error('review_result_block_missing');
 }
@@ -35,13 +101,30 @@ if (result.task_anchor !== null && result.task_anchor !== taskAnchor) {
 
 let output = positional[0] ? resolve(positional[0]) : null;
 if (!output) {
-  const stdout = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' });
-  const safeAnchor = taskAnchor.replace(/[^A-Za-z0-9._-]/g, '-');
-  output = join(stdout.trim(), '.loopx', 'subagent-exec', 'reviews', safeAnchor, 'review-result.json');
+  const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  output = join(root, '.loopx', 'subagent-exec', 'reviews', taskAnchor.replace(/[^A-Za-z0-9._-]/g, '-'), 'review-artifact.json');
 }
+const artifact = {
+  schema: 'loopx.review-artifact.v1',
+  review_result: result,
+  provenance: {
+    task_anchor: taskAnchor,
+    source_platform: codexMode ? 'codex' : platform,
+    root_thread_id: codexMode ? rootThreadId : null,
+    reviewer_thread_id: reviewerThreadId,
+    model,
+    generated_at: new Date().toISOString(),
+    review_attempt: attempt,
+    raw_message_sha256: sha256(rawMessage),
+    source_rollout_sha256: sourceRolloutSha256,
+    brief_sha256: sha256(brief),
+    review_package_sha256: sha256(reviewPackage),
+    implementer_report_sha256: sha256(implementerReport),
+  },
+};
 
 await mkdir(dirname(output), { recursive: true });
 const temporary = `${output}.tmp-${process.pid}`;
-await writeFile(temporary, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
+await writeFile(temporary, `${JSON.stringify(artifact, null, 2)}\n`, { mode: 0o600 });
 await rename(temporary, output);
 console.log(output);
