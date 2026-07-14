@@ -2098,4 +2098,36 @@ describe('loopx skill governance', () => {
     assert.match(resolver, /Manual And Experimental Skills[\s\S]*parallel-subagent-exec/);
     assert.doesNotMatch(planSkill, /\$parallel-subagent-exec docs\/loopx\/plans/);
   });
+
+  it('documents parallel-subagent-exec as an explicit bilingual experimental surface', async () => {
+    const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+    const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
+    const skills = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
+    const skillsZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
+    const installation = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
+
+    for (const text of [readme, skills]) {
+      assert.match(text, /manual.*experimental|experimental.*manual/is);
+      assert.match(text, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
+      assert.match(text, /strict.*machine-readable.*metadata/is);
+      assert.match(text, /defaults? to `?4`?/i);
+      assert.match(text, /direct numbered child|direct child plan/i);
+      assert.match(text, /\$subagent-exec <same-input-path>/);
+      assert.match(text, /exit `5`.*no fallback|no fallback.*exit `5`/is);
+      assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
+    }
+    for (const text of [readmeZh, skillsZh]) {
+      assert.match(text, /手动.*实验性|实验性.*手动/s);
+      assert.match(text, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
+      assert.match(text, /严格.*机器可读.*元数据/s);
+      assert.match(text, /默认.*`?4`?/s);
+      assert.match(text, /直接.*child|编号子计划/s);
+      assert.match(text, /\$subagent-exec <same-input-path>/);
+      assert.match(text, /退出码 `5`.*不回退|不回退.*退出码 `5`/s);
+      assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
+    }
+    assert.match(installation, /bundled.*manually selected/is);
+    assert.match(installation, /~\/\.agents\/skills\/\{[^\n}]*parallel-subagent-exec/);
+    assert.match(installation, /~\/\.claude\/skills\/\{[^\n}]*parallel-subagent-exec/);
+  });
 });

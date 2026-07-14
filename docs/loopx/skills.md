@@ -49,6 +49,22 @@ issue -> fix -> finish
 | `fix` | One or more `.loopx/issues` ledgers are marked `ready_for_fix`. | A scoped bug fix with verification, review, and finish handoff. |
 | `refactor-plan` | The user wants a behavior-preserving refactor plan with small commits. | A scoped refactor plan; not immediate implementation. |
 
+## Manual Experimental Skill
+
+`parallel-subagent-exec` is bundled but manually selected. It is not part of
+the recommended flow or automatic resolver route. Use it only for a complete
+single plan or package carrying strict machine-readable parallel metadata:
+
+```text
+$parallel-subagent-exec <plan-or-package> [--max-parallel N]
+```
+
+The global worker limit defaults to `4`; `--max-parallel` overrides it. Direct numbered child plans are excluded. Missing/legacy metadata or direct child
+input stops with `$subagent-exec <same-input-path>` instead of silently
+degrading. Missing native create plus observe-or-wait capability exits with
+exit `5` and no fallback. Detailed scheduling, worktree, review, and resume
+contracts remain in the installed skill references.
+
 ## Support Skills
 
 | Skill | Use when | Notes |

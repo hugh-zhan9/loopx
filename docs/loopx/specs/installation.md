@@ -34,9 +34,12 @@ controller-only: workers dispatched by loopx skills are leaf workers.
 
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
+`parallel-subagent-exec` is bundled but manually selected; installation does
+not add it to the automatic workflow route.
+
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 rm -rf ~/.loopx/lancet
 ```

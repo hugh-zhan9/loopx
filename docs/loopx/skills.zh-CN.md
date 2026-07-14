@@ -48,6 +48,21 @@ issue -> fix -> finish
 | `fix` | 一个或多个 `.loopx/issues` ledger 已标记为 `ready_for_fix`。 | 带验证、评审和 finish handoff 的限定范围 bug 修复。 |
 | `refactor-plan` | 用户想要行为保持的重构计划，并且希望用小提交推进。 | 有边界的 refactor plan；不是立即实现。 |
 
+## 手动实验性 Skill
+
+`parallel-subagent-exec` 会随包安装，但只能手动选择；它不属于推荐流程或自动
+resolver 路由。只在完整 single plan 或 package 带有严格机器可读并行元数据时使用：
+
+```text
+$parallel-subagent-exec <plan-or-package> [--max-parallel N]
+```
+
+全局 worker 上限默认 `4`，可用 `--max-parallel` 覆盖。不接受直接编号 child plan。
+元数据缺失/旧版，或输入为直接 child 时，停止并输出
+`$subagent-exec <same-input-path>`，不会静默降级。缺少原生 create 和
+observe-or-wait 能力时，以退出码 `5` 停止且不回退。调度、worktree、review 和
+resume 的详细合同保留在已安装 skill references 中。
+
 ## 辅助 Skills
 
 | Skill | 什么时候用 | 说明 |

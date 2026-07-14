@@ -67,6 +67,20 @@ $finish
 
 bug 类 issue 从 `$issue` 开始。只有 ledger 状态为 `ready_for_fix` 后，才进入 `$fix`。
 
+### 手动实验性并行执行
+
+`parallel-subagent-exec` 是 bundled 的手动实验性 executor，不属于普通自动路由。
+它只接受带严格机器可读并行元数据的完整 single plan 或 package：
+
+```text
+$parallel-subagent-exec <plan-or-package> [--max-parallel N]
+```
+
+worker 上限默认 `4`，不接受直接编号 child plan。元数据缺失/旧版，或输入为
+直接 child 时，停止并明确输出 `$subagent-exec <same-input-path>`，不会静默执行
+其他 executor。缺少原生 create 和 observe-or-wait 能力时，以退出码 `5` 停止且
+不回退。
+
 ## 核心 skills
 
 | Skill | 什么时候用 |

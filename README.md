@@ -70,6 +70,22 @@ needs to be evaluated and applied.
 For a bug-class issue, start with `$issue`. Continue with `$fix` only after the
 ledger status is `ready_for_fix`.
 
+### Manual Experimental Parallel Execution
+
+`parallel-subagent-exec` is a bundled manual experimental executor, not part of
+the normal automatic route. It accepts only a complete single plan or package
+with strict machine-readable parallel metadata:
+
+```text
+$parallel-subagent-exec <plan-or-package> [--max-parallel N]
+```
+
+The worker limit defaults to `4`. A direct numbered child plan is excluded.
+Missing/legacy metadata or direct child input stops with
+`$subagent-exec <same-input-path>`; it does not silently run another executor.
+If native create plus observe-or-wait capability is unavailable, it exits with
+exit `5` and no fallback.
+
 ## Core Skills
 
 | Skill | Use it when |
