@@ -259,6 +259,45 @@ function assertSkillHandoffFormat(text, label) {
 }
 
 describe('loopx skill governance', () => {
+  it('governs every bundled skill through one semantic contract matrix entry', async () => {
+    const matrix = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json'), 'utf8'));
+    const names = matrix.skills.map((entry) => entry.skill);
+
+    assert.deepEqual([...names].sort(), [...LOOPX_BUNDLED_SKILLS].sort());
+    assert.equal(new Set(names).size, names.length);
+    for (const entry of matrix.skills) {
+      assert.match(entry.role, /^(workflow|support)$/);
+      assert.ok(entry.boundary);
+      assert.ok(entry.required_outputs.length > 0);
+      assert.ok(entry.safety_invariants.length > 0);
+      assert.ok(entry.integrations.length > 0);
+      assert.ok(Array.isArray(entry.required_references));
+      assert.match(entry.version, /^\d+\.\d+\.\d+/);
+    }
+  });
+
+  it('packages the GPT-5.6 trace-first agent eval harness', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const cases = JSON.parse(await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'cases.json'), 'utf8'));
+    const schema = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'TRACE_SCHEMA.md'), 'utf8');
+    const guide = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'README.md'), 'utf8');
+
+    assert.equal(cases.cases.length, 12);
+    assert.equal(new Set(cases.cases.map((item) => item.id)).size, 12);
+    assert.match(schema, /parent_actor_id.*controller/is);
+    assert.match(guide, /Change one prompt group at a time/);
+    assert.match(guide, /Synthetic traces.*not for claiming GPT-5\.6 performance/is);
+    assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
+    assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
+    assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
+    assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');
+    assert.equal(packageJson.scripts['eval:aggregate'], 'node scripts/aggregate-agent-evals.mjs');
+  });
+
   it('keeps bundled skill frontmatter triggerable without a plugin payload directory', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
@@ -310,8 +349,112 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
     assert.deepEqual(
       packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
-      ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
+      ['skills/RESOLVER.md', 'skills/shared/', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
     );
+  });
+
+  it('governs shared agent review and evidence contracts', async () => {
+    const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const agentTopology = await readFile(join(repoRoot, 'skills', 'shared', 'agent-topology.md'), 'utf8');
+    const reviewContract = await readFile(join(repoRoot, 'skills', 'shared', 'review-contract.md'), 'utf8');
+    const evidenceContract = await readFile(join(repoRoot, 'skills', 'shared', 'evidence-contract.md'), 'utf8');
+
+    assert.equal(packageJson.files.includes('skills/shared/'), true);
+    assert.match(agentTopology, /controller is the only orchestration owner/i);
+    assert.match(agentTopology, /leaf worker/i);
+    assert.match(agentTopology, /Agent Budget And Stop Rule/);
+    assert.match(agentTopology, /Do not create\s+exploratory helpers, duplicate reviewers, speculative parallel workers/is);
+    assert.match(agentTopology, /required capabilities.*create.*await/is);
+    assert.match(agentTopology, /optional capabilities.*inspect.*message.*release/is);
+    assert.match(reviewContract, /Task review/);
+    assert.match(reviewContract, /Checkpoint review/);
+    assert.match(reviewContract, /Plan-level final-review/);
+    assert.match(reviewContract, /Spec-level final-review/);
+    assert.match(reviewContract, /Critical.*Important.*Minor/is);
+    for (const field of ['command', 'cwd', 'timestamp', 'exit_code', 'scope', 'result', 'output_summary', 'skipped_checks', 'environment_constraints']) {
+      assert.match(evidenceContract, new RegExp(`\\b${field}\\b`), `evidence contract missing ${field}`);
+    }
+  });
+
+  it('keeps every loopx-dispatched worker as a leaf worker', async () => {
+    const dispatchSurfaces = [
+      'skills/plan-to-exec/SKILL.md',
+      'skills/plan-reviewer/SKILL.md',
+      'skills/subagent-exec/implementer-prompt.md',
+      'skills/subagent-exec/task-reviewer-prompt.md',
+      'skills/review/code-reviewer.md',
+      'skills/final-review/final-reviewer.md',
+      'skills/fix/SKILL.md',
+    ];
+    for (const relativePath of dispatchSurfaces) {
+      const text = await readFile(join(repoRoot, relativePath), 'utf8');
+      assert.match(text, /leaf worker/i, `${relativePath} must identify dispatched workers as leaf workers`);
+      assert.match(text, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i, `${relativePath} must prohibit nested delegation`);
+    }
+    const codexReference = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'codex-subagents.md'), 'utf8');
+    assert.match(codexReference, /Required capabilities.*create.*await/is);
+    assert.match(codexReference, /Optional capabilities.*inspect.*message.*release/is);
+    assert.doesNotMatch(codexReference, /spawn_agent`, `wait_agent`, and `close_agent` are directly available/);
+  });
+
+  it('keeps workflow recovery and planning detail in owned contracts', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const fixReview = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
+    const finishRecording = await readFile(join(repoRoot, 'skills', 'finish', 'references', 'branch-worktree-and-recording.md'), 'utf8');
+    for (const reference of ['plan-schema.md', 'internal-plan-review.md', 'surface-change-planning.md']) {
+      assert.equal(existsSync(join(repoRoot, 'skills', 'plan-to-exec', 'references', reference)), true);
+      assert.match(planSkill, new RegExp(reference.replace('.', '\\.')));
+    }
+    assert.match(execSkill, /\.loopx\/exec\/<slug>\/progress\.md/);
+    assert.match(fixReview, /\.loopx\/fix-review\/<scope-slug>\/feedback\.md/);
+    assert.match(finishRecording, /prepare -> perform -> record -> reconcile/);
+    assert.match(finishRecording, /Git action succeeds but `finish-record` fails/);
+  });
+
+  it('governs diagnosis TDD verification and worktree safety', async () => {
+    const diagnosis = await readFile(join(repoRoot, 'skills', 'debug', 'references', 'diagnosis-contract.md'), 'utf8');
+    const issue = await readFile(join(repoRoot, 'skills', 'issue', 'SKILL.md'), 'utf8');
+    const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
+    const verify = await readFile(join(repoRoot, 'skills', 'verify', 'SKILL.md'), 'utf8');
+    const worktrees = await readFile(join(repoRoot, 'skills', 'using-git-worktrees', 'SKILL.md'), 'utf8');
+    for (const field of ['classification', 'reproduction_status', 'root_cause_status', 'root_cause', 'hypotheses_rejected', 'fix_mode', 'regression_test_required', 'risk_triggers']) {
+      assert.match(diagnosis, new RegExp(`\\b${field}\\b`));
+      assert.match(issue, new RegExp(`\\b${field}\\b`));
+    }
+    assert.doesNotMatch(issue, /root_cause_hypothesis/);
+    assert.doesNotMatch(tdd, /Delete it\. Start over/i);
+    assert.match(tdd, /preserve it.*characterization or regression/is);
+    assert.match(verify, /shared\/evidence-contract\.md/);
+    assert.doesNotMatch(worktrees, /npm install/);
+    assert.match(worktrees, /postinstall hooks/);
+  });
+
+  it('guards domain and analysis skills against factual and boundary regressions', async () => {
+    const api = await readFile(join(repoRoot, 'skills', 'api-designer', 'SKILL.md'), 'utf8');
+    const apiVersioning = await readFile(join(repoRoot, 'skills', 'api-designer', 'references', 'versioning.md'), 'utf8');
+    const architecturePatterns = await readFile(join(repoRoot, 'skills', 'architecture-designer', 'references', 'architecture-patterns.md'), 'utf8');
+    const cliRefs = await Promise.all(['design-patterns.md', 'node-cli.md', 'python-cli.md', 'go-cli.md'].map((name) => readFile(join(repoRoot, 'skills', 'cli-developer', 'references', name), 'utf8')));
+    const kratosRefs = await Promise.all(['http-customization.md', 'troubleshooting.md'].map((name) => readFile(join(repoRoot, 'skills', 'kratos', 'references', name), 'utf8')));
+    const requirements = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'SKILL.md'), 'utf8');
+    const readability = await readFile(join(repoRoot, 'skills', 'doc-readability', 'SKILL.md'), 'utf8');
+    assert.doesNotMatch(api, /nullable:\s*true/);
+    assert.match(api, /type: \[string, 'null'\]/);
+    assert.match(api, /Decide pagination, rate limiting, and endpoint versioning from product needs/);
+    assert.doesNotMatch(api, /Implement pagination for all collection/);
+    assert.doesNotMatch(api, /validate with `npx|use a mock server such as `npx/);
+    assert.doesNotMatch(apiVersioning, /URI versioning is recommended for most APIs/);
+    assert.match(apiVersioning, /Do not add endpoint versions by default/);
+    assert.doesNotMatch(architecturePatterns, /Quick Decision Guide/);
+    for (const text of cliRefs) {
+      assert.doesNotMatch(text, /(?:exit|code|DENIED|NOT_FOUND)[^\n]*(?:77|127)/i);
+    }
+    for (const text of kratosRefs) {
+      assert.doesNotMatch(text, /find .*\.pb\.go.*sed/);
+      assert.match(text, /Do not (?:patch|edit) generated `\.pb\.go`/);
+    }
+    assert.match(requirements, /Optional maturity score/);
+    assert.match(readability, /Ask only when competing document lenses/);
   });
 
   it('keeps active maintainer docs off the removed plugin skill mirror workflow', async () => {
@@ -365,7 +508,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /support lens|implementation-layer minimization/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /over-engineering|yagni|implementation/i);
-    assert.equal(fields['metadata.version'], '0.1.1');
+    assert.equal(fields['metadata.version'], '0.1.3');
     assert.match(resolver, /skills\/lancet\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/);
     assert.match(skill, /Codex-only automatic activation/);
@@ -391,7 +534,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /source-to-plan|plan artifact|coverage/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.1.1');
+    assert.equal(fields['metadata.version'], '0.1.4');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens, not a workflow state/i);
     assert.match(skill, /Do not use this skill for:/);
@@ -447,7 +590,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /bug-class/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
-    assert.equal(fields['metadata.version'], '0.3.5');
+    assert.equal(fields['metadata.version'], '0.3.7');
     assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-YYYY-MM-DD\.md/);
     assert.match(issueSkill, /phase/);
     assert.match(issueSkill, /status/);
@@ -459,7 +602,8 @@ describe('loopx skill governance', () => {
     assert.match(issueSkill, /Evidence Log/);
     assert.match(issueSkill, /Diagnosis Summary/);
     assert.match(issueSkill, /Diagnosis Minimum Standard/);
-    assert.match(issueSkill, /root_cause_hypothesis/);
+    assert.match(issueSkill, /root_cause/);
+    assert.doesNotMatch(issueSkill, /root_cause_hypothesis/);
     assert.match(issueSkill, /at least one `hypotheses_rejected` entry with evidence/);
     assert.match(issueSkill, /Fix Brief/);
     assert.match(issueSkill, /Response Draft/);
@@ -542,7 +686,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /re-review gates/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /review comments|requested changes/i);
-    assert.equal(fields['metadata.version'], '0.3.5');
+    assert.equal(fields['metadata.version'], '0.3.6');
     assert.match(fixReviewSkill, /Feedback Ledger/);
     assert.match(fixReviewSkill, /FR-001/);
     assert.match(fixReviewSkill, /Basis Check/);
@@ -681,6 +825,7 @@ describe('loopx skill governance', () => {
     const codexReference = await readFile(join(rootSkillDir, 'codex-subagents.md'), 'utf8');
     const claudeReference = await readFile(join(rootSkillDir, 'claude-subagents.md'), 'utf8');
     const cursorReference = await readFile(join(rootSkillDir, 'cursor-subagents.md'), 'utf8');
+    const reviewResultContract = await readFile(join(rootSkillDir, 'references', 'review-result-contract.md'), 'utf8');
 
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
     assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
@@ -706,12 +851,34 @@ describe('loopx skill governance', () => {
     assert.match(taskReviewer, /Do Not Trust the Report/);
     assert.match(taskReviewer, /Cannot verify from (diff|review package)/);
     assert.match(taskReviewer, /Review Output Self-Check/);
+    assert.match(taskReviewer, /loopx\.review-result\.v1/);
+    assert.match(taskReviewer, /loopx-review-result/);
+    assert.match(taskReviewer, /finding.*stable.*F-001/is);
+    assert.match(rootSkill, /canonical review result.*source of truth/is);
+    assert.match(rootSkill, /preserve.*verbatim/is);
+    assert.match(rootSkill, /must not reconstruct.*status.*severity/is);
+    assert.match(rootSkill, /scripts\/review-result/);
+    assert.match(reviewResultContract, /unknown schema versions are invalid/i);
+    assert.match(reviewResultContract, /writes atomically/i);
+    assert.match(reviewResultContract, /native rollout/i);
+    assert.match(reviewResultContract, /root thread owns the named reviewer invocation/i);
+    assert.match(reviewResultContract, /raw-message hash/i);
+    assert.match(reviewResultContract, /NEEDS_CONTEXT.*Needs fixes/is);
+    assert.match(reviewResultContract, /new schema identifier/i);
     assert.match(taskReviewer, /Do not review only the code/);
     assert.match(taskReviewer, /source design anchors, implementation plan/);
     assert.match(taskReviewer, /Remove duplicate, preference-only, unactionable, speculative, or\s+plan-contradicting findings/is);
     assert.match(implementer, /Read your task brief first/);
+    assert.match(implementer, /# Goal/);
+    assert.match(implementer, /# Success Criteria/);
+    assert.match(implementer, /# Stop Rules/);
+    assert.match(implementer, /Once the success criteria have fresh evidence.*stop/is);
     assert.match(implementer, /REPORT_FILE/);
+    assert.match(implementer, /leaf worker/i);
+    assert.match(implementer, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i);
     assert.doesNotMatch(implementer, /Native Codex subagent/);
+    assert.match(taskReviewer, /leaf worker/i);
+    assert.match(taskReviewer, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i);
     assert.match(platformReference, /Codex/);
     assert.match(platformReference, /Claude Code/);
     assert.match(platformReference, /Cursor/);
@@ -723,6 +890,12 @@ describe('loopx skill governance', () => {
     assert.match(codexReference, /tool_search/);
     assert.match(codexReference, /multi_agent_v1\.spawn_agent/);
     assert.match(codexReference, /Only after direct lookup and available discovery both fail/);
+    assert.match(codexReference, /controller is the only orchestration owner/i);
+    assert.match(codexReference, /leaf workers/i);
+    assert.match(codexReference, /include this leaf-worker constraint in every dispatch/i);
+    assert.match(codexReference, /No agents completed yet.*not\s+a\s+failure/is);
+    assert.match(codexReference, /Do not form an unbounded.*wait/is);
+    assert.match(codexReference, /Do not spawn a replacement.*still running/is);
     assert.match(claudeReference, /Agent tool/);
     assert.match(claudeReference, /\/agents/);
     assert.match(claudeReference, /@agent-/);
@@ -775,7 +948,7 @@ describe('loopx skill governance', () => {
     await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
 
     const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
-    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package']) {
+    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package', 'review-result', 'review-artifact-verify']) {
       const mode = (await stat(join(scriptsDir, scriptName))).mode;
       assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
     }
@@ -837,6 +1010,76 @@ describe('loopx skill governance', () => {
     assert.match(reviewPackage, /## Diff/);
     assert.match(reviewPackage, /two/);
     assert.doesNotMatch(reviewPackage, /## Commits/);
+
+    const reviewerMessage = join(wd, 'reviewer-message.md');
+    const implementerReportPath = join(wd, 'implementer-report.md');
+    await writeFile(implementerReportPath, 'implementation evidence\n');
+    await writeFile(reviewerMessage, [
+      '### Spec Compliance',
+      '- Status: SPEC_COMPLIANT',
+      '',
+      '```loopx-review-result',
+      JSON.stringify({
+        schema: 'loopx.review-result.v1',
+        status: 'SPEC_COMPLIANT',
+        task_quality: 'Approved',
+        task_anchor: 'T-001',
+        cannot_verify: [],
+        findings: [],
+      }, null, 2),
+      '```',
+    ].join('\n'));
+    const commonArgs = ['--task', 'T-001', '--reviewer-thread', 'reviewer-1', '--model', 'gpt-5.6-sol', '--attempt', '1', '--brief', briefPath, '--review-package', packagePath, '--implementer-report', implementerReportPath];
+    const resultPath = (await execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs, '--input', reviewerMessage, '--platform', 'test'], { cwd: wd })).stdout.trim();
+    assert.equal(resultPath, join(workspace, 'reviews', 'T-001', 'review-artifact.json'));
+    const artifact = JSON.parse(await readFile(resultPath, 'utf8'));
+    assert.equal(artifact.schema, 'loopx.review-artifact.v1');
+    assert.equal(artifact.review_result.status, 'SPEC_COMPLIANT');
+    assert.equal(artifact.provenance.reviewer_thread_id, 'reviewer-1');
+    assert.equal(artifact.provenance.model, 'gpt-5.6-sol');
+    assert.equal(artifact.provenance.review_attempt, 1);
+    assert.match(artifact.provenance.raw_message_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.brief_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.review_package_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.implementer_report_sha256, /^[a-f0-9]{64}$/);
+    const verifyArgs = ['--artifact', resultPath, ...commonArgs];
+    assert.equal((await execFileAsync(join(scriptsDir, 'review-artifact-verify'), verifyArgs, { cwd: wd })).stdout.trim(), resultPath);
+    await writeFile(implementerReportPath, 'changed evidence\n');
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-artifact-verify'), verifyArgs, { cwd: wd }),
+      /review_artifact_implementer_report_sha256_mismatch/,
+    );
+    await writeFile(implementerReportPath, 'implementation evidence\n');
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs.map((value) => value === 'T-001' ? 'T-999' : value), '--input', reviewerMessage, '--platform', 'test'], { cwd: wd }),
+      /review_result_task_anchor_mismatch:T-001:T-999/,
+    );
+
+    const invalidMessage = join(wd, 'invalid-reviewer-message.md');
+    await writeFile(invalidMessage, '```loopx-review-result\n{"schema":"loopx.review-result.v2"}\n```\n');
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs, '--input', invalidMessage, '--platform', 'test'], { cwd: wd }),
+      /review_result_schema_unsupported/,
+    );
+
+    const codexRolloutPath = join(wd, 'codex-review-rollout.jsonl');
+    const nativeMessage = await readFile(reviewerMessage, 'utf8');
+    await writeFile(codexRolloutPath, [
+      JSON.stringify({ timestamp: '2026-07-14T00:00:00Z', type: 'session_meta', payload: { session_id: 'root-native' } }),
+      JSON.stringify({ timestamp: '2026-07-14T00:00:01Z', type: 'event_msg', payload: { type: 'sub_agent_activity', kind: 'started', agent_thread_id: 'reviewer-native', agent_path: '/root/task_reviewer' } }),
+      JSON.stringify({ timestamp: '2026-07-14T00:00:02Z', type: 'response_item', payload: { type: 'agent_message', author: '/root/task_reviewer', recipient: '/root', content: [{ type: 'input_text', text: `Message Type: FINAL_ANSWER\nTask name: /root\nPayload:\n${nativeMessage}` }] } }),
+    ].join('\n'));
+    const nativePath = join(wd, 'native-review-artifact.json');
+    await execFileAsync(join(scriptsDir, 'review-result'), [
+      '--task', 'T-001', '--reviewer-thread', 'reviewer-native', '--model', 'gpt-5.6-sol', '--attempt', '2',
+      '--brief', briefPath, '--review-package', packagePath, '--implementer-report', implementerReportPath,
+      '--codex-rollout', codexRolloutPath, '--root-thread', 'root-native', nativePath,
+    ], { cwd: wd });
+    const nativeArtifact = JSON.parse(await readFile(nativePath, 'utf8'));
+    assert.equal(nativeArtifact.provenance.source_platform, 'codex');
+    assert.equal(nativeArtifact.provenance.root_thread_id, 'root-native');
+    assert.equal(nativeArtifact.provenance.reviewer_thread_id, 'reviewer-native');
+    assert.match(nativeArtifact.provenance.source_rollout_sha256, /^[a-f0-9]{64}$/);
   });
 
   it('governs boundary commit policy and task review worktree evidence', async () => {
@@ -941,10 +1184,10 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.13');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.22');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
     assert.match(planSkill, /\$subagent-exec docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\/00-overview\.md/);
@@ -1113,9 +1356,9 @@ describe('loopx skill governance', () => {
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.11');
-    assert.equal(planFields['metadata.version'], '0.3.14');
-    assert.equal(reviewFields['metadata.version'], '0.3.10');
+    assert.equal(specFields['metadata.version'], '0.3.12');
+    assert.equal(planFields['metadata.version'], '0.3.17');
+    assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -1170,10 +1413,10 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(planFields['metadata.version'], '0.3.14');
-    assert.equal(execFields['metadata.version'], '0.3.10');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.13');
-    assert.equal(reviewFields['metadata.version'], '0.3.10');
+    assert.equal(planFields['metadata.version'], '0.3.17');
+    assert.equal(execFields['metadata.version'], '0.3.12');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.22');
+    assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
     assert.match(planSkill, /### T-001 \/ Task 1:/);
@@ -1238,7 +1481,7 @@ describe('loopx skill governance', () => {
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
 
     assert.match(planSkill, /Internal Plan Review/);
     assert.match(planSkill, /draft plan/i);
@@ -1258,7 +1501,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /not repo-tracked|local workflow state/i);
 
     const planReviewerSkill = await readFile(join(repoRoot, 'skills', 'plan-reviewer', 'SKILL.md'), 'utf8');
-    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.1');
+    assert.equal(parseFrontmatter(planReviewerSkill)['metadata.version'], '0.1.4');
 
     assert.match(planReviewerSkill, /Source AC/);
     assert.match(planReviewerSkill, /Design anchors/);
@@ -1296,11 +1539,11 @@ describe('loopx skill governance', () => {
     const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
     const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.11');
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.14');
-    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
+    assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.22');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);
@@ -1376,9 +1619,9 @@ describe('loopx skill governance', () => {
     );
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
 
-    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.10');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.9');
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.3.13');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.3.14');
+    assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
     assert.match(reviewSkill, /Do not skip stage 1/);

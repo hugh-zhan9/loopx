@@ -20,6 +20,11 @@ Recommended flow:
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+The suite uses a controller-only agent topology: only the top-level controller
+may create, wait for, message, replace, interrupt, or release agents. Every
+dispatched worker is a leaf worker and must not delegate further. Pre-v2 running
+workflow artifacts are outside the current contract and must restart.
+
 Issue-driven flow:
 
 ```text

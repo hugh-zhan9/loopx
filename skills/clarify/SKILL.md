@@ -3,7 +3,7 @@ name: clarify
 description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
 when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.12"
+  version: "0.3.14"
 ---
 
 # loopx Clarify
@@ -13,6 +13,10 @@ Do not accept vague answers. Do not optimize for speed. The goal is shared under
 ## Core Loop
 
 First load only relevant repo context, then alternate between evidence gathering and one-question-at-a-time user clarification until every material requirement boundary is resolved. Keep the intake package current after each confirmed answer.
+
+## STOP Conditions
+
+Stop before handoff when any material scope, non-goal, acceptance criterion, rollout, safety, ownership, or verification question remains unresolved. The only valid unresolved outcome is `blocked`; do not route to `spec` or `plan-to-exec` with hidden assumptions.
 
 ## Repo Specs And Memory Context
 
@@ -81,6 +85,25 @@ The completed intake package must preserve the information `spec` or `plan-to-ex
 ## Handoff Decision
 
 Choose the next skill from the completed intake package, not from a guess about implementation size. `needs_spec`, `direct_to_plan`, and `blocked` are the only valid outcomes.
+
+Persist the chosen value as `handoff_decision` in the final `Resume State`.
+Current clarify workflow state uses schema v2. Pre-v2 running state is not
+migrated or normalized; restart it as a new current-contract workflow.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| User answer is vague | Ask one narrower follow-up with the recommended answer stated | Mark the item `[PENDING]` and keep the handoff `blocked` |
+| Code evidence contradicts the request | Record both the user wording and repo evidence | Ask which source should govern before creating ACs |
+| AC or TC cannot be tested | Rewrite the criterion as observable behavior | Keep clarification open until the user confirms the testable form |
+
+## Red Flags
+
+- Do not ask multiple material questions in one turn.
+- Do not invent acceptance criteria to make the package handoff-ready.
+- Do not route to implementation planning while ACs, TCs, or non-goals are pending.
+- Do not bury rejected alternatives; record why they were rejected.
 
 ## Skill Handoff Format
 

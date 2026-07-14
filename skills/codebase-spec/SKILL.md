@@ -3,7 +3,7 @@ name: codebase-spec
 description: "Reverse-engineers a detailed, evidence-backed specification from an existing codebase, including behavior, architecture, contracts, data, operations, tests, and gaps. Not for writing a forward design from unresolved requirements, planning implementation, or changing code."
 when_to_use: "codebase-spec, reverse spec, reverse-engineer spec, code to spec, document existing project, extract architecture from code, 逆向规格, 生成现状规格, 从代码生成规格文档"
 metadata:
-  version: "0.1.0"
+  version: "0.1.2"
 ---
 
 # Codebase Spec
@@ -27,6 +27,10 @@ Do not:
 - Treat README claims as authoritative when code contradicts them. Prefer implementation evidence and call out the conflict.
 
 ## Evidence Standard
+
+Record the inspected commit/hash when available, generation timestamp, major
+commands/tools used, and sampling limits. Never print secret values; name only
+the file, variable, or secret-bearing surface inspected.
 
 Every material claim should have one of these evidence labels:
 
@@ -62,6 +66,14 @@ Depth choices:
 | Standard | Default. | Complete user-facing and developer-facing behavior, contracts, data, config, tests, operations, and risks. |
 | Deep | User wants rebuild-grade or audit-grade documentation. | Standard plus internal flows, state machines, dependency graph, invariants, edge cases, failure modes, and source conflicts. |
 
+## STOP Conditions
+
+Stop before writing the final spec when:
+
+- The requested target is ambiguous and choosing the wrong module would produce a misleading document.
+- The repository cannot be read enough to support the requested depth.
+- The user asks for future design, implementation planning, or code changes instead of current-state documentation.
+
 ## Scan Order
 
 Gather evidence before writing. Adapt to the repository, but use this order:
@@ -84,6 +96,14 @@ For large repositories, first build an index of candidate evidence files, then r
 Read `references/evidence-checklist.md` when producing a Standard or Deep spec, or when the repository has multiple runtime surfaces.
 
 Read `references/output-template.md` before writing the final Markdown. Use its section order unless the user requested a different format.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Evidence conflicts | Mark the claim as `Contradiction` and cite both sources | Do not smooth the conflict into a single invented behavior |
+| Evidence is missing | Mark the claim as `Unknown` and name the inspected paths | Do not infer product intent from naming alone |
+| Repository is too large for one pass | Build a file index and sample authoritative surfaces first | Ask for a target module only when scope changes correctness |
 
 ## Output Location
 

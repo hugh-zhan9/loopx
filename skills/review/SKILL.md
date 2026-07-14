@@ -3,10 +3,14 @@ name: review
 description: "Dispatches a loopx code reviewer subagent against task evidence or a feature git range with spec compliance and code quality stages. Not for implementation, planning, or unresolved review scope."
 when_to_use: "request code review, completed task review, major feature review, pre-merge review, subagent code quality check, spec compliance check"
 metadata:
-  version: "0.3.10"
+  version: "0.3.13"
 ---
 
 # Review
+
+Review scope and severity are owned by
+[`../shared/review-contract.md`](../shared/review-contract.md). Verification
+records follow [`../shared/evidence-contract.md`](../shared/evidence-contract.md).
 
 Dispatch a code reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
 
@@ -27,6 +31,10 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## Review Stages
 
 Review has two stages. Run them in order. Do not skip stage 1.
+
+## STOP Conditions
+
+Stop before Stage 2 when Stage 1 spec compliance fails. Stop before approval when any Critical or Important finding lacks concrete closure evidence.
 
 When a design proposal, detailed design, implementation plan, task brief, or issue contract exists, include it in the reviewer context. Do not dispatch a code-only review for plan-driven work. If no formal artifact exists, say the review is degraded to intent check and name the source used instead.
 
@@ -211,63 +219,6 @@ Not every review needs the same depth. Match depth to risk:
 | Multi-file change, integration points | Stage 1 + Stage 2 + Stage 3 | Standard |
 | Architecture change, public API, security-sensitive | Stage 1 + Stage 2 + Stage 3 (full) | Deep |
 | API, schema, CLI, architecture, Go, or Kratos domain change | Stage 1 + Stage 2 + triggered support lens + Stage 3 when public/shared | Standard/Deep |
-
-## Optional: Health Score
-
-For ongoing quality tracking, the code quality reviewer can assign a health score:
-
-```markdown
-## Code Health Score
-
-| Dimension | Score (1-5) |
-|-----------|------------|
-| Correctness | |
-| Test coverage | |
-| Error handling | |
-| Readability | |
-| Architecture fit | |
-| **Average** | |
-```
-
-- 4.5-5.0: Excellent — merge confidently
-- 3.5-4.4: Good — merge with noted improvements
-- 2.5-3.4: Acceptable — fix Important issues first
-- < 2.5: Needs work — do not proceed
-
-This score is informational. The Critical/Important/Minor severity system still governs action.
-
-## Example
-
-```
-[Just completed T-002: Add verification function]
-
-You: Let me request code review before proceeding.
-
---- Stage 1: Spec Compliance ---
-Task requirements: "Add verifyIndex() that checks 4 issue types and returns report"
-Implementation: verifyIndex() checks 4 types, returns structured report, added repairIndex()
-
-Spec reviewer: ❌ Extra: repairIndex() not in spec. Missing: report format doesn't match spec.
-
-[Fix: remove repairIndex(), align report format]
-
---- Stage 1 retry ---
-Spec reviewer: ✅ Spec compliant
-
---- Stage 2: Code Quality ---
-Review package: .loopx/subagent-exec/review-T-002-worktree.diff
-
-Code reviewer:
-  Strengths: Clean architecture, real tests
-  Issues:
-    Important: Missing progress indicators
-    Minor: Magic number (100) for reporting interval
-  Assessment: Ready to proceed with fix
-  Health Score: 4.2/5
-
-[Fix progress indicators]
-[Continue to Task 3]
-```
 
 ## Integration with Workflows
 

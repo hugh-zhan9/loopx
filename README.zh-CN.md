@@ -18,6 +18,11 @@ skill 调用完成。
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+这是 v2 当前合同。运行中的 pre-v2 `.loopx` workflow state 不做迁移；CLI
+报告 `restart_required` 时应重新开始。只有顶层 controller 管理 subagent
+生命周期；loopx skill 派发的每个 worker 都必须是 leaf worker，不得继续创建、
+委派或等待其他 agent。
+
 loopx 有两条主流程：
 
 - feature-driven 工作使用上面的路径，处理新的产品或代码变更。

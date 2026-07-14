@@ -4,6 +4,10 @@ Central routing map for loopx bundled skills. Keep this file in sync with every 
 
 Read the selected skill file before acting. If multiple skills match, read every likely candidate and use the disambiguation rules below.
 
+Current contract: pre-v2 running workflow state is unsupported and must restart.
+Only the top-level controller owns agent lifecycle; every dispatched worker is
+a leaf worker and must not spawn, delegate to, or wait for other agents.
+
 ## Core Workflow Skills
 
 | Trigger | Skill |

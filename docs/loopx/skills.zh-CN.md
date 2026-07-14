@@ -20,6 +20,10 @@ loopx skills 分成两类：
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+skill suite 使用 controller-only agent topology：只有顶层 controller 可以创建、
+等待、发消息、替换、中断或释放 agent。所有被派发 worker 都是 leaf worker，不能
+继续委派。pre-v2 运行中 workflow artifacts 不属于当前合同，必须重新开始。
+
 Issue-driven 流程：
 
 ```text

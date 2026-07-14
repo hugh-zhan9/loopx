@@ -102,6 +102,10 @@ including:
 - read-only review behavior
 - `Cannot verify from diff`
 
+Run `scripts/review-result` against native reviewer output as specified in
+`review-result-contract.md`. The provenance-bound artifact, not controller prose,
+controls the task gate. Record its path in the completion ledger.
+
 Do not pre-judge severities or tell the reviewer what not to flag.
 
 ## Task Completion Ledger
@@ -117,7 +121,7 @@ If the ledger marks a task complete, do not re-dispatch it. After a clean task
 review, append:
 
 ```text
-T-001 / Task 1: complete (review clean, brief <path>, report <path>, review <path>)
+T-001 / Task 1: complete (review clean, brief <path>, report <path>, review <path>, result <path>)
 ```
 
 For numeric task headings without `T-*`, preserve `Task N` in the same

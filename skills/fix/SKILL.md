@@ -3,7 +3,7 @@ name: fix
 description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, local review, whole diff review, and finish handoff. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Fix
@@ -74,6 +74,13 @@ Before changing code, perform scope validation:
 - Never let multiple subagents directly edit the main worktree at the same time.
 
 Each subagent receives only:
+
+> You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
+> Complete this assignment directly and report blockers to the controller.
+
+The top-level controller is the only orchestration owner. It creates exactly
+one active worker per ledger stage and never replaces a worker that is still
+running.
 
 - its ledger
 - allowed files and surfaces

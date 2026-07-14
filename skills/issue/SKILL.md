@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.3.5"
+  version: "0.3.7"
 ---
 
 # Issue
@@ -35,6 +35,10 @@ clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review ->
 `issue` does not perform lasting product code changes. It may read code, run commands, and inspect git history. Temporary diagnostic edits are allowed only on a clean worktree by default. If the worktree is dirty, do not create temporary diagnostic edits unless the user explicitly allows them; when allowed, record a baseline diff first, then roll back the diagnostic diff or record it as a diagnostic patch for `fix`.
 
 Do not use issue tracker automation. If the source is an external issue, the user must provide the issue text, a local file, or pasted output.
+
+## STOP Conditions
+
+Stop before marking an issue `ready_for_fix` when reproduction, root cause, expected behavior, affected files, forbidden scope, or verification commands are missing. A vague report must remain in diagnosis, not become a fix brief.
 
 ## Inputs
 
@@ -124,8 +128,7 @@ diagnosis:
     - type: command | log | steps | code | user_report
       value: <summary>
   root_cause_status: confirmed | likely | unknown
-  root_cause_hypothesis: <specific cause and mechanism>
-  root_cause: <summary or confirmation>
+  root_cause: <specific cause and mechanism, or unknown>
   hypotheses_rejected:
     - <hypothesis and evidence>
   fix_mode: root_cause_fix | defensive_fix | blocked | no_fix_needed
@@ -192,7 +195,7 @@ The `issue` workflow consumes the `debug` Diagnosis Summary Contract. Before wri
 - `classification` and `reproduction_status`
 - at least one evidence item from command, log, steps, code, or user report
 - `root_cause_status` of `confirmed` or `likely`
-- a specific `root_cause_hypothesis` explaining cause and mechanism, not only the symptom
+- a specific `root_cause` explaining cause and mechanism, not only the symptom
 - at least one `hypotheses_rejected` entry with evidence
 - `fix_mode`
 - `regression_test_required`, plus `regression_test_exception_reason` when false

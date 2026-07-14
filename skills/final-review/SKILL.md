@@ -3,10 +3,14 @@ name: final-review
 description: "Performs whole-feature review with requirements coverage verification, runtime validation, regression checklist, and integration risk assessment after implementation. Not for per-task review, unresolved scope, implementation, or pure documentation polish."
 when_to_use: "final-review, final code review, whole feature review, integration review, pre-finish review, after subagent-exec, runtime risk review, requirements coverage, 最终评审"
 metadata:
-  version: "0.3.12"
+  version: "0.3.14"
 ---
 
 # Final Review
+
+Review scope and severity are owned by
+[`../shared/review-contract.md`](../shared/review-contract.md). Verification
+records follow [`../shared/evidence-contract.md`](../shared/evidence-contract.md).
 
 Run the final whole-feature review after implementation is complete and before `finish`.
 

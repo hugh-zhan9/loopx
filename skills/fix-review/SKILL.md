@@ -3,10 +3,14 @@ name: fix-review
 description: "Handles received code review feedback with per-finding basis checks, closure tracking, verification evidence, technical pushback, and re-review gates. Not for requesting a new review or implementing unrelated changes."
 when_to_use: "fix-review, received code review feedback, review comments, reviewer suggestions, requested changes, 处理评审意见"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Fix Review
+
+Persist the feedback ledger at `.loopx/fix-review/<scope-slug>/feedback.md`.
+Resume from the first finding without closure evidence; do not reconstruct
+finding state from conversation memory.
 
 ## Contract
 

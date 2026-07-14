@@ -17,11 +17,11 @@ const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
 const SCHEMA_VERSION_FIELD = ['schema', 'version'].join('_');
 const SCHEMA_VERSION_ONE = Number.parseInt('1', 10);
-const SCHEMA_VERSION_LINE = `${SCHEMA_VERSION_FIELD}: ${SCHEMA_VERSION_ONE}`;
+const SCHEMA_VERSION_TWO = Number.parseInt('2', 10);
+const SCHEMA_VERSION_LINE = `${SCHEMA_VERSION_FIELD}: ${SCHEMA_VERSION_TWO}`;
 const removedIntakeArtifactKey = ['test', 'cases', 'path'].join('_');
 const removedIntakeArtifactExistsKey = ['test', 'cases', 'exists'].join('_');
 const removedMissingArtifactName = ['test', 'cases'].join('_');
-const removedIntakeArtifactFile = `${['test', 'cases'].join('-')}.md`;
 const removedHumanTestCasesLinePattern = new RegExp(`^${['test', 'cases:'].join(' ')}`, 'm');
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -72,7 +72,7 @@ async function writeResolvedSpec(root, slug) {
   );
 }
 
-async function writeResolvedClarification(path, slug) {
+async function writeResolvedClarification(path, slug, handoffDecision = 'direct_to_plan') {
   await writeFile(
     path,
     [
@@ -97,6 +97,7 @@ async function writeResolvedClarification(path, slug) {
       '- non_goals_resolved: true',
       '- decision_boundaries_resolved: true',
       '- pressure_pass_complete: true',
+      `- handoff_decision: ${handoffDecision}`,
       '- next_question: none',
     ].join('\n'),
   );
@@ -128,6 +129,7 @@ async function writeResolvedClarificationResumeOnly(path, slug) {
       '- non_goals_resolved: true',
       '- decision_boundaries_resolved: true',
       '- pressure_pass_complete: true',
+      '- handoff_decision: direct_to_plan',
       '- next_question: none',
     ].join('\n'),
   );
@@ -149,6 +151,7 @@ async function appendResolvedClarificationResume(path) {
 - non_goals_resolved: true
 - decision_boundaries_resolved: true
 - pressure_pass_complete: true
+- handoff_decision: direct_to_plan
 - next_question: none
 `,
   );
@@ -269,22 +272,6 @@ describe('loopx retained workflow shell', () => {
     assert.equal(existsSync(second.state.requirements_path), true);
   });
 
-  it('clarify drops removed intake artifact fields from existing state', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-removed-intake-state-'));
-    const first = await clarifyStage(wd, 'removed-state');
-    await writeFile(join(first.root, 'state.json'), `${JSON.stringify({
-      ...first.state,
-      [removedIntakeArtifactKey]: join(first.state.intake_package_path, removedIntakeArtifactFile),
-    }, null, 2)}\n`);
-
-    const second = await clarifyStage(wd, 'removed-state');
-    const status = await statusSummary(wd, 'removed-state');
-
-    assert.equal(Object.hasOwn(second.state, removedIntakeArtifactKey), false);
-    assert.equal(Object.hasOwn(status.state, removedIntakeArtifactKey), false);
-    assert.equal(Object.hasOwn(status, removedIntakeArtifactKey), false);
-  });
-
   it('status and next recommend plan-to-exec when clarify is handoff-ready', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-next-'));
     const clarified = await clarifyStage(wd, 'ready-flow');
@@ -322,6 +309,41 @@ describe('loopx retained workflow shell', () => {
     assert.equal(Object.hasOwn(statusJson.state, removedIntakeArtifactKey), false);
   });
 
+  it('routes ready clarify state from the persisted handoff decision', async () => {
+    const needsSpecWd = await mkdtemp(join(tmpdir(), 'loopx-needs-spec-'));
+    const needsSpec = await clarifyStage(needsSpecWd, 'needs-spec');
+    await writeResolvedClarification(needsSpec.state.clarification_path, 'needs-spec', 'needs_spec');
+    const needsSpecStatus = await statusSummary(needsSpecWd, 'needs-spec');
+    assert.equal(needsSpecStatus.state.handoff_decision, 'needs_spec');
+    assert.equal(needsSpecStatus.next_skill_command, `$spec ${needsSpecStatus.state.intake_package_path}`);
+    const { stdout: needsSpecNext } = await execFileAsync(process.execPath, [cliPath, 'next', 'needs-spec'], { cwd: needsSpecWd });
+    assert.match(needsSpecNext, /^next skill: \$spec /m);
+
+    const blockedWd = await mkdtemp(join(tmpdir(), 'loopx-blocked-handoff-'));
+    const blocked = await clarifyStage(blockedWd, 'blocked-handoff');
+    await writeResolvedClarification(blocked.state.clarification_path, 'blocked-handoff', 'blocked');
+    const blockedStatus = await statusSummary(blockedWd, 'blocked-handoff');
+    assert.equal(blockedStatus.state.handoff_decision, 'blocked');
+    assert.equal(blockedStatus.next_skill_command, null);
+  });
+
+  it('rejects pre-v2 running workflow state without rewriting it', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-old-workflow-'));
+    const clarified = await clarifyStage(wd, 'old-workflow');
+    const statePath = join(clarified.root, 'state.json');
+    const oldState = { ...clarified.state, schema_version: SCHEMA_VERSION_ONE };
+    await writeFile(statePath, `${JSON.stringify(oldState, null, 2)}\n`);
+
+    await assert.rejects(() => readState(wd, 'old-workflow'), /unsupported_workflow_schema:1:restart_required/);
+    await assert.rejects(() => statusSummary(wd), /unsupported_workflow_schema:1:restart_required/);
+    assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), oldState);
+
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, 'status', 'old-workflow', '--json'], { cwd: wd }),
+      (error) => error.code === 1 && /unsupported_workflow_schema:1:restart_required/.test(error.stderr),
+    );
+  });
+
   it('status derives clarify readiness from Resume State when frontmatter is stale', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-resume-ready-'));
     const clarified = await clarifyStage(wd, 'resume-ready');
@@ -356,54 +378,6 @@ describe('loopx retained workflow shell', () => {
 
     const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'space-flow'], { cwd: wd });
     assert.match(nextStdout, /^next skill: \$plan-to-exec '/m);
-  });
-
-  it('legacy-ready status falls back to workflow spec readiness for legacy clarify state', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-ready-'));
-    const clarified = await clarifyStage(wd, 'legacy-ready');
-    const statePath = join(clarified.root, 'state.json');
-    const state = JSON.parse(await readFile(statePath, 'utf8'));
-    await writeFile(statePath, `${JSON.stringify({
-      ...state,
-      clarification_path: null,
-      intake_package_path: null,
-      requirements_path: null,
-      spec_artifact_path: join(clarified.root, 'spec.md'),
-    }, null, 2)}\n`);
-    await writeResolvedSpec(clarified.root, 'legacy-ready');
-
-    const status = await statusSummary(wd, 'legacy-ready');
-    assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.next_skill_command, `$plan-to-exec ${join(clarified.root, 'spec.md')}`);
-  });
-
-  it('legacy status keeps absent intake package children out of missing artifacts', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-'));
-    await initWorkspace(wd);
-    const root = resolveWorkflowRoot(wd, 'legacy-flow');
-    await mkdir(root, { recursive: true });
-    const specPath = join(root, 'spec.md');
-    await writeFile(specPath, 'legacy clarify source\n');
-    await writeFile(join(root, 'state.json'), `${JSON.stringify({
-      [SCHEMA_VERSION_FIELD]: SCHEMA_VERSION_ONE,
-      slug: 'legacy-flow',
-      current_stage: 'clarify',
-      stage_status: 'blocked',
-      spec_artifact_path: specPath,
-    }, null, 2)}\n`);
-
-    const status = await statusSummary(wd, 'legacy-flow');
-    assert.equal(status.artifacts.spec_artifact_exists, true);
-    assert.equal(status.artifacts.intake_package_exists, undefined);
-    assert.equal(status.artifacts.clarification_exists, undefined);
-    assert.equal(status.missing_artifacts.includes('intake_package'), false);
-    assert.equal(status.missing_artifacts.includes('clarification'), false);
-    assert.equal(status.missing_artifacts.includes(removedMissingArtifactName), false);
-
-    await rm(specPath);
-    const missingSpecStatus = await statusSummary(wd, 'legacy-flow');
-    assert.equal(missingSpecStatus.artifacts.spec_artifact_exists, false);
-    assert.equal(missingSpecStatus.missing_artifacts.includes('spec_artifact'), true);
   });
 
   it('next skill keeps retained review rollback guidance only', () => {
@@ -485,6 +459,7 @@ describe('loopx retained workflow shell', () => {
     const result = await installBundledSkills(loopxEnv(home), { yes: true });
     assert.equal(result.ok, true);
     assert.equal(result.installed.length, LOOPX_BUNDLED_SKILLS.length);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'agent-topology.md')), true);
 
     const verification = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(verification.ok, true);
@@ -977,6 +952,47 @@ describe('loopx retained workflow shell', () => {
     });
     assert.equal(recorded.state.status, 'completed');
     assert.equal(recorded.state.choice.status, 'done');
+  });
+
+  it('resolves multi-plan state by plan_package when package directory and feature slug differ', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-multi-plan-declared-slug-'));
+    await initGitRepo(wd);
+
+    const packageDir = '2026-07-13-feature-reset';
+    const featureSlug = 'feature-reset';
+    await finishStartStage(wd, featureSlug, {
+      source: `docs/loopx/plans/${packageDir}/00-overview.md`,
+    });
+    const audit = await finishAuditStage(wd, featureSlug);
+    await markFinishAuditReviewed(audit);
+    await writeMultiPlanState(wd, featureSlug, {
+      schema_version: 2,
+      feature_slug: featureSlug,
+      plan_package: `docs/loopx/plans/${packageDir}`,
+      source_spec: `docs/loopx/design/${packageDir}/需求设计文档.md`,
+      status: 'complete',
+      plans: [{
+        path: `docs/loopx/plans/${packageDir}/01-core.md`,
+        status: 'complete',
+        ready_for_spec_review: true,
+        plan_review: {
+          status: 'passed',
+          reviewed_at: '2026-07-13T00:00:00.000Z',
+          summary: 'No blocking issues',
+        },
+      }],
+      spec_final_review: {
+        path: `.loopx/final-review/${packageDir}.md`,
+        ready_for_finish: 'Yes',
+      },
+    });
+
+    const recorded = await finishRecordStage(wd, audit.auditId, {
+      action: 'keep',
+      status: 'done',
+      summary: 'Declared package slug resolved.',
+    });
+    assert.equal(recorded.state.status, 'completed');
   });
 
   it('allows finish done when package directory source has clean multi-plan spec review', async () => {

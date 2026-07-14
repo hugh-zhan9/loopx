@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.3.5"
+  version: "0.3.7"
 ---
 
 # Go Style
@@ -28,6 +28,14 @@ Use it as a support skill from `subagent-exec` or `exec` when Go files are creat
 - Keep interfaces small and define them at the consumer boundary when practical.
 - Prefer table-driven tests for behavior matrices.
 - Run `gofmt` on edited Go files before verification.
+
+## STOP Conditions
+
+Stop before applying this skill when:
+
+- The requested change is Kratos API, service, biz, data, middleware, or config architecture; use `kratos` with `go-style` as a support lens.
+- The code change would alter behavior but no test or verification path exists.
+- The repository's `go.mod` cannot be found or the target files are generated.
 
 ## Numeric Precision
 
@@ -88,3 +96,25 @@ go vet ./...
 ```
 
 Use project-specific commands when present, such as `make test`, `make lint`, `golangci-lint run`, or repository scripts.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| `gofmt` changes unrelated files | Limit formatting to edited Go files | Report the unrelated formatting drift instead of sweeping it in |
+| Tests fail outside touched behavior | Inspect failure scope and recent user changes | Report the pre-existing failure separately; do not claim completion |
+| Error type semantics are unclear | Search existing callers and `errors.Is` / status handling patterns | Preserve the existing error shape rather than wrapping blindly |
+
+## Anti-Patterns
+
+- Do not modernize syntax beyond the module's declared Go version.
+- Do not replace local idioms with generic Go advice when nearby code is consistent.
+- Do not add abstraction around a single implementation unless current callers need it.
+- Do not edit generated Go files as the source of truth.
+- Preserve build constraints and platform-specific file selection. When adding
+  or changing `//go:build` lines, verify the affected target combinations and
+  keep the legacy `+build` form only when the repository's supported Go version
+  requires it.
+- When concurrency, goroutines, locks, channels, or cancellation behavior
+  changes, run focused `go test -race` where the environment supports it and
+  record goroutine ownership and shutdown behavior.

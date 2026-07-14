@@ -4,6 +4,18 @@ The CLI is the installer, diagnostics, context setup, and local runtime support
 surface for loopx. The primary product surface remains the installed skill
 suite used inside the agent.
 
+## Current Workflow State Contract
+
+New clarify workflows use workflow schema v2 and persist `handoff_decision` as
+`needs_spec`, `direct_to_plan`, or `blocked`. `loopx status` and `loopx next`
+route from that decision; readiness alone never implies planning. Pre-v2
+running workflow state is unsupported and is not migrated or deleted. Start a
+new current-contract workflow when the CLI reports
+`unsupported_workflow_schema:<version>:restart_required`.
+
+Only the top-level controller owns agent lifecycle. Workers dispatched by
+loopx skills are leaf workers and must not create or wait for other agents.
+
 ## Quick start
 
 ```bash

@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.14"
+  version: "0.3.17"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -46,6 +46,8 @@ When a source design spec contains `D-*` design anchors or a `Design Contract In
 After drafting the complete plan and before saving the final plan or offering execution handoff, run the `plan-reviewer` support lens as a source-to-plan review gate.
 
 Use a reviewer subagent when the platform supports subagents. Give the reviewer only the source artifact, the draft plan, relevant repo spec or memory context already selected for planning, and the `plan-reviewer` rubric. The reviewer must not inspect implementation code, because implementation has not started.
+
+The reviewer is a leaf worker. Its worker-visible prompt must say: "Do not spawn, delegate to, or wait for other agents." Agent lifecycle remains owned by the top-level controller under `skills/shared/agent-topology.md`.
 
 If subagents are unavailable, run the same `plan-reviewer` rubric in the current context. Mark this as degraded independence in the final plan or handoff:
 
@@ -144,47 +146,10 @@ Do not use the Git index as a task boundary. Do not add historical-plan compatib
 
 ## High-Risk Change Planning
 
-Use this section for any plan that removes, replaces, narrows, migrates, or changes compatibility for an existing behavior or public surface. This is not project-specific; it applies to CLI commands, APIs, schemas, events, config, package contents, templates, generated artifacts, docs, hooks, background jobs, permissions, migrations, and user-visible workflows.
-
-For these plans, add an explicit **Surface Inventory** before the task list:
-
-```markdown
-## Surface Inventory
-
-- Public commands/API/routes/events/config:
-- Exported functions/types/modules:
-- Runtime/generated artifacts and templates:
-- Installer/package/deployment surface:
-- Hooks/background jobs/automation:
-- Current product docs:
-- Tests/governance checks:
-- Compatibility/migration paths:
-```
-
-For every item that might be kept, moved, or deleted, include a **Caller Proof** command and a decision rule:
-
-```bash
-rg "symbolOrFilename|old-command|old-field" src scripts test package.json README.md docs
-```
-
-Decision rule:
-
-- retained caller exists in current source/runtime code -> keep it and name the caller in the plan
-- only historical docs, release notes, old plans, or frozen external content reference it -> do not count that as a retained caller
-- no retained caller -> delete it or remove it from current governance/package/docs
-
-For removal or compatibility-ending work, add **Negative Assertions** with exact commands and expected output. Examples:
-
-```bash
-test ! -e path/to/deleted-file
-! rg "removedSymbol|removedCommand|removedField" src scripts test package.json
-! rg "removed public text" README.md docs/current-product-specs
-npm pack --dry-run
-```
-
-State which paths are strict current product surface and which paths are historical context. Historical paths may mention removed behavior; strict paths must not unless the new behavior explicitly requires it.
-
-If a plan rewrites or deletes tests, include a task that proves the new tests still guard against old behavior returning. A passing happy-path test is not enough for removal work.
+For any removal or compatibility change, apply
+[`references/surface-change-planning.md`](references/surface-change-planning.md).
+The plan must contain a Surface Inventory, current-source caller proof, strict
+current paths, historical-path exclusions, and exact negative assertions.
 
 ## Bite-Sized Task Granularity
 
@@ -358,7 +323,30 @@ After writing the complete plan, look at the design spec with fresh eyes and che
 
 If you find issues, fix them inline. If you find a design requirement with no task, add the task.
 
+## STOP Conditions
+
+Stop before saving or handing off the plan when:
+
+- Critical or Important plan-review findings remain unresolved.
+- Any source `AC-*`, `D-*`, or `TC-*` lacks task coverage, verification, review focus, or deferred-with-rationale treatment.
+- The plan introduces product, API, data, permission, workflow, runtime, or compatibility behavior not present in the source.
+- A task cannot be executed independently from its stated context, interfaces, support lenses, and expected evidence.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Source lacks implementation-ready decisions | Return to `clarify` or `spec` with the missing decision list | Do not fill product or design gaps inside the plan |
+| Internal review finds uncovered anchors | Revise the affected tasks and rerun the review gate | Do not offer execution choices until findings are closed |
+| Multi-plan split creates cross-plan coupling | Add explicit Interfaces and overview coordination | Keep the coupled work in one child plan if isolation cannot be proven |
+
 ## Execution Handoff
+
+Normative details:
+
+- [`references/plan-schema.md`](references/plan-schema.md)
+- [`references/internal-plan-review.md`](references/internal-plan-review.md)
+- [`references/surface-change-planning.md`](references/surface-change-planning.md)
 
 Do not offer execution choice until the internal plan review gate is complete and no Critical or Important findings remain unresolved.
 

@@ -4,7 +4,7 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.3"
+  version: "0.3.5"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---
@@ -31,6 +31,16 @@ This skill does not replace `spec`. If data ownership, product semantics, migrat
 - Investigating slow queries with `EXPLAIN` or query plans
 - Handling dialect-specific behavior in PostgreSQL, MySQL, SQLite, or SQL Server
 
+## STOP Conditions
+
+Stop before recommending or editing database changes when:
+
+- Data ownership, product semantics, permission boundaries, rollout order, or rollback expectations are unknown.
+- The change can destroy, rewrite, backfill, or expose production data and no approved migration or recovery path exists.
+- The repository's actual dialect, ORM, migration tool, or deployment order is unclear.
+
+Route unresolved product and compatibility decisions through `clarify` or `spec` before continuing.
+
 ## Schema And Migration Discipline
 
 - Preserve existing schema conventions unless they are clearly broken.
@@ -51,6 +61,9 @@ This skill does not replace `spec`. If data ownership, product semantics, migrat
 - Prefer `EXISTS` over `COUNT(*)` for existence checks when only existence matters.
 - Make ordering deterministic for paginated or user-visible results.
 - Use transactions deliberately. State the isolation assumptions when correctness depends on them.
+- For online schema changes, prefer expand/contract sequencing. Backfills need
+  resumable checkpoints, progress observability, reconciliation, and a rollback
+  or stop rule. Review privileges and PII exposure for every new data path.
 - Keep query intent readable with names, structure, or short comments for non-obvious logic.
 
 ## Index Discipline
@@ -77,6 +90,21 @@ go test ./...
 npm test
 pytest
 ```
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| `EXPLAIN` output is unavailable | State that the optimization is unverified and use the narrowest available query or test evidence | Do not claim performance improvement; report the evidence gap |
+| Migration cannot be made safely repeatable | Split schema change, backfill, and cleanup into separate phases | Stop and require an approved rollout or recovery decision |
+| Dialect behavior is uncertain | Check project configuration, migration files, and existing SQL for the actual dialect | Mark the assumption explicitly and avoid dialect-specific syntax |
+
+## Red Flags
+
+- Do not use `SELECT *` or broad ORM preloads in production paths without a repository-specific reason.
+- Do not add indexes without an access path, constraint, or measured query need.
+- Do not hide destructive migrations behind "cleanup" language.
+- Do not invent SLOs, production row counts, or rollback guarantees.
 
 ## Dialect Discipline
 

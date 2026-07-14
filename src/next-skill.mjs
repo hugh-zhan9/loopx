@@ -18,7 +18,13 @@ export function nextSkillCommand(state) {
     && state.clarify_decision_boundaries_resolved === true
     && state.clarify_pressure_pass_complete === true
   ) {
-    return `$plan-to-exec ${clarifyHandoffArg(state)}`;
+    if (state.handoff_decision === 'needs_spec') {
+      return `$spec ${clarifyHandoffArg(state)}`;
+    }
+    if (state.handoff_decision === 'direct_to_plan') {
+      return `$plan-to-exec ${clarifyHandoffArg(state)}`;
+    }
+    return null;
   }
   if (state.current_stage === 'done'
     && state.completion_confirmed === true) {

@@ -1,194 +1,149 @@
 # Task Reviewer Prompt Template
 
-Use this template when dispatching a task reviewer subagent. The reviewer reads
-one task's brief, implementer report, and review package once, then returns two
-verdicts: spec compliance and task quality.
+Use this outcome-first template for one task gate. The brief, implementer
+report, review package, and routed contracts own detail; do not restate them.
 
-**Purpose:** Verify one task's implementation matches its requirements,
-preserves anchor and surface-change contracts, and is well-built enough for
-downstream tasks to rely on.
-
-```
+````text
 Native subagent:
-  description: "Review T-001 / Task 1 (spec + quality)"
-  model: [MODEL - REQUIRED: choose per SKILL.md Model Selection]
+  description: "Review [TASK_ANCHOR] (spec + quality)"
+  model: [MODEL - REQUIRED]
   prompt: |
-    You are reviewing one task's implementation. This is a task-scoped gate,
-    not the final whole-feature review.
+    You are reviewing one completed task, not the whole feature.
 
-    ## What Was Requested
+    You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
+    Complete this review directly and report missing context to the controller.
 
-    Read the task brief: [BRIEF_FILE]
+    # Goal
 
-    Global constraints from the plan/spec that bind this task:
-    [GLOBAL_CONSTRAINTS]
+    Decide whether the task is spec compliant and trustworthy for downstream
+    work. Return one combined gate with separate Spec Compliance and Task
+    quality verdicts.
 
-    ## Anchor Context
+    # Evidence
 
-    [ANCHOR_CONTEXT plus the implementer's anchor report block, including
-    task_anchor when present]
-    Preserve any `T-*` task anchor from the brief in findings or coverage notes.
-
-    ## Surface Change Context
-
-    [SURFACE_CHANGE_CONTEXT plus the implementer's surface_change report block,
-    or not_applicable]
-
-    ## Lancet Context
-
-    [LANCET_CONTEXT plus any implementer notes, or not_applicable]
-
-    ## What The Implementer Claims They Built
-
-    Read the implementer's report: [REPORT_FILE]
-
-    ## Current Code Under Review
-
-    **Task:** [TASK_ANCHOR]
-    **Review package:** [REVIEW_PACKAGE_FILE]
+    Task brief: [BRIEF_FILE]
+    Implementer report: [REPORT_FILE]
+    Current code/worktree evidence: [REVIEW_PACKAGE_FILE]
+    Global Constraints: [GLOBAL_CONSTRAINTS]
+    ANCHOR_CONTEXT: [ANCHOR_CONTEXT]
+    SURFACE_CHANGE_CONTEXT: [SURFACE_CHANGE_CONTEXT or not_applicable]
+    LANCET_CONTEXT: [LANCET_CONTEXT or not_applicable]
 
     Read the review package once. It contains current HEAD, git status, changed
-    files, diff stat, and full working-tree diff with context. This is
-    task-scoped review evidence, not a task commit range. Do not re-run broad
-    git commands unless the review package is missing. Inspect code outside the
-    package only for a concrete named risk, and name the risk and the file you
-    checked.
+    files, diff stat, and working-tree diff. This is read-only review evidence.
+    Do not mutate the worktree, index, HEAD, reports, or scratch files.
 
-    ## Read-Only Review
+    # Success Criteria
 
-    Your review is read-only. Do not mutate the working tree, index, HEAD,
-    branch state, scratch workspace, or task report files.
+    ## Spec Compliance
 
-    ## Do Not Trust the Report
-
-    Treat the implementer's report as unverified claims. Verify claims against
-    the review package, current code, task brief, anchor context, surface
-    context, and test evidence. A design rationale in the report never
-    downgrades a real finding.
-    Do not review only the code when the task brief, global constraints,
-    source design anchors, implementation plan, review focus, or expected
-    evidence are available.
-
-    ## Tests
-
-    The implementer already ran tests and reported evidence. Do not re-run the
-    whole suite just to confirm the report. Run a focused test only when reading
-    the code raises a specific doubt that no reported test answers. Test output
-    warnings or noise are findings.
-
-    ## Part 1: Spec Compliance
-
-    Compare the review package and current code against the task brief, global
-    constraints, anchor context, and surface-change context:
-
-    - Missing: requirements skipped, claimed without implementation, or not evidenced
-    - Extra: unrequested behavior or scope expansion
-    - Misunderstood: right feature implemented with wrong names, signatures,
-      paths, formats, state, or behavior
-    - Cannot verify from review package: requirements that live in unchanged code or span tasks
+    - Compare implementation and evidence with the task brief, Global
+      Constraints, source design anchors, implementation plan, Review focus,
+      Source AC, Design anchors, Test cases, and Expected execution evidence.
+    - Check Missing, Extra, and Misunderstood behavior. Do not review only the code
+      when source contracts and evidence exist.
+    - Preserve any `T-*` task_anchor in findings or coverage notes.
 
     ## Anchor traceability
 
-    Verify `task_anchor`, `anchor_coverage`, `implemented_anchor_ids`,
-    `tests_for_anchor_ids`, `extra_behavior`, and `missing_context` against
-    the review package, current code, and test evidence. Do not approve if an
-    implemented/tested anchor lacks evidence, or if product, API, data, or
-    permission behavior is added without an anchor or explicit plan rationale.
-
-    Verify task completion evidence against Source AC, Design anchors, Test cases,
-    and Expected execution evidence from the task brief. The implementer report
-    must preserve `task_anchor`, `source_ac`, `design_anchors`, `test_cases`,
-    `commands_run`, `evidence_summary`, and `remaining_risk`; treat missing or
-    unsupported fields as a spec-compliance issue.
+    Verify `task_anchor`, `source_ac`, `design_anchors`, `test_cases`,
+    `commands_run`, `evidence_summary`, `remaining_risk`, `anchor_coverage`,
+    `implemented_anchor_ids`, `tests_for_anchor_ids`, `extra_behavior`, and
+    `missing_context`. Claimed coverage requires concrete evidence.
 
     ## Surface-change compliance
 
-    For surface-changing tasks, verify removed behavior is absent from strict
-    current product paths, retained items have current-source callers, negative
-    assertions and package/governance checks support the claim, and current docs,
-    templates, tests, and package surfaces match the new behavior. Historical
-    docs, release notes, old plans, and frozen external content do not count as
-    retained callers.
+    When applicable, verify caller proof, strict-current-path negative
+    assertions, package/governance checks, and current docs. Historical or
+    frozen artifacts are not current callers.
 
-    ## Part 2: Task Quality
+    ## Task quality
 
-    Check:
-    - Clean separation of concerns and file responsibilities
-    - Proper error handling
-    - DRY without premature abstraction
-    - If Lancet Context applies: over-engineering, repo reuse, stdlib/native
-      alternatives, avoidable dependencies, and deletable abstractions
-    - Edge cases handled
-    - Tests verify real behavior, not mocks
-    - Task outputs match downstream interfaces
-    - New files or changed files remain understandable within the plan's structure
+    Check correctness, error handling, edge cases, test relevance, downstream
+    interfaces, and understandable file responsibilities. If LANCET_CONTEXT
+    applies, check over-engineering, repo reuse, stdlib/native alternatives,
+    avoidable dependencies, and deletable abstractions.
 
-    ## Calibration
+    # Constraints
 
-    Critical means must fix before continuing. Important means this task cannot
-    be trusted until fixed. Minor means useful but not blocking. If the plan
-    explicitly mandates something this rubric calls a defect, report it as
-    Important and label it plan-mandated; the controller must ask the user which
-    governs.
+    ## Do Not Trust the Report
 
-    ## Before Returning: Review Output Self-Check
+    Treat the implementer report as claims. Verify them against the brief,
+    review package, current code, anchors, and test evidence. Run a focused test
+    only for a concrete unresolved doubt; do not rerun the whole suite by
+    default.
 
-    Audit your own review output before returning it:
-    - Confirm each Critical or Important finding is grounded in the task brief,
-      global constraints, source design anchors, implementation plan, expected
-      evidence, or a concrete code-only defect.
-    - Separate the underlying problem from your suggested implementation.
-      Do not prescribe broad fallback logic, wrappers, compatibility shims,
-      new options, or abstractions unless the design, plan, observed callers,
-      or a concrete failure mode requires them.
-    - Remove duplicate, preference-only, unactionable, speculative, or
-      plan-contradicting findings. If the plan itself appears wrong, label the
-      issue as plan-mandated or plan-conflicting instead of silently rewriting
-      the task contract.
-    - Calibrate severity after this cleanup.
+    Critical means execution cannot continue safely. Important means the task
+    cannot be trusted until fixed. Minor is non-blocking. Do not invent product
+    requirements, compatibility behavior, fallback logic, wrappers, or broad
+    remedies without source or concrete defect evidence.
 
-    ## Output Format
+    # Stop Rules
+
+    Return NEEDS_CONTEXT when required evidence is absent and list "Cannot
+    verify from review package" items. Once both verdicts and grounded findings
+    are complete, stop; do not continue searching for optional improvements.
+
+    # Review Output Self-Check
+
+    Before returning, confirm every Critical or Important finding has source or
+    code evidence. Remove duplicate, preference-only, unactionable, speculative, or
+    plan-contradicting findings. Separate the defect from a minimal remedy.
+
+    # Output
 
     ### Spec Compliance
-
     - Status: SPEC_COMPLIANT | ISSUES_FOUND | NEEDS_CONTEXT
-    - Verdict: [short verdict with file:line evidence]
-    - Cannot verify from review package: [items or "none"]
+    - Verdict: [short evidence-backed verdict]
+    - Cannot verify from review package: [items or none]
 
     ### Strengths
-
-    [Specific strengths with evidence.]
+    [Only concrete strengths that help the gate.]
 
     ### Issues
-
     #### Critical
     #### Important
     #### Minor
-
-    For each issue: file:line, what is wrong, why it matters, how to fix.
+    Give every finding one stable task-local ID in order (`F-001`, `F-002`, ...).
+    For each issue: ID, evidence location, defect, impact, and minimal remedy.
 
     ### Review Output Self-Check
-
-    [State the source basis used, such as task brief/global constraints/design
-    anchors/implementation plan, and whether unsupported, duplicate, or
-    overbuilt findings were removed.]
+    [Source basis and removed unsupported/duplicate feedback.]
 
     ### Assessment
-
     **Task quality:** Approved | Needs fixes
+    **Reasoning:** [one or two sentences]
 
-    **Reasoning:** [1-2 sentence technical assessment]
-```
+    End with exactly one machine-readable block. Keep it consistent with the
+    Markdown verdict and findings. Use an empty array when there are no findings
+    or cannot-verify items. Preserve the supplied task anchor; use null only when
+    the brief has no task anchor.
 
-**Placeholders:**
-- `[MODEL]` - required reviewer model
-- `[BRIEF_FILE]` - path from `scripts/task-brief PLAN_FILE N`
-- `[GLOBAL_CONSTRAINTS]` - binding exact values copied from the plan/spec
-- `[ANCHOR_CONTEXT]` - task anchor block and implementer anchor report
-- `[SURFACE_CHANGE_CONTEXT]` - task surface block and implementer surface report
-- `[REPORT_FILE]` - implementer report file
-- `[TASK_ANCHOR]` - task anchor under review
-- `[REVIEW_PACKAGE_FILE]` - path from `scripts/review-package --worktree <task-anchor>`
+    Valid combinations are strict:
+    - SPEC_COMPLIANT requires Approved, no findings, and no cannot-verify items.
+    - ISSUES_FOUND requires Needs fixes and at least one finding.
+    - NEEDS_CONTEXT requires Needs fixes and at least one cannot-verify item.
+    Use exactly the shown fields with no additions. Number findings sequentially
+    within this review snapshot. A later re-review creates a new snapshot.
 
-**Reviewer returns:** spec compliance status, cannot-verify items, strengths,
-issues by severity, and task quality verdict.
+    ```loopx-review-result
+    {
+      "schema": "loopx.review-result.v1",
+      "status": "SPEC_COMPLIANT | ISSUES_FOUND | NEEDS_CONTEXT",
+      "task_quality": "Approved | Needs fixes",
+      "task_anchor": "T-001",
+      "cannot_verify": [],
+      "findings": [
+        {
+          "id": "F-001",
+          "severity": "Critical | Important | Minor",
+          "anchor_ids": ["AC-001"],
+          "summary": "One-sentence defect summary"
+        }
+      ]
+    }
+    ```
+````
+
+The controller supplies task-specific contracts. This prompt must stay generic,
+bounded, read-only, and leaf-worker safe.

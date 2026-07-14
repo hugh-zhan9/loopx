@@ -3,7 +3,7 @@ name: lancet
 description: "Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state."
 when_to_use: "lancet, over-engineering, YAGNI, unnecessary dependency, simplest diff, implementation minimization, review minimization, Codex implementation discipline"
 metadata:
-  version: "0.1.1"
+  version: "0.1.3"
 ---
 
 # Lancet
@@ -40,9 +40,24 @@ design, implementation plan, or issue contract names the scenario and expected
 behavior. Otherwise fail fast, ask for clarification, or record the blocker
 instead of guessing.
 
+## STOP Conditions
+
+Stop using `lancet` as the deciding lens when the smaller change would weaken validation, error handling, security, accessibility, migration safety, or required regression coverage. Minimal is correct only when it still satisfies the source contract.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Smaller diff conflicts with source requirements | Preserve the requirement and name the extra cost | Do not delete required behavior to win simplicity |
+| Existing abstraction may already solve it | Search nearby callers and project utilities first | Report the reuse gap before adding a new abstraction |
+| Reviewer suggests fallback without source backing | Ask for the named failure mode and expected behavior | Treat unanchored fallback as scope expansion |
+
 ## Implementation Discipline
 
 - Prefer the smallest correct diff and fewest touched files.
+- Prove sufficiency against every applicable `AC-*`, `D-*`, `T-*`, issue
+  anchor, validation rule, and regression check. "Smaller" is not correct when
+  it drops required behavior or evidence.
 - Fix root cause, not symptom.
 - Treat new abstractions as a cost that must be justified by repeated use or a real boundary.
 - Avoid speculative extensibility, placeholder layers, fallback or degraded modes, retry paths, compatibility shims, and boilerplate wrappers unless the task requires them now from an approved source.

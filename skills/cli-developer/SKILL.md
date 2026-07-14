@@ -4,7 +4,7 @@ description: "Applies loopx CLI design discipline for commands, flags, human and
 when_to_use: "cli-developer, CLI, command design, flags, JSON output, stdout stderr, interactive prompt, help text, shell completion, 命令行"
 license: MIT
 metadata:
-  version: "0.3.3"
+  version: "0.3.5"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/cli-developer
   maintained_by: loopx
 ---
@@ -33,6 +33,14 @@ It applies to Node.js, Python, Go, and other CLI stacks, but defer to the reposi
 4. **Implement** — Use the project's established CLI framework. After wiring commands, run representative `<cli> --help`, `<cli> --version`, success, validation-error, and non-interactive invocations.
 5. **Polish shell behavior** — Review color, TTY detection, SIGINT handling, prompt fallbacks, progress indicators, and shell completion support where the command is public or repeated-use.
 6. **Verify** — Run the relevant test suite and smoke tests on command behavior. Measure startup time against project-specific expectations when startup cost matters.
+
+## STOP Conditions
+
+Stop before changing a CLI contract when:
+
+- A flag, command name, JSON field, exit code, or stdout/stderr behavior may be scripted by users and compatibility is unresolved.
+- The command may run in CI or a non-TTY context and no non-interactive path exists.
+- The requested change belongs to product behavior or workflow semantics rather than CLI surface design.
 
 ## Reference Guide
 
@@ -98,6 +106,21 @@ Load detailed guidance based on context:
 - Measure startup time against project-specific expectations before claiming a performance target.
 - Prefer lazy loading for expensive subcommand-only dependencies.
 - Stream large inputs and outputs instead of buffering unnecessarily.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| A command works only interactively | Add or require flags/env/config for non-interactive mode | Stop and report the missing automation path |
+| JSON output contains human prose | Separate machine fields from display text | Treat schema instability as a blocking compatibility issue |
+| Help, success, and error output disagree | Run representative smoke commands and align wording with actual behavior | Report remaining mismatches as CLI contract defects |
+
+## Red Flags
+
+- Do not print diagnostics, prompts, or progress to stdout when output may be parsed.
+- Do not hide breaking CLI changes behind aliases or mode inference.
+- Do not require prompts in package-manager scripts, CI, hooks, or non-TTY runs.
+- Do not overwrite installed user-edited runtime state during onboarding.
 
 ## Review Checklist
 

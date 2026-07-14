@@ -3,7 +3,7 @@ name: tdd
 description: "Guides feature and bugfix implementation through a failing test before production code and red-green-refactor discipline. Not for generated files or throwaway prototypes."
 when_to_use: "tdd, failing test first, feature implementation, bugfix, regression test, red green refactor, 测试先行"
 metadata:
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Test-Driven Development (TDD)
@@ -37,7 +37,9 @@ Thinking "skip TDD just this once"? Stop. That's rationalization.
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
-Write code before the test? Delete it. Start over.
+If implementation already exists, preserve it. Do not claim strict test-first
+TDD; add characterization or regression evidence, or obtain explicit approval
+before reworking user-owned code.
 
 **No exceptions:**
 - Don't keep it as "reference"

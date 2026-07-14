@@ -3,7 +3,7 @@ name: refactor-plan
 description: "Creates a behavior-preserving refactor plan with user interview, repo evidence, tiny commits, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
 when_to_use: "refactor-plan, refactor request, refactoring RFC, tiny commits, behavior-preserving cleanup, architecture cleanup, 重构计划"
 metadata:
-  version: "0.3.6"
+  version: "0.3.8"
 ---
 
 # Refactor Plan
@@ -27,7 +27,7 @@ Do these before writing the plan. Skip a step only when the user or repo evidenc
 5. Check test coverage for the target area. If coverage is weak, plan characterization tests before refactoring steps.
 6. Confirm scope: what will change, what will not change, and which public surfaces must remain stable.
 
-## Stop Conditions
+## STOP Conditions
 
 Stop instead of writing a refactor plan when:
 
@@ -65,6 +65,11 @@ If the repository has an issue tracker and the user explicitly asks for a tracke
 Use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) as the required output structure.
 
 The output is both the refactor RFC and the execution plan. It should be complete enough for `exec` or `subagent-exec` to execute directly without a separate `plan-to-exec` pass, unless the template's Execution Handoff says material gaps remain.
+
+Before marking the refactor execution-ready, run `plan-reviewer` against the
+Behavior Preservation Contract and current-behavior evidence. Treat the plan's
+small units as atomic tasks; execution commit boundaries remain owned by
+`exec` or `subagent-exec`.
 
 ## Execution Handoff Rules
 

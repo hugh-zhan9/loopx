@@ -3,10 +3,14 @@ name: debug
 description: "Finds root cause for bugs, failing tests, build failures, regressions, and unexpected behavior before fixes. Not for new feature planning or routine code review."
 when_to_use: "debug, bug, test failure, build failure, regression, unexpected behavior, root cause, 报错, 失败, 回归, 排查"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Systematic Debugging
+
+The canonical output is
+[`references/diagnosis-contract.md`](references/diagnosis-contract.md). When
+used by `issue`, diagnose and hand off; do not make lasting code changes.
 
 ## Overview
 
@@ -170,7 +174,10 @@ You MUST complete each phase before proceeding to the next.
    - Ask for help
    - Research more
 
-### Phase 4: Implementation
+### Phase 4: Optional Implementation Handoff
+
+Run this phase only when the user explicitly requested a fix. Diagnosis-only
+calls stop after recording the diagnosis contract.
 
 **Fix the root cause, not the symptom:**
 

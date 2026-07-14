@@ -1,219 +1,80 @@
 # Implementer Subagent Prompt Template
 
-Use this template when dispatching an implementer subagent.
+Use this outcome-first template for one planned task. The task brief and routed
+references own detail; do not repeat the whole workflow contract in the prompt.
 
-```
+```text
 Native subagent:
-  description: "Implement T-001 / Task 1: [task name]"
-  model: [MODEL - REQUIRED: choose per SKILL.md Model Selection; an omitted
-         model silently inherits the session default]
+  description: "Implement [TASK_ANCHOR]: [task name]"
+  model: [MODEL - REQUIRED]
   prompt: |
-    You are implementing T-001 / Task 1: [task name]
+    You are implementing [TASK_ANCHOR]: [task name].
 
-    ## Task Description
+    You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
+    Complete this assignment directly and report blockers to the controller.
 
-    Read your task brief first: [BRIEF_FILE]
-    It contains the full task text from the plan, including Global Constraints
-    and task Interfaces.
+    # Goal
 
-    ## Context
+    Deliver the task described in [BRIEF_FILE] with the smallest correct diff.
+    Read your task brief first. It contains the binding Global Constraints,
+    Interfaces, Source AC, Design anchors, Test cases, Review focus, and Expected
+    execution evidence.
 
-    [Scene-setting: where this fits, dependencies, architectural context]
-
-    ## ANCHOR_CONTEXT
-
-    [Relevant anchor ids, original anchor text summary, coverage rows relevant to this
-    task, and source requirement path. If no anchor applies, include one classification:
-    infrastructure, test-only, docs-only, or refactor-only, with rationale.]
-    Preserve any `T-*` task anchor from the brief in status updates and the report YAML.
-
-    ## SURFACE_CHANGE_CONTEXT
-
-    [Include this section for tasks that remove, replace, narrow, migrate, or change
-    compatibility for existing behavior or public surface. Paste the surface being
-    changed, strict current product paths to scan, historical/frozen paths that may
-    mention old behavior, caller proof commands, negative assertion commands, and
-    package/deploy/governance checks required. If this task is not a surface change,
-    write: not_applicable.]
-
-    ## LANCET_CONTEXT
-
-    [Include the exact `lancet` implementation-stage distilled rules when this
-    task carries the `lancet` support lens: check deletion, repo reuse, stdlib,
-    native platform, and already-installed dependencies before new code; prefer
-    the smallest correct diff; preserve validation, error handling, security,
-    accessibility, and regression coverage. Otherwise write: not_applicable.]
-
-    ## Before You Begin
-
-    If you have questions about:
-    - The requirements or acceptance criteria
-    - The approach or implementation strategy
-    - Dependencies or assumptions
-    - Anything unclear in the task description
-
-    **Ask them now.** Raise any concerns before starting work.
-
-    ## Your Job
-
-    Once you're clear on requirements:
-    1. Implement exactly what the task specifies
-    2. Write tests (following TDD if task says to)
-    3. Verify implementation works
-    4. Do not commit or stage your work; leave changes in the working tree for task review
-    5. Self-review (see below)
-    6. Report back
-
-    Do not stage task work. Do not run `git add` or `git commit` for task
-    completion. Task completion is proven through the report fields and review
-    package.
+    # Context
 
     Work from: [directory]
+    ANCHOR_CONTEXT: [relevant anchors and source path]
+    SURFACE_CHANGE_CONTEXT: [required surface proof or not_applicable]
+    LANCET_CONTEXT: [distilled implementation rules or not_applicable]
 
-    Write your detailed report to: [REPORT_FILE]
-    Return only status, changed files, a one-line test summary, concerns, and the
-    report file path.
+    # Success Criteria
 
-    **While you work:** If you encounter something unexpected or unclear, **ask questions**.
-    It's always OK to pause and clarify. Don't guess or make assumptions.
+    - The task brief is fully implemented without unrelated behavior.
+    - Relevant tests and validation pass with fresh evidence.
+    - Existing user work and repository conventions are preserved.
+    - Source, design, test, and surface-change anchors are traceable in the report.
+    - The working tree contains the task changes; do not commit or stage them.
 
-    ## Code Organization
+    # Constraints
 
-    You reason best about code you can hold in context at once, and your edits are more
-    reliable when files are focused. Keep this in mind:
-    - Follow the file structure defined in the plan
-    - Each file should have one clear responsibility with a well-defined interface
-    - If a file you're creating is growing beyond the plan's intent, stop and report
-      it as DONE_WITH_CONCERNS — don't split files on your own without plan guidance
-    - If an existing file you're modifying is already large or tangled, work carefully
-      and note it as a concern in your report
-    - In existing codebases, follow established patterns. Improve code you're touching
-      the way a good developer would, but don't restructure things outside your task.
+    Do not run `git add` or `git commit`. Do not restructure outside the task.
+    Follow TDD when the brief requires it. If LANCET_CONTEXT applies, check
+    deletion, repo reuse, stdlib, native platform, and installed dependencies
+    before adding code or abstractions.
 
-    ## When You're in Over Your Head
+    # Stop Rules
 
-    It is always OK to stop and say "this is too hard for me." Bad work is worse than
-    no work. You will not be penalized for escalating.
+    Stop with NEEDS_CONTEXT before editing when the brief, ANCHOR_CONTEXT, or a
+    required SURFACE_CHANGE_CONTEXT is materially incomplete. Stop with BLOCKED
+    when a missing dependency or unresolved design decision prevents a correct
+    implementation. Do not open exploratory worker loops or guess product
+    behavior. Once the success criteria have fresh evidence, write the report
+    and stop; do not continue polishing unrelated code.
 
-    **STOP and escalate when:**
-    - The task requires architectural decisions with multiple valid approaches
-    - You need to understand code beyond what was provided and can't find clarity
-    - You feel uncertain about whether your approach is correct
-    - The task involves restructuring existing code in ways the plan didn't anticipate
-    - You've been reading file after file trying to understand the system without progress
+    # Validation
 
-    **How to escalate:** Report back with status BLOCKED or NEEDS_CONTEXT. Describe
-    specifically what you're stuck on, what you've tried, and what kind of help you need.
-    The controller can provide more context, re-dispatch with a more capable model,
-    or break the task into smaller pieces.
+    Run the narrowest relevant checks first, then the broader command required
+    by the brief. If a check cannot run, record why and the next-best evidence.
+    Self-review only for task completeness, correctness, overbuilding, test
+    relevance, and required surface proof; fix discovered task defects before
+    reporting.
 
-    ## Before Reporting Back: Self-Review
+    # Output
 
-    Review your work with fresh eyes. Ask yourself:
+    Write the full report to [REPORT_FILE] using the task completion and optional
+    surface-change schemas in `references/task-handoff-and-review.md`.
+    Preserve any `T-*` task anchor as `task_anchor`. The report must contain:
+    `task_anchor`, `source_ac`, `design_anchors`, `test_cases`, `commands_run`,
+    `evidence_summary`, and `remaining_risk`.
 
-    **Completeness:**
-    - Did I fully implement everything in the spec?
-    - Did I miss any requirements?
-    - Are there edge cases I didn't handle?
-
-    **Quality:**
-    - Is this my best work?
-    - Are names clear and accurate (match what things do, not how they work)?
-    - Is the code clean and maintainable?
-
-    **Discipline:**
-    - Did I avoid overbuilding (YAGNI)?
-    - If LANCET_CONTEXT applies, did I choose the smallest correct diff after
-      checking deletion, repo reuse, stdlib, native platform, and installed
-      dependency options?
-    - Did I only build what was requested?
-    - Did I follow existing patterns in the codebase?
-
-    **Testing:**
-    - Do tests actually verify behavior (not just mock behavior)?
-    - Did I follow TDD if required?
-    - Are tests comprehensive?
-    - Is the test output pristine, with no unexplained warnings or noise?
-
-    **Surface changes:**
-    - If I removed, replaced, narrowed, migrated, or changed compatibility, did I run
-      the required caller proof and negative assertion commands?
-    - Did I verify strict current product paths are clean while allowing only
-      historical/frozen paths to mention old behavior?
-    - Did I verify package, deploy, installer, governance, docs, and test surfaces
-      match the new behavior?
-
-    If you find issues during self-review, fix them now before reporting.
-
-    ## Report Format
-
-    Write your full report to [REPORT_FILE]:
-    - What you implemented (or what you attempted, if blocked)
-    - What you tested and test results
-    - Files changed
-    - Self-review findings (if any)
-    - Any issues or concerns
-
-    Include this required block:
-
-    ```yaml
-    task_anchor: T-001
-    source_ac:
-      - AC-001
-    design_anchors:
-      - D-001
-    test_cases:
-      - TC-001
-    commands_run:
-      - <command>: <pass/fail and relevant output summary>
-    evidence_summary: <how the result satisfies Expected execution evidence>
-    remaining_risk: <none or concrete residual risk>
-    anchor_coverage:
-      REQ-001: implemented
-      REQ-002: tested
-    implemented_anchor_ids:
-      - REQ-001
-    tests_for_anchor_ids:
-      - REQ-002
-    extra_behavior: none
-    missing_context: none
-    ```
-
-    Allowed anchor statuses: implemented, tested, not_applicable, blocked,
-    needs_context. Use `missing_context` when ANCHOR_CONTEXT is absent or insufficient.
-    Use `extra_behavior` for any product, API, data, or permission behavior not tied to
-    an anchor or explicit plan rationale.
-
-    For surface-changing tasks, also include this required block:
-
-    ```yaml
-    surface_change:
-      removed_or_changed:
-        - <command/api/module/file/doc claim>
-      retained_with_caller_proof:
-        - item: <item>
-          caller: <current-source caller or none>
-      negative_assertions:
-        - command: <command>
-          result: <expected absence confirmed>
-      package_or_governance_checks:
-        - command: <command>
-          result: <pass/fail>
-    ```
-
-    If the task is surface-changing but SURFACE_CHANGE_CONTEXT is absent or lacks
-    caller proof, negative assertions, strict current product paths, or package/
-    governance checks, report NEEDS_CONTEXT before editing.
-
-    Then report back with ONLY (under 15 lines — the detail lives in the report
-    file):
-    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    Return only (under 15 lines):
+    - Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
     - Changed files
     - One-line test summary
     - Concerns, if any
     - Report file path
-
-    Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
-    Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need
-    information that wasn't provided. Never silently produce work you're unsure about.
 ```
+
+The controller derives the full report contract from the task brief and
+`references/task-handoff-and-review.md`; a worker prompt must not duplicate or
+silently weaken those owned schemas.

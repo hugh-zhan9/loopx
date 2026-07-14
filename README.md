@@ -18,6 +18,11 @@ workflow happens by invoking skills inside the agent.
 clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
 ```
 
+This is the v2 current contract. Running pre-v2 `.loopx` workflow state is not
+migrated; restart it when the CLI reports `restart_required`. Only the top-level
+controller owns subagent lifecycle. Every worker dispatched by a loopx skill is
+a leaf worker and must not spawn, delegate to, or wait for other agents.
+
 loopx has two main flows:
 
 - feature-driven work follows the path above for new product or code changes.

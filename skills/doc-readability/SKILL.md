@@ -3,7 +3,7 @@ name: doc-readability
 description: "Use when evaluating, rewriting, or editing documents for human readability, unclear viewpoints, AI-like prose, bloated specs, PRDs, requirements docs, meeting notes, strategy docs, or internal knowledge-base articles. Not for code review, implementation planning, or file-format conversion."
 when_to_use: "document readability, PRD assessment, requirements gaps, AI-like prose, unclear viewpoint, rewrite docs, editing docs, 文档可读性, 去AI味, 需求文档评估"
 metadata:
-  version: "0.3.3"
+  version: "0.3.5"
 ---
 
 # Doc Readability
@@ -27,7 +27,9 @@ Start by inferring:
 | What is the main claim? | If the claim is hard to state in one sentence, the document likely has a structure problem. |
 | What action should follow? | Readability is poor when the reader cannot tell what to do next. |
 
-If these are clear from the request and document, use them to make a recommendation. The document type still needs user confirmation unless the user explicitly asks for a quick assessment or says to use judgment.
+If these are clear from the request and document, infer the document type and
+proceed. Ask only when competing document lenses would materially change the
+verdict or rewrite structure.
 
 ## Setup Flow
 
@@ -42,7 +44,8 @@ Strictness: review-ready
 
 Do not turn setup into a form. Use this order:
 
-1. Confirm document type first. If the user has not explicitly specified document type, ask Step 1 before evaluating. Do not proceed based only on inference.
+1. Infer an obvious document type from the request and document. Ask for
+   confirmation only when the choice is genuinely ambiguous and material.
 2. If the document appears to mix multiple types, ask which lens should be primary. Do not silently choose the primary type.
 3. After document type is chosen, read enough of the document to judge its actual condition: title, headings, first screen, conclusion, and key sections. For long documents, sample the main path and high-risk sections.
 4. Only after reading the document may the agent recommend an action mode. Do not recommend assessment-only, targeted suggestions, or rewrite before reading the document.
@@ -94,6 +97,17 @@ Which strictness should I use?
 If strictness is not worth asking, choose a sensible default and state it briefly.
 
 When the confirmed document type is `Requirements document / PRD`, read `references/prd.md` before assessment or rewrite. Use it to check requirement completeness and testability, not just prose clarity.
+
+## STOP Conditions
+
+Stop before rewriting when:
+
+- The document type is unclear and the wrong lens would change the verdict or rewrite structure.
+- The user asked for assessment only.
+- The available input is only a short excerpt and the requested rewrite depends on missing context.
+- A PRD or requirements document lacks enough business facts to preserve intent.
+
+If the user explicitly says "quick assessment", "use your judgment", or "don't ask", proceed with stated assumptions and keep the output scoped to the available evidence.
 
 ## Document Types
 
@@ -198,6 +212,27 @@ For long documents, do not polish in place first. Extract the spine:
 5. Which repeated sections can share one template.
 
 Then rewrite only within the user-approved action mode.
+
+Before a substantive rewrite, inventory the source claims, decisions,
+requirements, definitions, exceptions, and ownership statements that must be
+preserved. After rewriting, reconcile that inventory against the result and
+identify any intentional omission or changed meaning explicitly.
+
+## Failure Handling
+
+| Trigger | First action | If still blocked |
+|---|---|---|
+| Source meaning is ambiguous | Preserve the original claim and flag the ambiguity | Do not rewrite ambiguity into a stronger invented claim |
+| Document mixes multiple types | Name the primary and secondary lenses before judging | Ask for the primary lens only when it changes the result |
+| Requested rewrite would remove requirements | Keep the requirement and improve placement or wording | Mark the sentence as retained for semantic preservation |
+
+## Anti-Patterns
+
+- Do not rewrite before reading the actual document or excerpt.
+- Do not turn every assessment into a full rewrite.
+- Do not remove domain terms just to make prose sound simpler.
+- Do not make formal documents chatty to make them sound human.
+- Do not preserve AI-like filler because it sounds polite.
 
 ## Output Rules
 

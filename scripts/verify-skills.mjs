@@ -12,6 +12,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 const pluginManifest = JSON.parse(await readFile(join(repoRoot, 'plugins', 'loopx', '.codex-plugin', 'plugin.json'), 'utf8'));
 const resolverPath = join(repoRoot, 'skills', 'RESOLVER.md');
+const contractMatrixPath = join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json');
 const pluginSkillsRoot = join(repoRoot, 'plugins', 'loopx', 'skills');
 const removedPluginSyncScriptName = ['sync', 'plugin', 'skills'].join('-');
 const removedSyncScriptPath = join(repoRoot, 'scripts', `${removedPluginSyncScriptName}.mjs`);
@@ -208,6 +209,8 @@ async function assertPublicDocsAligned() {
   assertContains(cliDoc, 'remove loopx-managed user-level artifacts', 'docs/loopx/cli.md');
   assertContains(installationSpec, 'Undo installed files', 'docs/loopx/specs/installation.md');
   assertContains(readme, 'Golden path', 'README.md');
+  assertContains(readme, 'pre-v2', 'README.md');
+  assertContains(readme, 'leaf worker', 'README.md');
 
   assertContains(readmeZh, 'skill 调用完成', 'README.zh-CN.md');
   assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
@@ -219,6 +222,10 @@ async function assertPublicDocsAligned() {
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
   assertContains(cliDocZh, '移除 loopx 管理的用户级 artifacts', 'docs/loopx/cli.zh-CN.md');
   assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
+  assertContains(readmeZh, 'pre-v2', 'README.zh-CN.md');
+  assertContains(readmeZh, 'leaf worker', 'README.zh-CN.md');
+  assertContains(cliDoc, 'top-level controller', 'docs/loopx/cli.md');
+  assertContains(cliDocZh, '顶层 controller', 'docs/loopx/cli.zh-CN.md');
   for (const required of [
     'Quick start',
     'Human output is the default',
@@ -280,9 +287,67 @@ async function assertSkill(skillName, resolverText) {
   }
 }
 
+async function assertContractMatrix() {
+  assert.equal(existsSync(contractMatrixPath), true, 'skill contract matrix missing');
+  const matrix = JSON.parse(await readFile(contractMatrixPath, 'utf8'));
+  assert.equal(matrix.schema_version, 1, 'skill contract matrix schema must be 1');
+  assert.equal(Array.isArray(matrix.skills), true, 'skill contract matrix skills must be an array');
+
+  const names = matrix.skills.map((entry) => entry.skill);
+  assert.deepEqual([...names].sort(), [...LOOPX_BUNDLED_SKILLS].sort(), 'skill contract matrix must cover every bundled skill exactly once');
+  assert.equal(new Set(names).size, names.length, 'skill contract matrix contains duplicate skills');
+  const workflowNames = matrix.skills.filter((entry) => entry.role === 'workflow').map((entry) => entry.skill).sort();
+  assert.deepEqual(Object.keys(matrix.workflow_root_line_limits ?? {}).sort(), workflowNames, 'workflow root line guards must cover every workflow skill exactly once');
+
+  for (const entry of matrix.skills) {
+    assert.match(entry.role ?? '', /^(workflow|support)$/, `${entry.skill} matrix role must be workflow or support`);
+    for (const field of ['boundary', 'required_outputs', 'safety_invariants', 'integrations', 'required_references', 'version']) {
+      assert.equal(Object.hasOwn(entry, field), true, `${entry.skill} matrix missing ${field}`);
+    }
+    for (const field of ['required_outputs', 'safety_invariants', 'integrations', 'required_references']) {
+      assert.equal(Array.isArray(entry[field]), true, `${entry.skill} matrix ${field} must be an array`);
+    }
+    assert.ok(entry.boundary.length > 0, `${entry.skill} matrix boundary must not be empty`);
+    assert.ok(entry.required_outputs.length > 0, `${entry.skill} matrix required_outputs must not be empty`);
+    assert.ok(entry.safety_invariants.length > 0, `${entry.skill} matrix safety_invariants must not be empty`);
+    assert.ok(entry.integrations.length > 0, `${entry.skill} matrix integrations must not be empty`);
+
+    const skillPath = join(repoRoot, 'skills', entry.skill, 'SKILL.md');
+    const skillText = await readFile(skillPath, 'utf8');
+    const frontmatter = parseFrontmatter(skillPath, skillText);
+    assert.equal(frontmatter.version, entry.version, `${entry.skill} matrix version drift`);
+    for (const [field, markers] of Object.entries({
+      boundary: [entry.boundary],
+      required_outputs: entry.required_outputs,
+      safety_invariants: entry.safety_invariants,
+      integrations: entry.integrations,
+    })) {
+      for (const marker of markers) {
+        assert.ok(skillText.toLowerCase().includes(marker.toLowerCase()), `${entry.skill} matrix ${field} marker missing from SKILL.md: ${marker}`);
+      }
+    }
+    for (const reference of entry.required_references) {
+      assert.equal(existsSync(resolve(repoRoot, 'skills', entry.skill, reference)), true, `${entry.skill} matrix reference missing: ${reference}`);
+    }
+    if (entry.role === 'workflow') {
+      const guard = matrix.workflow_root_line_limits[entry.skill];
+      const lineCount = skillText.trimEnd().split('\n').length;
+      assert.ok(lineCount <= guard.max, `${entry.skill} root SKILL.md has ${lineCount} lines; guard is ${guard.max}`);
+      if (guard.max > 220) {
+        assert.ok(guard.reason?.length >= 40, `${entry.skill} root line exception requires an operational reason`);
+      }
+    }
+  }
+}
+
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
 assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
+assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true, 'npm package must include agent eval runner');
+assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true, 'npm package must include Codex trace normalizer');
+assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true, 'npm package must include Codex live eval runner');
+assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true, 'npm package must include agent eval aggregator');
+assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true, 'npm package must include GPT-5.6 eval contracts');
 assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload directory must be absent');
 assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
 assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
@@ -295,13 +360,15 @@ assert.deepEqual(
 );
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
+assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
+assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }
 assert.deepEqual(
   packageJson.files.filter((path) => path.startsWith('skills/')).sort(),
-  ['skills/RESOLVER.md', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
-  'npm package skills/ surface must exactly match bundled skills plus resolver',
+  ['skills/RESOLVER.md', 'skills/shared/', ...LOOPX_BUNDLED_SKILLS.map((skillName) => `skills/${skillName}/`)].sort(),
+  'npm package skills/ surface must exactly match bundled skills plus resolver and shared contracts',
 );
 
 for (const relativePath of markdownPaths) {
@@ -314,6 +381,7 @@ for (const relativePath of activeMaintenanceDocs) {
 await assertPublicDocsAligned();
 
 const resolverText = await readFile(resolverPath, 'utf8');
+await assertContractMatrix();
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   await assertSkill(skillName, resolverText);
 }

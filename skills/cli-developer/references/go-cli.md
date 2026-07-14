@@ -1,6 +1,6 @@
 # Go CLI Development
 
-## Cobra (Recommended)
+## Cobra Example
 
 Powerful CLI framework used by kubectl, hugo, docker.
 
@@ -438,11 +438,11 @@ func handleError(err error) error {
     case errors.Is(err, os.ErrPermission):
         fmt.Fprintln(os.Stderr, "Permission denied")
         fmt.Fprintln(os.Stderr, "Try running with sudo or check file permissions")
-        exitCode = 77
+        exitCode = 4
 
     case errors.Is(err, os.ErrNotExist):
         fmt.Fprintf(os.Stderr, "File not found: %v\n", err)
-        exitCode = 127
+        exitCode = 5
 
     default:
         fmt.Fprintf(os.Stderr, "Deployment failed: %v\n", err)
