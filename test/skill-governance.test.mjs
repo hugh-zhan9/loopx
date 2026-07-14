@@ -860,6 +860,9 @@ describe('loopx skill governance', () => {
     assert.match(rootSkill, /scripts\/review-result/);
     assert.match(reviewResultContract, /unknown schema versions are invalid/i);
     assert.match(reviewResultContract, /writes atomically/i);
+    assert.match(reviewResultContract, /native rollout/i);
+    assert.match(reviewResultContract, /root thread owns the named reviewer invocation/i);
+    assert.match(reviewResultContract, /raw-message hash/i);
     assert.match(reviewResultContract, /NEEDS_CONTEXT.*Needs fixes/is);
     assert.match(reviewResultContract, /new schema identifier/i);
     assert.match(taskReviewer, /Do not review only the code/);
@@ -945,7 +948,7 @@ describe('loopx skill governance', () => {
     await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
 
     const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
-    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package', 'review-result']) {
+    for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package', 'review-result', 'review-artifact-verify']) {
       const mode = (await stat(join(scriptsDir, scriptName))).mode;
       assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
     }
@@ -1009,6 +1012,8 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(reviewPackage, /## Commits/);
 
     const reviewerMessage = join(wd, 'reviewer-message.md');
+    const implementerReportPath = join(wd, 'implementer-report.md');
+    await writeFile(implementerReportPath, 'implementation evidence\n');
     await writeFile(reviewerMessage, [
       '### Spec Compliance',
       '- Status: SPEC_COMPLIANT',
@@ -1024,27 +1029,57 @@ describe('loopx skill governance', () => {
       }, null, 2),
       '```',
     ].join('\n'));
-    const resultPath = (await execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-001', '--input', reviewerMessage], { cwd: wd })).stdout.trim();
-    assert.equal(resultPath, join(workspace, 'reviews', 'T-001', 'review-result.json'));
-    assert.deepEqual(JSON.parse(await readFile(resultPath, 'utf8')), {
-      schema: 'loopx.review-result.v1',
-      status: 'SPEC_COMPLIANT',
-      task_quality: 'Approved',
-      task_anchor: 'T-001',
-      cannot_verify: [],
-      findings: [],
-    });
+    const commonArgs = ['--task', 'T-001', '--reviewer-thread', 'reviewer-1', '--model', 'gpt-5.6-sol', '--attempt', '1', '--brief', briefPath, '--review-package', packagePath, '--implementer-report', implementerReportPath];
+    const resultPath = (await execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs, '--input', reviewerMessage, '--platform', 'test'], { cwd: wd })).stdout.trim();
+    assert.equal(resultPath, join(workspace, 'reviews', 'T-001', 'review-artifact.json'));
+    const artifact = JSON.parse(await readFile(resultPath, 'utf8'));
+    assert.equal(artifact.schema, 'loopx.review-artifact.v1');
+    assert.equal(artifact.review_result.status, 'SPEC_COMPLIANT');
+    assert.equal(artifact.provenance.reviewer_thread_id, 'reviewer-1');
+    assert.equal(artifact.provenance.model, 'gpt-5.6-sol');
+    assert.equal(artifact.provenance.review_attempt, 1);
+    assert.match(artifact.provenance.raw_message_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.brief_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.review_package_sha256, /^[a-f0-9]{64}$/);
+    assert.match(artifact.provenance.implementer_report_sha256, /^[a-f0-9]{64}$/);
+    const verifyArgs = ['--artifact', resultPath, ...commonArgs];
+    assert.equal((await execFileAsync(join(scriptsDir, 'review-artifact-verify'), verifyArgs, { cwd: wd })).stdout.trim(), resultPath);
+    await writeFile(implementerReportPath, 'changed evidence\n');
     await assert.rejects(
-      execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-999', '--input', reviewerMessage], { cwd: wd }),
+      execFileAsync(join(scriptsDir, 'review-artifact-verify'), verifyArgs, { cwd: wd }),
+      /review_artifact_implementer_report_sha256_mismatch/,
+    );
+    await writeFile(implementerReportPath, 'implementation evidence\n');
+    await assert.rejects(
+      execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs.map((value) => value === 'T-001' ? 'T-999' : value), '--input', reviewerMessage, '--platform', 'test'], { cwd: wd }),
       /review_result_task_anchor_mismatch:T-001:T-999/,
     );
 
     const invalidMessage = join(wd, 'invalid-reviewer-message.md');
     await writeFile(invalidMessage, '```loopx-review-result\n{"schema":"loopx.review-result.v2"}\n```\n');
     await assert.rejects(
-      execFileAsync(join(scriptsDir, 'review-result'), ['--task', 'T-001', '--input', invalidMessage], { cwd: wd }),
+      execFileAsync(join(scriptsDir, 'review-result'), [...commonArgs, '--input', invalidMessage, '--platform', 'test'], { cwd: wd }),
       /review_result_schema_unsupported/,
     );
+
+    const codexRolloutPath = join(wd, 'codex-review-rollout.jsonl');
+    const nativeMessage = await readFile(reviewerMessage, 'utf8');
+    await writeFile(codexRolloutPath, [
+      JSON.stringify({ timestamp: '2026-07-14T00:00:00Z', type: 'session_meta', payload: { session_id: 'root-native' } }),
+      JSON.stringify({ timestamp: '2026-07-14T00:00:01Z', type: 'event_msg', payload: { type: 'sub_agent_activity', kind: 'started', agent_thread_id: 'reviewer-native', agent_path: '/root/task_reviewer' } }),
+      JSON.stringify({ timestamp: '2026-07-14T00:00:02Z', type: 'response_item', payload: { type: 'agent_message', author: '/root/task_reviewer', recipient: '/root', content: [{ type: 'input_text', text: `Message Type: FINAL_ANSWER\nTask name: /root\nPayload:\n${nativeMessage}` }] } }),
+    ].join('\n'));
+    const nativePath = join(wd, 'native-review-artifact.json');
+    await execFileAsync(join(scriptsDir, 'review-result'), [
+      '--task', 'T-001', '--reviewer-thread', 'reviewer-native', '--model', 'gpt-5.6-sol', '--attempt', '2',
+      '--brief', briefPath, '--review-package', packagePath, '--implementer-report', implementerReportPath,
+      '--codex-rollout', codexRolloutPath, '--root-thread', 'root-native', nativePath,
+    ], { cwd: wd });
+    const nativeArtifact = JSON.parse(await readFile(nativePath, 'utf8'));
+    assert.equal(nativeArtifact.provenance.source_platform, 'codex');
+    assert.equal(nativeArtifact.provenance.root_thread_id, 'root-native');
+    assert.equal(nativeArtifact.provenance.reviewer_thread_id, 'reviewer-native');
+    assert.match(nativeArtifact.provenance.source_rollout_sha256, /^[a-f0-9]{64}$/);
   });
 
   it('governs boundary commit policy and task review worktree evidence', async () => {
@@ -1151,7 +1186,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.21');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.22');
     assert.equal(parseFrontmatter(finishSkill)['metadata.version'], '0.3.11');
 
     assert.match(planSkill, /package mode/i);
@@ -1380,7 +1415,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(planFields['metadata.version'], '0.3.17');
     assert.equal(execFields['metadata.version'], '0.3.12');
-    assert.equal(subagentExecFields['metadata.version'], '0.3.21');
+    assert.equal(subagentExecFields['metadata.version'], '0.3.22');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
     assert.match(planSkill, /T-\*/);
@@ -1508,7 +1543,7 @@ describe('loopx skill governance', () => {
     assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.17');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
-    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.21');
+    assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.22');
 
     assert.match(clarifySkill, /`requirements\.md` is the canonical `AC-\*`\/`TC-\*` source/);
     assert.match(clarifySkill, /Downstream skills must not invent replacement `AC-\*` or `TC-\*` identifiers/);

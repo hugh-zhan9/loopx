@@ -102,9 +102,9 @@ including:
 - read-only review behavior
 - `Cannot verify from diff`
 
-Save the complete reviewer final response unchanged and run `scripts/review-result`
-as specified in `review-result-contract.md`. The persisted JSON, not controller
-prose, controls the task gate. Record its path in the completion ledger.
+Run `scripts/review-result` against native reviewer output as specified in
+`review-result-contract.md`. The provenance-bound artifact, not controller prose,
+controls the task gate. Record its path in the completion ledger.
 
 Do not pre-judge severities or tell the reviewer what not to flag.
 

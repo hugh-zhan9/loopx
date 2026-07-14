@@ -3,7 +3,7 @@ name: subagent-exec
 description: "Executes approved loopx implementation plans with fresh subagents per independent task and combined task review. Not for planning, unclear requirements, or tightly coupled edits."
 when_to_use: "approved implementation plan, independent tasks, subagent execution, combined task review, spec and quality verdicts, parallel-capable execution"
 metadata:
-  version: "0.3.21"
+  version: "0.3.22"
 ---
 
 # Subagent Exec
@@ -100,12 +100,15 @@ Keep the task loop strict:
    evidence review package with `scripts/review-package --worktree <task-anchor>`.
 7. Dispatch the task reviewer with the brief path, report path, review package
    path, Global Constraints, `ANCHOR_CONTEXT`, and `SURFACE_CHANGE_CONTEXT`.
-8. Treat the reviewer's canonical review result as the source of truth. Preserve
-   the complete final response unchanged, then run `scripts/review-result --task
-   <task-anchor> --input <reviewer-message-file>`. Use the persisted JSON for
-   gate decisions. The controller must not reconstruct status, task quality,
-   finding IDs, severity, anchors, or cannot-verify items from prose.
-9. After clean review, append task completion to the progress ledger and move
+8. Treat the reviewer's canonical review result as the source of truth. On
+   Codex, run `scripts/review-result` against the native root rollout and exact
+   reviewer thread. On other platforms, pass the adapter-captured leaf message.
+   Use the persisted artifact for gate decisions. The controller must not reconstruct
+   or transcribe status, task quality, finding IDs, severity,
+   anchors, or cannot-verify items from prose.
+9. Run `scripts/review-artifact-verify` with the current task inputs, reviewer
+   thread, model, and attempt. Treat any mismatch as `NEEDS_CONTEXT`.
+10. After clean review, append task completion to the progress ledger and move
    to the next task without pausing.
 
 Detailed task handoff, report fields, review package contract, and reviewer
