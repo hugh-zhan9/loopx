@@ -119,6 +119,13 @@ Native subagent:
     or cannot-verify items. Preserve the supplied task anchor; use null only when
     the brief has no task anchor.
 
+    Valid combinations are strict:
+    - SPEC_COMPLIANT requires Approved, no findings, and no cannot-verify items.
+    - ISSUES_FOUND requires Needs fixes and at least one finding.
+    - NEEDS_CONTEXT requires Needs fixes and at least one cannot-verify item.
+    Use exactly the shown fields with no additions. Number findings sequentially
+    within this review snapshot. A later re-review creates a new snapshot.
+
     ```loopx-review-result
     {
       "schema": "loopx.review-result.v1",

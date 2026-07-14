@@ -54,6 +54,8 @@ Use `--case <id>` for one paired case. The runner resolves the baseline prompt
 from its pinned git ref and the candidate prompt from `HEAD`, invokes Codex in
 read-only mode, normalizes native parent/child rollouts, validates the final
 message, applies case budgets, and writes the standard comparison report.
+Use `--variant <name>` only for focused forward-validation when a paired resource
+comparison is not required; it does not produce a baseline/candidate comparison.
 
 Run a second replicate with `--order candidate-first` to control for prompt
 cache and warm-start ordering. Do not use a single fixed-order pair as the sole
