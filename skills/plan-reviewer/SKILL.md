@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews draft implementation plans for source-to-plan coverage, scope drift, verification gaps, and task handoff readiness. Not for writing plans, reviewing implementation code, changing workflow state, or redesigning approved requirements."
 when_to_use: "plan review, source-to-plan review, plan artifact audit, coverage audit, implementation plan quality, draft plan review, 计划审核, 计划覆盖检查"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # Plan Reviewer
@@ -41,6 +41,19 @@ Read:
 2. Draft implementation plan.
 3. Relevant repo specs or memory summaries already selected by the caller.
 
+For current plans, validate machine-readable parallel metadata through the
+shared owner before completing the coverage matrix:
+
+```text
+node <plan-reviewer-skill-root>/../shared/scripts/parallel-plan-contract.mjs manifest inspect --input <draft-plan-or-overview> --output <scratch-manifest>
+```
+
+Do not copy its parser or repair rejected metadata. A missing/invalid block,
+unknown field/schema, invalid path, missing dependency, cycle, task/child write
+overlap, or `Files`/`write_scope` mismatch is an Important finding unless it
+also contradicts an approved source contract. `write_scope` must exactly match
+`Create:` and `Modify:` entries; `Test:` entries are read-only.
+
 Do not inspect implementation code or git diffs. If the caller asks for post-implementation code review, route that work to `review` or `final-review`.
 
 ## Review Rubric
@@ -56,6 +69,7 @@ Build a source-to-plan coverage matrix:
   artifacts, and verification evidence; every planned unit maps back to it.
 - The plan does not add product, API, data, permission, workflow, runtime, or compatibility behavior not justified by the source.
 - Each task has enough interfaces, context, support lenses, and expected evidence for an `exec` or `subagent-exec` implementer and reviewer to work independently.
+- Parallel metadata passes the shared validator, package/task DAGs are acyclic, explicit dependencies exist, and unordered writable scopes do not overlap.
 
 ## Severity
 

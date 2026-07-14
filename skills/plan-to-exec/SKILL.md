@@ -3,7 +3,7 @@ name: plan-to-exec
 description: "Creates bite-sized implementation plans from approved requirements, clarify output, or design specs with exact files, tests, commands, expected output, and execution handoff. Not for unresolved requirements, design decisions, PRD generation, or code changes."
 when_to_use: "plan-to-exec, plan, implementation plan, execution plan, task breakdown, approved requirements, approved design spec, docs/loopx/design, 实施计划, 执行计划, 任务拆分"
 metadata:
-  version: "0.3.17"
+  version: "0.3.20"
 argument-hint: "<design spec path or feature name>"
 ---
 
@@ -75,7 +75,8 @@ Every task must include `Review focus`. Use concrete bullets that tell reviewers
 
 Every task must also include `Expected execution evidence`. This is the evidence contract consumed by `exec`, `subagent-exec`, and later by `review`: name the commands, report fields, artifacts, manual checks, or negative assertions that should prove the task completed its Source AC, Design anchors, and Test cases. Do not use `Expected execution evidence` to create new acceptance criteria or design decisions; it translates existing anchors into execution proof.
 
-**Announce at start:** "I'm using the plan-to-exec skill to create the implementation plan."
+## Parallel Metadata
+Every new plan emits `loopx-parallel-plan` and one `loopx-parallel-task` per task; packages also emit `loopx-parallel-package`. Required fields are `max_parallel`, `depends_on`, `write_scope`, `parallel_safe`, and `can_run_in_parallel`. `write_scope` equals `Create:` plus `Modify:` paths; `Test:` paths stay read-only. Resolve `../shared/scripts/parallel-plan-contract.mjs` from this skill root and validate before internal review. Current package execution stays strictly sequential, and `parallel-subagent-exec` remains manual-only, never an Execution strategy recommendation or handoff.
 
 **Save plans to:**
 
@@ -101,7 +102,7 @@ For a multi-plan package, `00-overview.md` must include:
 - Split rationale for each child plan
 - Execution order and dependencies
 - Which child plans can run in parallel
-- Package execution handoff: primary execution uses `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`; inline fallback uses `$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`.
+- Package execution handoff: list both `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` and `$exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md`; apply the package's evidence-based Execution strategy instead of treating either executor as the default.
 - Direct child plan execution is targeted/resume/manual-control mode only, such as `$subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md`.
 - Package mode executes child plans strictly sequentially even when `00-overview.md` says some child plans can run in parallel.
 - Final gate: after each child plan, run plan-level `final-review` and update `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`; child plan-level review does not create a final-review report artifact. After all child plans are ready, package mode runs one spec-level `final-review`, then `finish`
@@ -132,6 +133,18 @@ A task is the smallest unit that carries its own test cycle and is worth a
 fresh reviewer's gate. Fold setup, configuration, scaffolding, and documentation
 into the task whose deliverable needs them. Split only where a reviewer could
 meaningfully reject one task while approving its neighbor.
+
+## Execution Strategy Selection
+
+Choose from the completed plan; subagent availability alone is not a reason to
+prefer `subagent-exec`, and neither executor is recommended by default.
+
+- Use `subagent-exec` only for stable, independently delegable tasks when fresh
+  workers need little shared context and isolation plus review justify dispatch cost.
+- Use `exec` for tightly coupled files or state, judgment that flows between
+  tasks, continuous debugging, or tasks too small to repay worker orientation.
+Record concrete rationale. Interfaces and evidence fields alone do not prove
+independent delegation.
 
 ## Plan Boundary Commit Policy
 
@@ -169,7 +182,7 @@ Every plan must start with this header:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use loopx:subagent-exec (recommended) or loopx:exec to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Use the assessed Execution strategy below: `loopx:subagent-exec` for independently delegable tasks or `loopx:exec` for tightly coupled or context-continuous work. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Source:** [Path to design, clarify bundle, issue, PRD, or requirements document]
 
@@ -180,6 +193,10 @@ Every plan must start with this header:
 **Tech Stack:** [Key technologies/libraries]
 
 **Support lenses:** [Copy from source design: none, or exact skill names such as `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, `go-style`, `kratos`. Do not invent new lenses.]
+
+**Execution strategy recommendation:** [`subagent-exec` | `exec`]
+
+**Selection rationale:** [Concrete evidence from task coupling, shared context, write scopes, debugging continuity, and dispatch cost. Do not cite subagent availability alone.]
 
 ## Global Constraints
 
@@ -358,7 +375,7 @@ Commit policy for generated plans:
 - Multi-plan package execution creates one implementation commit after each child plan completes and its plan-level review passes.
 - Task-level reviews use task evidence and review packages; they do not require task-level commits or Git-index checkpoints.
 
-For multi-plan packages, offer package mode as the primary execution path. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean.
+For multi-plan packages, offer package mode as the primary handoff scope. Package mode accepts either the package directory or `00-overview.md`, executes child plans strictly sequentially, runs plan-level `final-review` after each child plan, updates `.loopx/multi-plan/<feature-slug>/state.json` with `plan_review.status`, `plan_review.reviewed_at`, `plan_review.summary`, and `ready_for_spec_review`, then runs one spec-level `final-review` and enters `finish` only when the spec-level review is clean. Package mode does not make `subagent-exec` the default executor; use the recorded Execution strategy.
 
 Direct numbered child plan execution remains available for targeted, resume, or manual-control runs. Do not present direct child plan execution as the primary handoff for a newly generated package.
 
@@ -367,10 +384,13 @@ Plan complete and saved to `<plan path>`.
 
 For this multi-plan package, use package mode:
 
-Recommended:
+Execution strategy recommendation: `<subagent-exec | exec>`
+Selection rationale: `<concrete plan evidence>`
+
+Subagent execution path:
 $subagent-exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md
 
-Inline fallback:
+Inline execution path:
 $exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md
 
 Direct child plan execution is reserved for targeted/resume/manual-control runs:
@@ -379,7 +399,7 @@ $exec docs/loopx/plans/YYYY-MM-DD-<feature-slug>/01-example.md
 
 Two execution options:
 
-1. Subagent Exec (recommended) - dispatch a fresh subagent per task, use one combined task reviewer per task, then final-review
+1. Subagent Exec - use for independently delegable tasks when context isolation and per-task review justify dispatch cost
 2. Inline Execution - execute tasks in this session using exec, batch execution with checkpoints
 
 Which approach?
