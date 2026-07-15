@@ -84,6 +84,42 @@ function assertObject(value, code, label) {
   }
 }
 
+function nonEmptyString(value) {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function assertActiveWorker(workerId, worker) {
+  assertObject(worker, 'parallel_state_invalid', `active worker ${workerId}`);
+  if (!nonEmptyString(worker.role) || !nonEmptyString(worker.node)
+    || !Number.isInteger(worker.dispatch_attempt) || worker.dispatch_attempt < 1
+    || !['reserved', 'starting', 'running'].includes(worker.status)) {
+    fail('parallel_state_invalid', `active worker ${workerId} has invalid reservation identity`);
+  }
+  if (worker.status === 'reserved') return;
+  if (worker.runtime === 'cursor') {
+    if (!nonEmptyString(worker.model) || !nonEmptyString(worker.agent_id)
+      || !nonEmptyString(worker.cwd) || !nonEmptyString(worker.requested_model)
+      || !nonEmptyString(worker.report_path) || !nonEmptyString(worker.started_at)
+      || !Number.isInteger(worker.supervisor_pid) || worker.supervisor_pid < 1
+      || (worker.status === 'running' && (!Number.isInteger(worker.process_id) || worker.process_id < 1))
+      || !nonEmptyString(worker.operation_path)
+      || !/^[a-f0-9]{64}$/.test(worker.operation_digest || '')
+      || !nonEmptyString(worker.supervisor_token) || worker.supervisor_token.length < 32
+      || !nonEmptyString(worker.heartbeat_path)) {
+      fail('parallel_state_invalid', `active Cursor worker ${workerId} has incomplete lifecycle identity`);
+    }
+  }
+  if (worker.runtime === 'cursor-app') {
+    if (!nonEmptyString(worker.model) || !nonEmptyString(worker.agent_id)
+      || !nonEmptyString(worker.cwd) || !nonEmptyString(worker.requested_model)
+      || !nonEmptyString(worker.report_path) || !nonEmptyString(worker.started_at)
+      || !nonEmptyString(worker.operation_path)
+      || !/^[a-f0-9]{64}$/.test(worker.operation_digest || '')) {
+      fail('parallel_state_invalid', `active Cursor App worker ${workerId} has incomplete Task identity`);
+    }
+  }
+}
+
 function assertState(state) {
   assertObject(state, 'parallel_state_invalid', 'state');
   if (state.schema !== PARALLEL_STATE_SCHEMA) {
@@ -95,6 +131,16 @@ function assertState(state) {
   for (const field of ['run_id', 'input', 'repo', 'config', 'tasks', 'children', 'active_workers', 'updated_at']) {
     if (!Object.hasOwn(state, field)) {
       fail('parallel_state_invalid', `state is missing ${field}`);
+    }
+  }
+  assertObject(state.config, 'parallel_state_invalid', 'state config');
+  if (state.config.runtime_adapter === 'cursor-app-task') {
+    if (state.config.isolation_mode !== 'relaxed-worktree'
+      || !nonEmptyString(state.config.capability_artifact)
+      || !/^[a-f0-9]{64}$/.test(state.config.capability_sha256 || '')
+      || !/^[a-f0-9]{64}$/.test(state.config.skill_source_sha256 || '')
+      || !nonEmptyString(state.config.workspace_root)) {
+      fail('parallel_state_invalid', 'Cursor App state requires complete capability identity');
     }
   }
   assertObject(state.tasks, 'parallel_state_invalid', 'state tasks');
@@ -109,6 +155,9 @@ function assertState(state) {
     if (!CHILD_STATUSES.includes(child.status)) {
       fail('parallel_state_invalid', `${childId} has invalid status ${child.status}`);
     }
+  }
+  for (const [workerId, worker] of Object.entries(state.active_workers)) {
+    assertActiveWorker(workerId, worker);
   }
   return state;
 }
@@ -283,6 +332,62 @@ function applyOperation(state, operation) {
     delete state.active_workers[operation.worker_id];
     return;
   }
+  if (operation.type === 'set_worker_runtime') {
+    const worker = state.active_workers[operation.worker_id];
+    if (!worker) {
+      fail('parallel_worker_reservation_invalid', `unknown active worker: ${operation.worker_id}`);
+    }
+    if (worker.status !== 'reserved' && worker.status !== 'starting' && worker.status !== 'running') {
+      fail('parallel_worker_reservation_invalid', `worker cannot attach runtime from status: ${worker.status}`);
+    }
+    if (typeof operation.agent_id !== 'string' || operation.agent_id.length === 0
+      || typeof operation.model !== 'string' || operation.model.length === 0
+      || !['starting', 'running'].includes(operation.status)) {
+      fail('parallel_worker_reservation_invalid', 'worker runtime identity is incomplete');
+    }
+    if (!['codex', 'claude', 'cursor', 'cursor-app'].includes(operation.runtime)
+      || !nonEmptyString(operation.cwd) || !nonEmptyString(operation.requested_model)
+      || !nonEmptyString(operation.report_path) || !nonEmptyString(operation.started_at)) {
+      fail('parallel_worker_reservation_invalid', 'worker runtime evidence is incomplete');
+    }
+    if (worker.status === 'running' && operation.status !== 'running') {
+      fail('parallel_worker_reservation_invalid', 'running worker runtime identity cannot move backward');
+    }
+    const nextRuntime = {
+      agent_id: operation.agent_id,
+      model: operation.model,
+      status: operation.status,
+      runtime: operation.runtime || null,
+      process_id: operation.process_id ?? null,
+      supervisor_pid: operation.supervisor_pid ?? null,
+      cwd: operation.cwd || null,
+      requested_model: operation.requested_model || null,
+      report_path: operation.report_path || null,
+      started_at: operation.started_at || null,
+      operation_path: operation.operation_path || null,
+      operation_digest: operation.operation_digest || null,
+      supervisor_token: operation.supervisor_token || null,
+      heartbeat_path: operation.heartbeat_path || null,
+    };
+    const stableFields = [
+      'agent_id', 'runtime', 'supervisor_pid', 'cwd', 'requested_model',
+      'report_path', 'started_at', 'operation_path', 'operation_digest',
+      'supervisor_token', 'heartbeat_path',
+    ];
+    if (worker.status !== 'reserved') {
+      const comparedFields = worker.status === 'running'
+        ? [...stableFields, 'model', 'process_id']
+        : stableFields;
+      for (const field of comparedFields) {
+        if (!Object.is(worker[field], nextRuntime[field])) {
+          fail('parallel_worker_reservation_invalid', `worker runtime identity cannot replace ${field}`);
+        }
+      }
+    }
+    Object.assign(worker, nextRuntime);
+    assertActiveWorker(operation.worker_id, worker);
+    return;
+  }
   if (operation.type === 'set_last_error') {
     state.last_error = clone(operation.value);
     return;
@@ -364,6 +469,12 @@ export function verifyRunIdentity({ state, observed }) {
     'repo.git_common_dir',
     'repo.baseline_head',
     'repo.manifest_sha256',
+    'config.runtime_adapter',
+    'config.isolation_mode',
+    'config.capability_artifact',
+    'config.capability_sha256',
+    'config.skill_source_sha256',
+    'config.workspace_root',
     'root_integration.worktree',
     'root_integration.branch',
     'root_integration.head',
@@ -387,7 +498,12 @@ export function verifyRunIdentity({ state, observed }) {
     ...Object.keys(observed?.active_workers || {}),
   ]);
   for (const workerId of [...workerIds].sort()) {
-    for (const field of ['role', 'agent_id', 'model', 'node', 'dispatch_attempt', 'status']) {
+    for (const field of [
+      'role', 'agent_id', 'model', 'node', 'dispatch_attempt', 'status',
+      'runtime', 'process_id', 'supervisor_pid', 'cwd', 'requested_model',
+      'report_path', 'started_at', 'operation_path', 'operation_digest',
+      'supervisor_token', 'heartbeat_path',
+    ]) {
       const expected = state.active_workers[workerId]?.[field];
       const actual = observed?.active_workers?.[workerId]?.[field];
       if (!Object.is(expected, actual)) {

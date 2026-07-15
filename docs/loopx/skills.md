@@ -61,9 +61,15 @@ $parallel-subagent-exec <plan-or-package> [--max-parallel N]
 
 The global worker limit defaults to `4`; `--max-parallel` overrides it. Direct numbered child plans are excluded. Missing/legacy metadata or direct child
 input stops with `$subagent-exec <same-input-path>` instead of silently
-degrading. Missing native create plus observe-or-wait capability exits with
-exit `5` and no fallback. Detailed scheduling, worktree, review, and resume
-contracts remain in the installed skill references.
+degrading. The runtime must prove create with an explicit model, a controlled
+worktree binding, and observe-or-wait. Codex and Claude Code use explicit-cwd
+native adapters. In Cursor App, an already installed and authenticated Cursor
+Agent CLI is preferred for strict per-worker isolation. Without it, native Task
+uses verified `relaxed-worktree` isolation and does not require Cursor Agent CLI
+installation. If no selected adapter proves the required capabilities,
+execution exits with exit `5` and no executor fallback. Detailed
+scheduling, worktree, review, and resume contracts remain in the installed
+skill references.
 
 ## Support Skills
 

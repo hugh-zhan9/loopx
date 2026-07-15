@@ -1,3 +1,4 @@
 interface:
   display_name: "Parallel Subagent Exec"
-  short_description: "Run strict plan DAGs with bounded parallel workers"
+  short_description: "Run strict DAGs across Codex, Claude, and Cursor App"
+  default_prompt: "Use $parallel-subagent-exec to execute a strict plan DAG with isolated workers."

@@ -30,6 +30,13 @@ import {
   writeCompletionState,
 } from './state-lib.mjs';
 import { reserveNextStages } from './scheduler-lib.mjs';
+import {
+  cursorArtifactId,
+  inspectCursorRuntime,
+  interruptCursorWorker,
+  startCursorWorker,
+  waitCursorWorker,
+} from './cursor-runtime.mjs';
 
 class ParallelCliError extends Error {
   constructor(code, message) {
@@ -70,7 +77,7 @@ function integerFlag(value, label, { positive = false } = {}) {
 }
 
 async function readJson(path, { ownerOnly = false } = {}) {
-  if (ownerOnly) {
+  if (ownerOnly && process.platform !== 'win32') {
     const metadata = await stat(path);
     if ((metadata.mode & 0o077) !== 0) fail(`JSON input must be owner-only (0600): ${path}`);
   }
@@ -106,6 +113,8 @@ function errorExitCode(error) {
   if (code === 'state_revision_conflict' || code === 'parallel_state_identity_mismatch'
     || code === 'parallel_state_missing' || code === 'parallel_state_node_missing') return 3;
   if (code === 'parallel_runtime_capability_unavailable' || code === 'parallel_runtime_capacity_unavailable') return 5;
+  if (code === 'parallel_runtime_interrupted') return 130;
+  if (code.startsWith('parallel_cursor_')) return 4;
   if (code.startsWith('parallel_git_') || code.startsWith('parallel_worktree_')
     || code.startsWith('parallel_invoking_') || code.startsWith('parallel_integration_')
     || code.startsWith('parallel_task_commit_') || code.startsWith('parallel_task_scope_')
@@ -239,6 +248,56 @@ async function runWorktree(action, argv, cwd) {
     state_path: operation.state_path ? resolve(cwd, operation.state_path) : null,
     result,
   };
+}
+
+async function runCursor(action, argv, cwd, env, isInterrupted) {
+  if (action === 'artifact-id') {
+    const flags = parseFlags(argv, new Set(['--worker-id']), ['--worker-id']);
+    return {
+      command: 'cursor artifact-id',
+      worker_id: flags['--worker-id'],
+      artifact_id: cursorArtifactId(flags['--worker-id']),
+    };
+  }
+  if (action === 'inspect') {
+    const flags = parseFlags(argv, new Set(['--agent', '--output']), ['--output']);
+    const capabilities = await inspectCursorRuntime({
+      agentPath: flags['--agent'] || null,
+      cwd,
+      env,
+    });
+    const outputPath = resolve(cwd, flags['--output']);
+    await writeJsonAtomic(outputPath, capabilities);
+    if (!capabilities.ready) {
+      const error = new Error(`Cursor runtime is missing required capabilities: ${capabilities.missing_capabilities.join(', ')}`);
+      error.code = 'parallel_runtime_capability_unavailable';
+      error.details = { missing_capabilities: capabilities.missing_capabilities, output: outputPath };
+      throw error;
+    }
+    return { command: 'cursor inspect', output: outputPath, capabilities };
+  }
+  if (action === 'start') {
+    const flags = parseFlags(argv, new Set(['--operation']), ['--operation']);
+    const operationPath = resolve(cwd, flags['--operation']);
+    const result = await startCursorWorker({ operationPath, env, isInterrupted });
+    return { command: 'cursor start', operation: operationPath, result };
+  }
+  if (action === 'wait') {
+    const flags = parseFlags(argv, new Set(['--operation', '--timeout-ms']), ['--operation']);
+    const operationPath = resolve(cwd, flags['--operation']);
+    const timeoutMs = flags['--timeout-ms'] === undefined
+      ? 30_000
+      : integerFlag(flags['--timeout-ms'], '--timeout-ms', { positive: true });
+    const result = await waitCursorWorker({ operationPath, timeoutMs, isInterrupted });
+    return { command: 'cursor wait', operation: operationPath, result };
+  }
+  if (action === 'interrupt') {
+    const flags = parseFlags(argv, new Set(['--operation']), ['--operation']);
+    const operationPath = resolve(cwd, flags['--operation']);
+    const result = await interruptCursorWorker({ operationPath });
+    return { command: 'cursor interrupt', operation: operationPath, result };
+  }
+  fail(`unknown cursor action: ${action || '<missing>'}`);
 }
 
 async function persistInterrupted(result) {
@@ -571,6 +630,8 @@ export async function simulateParallelExecution({
 }) {
   const baseResult = {
     events,
+    runtime_adapter: capabilities?.adapter || null,
+    isolation_mode: capabilities?.isolationMode || null,
     dispatch_count: 0,
     review_count: 0,
     fix_count: 0,
@@ -587,6 +648,10 @@ export async function simulateParallelExecution({
   }
   const missing = [];
   if (!capabilities?.create) missing.push('create');
+  if (!capabilities?.explicitModel) missing.push('create-with-explicit-model');
+  if (!capabilities?.explicitCwd && !capabilities?.verifiedWorkspace) {
+    missing.push('create-with-controlled-workspace');
+  }
   if (!capabilities?.observe && !capabilities?.wait) missing.push('observe-or-wait');
   if (missing.length > 0) {
     return { ...baseResult, exitCode: 5, status: 'capability_unavailable', missing_capabilities: missing };
@@ -740,13 +805,13 @@ export async function runParallelExecCommand({
   stderr,
   isInterrupted = () => false,
 }) {
-  void env;
   try {
     const [group, action, ...rest] = argv;
     let result;
     if (group === 'manifest' && action === 'inspect') result = await runManifest(rest, cwd);
     else if (group === 'state') result = await runState(action, rest, cwd);
     else if (group === 'worktree') result = await runWorktree(action, rest, cwd);
+    else if (group === 'cursor') result = await runCursor(action, rest, cwd, env, isInterrupted);
     else fail(`unknown command: ${[group, action].filter(Boolean).join(' ') || '<missing>'}`);
 
     if (isInterrupted()) {

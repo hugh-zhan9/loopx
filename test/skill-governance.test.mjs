@@ -2078,7 +2078,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
-    assert.match(skill, /version:\s*"0\.1\.0"/);
+    assert.match(skill, /version:\s*"0\.3\.0"/);
     assert.match(skill, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
     assert.match(skill, /scripts\/parallel-exec\.mjs/);
     assert.match(skill, new RegExp(exactLeaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -2089,6 +2089,25 @@ describe('loopx skill governance', () => {
     assert.match(skill, /\$subagent-exec <same-input-path>/);
     assert.match(skill, /exit `5`/);
     assert.match(skill, /zero dispatch/i);
+    assert.match(skill, /cursor inspect/i);
+    assert.match(skill, /cursor start/i);
+    assert.match(skill, /cursor wait/i);
+    assert.match(skill, /--workspace/);
+    assert.match(skill, /worker-local.*(?:inbox|outbox)|(?:inbox|outbox).*worker-local/is);
+    assert.match(skill, /Cursor Agent CLI/);
+    assert.match(skill, /Cursor App/);
+    assert.match(skill, /does not require.*(?:Agent CLI|`agent`|`cursor-agent`)|do not require.*Cursor Agent CLI|不要求.*Agent CLI/is);
+    assert.match(skill, /verified workspace|workspace probe|verified_workspace/is);
+    assert.match(skill, /stale CLI-only record|another adapter.*earlier skill version/is);
+    assert.match(skill, /prefer.*Cursor Agent CLI.*authenticated|authenticated.*Cursor Agent CLI.*prefer/is);
+    assert.match(skill, /relaxed[- ]worktree|relaxed isolation/is);
+    assert.match(skill, /temporary.*owned.*worktree|owned.*temporary.*worktree/is);
+    assert.match(skill, /active batch.*(?:exclude|defer)|(?:exclude|defer).*active batch/is);
+    assert.match(skill, /runtime:\s*cursor-app/);
+    assert.match(skill, /create-with-controlled-workspace/);
+    assert.match(skill, /Codex/);
+    assert.match(skill, /Claude Code/);
+    assert.match(skill, /do not use.*--worktree|never use.*--worktree/is);
     assert.match(skill, /execution-start.*finish-start.*before the first reservation/is);
     assert.match(skill, /schema v2/);
     assert.match(skill, /byte-identical/);
@@ -2113,7 +2132,11 @@ describe('loopx skill governance', () => {
       assert.match(text, /defaults? to `?4`?/i);
       assert.match(text, /direct numbered child|direct child plan/i);
       assert.match(text, /\$subagent-exec <same-input-path>/);
-      assert.match(text, /exit `5`.*no fallback|no fallback.*exit `5`/is);
+      assert.match(text, /exit `5`.*no (?:executor )?fallback|no (?:executor )?fallback.*exit `5`/is);
+      assert.match(text, /Cursor Agent CLI/);
+      assert.match(text, /Cursor App/);
+      assert.match(text, /explicit.*model.*controlled.*worktree|controlled.*worktree.*explicit.*model/is);
+      assert.match(text, /does not require (?:Cursor )?Agent CLI/);
       assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
     }
     for (const text of [readmeZh, skillsZh]) {
@@ -2124,6 +2147,10 @@ describe('loopx skill governance', () => {
       assert.match(text, /直接.*child|编号子计划/s);
       assert.match(text, /\$subagent-exec <same-input-path>/);
       assert.match(text, /退出码 `5`.*不回退|不回退.*退出码 `5`/s);
+      assert.match(text, /Cursor Agent CLI/);
+      assert.match(text, /Cursor App/);
+      assert.match(text, /显式.*model.*受控.*worktree|受控.*worktree.*显式.*model/s);
+      assert.match(text, /不要求安装\s+(?:Cursor )?Agent CLI/);
       assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
     }
     assert.match(installation, /bundled.*manually selected/is);

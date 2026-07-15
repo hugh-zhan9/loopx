@@ -70,7 +70,12 @@ async function simulationOptions(value, overrides = {}) {
     initialState: initialState(value, overrides.maxParallel || 4),
     statePath: join(root, 'state.json'),
     runtimeCapacity: overrides.runtimeCapacity ?? 4,
-    capabilities: overrides.capabilities || { create: true, observe: true },
+    capabilities: overrides.capabilities || {
+      create: true,
+      observe: true,
+      explicitCwd: true,
+      explicitModel: true,
+    },
     inputPath: value.input.path,
     inputKind: overrides.inputKind || 'strict',
     startup: overrides.startup || startupRoot(events),
@@ -125,11 +130,22 @@ test('starts before reservation, overlaps independent tasks, waits for dependenc
 
 test('hard-stops missing capability, backpressures capacity zero, and hands legacy/direct child input to subagent-exec', async () => {
   const value = manifest();
-  const missing = await simulationOptions(value, { capabilities: { create: true, observe: false } });
+  const missing = await simulationOptions(value, {
+    capabilities: { create: true, observe: false, explicitCwd: true, explicitModel: true },
+  });
   const missingResult = await simulateParallelExecution(missing);
   assert.equal(missingResult.exitCode, 5);
   assert.equal(missingResult.dispatch_count, 0);
   assert.equal(missingResult.handoff, null);
+
+  const missingCwd = await simulationOptions(value, {
+    capabilities: { create: true, observe: true, explicitCwd: false, explicitModel: true },
+  });
+  const missingCwdResult = await simulateParallelExecution(missingCwd);
+  assert.equal(missingCwdResult.exitCode, 5);
+  assert.deepEqual(missingCwdResult.missing_capabilities, ['create-with-controlled-workspace']);
+  assert.equal(missingCwdResult.dispatch_count, 0);
+  assert.equal(missingCwdResult.handoff, null);
 
   const zero = await simulationOptions(value, { runtimeCapacity: 0 });
   const zeroResult = await simulateParallelExecution(zero);
@@ -143,6 +159,30 @@ test('hard-stops missing capability, backpressures capacity zero, and hands lega
     assert.equal(unsupportedResult.dispatch_count, 0);
     assert.equal(unsupportedResult.handoff, `$subagent-exec ${value.input.path}`);
   }
+});
+
+test('accepts Cursor App Task with a verified workspace binding and no create cwd parameter', async () => {
+  const value = manifest();
+  const options = await simulationOptions(value, {
+    capabilities: {
+      create: true,
+      observe: true,
+      explicitCwd: false,
+      explicitModel: true,
+      verifiedWorkspace: true,
+      adapter: 'cursor-app-task',
+      isolationMode: 'relaxed-worktree',
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'ready_for_finish');
+  assert.ok(result.dispatch_count > 0);
+  assert.ok(result.max_active_workers >= 2);
+  assert.equal(result.runtime_adapter, 'cursor-app-task');
+  assert.equal(result.isolation_mode, 'relaxed-worktree');
 });
 
 test('startup failure dispatches nothing and conflicts stop after two reconciliation workers', async () => {

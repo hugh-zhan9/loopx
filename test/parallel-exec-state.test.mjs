@@ -152,7 +152,7 @@ test('initialization writes mode 0600 state and a local star gitignore', async (
   const state = await initialize(statePath);
 
   assert.equal(state.revision, 1);
-  assert.equal((await stat(statePath)).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal((await stat(statePath)).mode & 0o777, 0o600);
   assert.equal(await readFile(join(runRoot, '.gitignore'), 'utf8'), '*\n');
   assert.deepEqual(await readRunState(statePath), state);
 });
@@ -247,6 +247,14 @@ test('rejects stale revisions and serializes concurrent CAS writers', async () =
 
 test('reports every resume identity mismatch without mutating state', () => {
   const state = initialState();
+  Object.assign(state.config, {
+    runtime_adapter: 'cursor-app-task',
+    isolation_mode: 'relaxed-worktree',
+    capability_artifact: '/repo/.loopx/parallel-subagent-exec/capabilities.json',
+    capability_sha256: '2'.repeat(64),
+    skill_source_sha256: '3'.repeat(64),
+    workspace_root: '/repo',
+  });
   state.root_integration = rootIntegration();
   state.active_workers.worker1 = {
     role: 'implementation',
@@ -255,11 +263,20 @@ test('reports every resume identity mismatch without mutating state', () => {
     node: 'docs/loopx/plans/example/01-core.md#T-001',
     dispatch_attempt: 1,
     status: 'running',
+    runtime: 'codex',
+    process_id: null,
+    supervisor_pid: null,
+    cwd: '/repo/.worktrees/worker1',
+    requested_model: 'test-model',
+    report_path: '/repo/.loopx/reports/worker1.md',
+    started_at: NOW,
   };
   const before = structuredClone(state);
   const observed = structuredClone(state);
   observed.input.sha256 = 'f'.repeat(64);
   observed.repo.baseline_head = '0'.repeat(40);
+  observed.config.runtime_adapter = 'cursor';
+  observed.config.capability_sha256 = '4'.repeat(64);
   observed.root_integration.head = '1'.repeat(40);
   observed.active_workers.worker1.agent_id = 'agent-2';
 
@@ -269,10 +286,233 @@ test('reports every resume identity mismatch without mutating state', () => {
   assert.deepEqual(result.mismatches.map(({ field }) => field), [
     'input.sha256',
     'repo.baseline_head',
+    'config.runtime_adapter',
+    'config.capability_sha256',
     'root_integration.head',
     'active_workers.worker1.agent_id',
   ]);
   assert.deepEqual(state, before);
+});
+
+test('rejects Cursor App state without complete capability identity', () => {
+  assert.throws(
+    () => createInitialState({
+      runId: 'cursor-app-incomplete',
+      manifest: manifest(),
+      repo: repoIdentity(),
+      config: { ...config(), runtime_adapter: 'cursor-app-task' },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_state_invalid',
+  );
+});
+
+test('persists native worker identity after a reserved Cursor worker starts', async () => {
+  const { statePath } = await workspace();
+  let state = await initialize(statePath);
+  const taskId = 'docs/loopx/plans/example/01-core.md#T-001';
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'set_root_integration', value: rootIntegration() },
+    now: NOW,
+  });
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'reserve_worker',
+      worker_id: 'cursor-worker-1',
+      worker: {
+        role: 'implementation',
+        agent_id: null,
+        model: 'test-model',
+        node: taskId,
+        dispatch_attempt: 1,
+        status: 'reserved',
+      },
+    },
+    now: NOW,
+  });
+
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'set_worker_runtime',
+      worker_id: 'cursor-worker-1',
+      agent_id: 'cursor-chat-1',
+      model: 'Cursor Test Model',
+      status: 'running',
+      runtime: 'cursor',
+      process_id: 1234,
+      supervisor_pid: 4321,
+      cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+      requested_model: 'test-model',
+      report_path: '/repo/.loopx/reports/T-001.md',
+      started_at: NOW,
+      operation_path: '/repo/.loopx/workers/cursor-worker-1/operation.json',
+      operation_digest: 'a'.repeat(64),
+      supervisor_token: '12345678-1234-4234-8234-123456789abc',
+      heartbeat_path: '/repo/.loopx/workers/cursor-worker-1/heartbeat.json',
+    },
+    now: NOW,
+  });
+
+  assert.deepEqual(state.active_workers['cursor-worker-1'], {
+    role: 'implementation',
+    agent_id: 'cursor-chat-1',
+    model: 'Cursor Test Model',
+    node: taskId,
+    dispatch_attempt: 1,
+    status: 'running',
+    runtime: 'cursor',
+    process_id: 1234,
+    supervisor_pid: 4321,
+    cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+    requested_model: 'test-model',
+    report_path: '/repo/.loopx/reports/T-001.md',
+    started_at: NOW,
+    operation_path: '/repo/.loopx/workers/cursor-worker-1/operation.json',
+    operation_digest: 'a'.repeat(64),
+    supervisor_token: '12345678-1234-4234-8234-123456789abc',
+    heartbeat_path: '/repo/.loopx/workers/cursor-worker-1/heartbeat.json',
+  });
+});
+
+test('does not replace an attached Cursor runtime identity', async () => {
+  const { statePath } = await workspace();
+  let state = await initialize(statePath);
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'set_root_integration', value: rootIntegration() },
+    now: NOW,
+  });
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'reserve_worker',
+      worker_id: 'cursor-worker-identity',
+      worker: {
+        role: 'implementation',
+        agent_id: null,
+        model: 'test-model',
+        node: 'docs/loopx/plans/example/01-core.md#T-001',
+        dispatch_attempt: 1,
+        status: 'reserved',
+      },
+    },
+    now: NOW,
+  });
+  const runtime = {
+    type: 'set_worker_runtime',
+    worker_id: 'cursor-worker-identity',
+    agent_id: 'cursor-chat-identity',
+    model: 'Cursor Test Model',
+    status: 'running',
+    runtime: 'cursor',
+    process_id: 1234,
+    supervisor_pid: 4321,
+    cwd: '/repo/.worktrees/cursor-worker-identity',
+    requested_model: 'test-model',
+    report_path: '/repo/.loopx/reports/cursor-worker-identity.md',
+    started_at: NOW,
+    operation_path: '/repo/.loopx/workers/cursor-worker-identity/operation.json',
+    operation_digest: 'b'.repeat(64),
+    supervisor_token: '87654321-4321-4321-8321-cba987654321',
+    heartbeat_path: '/repo/.loopx/workers/cursor-worker-identity/heartbeat.json',
+  };
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: runtime,
+    now: NOW,
+  });
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: runtime,
+    now: NOW,
+  });
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: state.revision,
+      operation: { ...runtime, supervisor_pid: 9999 },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+});
+
+test('attaches a Cursor App Task with workspace evidence and no CLI process identity', async () => {
+  const { statePath } = await workspace();
+  let state = await initialize(statePath);
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'set_root_integration', value: rootIntegration() },
+    now: NOW,
+  });
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'reserve_worker',
+      worker_id: 'cursor-app-worker-1',
+      worker: {
+        role: 'implementation',
+        agent_id: null,
+        model: 'test-model',
+        node: 'docs/loopx/plans/example/01-core.md#T-001',
+        dispatch_attempt: 1,
+        status: 'reserved',
+      },
+    },
+    now: NOW,
+  });
+
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'set_worker_runtime',
+      worker_id: 'cursor-app-worker-1',
+      agent_id: 'cursor-task-1',
+      model: 'Cursor Test Model',
+      status: 'running',
+      runtime: 'cursor-app',
+      cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+      requested_model: 'test-model',
+      report_path: '/repo/.loopx/reports/T-001.md',
+      started_at: NOW,
+      operation_path: '/repo/.loopx/workers/cursor-app-worker-1/operation.json',
+      operation_digest: 'c'.repeat(64),
+    },
+    now: NOW,
+  });
+
+  assert.deepEqual(state.active_workers['cursor-app-worker-1'], {
+    role: 'implementation',
+    agent_id: 'cursor-task-1',
+    model: 'Cursor Test Model',
+    node: 'docs/loopx/plans/example/01-core.md#T-001',
+    dispatch_attempt: 1,
+    status: 'running',
+    runtime: 'cursor-app',
+    process_id: null,
+    supervisor_pid: null,
+    cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+    requested_model: 'test-model',
+    report_path: '/repo/.loopx/reports/T-001.md',
+    started_at: NOW,
+    operation_path: '/repo/.loopx/workers/cursor-app-worker-1/operation.json',
+    operation_digest: 'c'.repeat(64),
+    supervisor_token: null,
+    heartbeat_path: null,
+  });
 });
 
 test('rejects unknown state schemas without normalization', async () => {

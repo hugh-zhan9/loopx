@@ -59,9 +59,13 @@ $parallel-subagent-exec <plan-or-package> [--max-parallel N]
 
 全局 worker 上限默认 `4`，可用 `--max-parallel` 覆盖。不接受直接编号 child plan。
 元数据缺失/旧版，或输入为直接 child 时，停止并输出
-`$subagent-exec <same-input-path>`，不会静默降级。缺少原生 create 和
-observe-or-wait 能力时，以退出码 `5` 停止且不回退。调度、worktree、review 和
-resume 的详细合同保留在已安装 skill references 中。
+`$subagent-exec <same-input-path>`，不会静默降级。runtime 必须证明 worker create
+支持显式 model、受控 worktree 绑定和 observe-or-wait。Codex 和 Claude Code 使用
+显式 cwd 的原生 adapter；Cursor App 中优先使用已安装且已认证的 Cursor Agent
+CLI，获得严格 per-worker 隔离。没有 CLI 时，native Task 使用经过验证的
+`relaxed-worktree` 模式，不要求安装 Cursor Agent CLI。没有 adapter 能证明必要能力
+时，以退出码 `5` 停止且不回退到其他 executor。调度、worktree、review 和 resume
+的详细合同保留在已安装 skill references 中。
 
 ## 辅助 Skills
 

@@ -1,9 +1,9 @@
 ---
 name: parallel-subagent-exec
-description: "Executes strict loopx plans with bounded parallel leaf subagents, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans, direct child execution, or runtimes without native subagents."
-when_to_use: "manual experimental execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
+description: "Executes strict loopx plans across Codex, Claude Code, Cursor App, and Cursor Agent CLI with bounded parallel leaf workers, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans or direct child execution."
+when_to_use: "manual cross-runtime execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
 metadata:
-  version: "0.1.0"
+  version: "0.3.0"
 ---
 
 # Parallel Subagent Exec
@@ -36,10 +36,13 @@ Do not execute the input and do not silently degrade inside this skill.
 
 ## Capability Gate
 
-Read [platform-subagents.md](./platform-subagents.md), then verify native create
-worker and observe-or-wait capabilities before state initialization. Missing
-required capability exits `5`, records zero dispatch, names the missing
-capability, and does not invoke or recommend another executor.
+Read [platform-subagents.md](./platform-subagents.md), select the Codex, Claude
+Code, Cursor App, or Cursor Agent CLI adapter, then verify create with an
+explicit model, a controlled worktree binding, and observe-or-wait before state
+initialization. A native API may bind the worktree through an explicit cwd or a
+verified Cursor App workspace probe. Missing capability exits `5`, records zero
+task dispatch, names the missing capability, and does not invoke or recommend
+another executor.
 
 The configured worker budget defaults to `4`; `--max-parallel N` overrides it.
 The effective budget is the lower of configured and observed runtime capacity.
@@ -65,13 +68,15 @@ Use [references/scheduler-and-state.md](./references/scheduler-and-state.md).
    `.loopx/parallel-subagent-exec/<run-id>/`.
 2. Compute ready stages from the normalized DAG and reserve them atomically.
 3. Dispatch within one global budget using the platform adapter.
-4. Every dispatch includes exactly:
+4. Persist the native worker identity, observed model, cwd, report path, and
+   running status before treating the reservation as dispatched.
+5. Every dispatch includes exactly:
    `You are a leaf worker. Do not spawn, delegate to, or wait for other agents.`
-5. Require task review before integration; Critical or Important findings go
+6. Require task review before integration; Critical or Important findings go
    through a fixer and re-review within the same budget.
-6. The controller alone creates ephemeral commits, snapshots integration state,
+7. The controller alone creates ephemeral commits, snapshots integration state,
    applies task commits with `cherry-pick --no-commit`, and creates boundaries.
-7. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
+8. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
    A third attempt is forbidden; mark the affected branch blocked.
 
 Implementers, reviewers, fixers, reconciliation workers, plan reviewers, and
@@ -91,6 +96,14 @@ Consume these existing `subagent-exec` assets read-only:
 - `../subagent-exec/scripts/review-result.mjs`
 
 Do not modify files under `skills/subagent-exec/`.
+
+For Cursor, follow [cursor-subagents.md](./cursor-subagents.md). Prefer an
+already installed and authenticated Cursor Agent CLI for strict isolation. It
+uses `cursor inspect`, `cursor artifact-id`, `cursor start`, `cursor wait`, and
+`cursor interrupt`, double-binds `--workspace` and process cwd, and retains only
+verified worker-local outputs. Without an authenticated CLI, use native Cursor
+App Task with explicit `relaxed-worktree` isolation after its real-worktree
+probe succeeds; do not require Cursor Agent CLI installation.
 
 ## Completion By Scope
 
@@ -112,8 +125,9 @@ write the canonical package report. Merge the accepted row serially with CAS.
 ## Resume And Cleanup
 
 Resume only when source hash, manifest hash, baseline, control root, state
-schema, startup artifacts, worktree paths, HEADs, index trees, and owned refs
-match. A repeated complete invocation returns `completion.json`.
+schema, startup artifacts, worker supervisor/session identities, worktree
+paths, HEADs, index trees, and owned refs match. A repeated complete invocation
+returns `completion.json`.
 
 On success, remove owned task, retry, and child worktrees plus temporary and
 ephemeral refs. Retain reports, reviews, conflict evidence, compact `state.json`,
@@ -137,7 +151,7 @@ plan-level, or spec-level review.
 
 ## STOP Conditions
 
-Stop on unsupported input, missing native capability, identity mismatch,
+Stop on unsupported input, missing runtime capability, identity mismatch,
 unowned or dirty integration state, invalid review artifact, two failed
 reconciliation attempts, sibling-row mutation, canonical report ownership
 violation, or any unresolved Critical or Important finding.
