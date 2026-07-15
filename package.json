@@ -83,6 +83,7 @@
     "eval:agent": "node scripts/run-agent-evals.mjs",
     "eval:codex-normalize": "node scripts/normalize-codex-agent-trace.mjs",
     "eval:codex-live": "node scripts/run-codex-live-agent-evals.mjs",
+    "eval:claude-live": "node scripts/run-claude-live-agent-evals.mjs",
     "eval:aggregate": "node scripts/aggregate-agent-evals.mjs",
     "test": "node scripts/verify-skills.mjs && node --test test/*.test.mjs"
   }

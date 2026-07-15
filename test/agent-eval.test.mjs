@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 
 import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
+import { findClaudeSession, normalizeClaudeSession, extractClaudeLeafFinalMessage } from '../src/claude-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = new URL('..', import.meta.url).pathname;
@@ -259,5 +260,38 @@ describe('agent eval metrics', () => {
 
     assert.equal(summary.integration_passed, false);
     assert.equal(summary.quality_passed, false);
+  });
+
+  it('normalizes a Claude session with subagents and detects nested agent constraint', async () => {
+    const repoRoot = new URL('..', import.meta.url).pathname;
+    const fixtures = join(repoRoot, 'test', 'fixtures', 'claude-sessions');
+    const session = await findClaudeSession(fixtures, 'claude-fixture-001');
+    const events = normalizeClaudeSession(session, {
+      caseId: 'review-real-defect',
+      variant: 'claude',
+      model: 'claude-sonnet-5',
+    });
+    const summary = summarizeAgentEvalRun(events);
+
+    assert.equal(summary.case_id, 'review-real-defect');
+    assert.equal(summary.variant, 'claude');
+    // The fixture has two agent spawns: first failed (400 error), second succeeded
+    assert.equal(summary.agent_count, 2);
+    assert.equal(summary.nested_agent_count, 0);
+    assert.equal(summary.peak_active_agents, 1);
+    assert.equal(summary.hard_invariants_passed, true);
+    // Should have detected wait operations
+    assert.ok(summary.wait_count > 0);
+  });
+
+  it('extracts the leaf worker final message from a Claude session', async () => {
+    const repoRoot = new URL('..', import.meta.url).pathname;
+    const fixtures = join(repoRoot, 'test', 'fixtures', 'claude-sessions');
+    const session = await findClaudeSession(fixtures, 'claude-fixture-001');
+    const leaf = extractClaudeLeafFinalMessage(session);
+
+    // Should pick the last successful subagent (a045594f9d3c7dada)
+    assert.ok(leaf.threadId);
+    assert.ok(leaf.message.length > 0);
   });
 });
