@@ -2078,7 +2078,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
-    assert.match(skill, /version:\s*"0\.3\.0"/);
+    assert.match(skill, /version:\s*"0\.3\.2"/);
     assert.match(skill, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
     assert.match(skill, /scripts\/parallel-exec\.mjs/);
     assert.match(skill, new RegExp(exactLeaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -2106,6 +2106,29 @@ describe('loopx skill governance', () => {
     assert.match(skill, /runtime:\s*cursor-app/);
     assert.match(skill, /create-with-controlled-workspace/);
     assert.match(skill, /Codex/);
+    assert.match(skill, /Codex Agent CLI/);
+    assert.match(skill, /codex inspect/);
+    assert.match(skill, /codex run/);
+    assert.match(skill, /--disable multi_agent/);
+    assert.match(skill, /never use.*dangerously-bypass|does not use.*dangerously-bypass/is);
+    for (const field of [
+      'role',
+      'capability_path',
+      'capability_sha256',
+      'expected_agent_path',
+      'expected_cli_version',
+      'skill_source_sha256',
+      'codex_home_config_fingerprint',
+      'protected_worktrees',
+      'prompt_sha256',
+      'report_sha256',
+      'report_size',
+    ]) {
+      assert.match(skill, new RegExp(`\\b${field}\\b`), `Codex strict contract missing ${field}`);
+    }
+    assert.match(skill, /review roles?.*read-only|reviewers? use `read-only`/is);
+    assert.match(skill, /status: not_started|`not_started`/);
+    assert.match(skill, /process-tree escalation/);
     assert.match(skill, /Claude Code/);
     assert.match(skill, /do not use.*--worktree|never use.*--worktree/is);
     assert.match(skill, /execution-start.*finish-start.*before the first reservation/is);
@@ -2136,6 +2159,7 @@ describe('loopx skill governance', () => {
       assert.match(text, /Cursor Agent CLI/);
       assert.match(text, /Cursor App/);
       assert.match(text, /explicit.*model.*controlled.*worktree|controlled.*worktree.*explicit.*model/is);
+      assert.match(text, /Codex Agent CLI/);
       assert.match(text, /does not require (?:Cursor )?Agent CLI/);
       assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
     }
@@ -2150,6 +2174,7 @@ describe('loopx skill governance', () => {
       assert.match(text, /Cursor Agent CLI/);
       assert.match(text, /Cursor App/);
       assert.match(text, /显式.*model.*受控.*worktree|受控.*worktree.*显式.*model/s);
+      assert.match(text, /Codex Agent CLI/);
       assert.match(text, /不要求安装\s+(?:Cursor )?Agent CLI/);
       assert.match(text, /clarify -> spec\? -> plan-to-exec -> \(exec \| subagent-exec\)/);
     }

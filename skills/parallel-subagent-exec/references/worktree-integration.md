@@ -16,12 +16,15 @@ worktree before any batch member integrates. Any change to the invoking
 checkout, controller artifacts, or inactive worktrees blocks the complete
 batch even when Cursor reports success.
 
-Both Cursor adapters record the assigned symbolic branch, HEAD, and index
-before the worker starts and require that terminal identity to remain
-unchanged. The CLI worker-local exchange must be ignored. Any observed stage,
-commit, checkout, or assigned-branch change blocks integration. Controller
-ownership of unrelated shared refs remains a scheduler invariant; do not infer
-worker ownership from a repository-wide ref snapshot.
+All adapters record the assigned symbolic branch, HEAD, and index before a
+writer starts and require that terminal identity to remain unchanged. Codex
+read-only roles additionally snapshot complete tracked and untracked worktree
+content and require byte-identical completion. Codex operations also snapshot
+the invoking checkout and every declared sibling worktree; any mutation blocks
+the operation. CLI worker-local exchanges must be ignored. Any observed stage,
+commit, checkout, assigned-branch change, or protected-worktree mutation blocks
+integration. Controller ownership of unrelated shared refs remains a scheduler
+invariant; do not infer worker ownership from a repository-wide ref snapshot.
 
 After clean task review, the controller verifies write scope, creates an
 ephemeral commit, snapshots the target integration HEAD/index/status, and

@@ -4,7 +4,7 @@ Select the current runtime adapter before initialization.
 
 | Runtime | Adapter |
 |---|---|
-| Codex | `codex-subagents.md` |
+| Codex / Codex Agent CLI | `codex-subagents.md` |
 | Claude Code | `claude-subagents.md` |
 | Cursor | `cursor-subagents.md` |
 
@@ -17,10 +17,21 @@ dispatch and no executor handoff.
 
 | Runtime | Required implementation |
 |---|---|
-| Codex | native create/wait only when the current API exposes model and owned cwd |
+| Codex native | native create/wait only when the current API exposes model and owned cwd |
+| Codex Agent CLI | bundled runner with explicit `--model`, `--cd`, process cwd, workspace sandbox, fingerprinted config, isolated rules, and JSONL lifecycle |
 | Claude Code | native Agent lifecycle only when create exposes model and owned cwd |
 | Cursor App | native Task with explicit model, observable result, and verified workspace binding |
 | Cursor Agent CLI | optional bundled supervisor with explicit `--workspace` and process cwd |
+
+In Codex, discover both native tools and the bundled Codex Agent CLI adapter.
+When native create lacks model or cwd, do not stop until `codex inspect` has
+checked an installed authenticated CLI. The CLI adapter double-binds process
+cwd and `--cd`, selects the model explicitly, disables nested multi-agent,
+retains JSONL/thread plus report digest evidence, and uses the workspace
+sandbox. Its immutable operation binds role, capability path/hash, expected
+executable/version, skill/config fingerprints, prompt hash, and protected
+worktrees. Review roles are read-only. Never use
+`--dangerously-bypass-approvals-and-sandbox`.
 
 In Cursor App, prefer an already installed and authenticated Cursor Agent CLI
 for strict isolation. If none is available, use native Task with explicit
@@ -42,6 +53,8 @@ budget applies backpressure. Every prompt includes:
 
 Capture agent id, requested and observed model evidence, role, node, attempt,
 controlled worktree, adapter identity, start/end time, terminal status, and
-report path in controller state or retained worker evidence. CLI workers also
-capture process/supervisor identity. Workers operate only in their assigned
-owned worktree and return a short status after writing or returning the report.
+report path/hash/size in controller state or retained worker evidence. CLI
+workers also capture process/supervisor identity, immutable operation and
+capability identity, and protected worktree snapshots. Workers operate only in
+their assigned owned worktree and return a short status after writing or
+returning the report.

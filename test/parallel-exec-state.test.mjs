@@ -74,6 +74,21 @@ function config() {
   };
 }
 
+function codexCliConfig() {
+  return {
+    ...config(),
+    runtime_adapter: 'codex-agent-cli',
+    isolation_mode: 'strict-worktree',
+    capability_path: '/repo/.loopx/parallel-subagent-exec/codex-capabilities.json',
+    capability_sha256: '2'.repeat(64),
+    skill_source_sha256: '3'.repeat(64),
+    expected_agent_path: '/opt/codex/bin/codex.js',
+    expected_cli_version: '0.144.5',
+    codex_home_config_fingerprint: '4'.repeat(64),
+    workspace_root: '/repo',
+  };
+}
+
 function rootIntegration() {
   return {
     worktree: '/repo/.worktrees/parallel-subagent-exec/run/root',
@@ -89,6 +104,46 @@ function rootIntegration() {
       finish_baseline_commit: 'c'.repeat(40),
     },
     canonical_final_review_report: '/repo/.loopx/final-review/example.md',
+  };
+}
+
+function completedCodexReview(taskId, workerId, {
+  terminalStatus = 'failed',
+  reportSize = 0,
+} = {}) {
+  return {
+    role: 'task_review',
+    node: taskId,
+    dispatch_attempt: 1,
+    status: 'terminal',
+    runtime: 'codex',
+    process_id: 1234,
+    agent_id: 'codex-review-thread-1',
+    model: 'test-model',
+    requested_model: 'test-model',
+    cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+    report_path: `/repo/.loopx/workers/${workerId}/review-report.md`,
+    started_at: NOW,
+    operation_path: `/repo/.loopx/workers/${workerId}/operation.json`,
+    operation_digest: '5'.repeat(64),
+    operation_role: 'task_review',
+    capability_path: codexCliConfig().capability_path,
+    capability_sha256: codexCliConfig().capability_sha256,
+    expected_agent_path: codexCliConfig().expected_agent_path,
+    expected_cli_version: codexCliConfig().expected_cli_version,
+    skill_source_sha256: codexCliConfig().skill_source_sha256,
+    codex_home_config_fingerprint: codexCliConfig().codex_home_config_fingerprint,
+    prompt_sha256: '6'.repeat(64),
+    protected_worktrees: ['/repo'],
+    concurrent_worktrees: [],
+    events_path: `/repo/.loopx/workers/${workerId}/events.ndjson`,
+    completion_path: `/repo/.loopx/workers/${workerId}/completion.json`,
+    terminal_status: terminalStatus,
+    report_sha256: reportSize === 0
+      ? 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      : '7'.repeat(64),
+    report_size: reportSize,
+    ended_at: '2026-07-14T00:01:00.000Z',
   };
 }
 
@@ -212,6 +267,80 @@ test('enforces legal run task and child transitions plus startup reservation gat
   );
 });
 
+test('retries a terminal failed task reviewer from a blocked run with bounded evidence', async () => {
+  const { statePath } = await workspace();
+  const taskId = 'docs/loopx/plans/example/01-core.md#T-001';
+  const workerId = `7:task_review:${taskId}`;
+  const initial = createInitialState({
+    runId: 'codex-review-retry',
+    manifest: manifest(),
+    repo: repoIdentity(),
+    config: codexCliConfig(),
+    now: NOW,
+  });
+  initial.status = 'blocked';
+  initial.root_integration = rootIntegration();
+  initial.tasks[taskId].status = 'blocked';
+  initial.tasks[taskId].last_error = {
+    code: 'parallel_codex_protocol_invalid',
+    completion_path: `/repo/.loopx/workers/${workerId}/completion.json`,
+  };
+  initial.completed_workers[workerId] = completedCodexReview(taskId, workerId);
+  const state = await initialize(statePath, initial);
+
+  const retried = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'retry_failed_review', task_id: taskId, worker_id: workerId },
+    now: '2026-07-14T00:02:00.000Z',
+  });
+
+  assert.equal(retried.status, 'running');
+  assert.equal(retried.tasks[taskId].status, 'awaiting_review');
+  assert.equal(retried.tasks[taskId].review_attempts, 1);
+  assert.equal(retried.tasks[taskId].last_error.code, 'parallel_review_infrastructure_retry');
+  assert.equal(retried.tasks[taskId].last_error.previous_worker_id, workerId);
+  assert.deepEqual(retried.completed_workers[workerId], state.completed_workers[workerId]);
+});
+
+test('rejects reviewer retry without failed terminal evidence or after the retry limit', async () => {
+  for (const scenario of ['successful-review', 'limit-exhausted']) {
+    const { statePath } = await workspace();
+    const taskId = 'docs/loopx/plans/example/01-core.md#T-001';
+    const workerId = `7:task_review:${taskId}`;
+    const initial = createInitialState({
+      runId: `codex-review-retry-${scenario}`,
+      manifest: manifest(),
+      repo: repoIdentity(),
+      config: codexCliConfig(),
+      now: NOW,
+    });
+    initial.status = 'blocked';
+    initial.root_integration = rootIntegration();
+    initial.tasks[taskId].status = 'blocked';
+    initial.tasks[taskId].last_error = {
+      code: 'parallel_codex_worker_failed',
+      completion_path: `/repo/.loopx/workers/${workerId}/completion.json`,
+    };
+    if (scenario === 'limit-exhausted') initial.tasks[taskId].review_attempts = 1;
+    initial.completed_workers[workerId] = completedCodexReview(taskId, workerId, {
+      terminalStatus: scenario === 'successful-review' ? 'success' : 'failed',
+      reportSize: scenario === 'successful-review' ? 123 : 0,
+    });
+    const state = await initialize(statePath, initial);
+
+    await assert.rejects(
+      transitionRunState({
+        statePath,
+        expectedRevision: state.revision,
+        operation: { type: 'retry_failed_review', task_id: taskId, worker_id: workerId },
+        now: '2026-07-14T00:02:00.000Z',
+      }),
+      (error) => error.code === 'parallel_review_retry_invalid',
+    );
+  }
+});
+
 test('rejects stale revisions and serializes concurrent CAS writers', async () => {
   const { statePath } = await workspace();
   await initialize(statePath);
@@ -270,6 +399,8 @@ test('reports every resume identity mismatch without mutating state', () => {
     requested_model: 'test-model',
     report_path: '/repo/.loopx/reports/worker1.md',
     started_at: NOW,
+    operation_path: '/repo/.loopx/workers/worker1/operation.json',
+    operation_digest: '5'.repeat(64),
   };
   const before = structuredClone(state);
   const observed = structuredClone(state);
@@ -304,6 +435,185 @@ test('rejects Cursor App state without complete capability identity', () => {
       now: NOW,
     }),
     (error) => error.code === 'parallel_state_invalid',
+  );
+});
+
+test('requires complete Codex CLI capability and worker lifecycle identity', async () => {
+  assert.throws(
+    () => createInitialState({
+      runId: 'codex-cli-incomplete',
+      manifest: manifest(),
+      repo: repoIdentity(),
+      config: { ...config(), runtime_adapter: 'codex-agent-cli' },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_state_invalid',
+  );
+
+  const { statePath } = await workspace();
+  let state = await initialize(statePath, createInitialState({
+    runId: 'codex-cli-worker',
+    manifest: manifest(),
+    repo: repoIdentity(),
+    config: codexCliConfig(),
+    now: NOW,
+  }));
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'set_root_integration', value: rootIntegration() },
+    now: NOW,
+  });
+  state = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: {
+      type: 'reserve_worker',
+      worker_id: 'codex-cli-worker',
+      worker: {
+        role: 'implementation',
+        agent_id: null,
+        model: 'test-model',
+        node: 'docs/loopx/plans/example/01-core.md#T-001',
+        dispatch_attempt: 1,
+        status: 'reserved',
+      },
+    },
+    now: NOW,
+  });
+  const runtime = {
+    type: 'set_worker_runtime',
+    worker_id: 'codex-cli-worker',
+    agent_id: 'codex-thread-1',
+    model: 'test-model',
+    status: 'running',
+    runtime: 'codex',
+    process_id: 1234,
+    cwd: '/repo/.worktrees/parallel-subagent-exec/run/T-001',
+    requested_model: 'test-model',
+    report_path: '/repo/.loopx/reports/T-001.md',
+    started_at: NOW,
+    operation_path: '/repo/.loopx/workers/codex-cli-worker/operation.json',
+    operation_digest: '6'.repeat(64),
+    role: 'implementation',
+    capability_path: codexCliConfig().capability_path,
+    capability_sha256: codexCliConfig().capability_sha256,
+    expected_agent_path: codexCliConfig().expected_agent_path,
+    expected_cli_version: codexCliConfig().expected_cli_version,
+    skill_source_sha256: codexCliConfig().skill_source_sha256,
+    codex_home_config_fingerprint: codexCliConfig().codex_home_config_fingerprint,
+    prompt_sha256: '7'.repeat(64),
+    protected_worktrees: ['/repo', '/repo/.worktrees/parallel-subagent-exec/run/root'],
+    concurrent_worktrees: [],
+    events_path: '/repo/.loopx/workers/codex-cli-worker/events.ndjson',
+    completion_path: '/repo/.loopx/workers/codex-cli-worker/completion.json',
+  };
+
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: state.revision,
+      operation: { ...runtime, process_id: null },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: state.revision,
+      operation: { ...runtime, requested_model: 'different-model' },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: state.revision,
+      operation: { ...runtime, role: 'task_review' },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+
+  const accepted = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: runtime,
+    now: NOW,
+  });
+  assert.equal(accepted.active_workers['codex-cli-worker'].agent_id, 'codex-thread-1');
+  assert.equal(accepted.active_workers['codex-cli-worker'].process_id, 1234);
+  assert.deepEqual(accepted.active_workers['codex-cli-worker'].protected_worktrees, [
+    '/repo',
+    '/repo/.worktrees/parallel-subagent-exec/run/root',
+  ]);
+  const reattached = await transitionRunState({
+    statePath,
+    expectedRevision: accepted.revision,
+    operation: runtime,
+    now: NOW,
+  });
+  assert.deepEqual(
+    reattached.active_workers['codex-cli-worker'].protected_worktrees,
+    accepted.active_workers['codex-cli-worker'].protected_worktrees,
+  );
+
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: reattached.revision,
+      operation: { type: 'release_worker', worker_id: 'codex-cli-worker' },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+  await assert.rejects(
+    transitionRunState({
+      statePath,
+      expectedRevision: reattached.revision,
+      operation: {
+        type: 'release_worker',
+        worker_id: 'codex-cli-worker',
+        terminal_evidence: {
+          role: 'final_review',
+          terminal_status: 'success',
+          report_sha256: '8'.repeat(64),
+          report_size: 123,
+          ended_at: '2026-07-14T00:01:00.000Z',
+        },
+      },
+      now: NOW,
+    }),
+    (error) => error.code === 'parallel_worker_reservation_invalid',
+  );
+
+  const released = await transitionRunState({
+    statePath,
+    expectedRevision: reattached.revision,
+    operation: {
+      type: 'release_worker',
+      worker_id: 'codex-cli-worker',
+      terminal_evidence: {
+        terminal_status: 'success',
+        report_sha256: '8'.repeat(64),
+        report_size: 123,
+        ended_at: '2026-07-14T00:01:00.000Z',
+      },
+    },
+    now: NOW,
+  });
+  assert.equal(released.active_workers['codex-cli-worker'], undefined);
+  assert.equal(released.completed_workers['codex-cli-worker'].report_sha256, '8'.repeat(64));
+  assert.equal(released.completed_workers['codex-cli-worker'].report_size, 123);
+
+  const observed = structuredClone(released);
+  observed.config.expected_cli_version = '0.145.0';
+  observed.completed_workers['codex-cli-worker'].report_sha256 = '9'.repeat(64);
+  assert.deepEqual(
+    verifyRunIdentity({ state: released, observed }).mismatches.map(({ field }) => field),
+    ['config.expected_cli_version', 'completed_workers.codex-cli-worker'],
   );
 });
 
@@ -515,9 +825,11 @@ test('attaches a Cursor App Task with workspace evidence and no CLI process iden
   });
 });
 
-test('rejects unknown state schemas without normalization', async () => {
+test('rejects legacy and unknown state schemas without normalization', async () => {
   const { statePath } = await workspace();
-  await writeFile(statePath, `${JSON.stringify({ ...initialState(), schema: 'loopx.parallel-exec-state.v2' })}\n`);
+  await writeFile(statePath, `${JSON.stringify({ ...initialState(), schema: 'loopx.parallel-exec-state.v1' })}\n`);
+  await assert.rejects(readRunState(statePath), (error) => error.code === 'parallel_state_schema_unsupported');
+  await writeFile(statePath, `${JSON.stringify({ ...initialState(), schema: 'loopx.parallel-exec-state.v999' })}\n`);
   await assert.rejects(readRunState(statePath), (error) => error.code === 'parallel_state_schema_unsupported');
 });
 

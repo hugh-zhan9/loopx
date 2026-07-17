@@ -23,6 +23,7 @@ import {
   verifyOwnedWorktree,
 } from './git-lib.mjs';
 import {
+  MAX_REVIEW_INFRASTRUCTURE_RETRIES,
   createInitialState,
   readRunState,
   transitionRunState,
@@ -31,12 +32,67 @@ import {
 } from './state-lib.mjs';
 import { reserveNextStages } from './scheduler-lib.mjs';
 import {
+  codexArtifactId,
+  inspectCodexRuntime,
+  interruptCodexOperation,
+  runCodexOperation,
+  waitCodexOperation,
+} from './codex-runtime.mjs';
+import {
   cursorArtifactId,
   inspectCursorRuntime,
   interruptCursorWorker,
   startCursorWorker,
   waitCursorWorker,
 } from './cursor-runtime.mjs';
+
+function nativeCodexCapabilitiesReady(capabilities) {
+  return Boolean(
+    capabilities?.create
+    && capabilities?.explicitModel
+    && capabilities?.explicitCwd
+    && (capabilities?.observe || capabilities?.wait),
+  );
+}
+
+export async function resolveCodexAdapterCapabilities({
+  nativeCapabilities,
+  codexPath = null,
+  cwd = process.cwd(),
+  env = process.env,
+  inspectRuntime = inspectCodexRuntime,
+} = {}) {
+  if (nativeCodexCapabilitiesReady(nativeCapabilities)) {
+    return {
+      ...nativeCapabilities,
+      adapter: nativeCapabilities.adapter || 'codex-native',
+      isolationMode: nativeCapabilities.isolationMode || 'strict-worktree',
+    };
+  }
+
+  const nativeLacksStrictBinding = !nativeCapabilities?.explicitModel
+    || !nativeCapabilities?.explicitCwd;
+  if (!nativeLacksStrictBinding) {
+    return {
+      ...nativeCapabilities,
+      adapter: nativeCapabilities?.adapter || 'codex-native',
+    };
+  }
+
+  const inspected = await inspectRuntime({ codexPath, cwd, env });
+  const cli = inspected.capabilities || {};
+  return {
+    create: inspected.ready === true && cli.create === true,
+    observe: inspected.ready === true && cli.observe === true,
+    wait: inspected.ready === true && cli.observe === true,
+    explicitModel: inspected.ready === true && cli.explicit_model === true,
+    explicitCwd: inspected.ready === true && cli.explicit_cwd === true,
+    adapter: 'codex-agent-cli',
+    isolationMode: 'strict-worktree',
+    capabilityArtifact: inspected,
+    missingCapabilities: inspected.missing_capabilities || [],
+  };
+}
 
 class ParallelCliError extends Error {
   constructor(code, message) {
@@ -114,6 +170,7 @@ function errorExitCode(error) {
     || code === 'parallel_state_missing' || code === 'parallel_state_node_missing') return 3;
   if (code === 'parallel_runtime_capability_unavailable' || code === 'parallel_runtime_capacity_unavailable') return 5;
   if (code === 'parallel_runtime_interrupted') return 130;
+  if (code.startsWith('parallel_codex_')) return 4;
   if (code.startsWith('parallel_cursor_')) return 4;
   if (code.startsWith('parallel_git_') || code.startsWith('parallel_worktree_')
     || code.startsWith('parallel_invoking_') || code.startsWith('parallel_integration_')
@@ -298,6 +355,74 @@ async function runCursor(action, argv, cwd, env, isInterrupted) {
     return { command: 'cursor interrupt', operation: operationPath, result };
   }
   fail(`unknown cursor action: ${action || '<missing>'}`);
+}
+
+async function runCodex(action, argv, cwd, env, isInterrupted) {
+  if (action === 'artifact-id') {
+    const flags = parseFlags(argv, new Set(['--worker-id']), ['--worker-id']);
+    return {
+      command: 'codex artifact-id',
+      worker_id: flags['--worker-id'],
+      artifact_id: codexArtifactId(flags['--worker-id']),
+    };
+  }
+  if (action === 'inspect') {
+    const flags = parseFlags(argv, new Set(['--agent', '--output']), ['--output']);
+    const capabilities = await inspectCodexRuntime({
+      codexPath: flags['--agent'] || null,
+      cwd,
+      env,
+    });
+    const outputPath = resolve(cwd, flags['--output']);
+    await writeJsonAtomic(outputPath, capabilities);
+    if (!capabilities.ready) {
+      const error = new Error(`Codex runtime is missing required capabilities: ${capabilities.missing_capabilities.join(', ')}`);
+      error.code = 'parallel_runtime_capability_unavailable';
+      error.details = { missing_capabilities: capabilities.missing_capabilities, output: outputPath };
+      throw error;
+    }
+    return { command: 'codex inspect', output: outputPath, capabilities };
+  }
+  if (action === 'run') {
+    const flags = parseFlags(argv, new Set(['--operation']), ['--operation']);
+    const operationPath = resolve(cwd, flags['--operation']);
+    const result = await runCodexOperation({ operationPath, env, isInterrupted });
+    if (result.status !== 'success') {
+      const error = new Error(result.error?.message || `Codex worker ended with status: ${result.status}`);
+      error.code = result.status === 'interrupted'
+        ? 'parallel_runtime_interrupted'
+        : result.error?.code || 'parallel_codex_worker_failed';
+      error.details = { completion: result };
+      throw error;
+    }
+    return { command: 'codex run', operation: operationPath, result };
+  }
+  if (action === 'wait') {
+    const flags = parseFlags(argv, new Set(['--operation', '--timeout-ms']), ['--operation']);
+    const operationPath = resolve(cwd, flags['--operation']);
+    const timeoutMs = flags['--timeout-ms'] === undefined
+      ? 30_000
+      : integerFlag(flags['--timeout-ms'], '--timeout-ms', { positive: true });
+    const result = await waitCodexOperation({ operationPath, timeoutMs });
+    return { command: 'codex wait', operation: operationPath, result };
+  }
+  if (action === 'interrupt') {
+    const flags = parseFlags(
+      argv,
+      new Set(['--operation', '--operation-digest', '--process-id']),
+      ['--operation'],
+    );
+    const operationPath = resolve(cwd, flags['--operation']);
+    const result = await interruptCodexOperation({
+      operationPath,
+      operationDigest: flags['--operation-digest'] || null,
+      processId: flags['--process-id'] === undefined
+        ? null
+        : integerFlag(flags['--process-id'], '--process-id', { positive: true }),
+    });
+    return { command: 'codex interrupt', operation: operationPath, result };
+  }
+  fail(`unknown codex action: ${action || '<missing>'}`);
 }
 
 async function persistInterrupted(result) {
@@ -496,6 +621,47 @@ async function drainChildIntegrations(context) {
 async function completeReservation(context, reservation, result) {
   const release = { type: 'release_worker', worker_id: reservation.reservation_id };
   if (result?.worker_failed) {
+    const infrastructure = result.failure_class === 'infrastructure'
+      || String(result.error?.code || '').startsWith('parallel_codex_');
+    const retryableReview = infrastructure
+      && (reservation.role === 'task_review' || reservation.role === 'plan_review');
+    const target = reservation.role === 'plan_review'
+      ? context.state.children[reservation.node_id]
+      : context.state.tasks[reservation.node_id];
+    const attempts = reservation.role === 'plan_review'
+      ? (target.plan_review_attempts || 0)
+      : (target.review_attempts || 0);
+    if (retryableReview && attempts < MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      const failure = {
+        class: 'infrastructure',
+        worker_id: reservation.reservation_id,
+        operation_digest: result.error?.details?.operation_digest
+          || result.error?.operation_digest
+          || null,
+        code: result.error?.code || 'parallel_codex_worker_failed',
+        message: result.error?.message || result.error?.toString?.() || 'review worker failed',
+        completion_path: result.error?.details?.completion_path
+          || result.error?.completion_path
+          || null,
+      };
+      const retryOperation = reservation.role === 'plan_review'
+        ? {
+          type: 'batch',
+          operations: [release,
+            { type: 'set_child_status', child_id: reservation.node_id, status: 'running', last_error: failure },
+            { type: 'increment_plan_review_attempts', child_id: reservation.node_id },
+          ],
+        }
+        : {
+          type: 'batch',
+          operations: [release,
+            { type: 'set_task_status', task_id: reservation.node_id, status: 'awaiting_review', last_error: failure },
+            { type: 'increment_review_attempts', task_id: reservation.node_id },
+          ],
+        };
+      await advanceSimulation(context, retryOperation);
+      return;
+    }
     if (reservation.role === 'plan_review') {
       await advanceSimulation(context, {
         type: 'batch',
@@ -746,7 +912,16 @@ export async function simulateParallelExecution({
         if (reservation.role === 'reconciliation') return [reservation, await reconcile(reservation)];
         return [reservation, await dispatch(reservation)];
       } catch (error) {
-        return [reservation, { worker_failed: true, error: error.message }];
+        return [reservation, {
+          worker_failed: true,
+          failure_class: String(error?.code || '').startsWith('parallel_codex_')
+            ? 'infrastructure' : 'worker',
+          error: {
+            code: error?.code || 'parallel_worker_failed',
+            message: error?.message || String(error),
+            details: error?.details || null,
+          },
+        }];
       }
     }));
     for (const [reservation, result] of completed) {
@@ -811,6 +986,7 @@ export async function runParallelExecCommand({
     if (group === 'manifest' && action === 'inspect') result = await runManifest(rest, cwd);
     else if (group === 'state') result = await runState(action, rest, cwd);
     else if (group === 'worktree') result = await runWorktree(action, rest, cwd);
+    else if (group === 'codex') result = await runCodex(action, rest, cwd, env, isInterrupted);
     else if (group === 'cursor') result = await runCursor(action, rest, cwd, env, isInterrupted);
     else fail(`unknown command: ${[group, action].filter(Boolean).join(' ') || '<missing>'}`);
 

@@ -212,6 +212,60 @@ test('startup failure dispatches nothing and conflicts stop after two reconcilia
   assert.equal(result.status, 'blocked');
 });
 
+test('replaces one failed review worker and completes the task pipeline', async () => {
+  const value = manifest({ plans: [{
+    path: 'docs/loopx/plans/review-retry.md',
+    depends_on: [],
+    can_run_in_parallel: true,
+    tasks: [{ task_anchor: 'T-001', depends_on: [], write_scope: ['src/a.mjs'], parallel_safe: true }],
+  }] });
+  let reviewCalls = 0;
+  const options = await simulationOptions(value, {
+    review: async () => {
+      reviewCalls += 1;
+      if (reviewCalls === 1) {
+        const error = new Error('review transport failed');
+        error.code = 'parallel_codex_worker_failed';
+        error.details = { completion_path: '/repo/.loopx/workers/review-1/completion.json' };
+        throw error;
+      }
+      return { approved: true };
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'ready_for_finish');
+  assert.equal(reviewCalls, 2);
+  assert.equal(result.integration_order.length, 1);
+});
+
+test('blocks after the replacement review worker also fails', async () => {
+  const value = manifest({ plans: [{
+    path: 'docs/loopx/plans/review-retry-limit.md',
+    depends_on: [],
+    can_run_in_parallel: true,
+    tasks: [{ task_anchor: 'T-001', depends_on: [], write_scope: ['src/a.mjs'], parallel_safe: true }],
+  }] });
+  let reviewCalls = 0;
+  const options = await simulationOptions(value, {
+    review: async () => {
+      reviewCalls += 1;
+      const error = new Error('review transport failed');
+      error.code = 'parallel_codex_worker_failed';
+      throw error;
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 4);
+  assert.equal(result.status, 'blocked');
+  assert.equal(reviewCalls, 2);
+  assert.equal(result.integration_order.length, 0);
+});
+
 test('package child execution follows the DAG but fan-in remains overview ordered', async () => {
   const plans = ['01-a.md', '02-b.md'].map((name) => ({
     path: `docs/loopx/plans/pkg/${name}`,

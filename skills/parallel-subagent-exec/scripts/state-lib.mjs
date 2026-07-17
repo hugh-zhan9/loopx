@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-export const PARALLEL_STATE_SCHEMA = 'loopx.parallel-exec-state.v1';
+export const PARALLEL_STATE_SCHEMA = 'loopx.parallel-exec-state.v2';
 
 export const RUN_STATUSES = Object.freeze([
   'initializing', 'running', 'blocked', 'reviewing', 'ready_for_finish', 'complete', 'interrupted',
@@ -19,6 +19,8 @@ export const CHILD_STATUSES = Object.freeze([
   'pending', 'ready', 'running', 'plan_reviewing', 'reviewed',
   'commit_ready', 'integrating', 'integrated', 'rebuilding', 'blocked',
 ]);
+
+export const MAX_REVIEW_INFRASTRUCTURE_RETRIES = 1;
 
 const RUN_TRANSITIONS = new Map([
   ['initializing', new Set(['running', 'blocked', 'interrupted'])],
@@ -37,7 +39,7 @@ const TASK_TRANSITIONS = new Map([
   ['capacity_wait', new Set(['ready', 'dispatch_reserved', 'blocked'])],
   ['implementing', new Set(['awaiting_review', 'blocked'])],
   ['awaiting_review', new Set(['reviewing', 'blocked'])],
-  ['reviewing', new Set(['needs_fix', 'review_passed', 'blocked'])],
+  ['reviewing', new Set(['needs_fix', 'review_passed', 'awaiting_review', 'blocked'])],
   ['needs_fix', new Set(['fixing', 'blocked'])],
   ['fixing', new Set(['awaiting_review', 'blocked'])],
   ['review_passed', new Set(['integration_queued', 'blocked'])],
@@ -52,7 +54,7 @@ const CHILD_TRANSITIONS = new Map([
   ['pending', new Set(['ready', 'blocked'])],
   ['ready', new Set(['running', 'blocked'])],
   ['running', new Set(['plan_reviewing', 'blocked'])],
-  ['plan_reviewing', new Set(['reviewed', 'blocked'])],
+  ['plan_reviewing', new Set(['reviewed', 'running', 'blocked'])],
   ['reviewed', new Set(['commit_ready', 'blocked'])],
   ['commit_ready', new Set(['integrating', 'blocked'])],
   ['integrating', new Set(['integrated', 'rebuilding', 'blocked'])],
@@ -88,7 +90,42 @@ function nonEmptyString(value) {
   return typeof value === 'string' && value.length > 0;
 }
 
-function assertActiveWorker(workerId, worker) {
+function sha256(value) {
+  return /^[a-f0-9]{64}$/.test(value || '');
+}
+
+function stringArray(value) {
+  return Array.isArray(value) && value.every(nonEmptyString);
+}
+
+function assertCodexBinding(value, label) {
+  if (!nonEmptyString(value.capability_path) || !sha256(value.capability_sha256)
+    || !nonEmptyString(value.expected_agent_path) || !nonEmptyString(value.expected_cli_version)
+    || !sha256(value.skill_source_sha256) || !sha256(value.codex_home_config_fingerprint)
+    || !sha256(value.prompt_sha256) || !stringArray(value.protected_worktrees)
+    || !stringArray(value.concurrent_worktrees)) {
+    fail('parallel_state_invalid', `${label} has incomplete Codex capability or operation binding`);
+  }
+}
+
+function assertCompletedWorker(workerId, worker) {
+  assertObject(worker, 'parallel_state_invalid', `completed worker ${workerId}`);
+  assertCodexBinding(worker, `completed worker ${workerId}`);
+  if (!nonEmptyString(worker.role) || !nonEmptyString(worker.node)
+    || worker.status !== 'terminal'
+    || !['success', 'failed', 'interrupted'].includes(worker.terminal_status)
+    || !nonEmptyString(worker.agent_id) || !nonEmptyString(worker.model)
+    || !nonEmptyString(worker.requested_model) || worker.model !== worker.requested_model
+    || !nonEmptyString(worker.cwd) || !Number.isInteger(worker.process_id) || worker.process_id < 1
+    || !nonEmptyString(worker.operation_path) || !sha256(worker.operation_digest)
+    || !nonEmptyString(worker.report_path) || !sha256(worker.report_sha256)
+    || !Number.isInteger(worker.report_size) || worker.report_size < 0
+    || !nonEmptyString(worker.completion_path) || !nonEmptyString(worker.ended_at)) {
+    fail('parallel_state_invalid', `completed Codex CLI worker ${workerId} has incomplete terminal evidence`);
+  }
+}
+
+function assertActiveWorker(workerId, worker, config = {}) {
   assertObject(worker, 'parallel_state_invalid', `active worker ${workerId}`);
   if (!nonEmptyString(worker.role) || !nonEmptyString(worker.node)
     || !Number.isInteger(worker.dispatch_attempt) || worker.dispatch_attempt < 1
@@ -118,6 +155,24 @@ function assertActiveWorker(workerId, worker) {
       fail('parallel_state_invalid', `active Cursor App worker ${workerId} has incomplete Task identity`);
     }
   }
+  if (worker.runtime === 'codex' && config.runtime_adapter === 'codex-agent-cli') {
+    assertCodexBinding(worker, `active Codex CLI worker ${workerId}`);
+    if (!nonEmptyString(worker.model) || !nonEmptyString(worker.agent_id)
+      || !nonEmptyString(worker.cwd) || !nonEmptyString(worker.requested_model)
+      || worker.model !== worker.requested_model
+      || !nonEmptyString(worker.report_path) || !nonEmptyString(worker.started_at)
+      || !Number.isInteger(worker.process_id) || worker.process_id < 1
+      || !nonEmptyString(worker.operation_path) || !sha256(worker.operation_digest)
+      || worker.role !== worker.operation_role
+      || worker.capability_path !== config.capability_path
+      || worker.capability_sha256 !== config.capability_sha256
+      || worker.expected_agent_path !== config.expected_agent_path
+      || worker.expected_cli_version !== config.expected_cli_version
+      || worker.skill_source_sha256 !== config.skill_source_sha256
+      || worker.codex_home_config_fingerprint !== config.codex_home_config_fingerprint) {
+      fail('parallel_state_invalid', `active Codex CLI worker ${workerId} has incomplete lifecycle identity`);
+    }
+  }
 }
 
 function assertState(state) {
@@ -128,7 +183,7 @@ function assertState(state) {
   if (!Number.isInteger(state.revision) || state.revision < 1 || !RUN_STATUSES.includes(state.status)) {
     fail('parallel_state_invalid', 'state revision or status is invalid');
   }
-  for (const field of ['run_id', 'input', 'repo', 'config', 'tasks', 'children', 'active_workers', 'updated_at']) {
+  for (const field of ['run_id', 'input', 'repo', 'config', 'tasks', 'children', 'active_workers', 'completed_workers', 'updated_at']) {
     if (!Object.hasOwn(state, field)) {
       fail('parallel_state_invalid', `state is missing ${field}`);
     }
@@ -143,21 +198,49 @@ function assertState(state) {
       fail('parallel_state_invalid', 'Cursor App state requires complete capability identity');
     }
   }
+  if (state.config.runtime_adapter === 'codex-agent-cli') {
+    if (state.config.isolation_mode !== 'strict-worktree'
+      || !nonEmptyString(state.config.capability_path)
+      || !sha256(state.config.capability_sha256)
+      || !sha256(state.config.skill_source_sha256)
+      || !nonEmptyString(state.config.expected_agent_path)
+      || !nonEmptyString(state.config.expected_cli_version)
+      || !sha256(state.config.codex_home_config_fingerprint)
+      || !nonEmptyString(state.config.workspace_root)) {
+      fail('parallel_state_invalid', 'Codex CLI state requires complete capability identity');
+    }
+  }
   assertObject(state.tasks, 'parallel_state_invalid', 'state tasks');
   assertObject(state.children, 'parallel_state_invalid', 'state children');
   assertObject(state.active_workers, 'parallel_state_invalid', 'state active_workers');
+  assertObject(state.completed_workers, 'parallel_state_invalid', 'state completed_workers');
   for (const [taskId, task] of Object.entries(state.tasks)) {
     if (!TASK_STATUSES.includes(task.status)) {
       fail('parallel_state_invalid', `${taskId} has invalid status ${task.status}`);
+    }
+    if (task.review_attempts !== undefined
+      && (!Number.isInteger(task.review_attempts)
+        || task.review_attempts < 0
+        || task.review_attempts > MAX_REVIEW_INFRASTRUCTURE_RETRIES)) {
+      fail('parallel_state_invalid', `${taskId} has invalid review infrastructure retry count`);
     }
   }
   for (const [childId, child] of Object.entries(state.children)) {
     if (!CHILD_STATUSES.includes(child.status)) {
       fail('parallel_state_invalid', `${childId} has invalid status ${child.status}`);
     }
+    if (child.plan_review_attempts !== undefined
+      && (!Number.isInteger(child.plan_review_attempts)
+        || child.plan_review_attempts < 0
+        || child.plan_review_attempts > MAX_REVIEW_INFRASTRUCTURE_RETRIES)) {
+      fail('parallel_state_invalid', `${childId} has invalid plan review infrastructure retry count`);
+    }
   }
   for (const [workerId, worker] of Object.entries(state.active_workers)) {
-    assertActiveWorker(workerId, worker);
+    assertActiveWorker(workerId, worker, state.config);
+  }
+  for (const [workerId, worker] of Object.entries(state.completed_workers)) {
+    assertCompletedWorker(workerId, worker);
   }
   return state;
 }
@@ -186,6 +269,7 @@ export function createInitialState({ runId, manifest, repo, config, now }) {
         parallel_safe: task.parallel_safe,
         status: 'pending',
         attempts: 0,
+        review_attempts: 0,
         reconciliation_attempts: 0,
         active_role: null,
         evidence: null,
@@ -198,6 +282,7 @@ export function createInitialState({ runId, manifest, repo, config, now }) {
       task_ids: taskIds,
       status: 'pending',
       plan_review: null,
+      plan_review_attempts: 0,
       boundary_commit: null,
       last_error: null,
     };
@@ -214,6 +299,7 @@ export function createInitialState({ runId, manifest, repo, config, now }) {
     tasks,
     children,
     active_workers: {},
+    completed_workers: {},
     updated_at: now,
     last_error: null,
   });
@@ -277,6 +363,32 @@ function applyOperation(state, operation) {
     state.root_integration = clone(operation.value);
     return;
   }
+  if (operation.type === 'retry_failed_review') {
+    const task = state.tasks[operation.task_id];
+    const worker = state.completed_workers[operation.worker_id];
+    const retries = task?.review_attempts ?? 0;
+    const activeForTask = Object.values(state.active_workers).some((active) => active.node === operation.task_id);
+    if (state.status !== 'blocked' || task?.status !== 'blocked'
+      || !worker || worker.role !== 'task_review' || worker.node !== operation.task_id
+      || worker.status !== 'terminal'
+      || !['failed', 'interrupted'].includes(worker.terminal_status)
+      || !String(task.last_error?.code || '').startsWith('parallel_codex_')
+      || task.last_error?.completion_path !== worker.completion_path
+      || activeForTask || retries >= MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      fail('parallel_review_retry_invalid', 'failed task review is not eligible for bounded infrastructure retry');
+    }
+    assertTransition(RUN_TRANSITIONS, state.status, 'running', 'run');
+    state.status = 'running';
+    task.status = 'awaiting_review';
+    task.review_attempts = retries + 1;
+    task.last_error = {
+      code: 'parallel_review_infrastructure_retry',
+      previous_worker_id: operation.worker_id,
+      previous_completion_path: worker.completion_path,
+      retry_attempt: task.review_attempts,
+    };
+    return;
+  }
   if (operation.type === 'set_task_status') {
     const task = state.tasks[operation.task_id];
     if (!task) {
@@ -303,6 +415,17 @@ function applyOperation(state, operation) {
     if (Object.hasOwn(operation, 'last_error')) task.last_error = clone(operation.last_error);
     return;
   }
+  if (operation.type === 'increment_review_attempts') {
+    const task = state.tasks[operation.task_id];
+    if (!task) fail('parallel_state_node_missing', `unknown task: ${operation.task_id}`);
+    if (task.status !== 'awaiting_review'
+      || (task.review_attempts || 0) >= MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      fail('parallel_review_retry_invalid', 'task review infrastructure retry limit exhausted');
+    }
+    task.review_attempts = (task.review_attempts || 0) + 1;
+    task.last_review_failure = clone(operation.failure || task.last_error || null);
+    return;
+  }
   if (operation.type === 'set_child_status') {
     const child = state.children[operation.child_id];
     if (!child) {
@@ -313,6 +436,17 @@ function applyOperation(state, operation) {
     if (Object.hasOwn(operation, 'plan_review')) child.plan_review = clone(operation.plan_review);
     if (Object.hasOwn(operation, 'boundary_commit')) child.boundary_commit = operation.boundary_commit;
     if (Object.hasOwn(operation, 'last_error')) child.last_error = clone(operation.last_error);
+    return;
+  }
+  if (operation.type === 'increment_plan_review_attempts') {
+    const child = state.children[operation.child_id];
+    if (!child) fail('parallel_state_node_missing', `unknown child: ${operation.child_id}`);
+    if (child.status !== 'running'
+      || (child.plan_review_attempts || 0) >= MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      fail('parallel_review_retry_invalid', 'plan review infrastructure retry limit exhausted');
+    }
+    child.plan_review_attempts = (child.plan_review_attempts || 0) + 1;
+    child.last_plan_review_failure = clone(operation.failure || child.last_error || null);
     return;
   }
   if (operation.type === 'reserve_worker') {
@@ -326,8 +460,35 @@ function applyOperation(state, operation) {
     return;
   }
   if (operation.type === 'release_worker') {
-    if (!state.active_workers[operation.worker_id]) {
+    const worker = state.active_workers[operation.worker_id];
+    if (!worker) {
       fail('parallel_worker_reservation_invalid', `unknown active worker: ${operation.worker_id}`);
+    }
+    if (worker.runtime === 'codex' && state.config.runtime_adapter === 'codex-agent-cli') {
+      assertObject(operation.terminal_evidence, 'parallel_worker_reservation_invalid', 'Codex terminal evidence');
+      const allowedTerminalFields = new Set([
+        'terminal_status', 'report_sha256', 'report_size', 'completion_path', 'ended_at',
+      ]);
+      for (const field of Object.keys(operation.terminal_evidence)) {
+        if (!allowedTerminalFields.has(field)) {
+          fail('parallel_worker_reservation_invalid', `Codex terminal evidence cannot replace ${field}`);
+        }
+      }
+      if (operation.terminal_evidence.completion_path && worker.completion_path
+        && operation.terminal_evidence.completion_path !== worker.completion_path) {
+        fail('parallel_worker_reservation_invalid', 'Codex terminal evidence cannot replace completion_path');
+      }
+      const completed = {
+        ...clone(worker),
+        terminal_status: operation.terminal_evidence.terminal_status,
+        report_sha256: operation.terminal_evidence.report_sha256,
+        report_size: operation.terminal_evidence.report_size,
+        completion_path: worker.completion_path || operation.terminal_evidence.completion_path,
+        ended_at: operation.terminal_evidence.ended_at,
+        status: 'terminal',
+      };
+      assertCompletedWorker(operation.worker_id, completed);
+      state.completed_workers[operation.worker_id] = completed;
     }
     delete state.active_workers[operation.worker_id];
     return;
@@ -349,6 +510,23 @@ function applyOperation(state, operation) {
       || !nonEmptyString(operation.cwd) || !nonEmptyString(operation.requested_model)
       || !nonEmptyString(operation.report_path) || !nonEmptyString(operation.started_at)) {
       fail('parallel_worker_reservation_invalid', 'worker runtime evidence is incomplete');
+    }
+    if (operation.runtime === 'codex' && state.config.runtime_adapter === 'codex-agent-cli'
+      && ((!Number.isInteger(operation.process_id) || operation.process_id < 1)
+        || !nonEmptyString(operation.operation_path)
+        || !sha256(operation.operation_digest)
+        || operation.model !== operation.requested_model
+        || operation.role !== worker.role
+        || operation.capability_path !== state.config.capability_path
+        || operation.capability_sha256 !== state.config.capability_sha256
+        || operation.expected_agent_path !== state.config.expected_agent_path
+        || operation.expected_cli_version !== state.config.expected_cli_version
+        || operation.skill_source_sha256 !== state.config.skill_source_sha256
+        || operation.codex_home_config_fingerprint !== state.config.codex_home_config_fingerprint
+        || !sha256(operation.prompt_sha256)
+        || !stringArray(operation.protected_worktrees)
+        || !stringArray(operation.concurrent_worktrees))) {
+      fail('parallel_worker_reservation_invalid', 'Codex CLI worker lifecycle identity is incomplete');
     }
     if (worker.status === 'running' && operation.status !== 'running') {
       fail('parallel_worker_reservation_invalid', 'running worker runtime identity cannot move backward');
@@ -374,18 +552,44 @@ function applyOperation(state, operation) {
       'report_path', 'started_at', 'operation_path', 'operation_digest',
       'supervisor_token', 'heartbeat_path',
     ];
+    if (operation.runtime === 'codex' && state.config.runtime_adapter === 'codex-agent-cli') {
+      Object.assign(nextRuntime, {
+        operation_role: operation.role,
+        capability_path: operation.capability_path,
+        capability_sha256: operation.capability_sha256,
+        expected_agent_path: operation.expected_agent_path,
+        expected_cli_version: operation.expected_cli_version,
+        skill_source_sha256: operation.skill_source_sha256,
+        codex_home_config_fingerprint: operation.codex_home_config_fingerprint,
+        prompt_sha256: operation.prompt_sha256,
+        protected_worktrees: [...operation.protected_worktrees],
+        concurrent_worktrees: [...operation.concurrent_worktrees],
+        events_path: operation.events_path || null,
+        completion_path: operation.completion_path || null,
+      });
+      stableFields.push(
+        'operation_role', 'capability_path', 'capability_sha256',
+        'expected_agent_path', 'expected_cli_version', 'skill_source_sha256',
+        'codex_home_config_fingerprint', 'prompt_sha256', 'protected_worktrees',
+        'concurrent_worktrees',
+        'events_path', 'completion_path',
+      );
+    }
     if (worker.status !== 'reserved') {
       const comparedFields = worker.status === 'running'
         ? [...stableFields, 'model', 'process_id']
         : stableFields;
       for (const field of comparedFields) {
-        if (!Object.is(worker[field], nextRuntime[field])) {
+        const equal = Array.isArray(worker[field]) || Array.isArray(nextRuntime[field])
+          ? JSON.stringify(worker[field]) === JSON.stringify(nextRuntime[field])
+          : Object.is(worker[field], nextRuntime[field]);
+        if (!equal) {
           fail('parallel_worker_reservation_invalid', `worker runtime identity cannot replace ${field}`);
         }
       }
     }
     Object.assign(worker, nextRuntime);
-    assertActiveWorker(operation.worker_id, worker);
+    assertActiveWorker(operation.worker_id, worker, state.config);
     return;
   }
   if (operation.type === 'set_last_error') {
@@ -472,8 +676,12 @@ export function verifyRunIdentity({ state, observed }) {
     'config.runtime_adapter',
     'config.isolation_mode',
     'config.capability_artifact',
+    'config.capability_path',
     'config.capability_sha256',
     'config.skill_source_sha256',
+    'config.expected_agent_path',
+    'config.expected_cli_version',
+    'config.codex_home_config_fingerprint',
     'config.workspace_root',
     'root_integration.worktree',
     'root_integration.branch',
@@ -503,12 +711,31 @@ export function verifyRunIdentity({ state, observed }) {
       'runtime', 'process_id', 'supervisor_pid', 'cwd', 'requested_model',
       'report_path', 'started_at', 'operation_path', 'operation_digest',
       'supervisor_token', 'heartbeat_path',
+      'operation_role', 'capability_path', 'capability_sha256',
+      'expected_agent_path', 'expected_cli_version', 'skill_source_sha256',
+      'codex_home_config_fingerprint', 'prompt_sha256', 'protected_worktrees',
+      'concurrent_worktrees',
+      'events_path', 'completion_path',
     ]) {
       const expected = state.active_workers[workerId]?.[field];
       const actual = observed?.active_workers?.[workerId]?.[field];
-      if (!Object.is(expected, actual)) {
+      const equal = Array.isArray(expected) || Array.isArray(actual)
+        ? JSON.stringify(expected) === JSON.stringify(actual)
+        : Object.is(expected, actual);
+      if (!equal) {
         mismatches.push({ field: `active_workers.${workerId}.${field}`, expected, observed: actual });
       }
+    }
+  }
+  const completedWorkerIds = new Set([
+    ...Object.keys(state.completed_workers),
+    ...Object.keys(observed?.completed_workers || {}),
+  ]);
+  for (const workerId of [...completedWorkerIds].sort()) {
+    const expected = state.completed_workers[workerId];
+    const actual = observed?.completed_workers?.[workerId];
+    if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+      mismatches.push({ field: `completed_workers.${workerId}`, expected, observed: actual });
     }
   }
   return { ok: mismatches.length === 0, mismatches };

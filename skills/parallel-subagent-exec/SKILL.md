@@ -3,7 +3,7 @@ name: parallel-subagent-exec
 description: "Executes strict loopx plans across Codex, Claude Code, Cursor App, and Cursor Agent CLI with bounded parallel leaf workers, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans or direct child execution."
 when_to_use: "manual cross-runtime execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
 metadata:
-  version: "0.3.0"
+  version: "0.3.2"
 ---
 
 # Parallel Subagent Exec
@@ -37,12 +37,14 @@ Do not execute the input and do not silently degrade inside this skill.
 ## Capability Gate
 
 Read [platform-subagents.md](./platform-subagents.md), select the Codex, Claude
-Code, Cursor App, or Cursor Agent CLI adapter, then verify create with an
-explicit model, a controlled worktree binding, and observe-or-wait before state
-initialization. A native API may bind the worktree through an explicit cwd or a
-verified Cursor App workspace probe. Missing capability exits `5`, records zero
-task dispatch, names the missing capability, and does not invoke or recommend
-another executor.
+Code, Cursor App, Cursor Agent CLI, or Codex Agent CLI adapter, then verify
+create with an explicit model, a controlled worktree binding, and
+observe-or-wait before state initialization. A native API may bind the worktree
+through an explicit cwd; Cursor App may instead use its verified workspace
+probe. In Codex, inspect the bundled Codex Agent CLI adapter before declaring
+capability unavailable when native `spawn_agent` lacks model or cwd. Missing
+capability exits `5`, records zero task dispatch, names the missing capability,
+and does not invoke or recommend another executor.
 
 The configured worker budget defaults to `4`; `--max-parallel N` overrides it.
 The effective budget is the lower of configured and observed runtime capacity.
@@ -69,7 +71,10 @@ Use [references/scheduler-and-state.md](./references/scheduler-and-state.md).
 2. Compute ready stages from the normalized DAG and reserve them atomically.
 3. Dispatch within one global budget using the platform adapter.
 4. Persist the native worker identity, observed model, cwd, report path, and
-   running status before treating the reservation as dispatched.
+   running status before treating the reservation as dispatched. For Codex
+   Agent CLI, also persist the role, capability path/hash, expected
+   executable/version, skill/config fingerprints, prompt hash, protected
+   worktrees, and immutable operation identity.
 5. Every dispatch includes exactly:
    `You are a leaf worker. Do not spawn, delegate to, or wait for other agents.`
 6. Require task review before integration; Critical or Important findings go
@@ -105,6 +110,16 @@ verified worker-local outputs. Without an authenticated CLI, use native Cursor
 App Task with explicit `relaxed-worktree` isolation after its real-worktree
 probe succeeds; do not require Cursor Agent CLI installation.
 
+For Codex, follow [codex-subagents.md](./codex-subagents.md). Use strict native
+creation when the API exposes model and cwd. Otherwise use the bundled Codex
+Agent CLI adapter after `codex inspect` verifies binary identity,
+authentication, explicit model/cwd, workspace sandboxing, JSONL lifecycle, and
+terminal report support. Require the controlled automation flag that ignores
+user/project execpolicy rules while retaining the fingerprinted Codex config
+needed for authentication and custom model providers. It uses `codex
+artifact-id`, `codex run`, `codex wait`, and `codex interrupt`; never use the
+sandbox-bypass flag.
+
 ## Completion By Scope
 
 Single plan: integrate tasks in declared order, create one formal plan commit,
@@ -126,8 +141,9 @@ write the canonical package report. Merge the accepted row serially with CAS.
 
 Resume only when source hash, manifest hash, baseline, control root, state
 schema, startup artifacts, worker supervisor/session identities, worktree
-paths, HEADs, index trees, and owned refs match. A repeated complete invocation
-returns `completion.json`.
+paths, HEADs, index trees, owned refs, capability and operation bindings, and
+retained report hashes/sizes match. A repeated complete invocation returns
+`completion.json`.
 
 On success, remove owned task, retry, and child worktrees plus temporary and
 ephemeral refs. Retain reports, reviews, conflict evidence, compact `state.json`,
