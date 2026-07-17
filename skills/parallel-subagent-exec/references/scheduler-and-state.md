@@ -49,12 +49,32 @@ Return `reviewing -> awaiting_review` or `plan_reviewing -> running`, increment
 the matching review-attempt counter, and create a fresh reservation and
 operation. A second infrastructure failure blocks the node.
 
-For a retained older run already marked `blocked`, use only the
-`retry_failed_review` state operation. It requires the task and run to be
-blocked, no active worker for the task, a matching completed `task_review`
-worker with failed/interrupted terminal evidence, and the task error's exact
-completion path. It atomically returns the task to `awaiting_review` and the
-run to `running`. Ordinary `set_task_status` never unlocks `blocked`.
+A terminal-success task-review operation with a parser-rejected
+machine-readable artifact follows the same bounded replacement policy. Retain
+the exact report digest, size, completion path, and parser error; return
+`reviewing -> awaiting_review`, increment the task review-attempt counter, and
+dispatch one fresh reviewer against byte-identical candidate and package
+inputs. Do not reinterpret the Markdown as a verdict. The infrastructure and
+invalid-artifact paths share the one-replacement budget for that review
+snapshot; a further failure blocks the task.
+
+For a retained older run already marked `blocked`, use only the matching
+controller-owned recovery operation:
+
+- `retry_failed_review` requires a matching completed `task_review` worker
+  with failed/interrupted terminal evidence and the task error's exact
+  completion path.
+- `retry_invalid_review` requires a matching completed `task_review` worker
+  with terminal-success evidence, the exact retained report/completion paths,
+  and `parallel_review_artifact_invalid` as the task error.
+
+Both operations require the run and task to be blocked, no active worker for
+the task, and remaining review-attempt budget. They atomically return the task
+to `awaiting_review`, the run to `running`, and, in package mode, the owning
+blocked child to `running`. They preserve sibling task states such as
+`needs_fix`, so the scheduler may reserve the replacement reviewer and an
+independent sibling fixer in the same bounded batch. Ordinary
+`set_task_status` never unlocks `blocked`.
 
 Resume compares all persisted input, repo, startup, adapter, worker, and
 worktree identities. Cursor App resumes through the same Task agent id and

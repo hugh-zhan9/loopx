@@ -389,6 +389,43 @@ function applyOperation(state, operation) {
     };
     return;
   }
+  if (operation.type === 'retry_invalid_review') {
+    const task = state.tasks[operation.task_id];
+    const child = task ? state.children[task.plan_path] : null;
+    const worker = state.completed_workers[operation.worker_id];
+    const retries = task?.review_attempts ?? 0;
+    const activeForTask = Object.values(state.active_workers).some((active) => active.node === operation.task_id);
+    if (state.status !== 'blocked' || task?.status !== 'blocked'
+      || !child || !['blocked', 'running'].includes(child.status)
+      || !worker || worker.role !== 'task_review' || worker.node !== operation.task_id
+      || worker.status !== 'terminal' || worker.terminal_status !== 'success'
+      || task.last_error?.code !== 'parallel_review_artifact_invalid'
+      || task.last_error?.completion_path !== worker.completion_path
+      || (task.last_error?.report_path && task.last_error.report_path !== worker.report_path)
+      || activeForTask || retries >= MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      fail('parallel_review_retry_invalid', 'invalid task review is not eligible for bounded replacement');
+    }
+    assertTransition(RUN_TRANSITIONS, state.status, 'running', 'run');
+    state.status = 'running';
+    if (child.status === 'blocked') {
+      child.status = 'running';
+      child.last_error = {
+        code: 'parallel_review_artifact_retry',
+        task_id: operation.task_id,
+        previous_worker_id: operation.worker_id,
+      };
+    }
+    task.status = 'awaiting_review';
+    task.review_attempts = retries + 1;
+    task.last_error = {
+      code: 'parallel_review_artifact_retry',
+      previous_worker_id: operation.worker_id,
+      previous_completion_path: worker.completion_path,
+      previous_report_path: worker.report_path,
+      retry_attempt: task.review_attempts,
+    };
+    return;
+  }
   if (operation.type === 'set_task_status') {
     const task = state.tasks[operation.task_id];
     if (!task) {

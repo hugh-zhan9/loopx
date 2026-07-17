@@ -167,8 +167,12 @@ async function operation(root, codexPath, workerId, {
   mutateProtectedWorktree = false,
   stubbornGrandchild = false,
   reconnectError = false,
+  validReviewPrompt = true,
   env = process.env,
 } = {}) {
+  const effectiveRole = role || (sandbox === 'read-only'
+    ? 'task_review'
+    : workerId.startsWith('fix:') ? 'fix' : 'implementation');
   const suffix = codexArtifactId(workerId).slice(0, 12);
   const invokingWorktree = await workspace(root, `repo-${suffix}`);
   const requestedCwd = join(root, `worktree-${suffix}`);
@@ -193,6 +197,23 @@ async function operation(root, codexPath, workerId, {
     `IGNORE_SIGTERM=${ignoreSigterm ? 1 : 0}`,
     `STUBBORN_GRANDCHILD=${stubbornGrandchild ? 1 : 0}`,
     `RECONNECT_ERROR=${reconnectError ? 1 : 0}`,
+    ...(effectiveRole === 'task_review' && validReviewPrompt ? [
+      '```loopx-review-result',
+      '{',
+      '  "schema": "loopx.review-result.v1",',
+      '  "status": "ISSUES_FOUND",',
+      '  "task_quality": "Needs fixes",',
+      '  "task_anchor": "T-001",',
+      '  "cannot_verify": [],',
+      '  "findings": [{',
+      '    "id": "F-001",',
+      '    "severity": "Important",',
+      '    "anchor_ids": ["AC-001"],',
+      '    "summary": "Example defect"',
+      '  }]',
+      '}',
+      '```',
+    ] : []),
   ].join('\n');
   await writeFile(promptPath, prompt, { mode: 0o600 });
   const capabilityPath = join(control, 'capabilities.json');
@@ -202,7 +223,7 @@ async function operation(root, codexPath, workerId, {
   await ownerJson(operationPath, {
     schema: 'loopx.codex-worker-operation.v1',
     worker_id: workerId,
-    role: role || (sandbox === 'read-only' ? 'task_review' : workerId.startsWith('fix:') ? 'fix' : 'implementation'),
+    role: effectiveRole,
     codex_path: codexPath,
     capability_path: capabilityPath,
     capability_sha256: capabilitySha256,
@@ -222,6 +243,22 @@ async function operation(root, codexPath, workerId, {
   });
   return { capabilityPath, control, cwd, invokingWorktree, operationPath, promptPath, reportPath };
 }
+
+test('Codex task review rejects an ambiguous machine-readable prompt before dispatch', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'loopx-codex-review-preflight-'));
+  const codexPath = await fakeCodex(root);
+  const item = await operation(root, codexPath, 'review:plan.md#T-preflight', {
+    role: 'task_review',
+    sandbox: 'read-only',
+    validReviewPrompt: false,
+  });
+
+  await assert.rejects(
+    executeCodexOperation({ operationPath: item.operationPath }),
+    (error) => error.code === 'parallel_review_prompt_schema_invalid',
+  );
+  await assert.rejects(readFile(item.reportPath), (error) => error.code === 'ENOENT');
+});
 
 test('Codex CLI inspect verifies identity, login, and strict non-interactive flags', async () => {
   const root = await mkdtemp(join(tmpdir(), 'loopx-codex-inspect-'));

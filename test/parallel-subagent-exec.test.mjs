@@ -266,6 +266,96 @@ test('blocks after the replacement review worker also fails', async () => {
   assert.equal(result.integration_order.length, 0);
 });
 
+test('retries an invalid review while an Important sibling finding enters the fixer', async () => {
+  const value = manifest({ plans: [{
+    path: 'docs/loopx/plans/review-retry-and-fix.md',
+    depends_on: [],
+    can_run_in_parallel: true,
+    tasks: [
+      { task_anchor: 'T-001', depends_on: [], write_scope: ['src/a.mjs'], parallel_safe: true },
+      { task_anchor: 'T-002', depends_on: [], write_scope: ['src/b.mjs'], parallel_safe: true },
+    ],
+  }] });
+  const reviewCalls = new Map();
+  const events = [];
+  const options = await simulationOptions(value, {
+    dispatch: async (stage) => {
+      events.push(`dispatch:${stage.role}:${stage.node_id}`);
+      return { status: 'DONE' };
+    },
+    review: async (stage) => {
+      const count = (reviewCalls.get(stage.node_id) || 0) + 1;
+      reviewCalls.set(stage.node_id, count);
+      if (stage.node_id.endsWith('#T-001') && count === 1) {
+        return {
+          artifact_invalid: true,
+          error: { code: 'parallel_review_artifact_invalid', message: 'review_result_finding_fields_invalid' },
+        };
+      }
+      if (stage.node_id.endsWith('#T-002') && count === 1) {
+        return { approved: false, needs_fix: true, finding_ids: ['F-001'] };
+      }
+      return { approved: true };
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'ready_for_finish');
+  assert.equal(reviewCalls.get('docs/loopx/plans/review-retry-and-fix.md#T-001'), 2);
+  assert.equal(reviewCalls.get('docs/loopx/plans/review-retry-and-fix.md#T-002'), 2);
+  assert.equal(events.some((event) => event.includes('dispatch:fix:docs/loopx/plans/review-retry-and-fix.md#T-002')), true);
+});
+
+test('normalizes a thrown review-result parser error into the bounded replacement path', async () => {
+  const value = manifest({ plans: [{
+    path: 'docs/loopx/plans/review-parser-retry.md',
+    depends_on: [],
+    can_run_in_parallel: true,
+    tasks: [{ task_anchor: 'T-001', depends_on: [], write_scope: ['src/a.mjs'], parallel_safe: true }],
+  }] });
+  let reviewCalls = 0;
+  const options = await simulationOptions(value, {
+    review: async () => {
+      reviewCalls += 1;
+      if (reviewCalls === 1) throw new Error('review_result_finding_fields_invalid');
+      return { approved: true };
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'ready_for_finish');
+  assert.equal(reviewCalls, 2);
+});
+
+test('blocks only after the replacement reviewer also returns an invalid artifact', async () => {
+  const value = manifest({ plans: [{
+    path: 'docs/loopx/plans/review-invalid-limit.md',
+    depends_on: [],
+    can_run_in_parallel: true,
+    tasks: [{ task_anchor: 'T-001', depends_on: [], write_scope: ['src/a.mjs'], parallel_safe: true }],
+  }] });
+  let reviewCalls = 0;
+  const options = await simulationOptions(value, {
+    review: async () => {
+      reviewCalls += 1;
+      return {
+        artifact_invalid: true,
+        error: { code: 'parallel_review_artifact_invalid', message: 'review_result_finding_fields_invalid' },
+      };
+    },
+  });
+
+  const result = await simulateParallelExecution(options);
+
+  assert.equal(result.exitCode, 4);
+  assert.equal(result.status, 'blocked');
+  assert.equal(reviewCalls, 2);
+});
+
 test('package child execution follows the DAG but fan-in remains overview ordered', async () => {
   const plans = ['01-a.md', '02-b.md'].map((name) => ({
     path: `docs/loopx/plans/pkg/${name}`,

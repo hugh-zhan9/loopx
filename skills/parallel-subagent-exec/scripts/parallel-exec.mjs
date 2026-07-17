@@ -31,6 +31,7 @@ import {
   writeCompletionState,
 } from './state-lib.mjs';
 import { reserveNextStages } from './scheduler-lib.mjs';
+import { validateReviewPrompt } from './review-prompt.mjs';
 import {
   codexArtifactId,
   inspectCodexRuntime,
@@ -192,6 +193,13 @@ async function runManifest(argv, cwd) {
   const outputPath = resolve(cwd, flags['--output']);
   await writeJsonAtomic(outputPath, manifest);
   return { command: 'manifest inspect', output: outputPath, manifest };
+}
+
+async function runReview(action, argv, cwd) {
+  if (action !== 'prompt-verify') fail(`unknown review action: ${action || '<missing>'}`);
+  const flags = parseFlags(argv, new Set(['--input']), ['--input']);
+  const input = resolve(cwd, flags['--input']);
+  return { command: 'review prompt-verify', input, result: validateReviewPrompt(await readFile(input, 'utf8')) };
 }
 
 async function runState(action, argv, cwd) {
@@ -620,6 +628,40 @@ async function drainChildIntegrations(context) {
 
 async function completeReservation(context, reservation, result) {
   const release = { type: 'release_worker', worker_id: reservation.reservation_id };
+  if (reservation.role === 'task_review' && result?.artifact_invalid) {
+    const target = context.state.tasks[reservation.node_id];
+    const attempts = target.review_attempts || 0;
+    if (attempts < MAX_REVIEW_INFRASTRUCTURE_RETRIES) {
+      await advanceSimulation(context, {
+        type: 'batch',
+        operations: [
+          release,
+          {
+            type: 'set_task_status',
+            task_id: reservation.node_id,
+            status: 'awaiting_review',
+            last_error: {
+              code: result.error?.code || 'parallel_review_artifact_invalid',
+              message: result.error?.message || 'invalid task review artifact',
+            },
+          },
+          { type: 'increment_review_attempts', task_id: reservation.node_id, failure: result.error || null },
+        ],
+      });
+      return;
+    }
+    await advanceSimulation(context, {
+      type: 'batch',
+      operations: [release, {
+        type: 'set_task_status',
+        task_id: reservation.node_id,
+        status: 'blocked',
+        last_error: result.error || { code: 'parallel_review_artifact_invalid' },
+      }],
+    });
+    await blockSimulation(context, `task review artifact remained invalid: ${reservation.node_id}`);
+    return;
+  }
   if (result?.worker_failed) {
     const infrastructure = result.failure_class === 'infrastructure'
       || String(result.error?.code || '').startsWith('parallel_codex_');
@@ -773,6 +815,14 @@ async function completeReservation(context, reservation, result) {
   }
 }
 
+function invalidReviewArtifactFailure(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || error || '');
+  return code === 'parallel_review_artifact_invalid'
+    || code.startsWith('review_result_')
+    || message.startsWith('review_result_');
+}
+
 export async function simulateParallelExecution({
   manifest,
   initialState,
@@ -912,6 +962,16 @@ export async function simulateParallelExecution({
         if (reservation.role === 'reconciliation') return [reservation, await reconcile(reservation)];
         return [reservation, await dispatch(reservation)];
       } catch (error) {
+        if (reservation.role === 'task_review' && invalidReviewArtifactFailure(error)) {
+          return [reservation, {
+            artifact_invalid: true,
+            error: {
+              code: error?.code || 'parallel_review_artifact_invalid',
+              message: error?.message || String(error),
+              details: error?.details || null,
+            },
+          }];
+        }
         return [reservation, {
           worker_failed: true,
           failure_class: String(error?.code || '').startsWith('parallel_codex_')
@@ -984,6 +1044,7 @@ export async function runParallelExecCommand({
     const [group, action, ...rest] = argv;
     let result;
     if (group === 'manifest' && action === 'inspect') result = await runManifest(rest, cwd);
+    else if (group === 'review') result = await runReview(action, rest, cwd);
     else if (group === 'state') result = await runState(action, rest, cwd);
     else if (group === 'worktree') result = await runWorktree(action, rest, cwd);
     else if (group === 'codex') result = await runCodex(action, rest, cwd, env, isInterrupted);

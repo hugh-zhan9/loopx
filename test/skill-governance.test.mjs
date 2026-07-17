@@ -2078,12 +2078,15 @@ describe('loopx skill governance', () => {
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
-    assert.match(skill, /version:\s*"0\.3\.2"/);
+    assert.match(skill, /version:\s*"0\.3\.3"/);
     assert.match(skill, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
     assert.match(skill, /scripts\/parallel-exec\.mjs/);
     assert.match(skill, new RegExp(exactLeaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(skill, /default.*4|defaults? to `4`/is);
     assert.match(skill, /review.*before.*integrat/is);
+    assert.match(skill, /review prompt-verify/);
+    assert.match(skill, /invalid review artifact after its one[\s\S]*replacement/i);
+    assert.match(skill, /Critical or Important[\s\S]*needs_fix/);
     assert.match(skill, /controller alone|controller-only/is);
     assert.match(skill, /at most two reconciliation attempts|maximum of two reconciliation attempts/i);
     assert.match(skill, /\$subagent-exec <same-input-path>/);

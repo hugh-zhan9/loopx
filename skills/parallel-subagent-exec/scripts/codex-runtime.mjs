@@ -20,6 +20,8 @@ import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'no
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
+import { validateReviewPrompt } from './review-prompt.mjs';
+
 const execFileAsync = promisify(execFile);
 const CODEX_OPERATION_SCHEMA = 'loopx.codex-worker-operation.v1';
 const CODEX_CAPABILITY_SCHEMA = 'loopx.codex-runtime-capabilities.v1';
@@ -786,6 +788,13 @@ export async function executeCodexOperation({
   const prompt = loaded.prompt;
   if (!prompt.includes(EXACT_LEAF)) {
     fail('parallel_codex_leaf_clause_missing', 'Codex worker prompt is missing the exact leaf-worker clause');
+  }
+  if (loaded.operation.role === 'task_review') {
+    try {
+      validateReviewPrompt(prompt);
+    } catch (error) {
+      fail(error.code || 'parallel_review_prompt_schema_invalid', error.message);
+    }
   }
   const inspected = await inspectCodexRuntime({
     codexPath: loaded.operation.codex_path,

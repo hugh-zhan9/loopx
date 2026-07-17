@@ -3,7 +3,7 @@ name: parallel-subagent-exec
 description: "Executes strict loopx plans across Codex, Claude Code, Cursor App, and Cursor Agent CLI with bounded parallel leaf workers, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans or direct child execution."
 when_to_use: "manual cross-runtime execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # Parallel Subagent Exec
@@ -77,12 +77,22 @@ Use [references/scheduler-and-state.md](./references/scheduler-and-state.md).
    worktrees, and immutable operation identity.
 5. Every dispatch includes exactly:
    `You are a leaf worker. Do not spawn, delegate to, or wait for other agents.`
-6. Require task review before integration; Critical or Important findings go
-   through a fixer and re-review within the same budget.
-7. The controller alone creates ephemeral commits, snapshots integration state,
+6. Before task-review dispatch, validate the final rendered prompt with
+   `review prompt-verify`; do not create the worker operation until the exact
+   `loopx.review-result.v1` finding schema passes preflight.
+7. Require task review before integration. A valid Critical or Important
+   finding transitions that task to `needs_fix`; reserve a fixer and fresh
+   re-review within the same global budget. The finding itself is not a global
+   STOP condition, and independent ready work remains schedulable.
+8. Treat a malformed machine-readable review result as reviewer
+   infrastructure failure, not a verdict. Retain the failed artifact and
+   dispatch at most one fresh replacement reviewer against the byte-identical
+   candidate and review package. Block only when that replacement is also
+   invalid or cannot be safely resumed.
+9. The controller alone creates ephemeral commits, snapshots integration state,
    applies task commits with `cherry-pick --no-commit`, and creates boundaries.
-8. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
-   A third attempt is forbidden; mark the affected branch blocked.
+10. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
+    A third attempt is forbidden; mark the affected branch blocked.
 
 Implementers, reviewers, fixers, reconciliation workers, plan reviewers, and
 final reviewers never update controller state, create commits, cherry-pick,
@@ -168,6 +178,9 @@ plan-level, or spec-level review.
 ## STOP Conditions
 
 Stop on unsupported input, missing runtime capability, identity mismatch,
-unowned or dirty integration state, invalid review artifact, two failed
-reconciliation attempts, sibling-row mutation, canonical report ownership
-violation, or any unresolved Critical or Important finding.
+unowned or dirty integration state, an invalid review artifact after its one
+allowed byte-identical replacement, two failed reconciliation attempts,
+sibling-row mutation, canonical report ownership violation, or a Critical or
+Important finding that remains unresolved because its fixer/re-review path has
+blocked. A first valid Critical or Important finding enters `needs_fix`; it
+does not stop independent work or bypass the fixer.

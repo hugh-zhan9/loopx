@@ -16,6 +16,7 @@ import {
   verifyRunIdentity,
   writeCompletionState,
 } from '../skills/parallel-subagent-exec/scripts/state-lib.mjs';
+import { reserveNextStages } from '../skills/parallel-subagent-exec/scripts/scheduler-lib.mjs';
 
 const NOW = '2026-07-14T00:00:00.000Z';
 
@@ -339,6 +340,61 @@ test('rejects reviewer retry without failed terminal evidence or after the retry
       (error) => error.code === 'parallel_review_retry_invalid',
     );
   }
+});
+
+test('retries an invalid task review artifact without discarding sibling needs-fix work', async () => {
+  const { statePath } = await workspace();
+  const taskId = 'docs/loopx/plans/example/01-core.md#T-001';
+  const siblingId = 'docs/loopx/plans/example/01-core.md#T-002';
+  const childId = 'docs/loopx/plans/example/01-core.md';
+  const workerId = `10:task_review:${taskId}`;
+  const inputManifest = manifest();
+  inputManifest.plans[0].tasks[1].depends_on = [];
+  const initial = createInitialState({
+    runId: 'invalid-review-retry',
+    manifest: inputManifest,
+    repo: repoIdentity(),
+    config: codexCliConfig(),
+    now: NOW,
+  });
+  initial.status = 'blocked';
+  initial.root_integration = rootIntegration();
+  initial.children[childId].status = 'blocked';
+  initial.children[childId].last_error = { code: 'parallel_review_artifact_invalid', task_id: taskId };
+  initial.tasks[taskId].status = 'blocked';
+  initial.tasks[taskId].last_error = {
+    code: 'parallel_review_artifact_invalid',
+    completion_path: `/repo/.loopx/workers/${workerId}/completion.json`,
+  };
+  initial.tasks[siblingId].status = 'needs_fix';
+  initial.tasks[siblingId].last_error = { code: 'parallel_review_important_findings', finding_ids: ['F-001'] };
+  initial.completed_workers[workerId] = completedCodexReview(taskId, workerId, {
+    terminalStatus: 'success',
+    reportSize: 3249,
+  });
+  const state = await initialize(statePath, initial);
+
+  const retried = await transitionRunState({
+    statePath,
+    expectedRevision: state.revision,
+    operation: { type: 'retry_invalid_review', task_id: taskId, worker_id: workerId },
+    now: '2026-07-17T07:00:00.000Z',
+  });
+
+  assert.equal(retried.status, 'running');
+  assert.equal(retried.children[childId].status, 'running');
+  assert.equal(retried.children[childId].last_error.code, 'parallel_review_artifact_retry');
+  assert.equal(retried.tasks[taskId].status, 'awaiting_review');
+  assert.equal(retried.tasks[taskId].review_attempts, 1);
+  assert.equal(retried.tasks[siblingId].status, 'needs_fix');
+  assert.equal(retried.tasks[siblingId].last_error.code, 'parallel_review_important_findings');
+  assert.deepEqual(retried.completed_workers[workerId], state.completed_workers[workerId]);
+
+  const selection = reserveNextStages({ manifest: inputManifest, state: retried, runtimeCapacity: 2 });
+  assert.deepEqual(selection.reservations.map(({ role, node_id: nodeId }) => [role, nodeId]), [
+    ['fix', siblingId],
+    ['task_review', taskId],
+  ]);
 });
 
 test('rejects stale revisions and serializes concurrent CAS writers', async () => {
