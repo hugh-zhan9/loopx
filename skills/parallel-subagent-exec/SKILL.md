@@ -3,7 +3,7 @@ name: parallel-subagent-exec
 description: "Executes strict loopx plans across Codex, Claude Code, Cursor App, and Cursor Agent CLI with bounded parallel leaf workers, isolated worktrees, deterministic integration, and controller-owned review. Not for legacy plans or direct child execution."
 when_to_use: "manual cross-runtime execution of a strict parallel single plan or complete package with explicit machine-readable DAG metadata"
 metadata:
-  version: "0.3.3"
+  version: "0.3.5"
 ---
 
 # Parallel Subagent Exec
@@ -93,6 +93,18 @@ Use [references/scheduler-and-state.md](./references/scheduler-and-state.md).
    applies task commits with `cherry-pick --no-commit`, and creates boundaries.
 10. On conflict, restore the exact snapshot and allow at most two reconciliation attempts.
     A third attempt is forbidden; mark the affected branch blocked.
+
+Keep observation traffic out of the user transcript. For each active Codex or
+Cursor Agent CLI operation, start one long-lived adapter `wait --format compact`
+command and reuse the same wait session until it returns; never launch
+overlapping waits for the same operation. Cursor App and Claude Code native
+agents reuse the same agent handle or id until terminal completion. Do not run
+`tail`, `wc`, or `jq` against `events.ndjson`, heartbeat, stderr, platform
+output, transcript, or subagent files during normal scheduling. Inspect raw
+lifecycle evidence only after terminal failure or when the user explicitly
+requests diagnostics. Send a human progress update only when the state revision
+changes, a worker reaches terminal state, or one five-minute heartbeat is due;
+summarize state instead of echoing helper commands or JSON.
 
 Implementers, reviewers, fixers, reconciliation workers, plan reviewers, and
 final reviewers never update controller state, create commits, cherry-pick,

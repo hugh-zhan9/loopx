@@ -46,6 +46,7 @@ const HEARTBEAT_INTERVAL_MS = 250;
 const HEARTBEAT_STALE_MS = 5_000;
 const CANCEL_POLL_MS = 50;
 const INTERRUPT_TIMEOUT_MS = 15_000;
+const WAIT_POLL_INTERVAL_MS = 1_000;
 
 export class CursorRuntimeError extends Error {
   constructor(code, message, details = null) {
@@ -1137,7 +1138,12 @@ export async function waitCursorWorker({
       }
       throw error;
     }
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+    const remainingMs = deadline - Date.now();
+    if (remainingMs > 0) {
+      await new Promise((resolvePromise) => {
+        setTimeout(resolvePromise, Math.min(WAIT_POLL_INTERVAL_MS, remainingMs));
+      });
+    }
   }
   const { supervisor } = await readActiveSupervisor(loaded);
   return {

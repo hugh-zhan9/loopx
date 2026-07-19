@@ -133,6 +133,33 @@ function integerFlag(value, label, { positive = false } = {}) {
   return parsed;
 }
 
+function compactCodexWaitResult(result) {
+  return {
+    status: result.status,
+    worker_id: result.worker_id,
+    role: result.role,
+    agent_id: result.agent_id ?? null,
+    process_id: result.process_id ?? null,
+    ended_at: result.ended_at ?? null,
+    report_size: result.report_size ?? null,
+    completion_path: result.status === 'not_started'
+      ? null
+      : result.completion_path ?? null,
+  };
+}
+
+function compactCursorWaitResult(result) {
+  return {
+    status: result.status,
+    worker_id: result.worker_id,
+    agent_id: result.agent_id ?? null,
+    supervisor_pid: result.supervisor_pid ?? null,
+    ended_at: result.ended_at ?? null,
+    report_size: result.outputs?.report?.size ?? null,
+    completion_path: null,
+  };
+}
+
 async function readJson(path, { ownerOnly = false } = {}) {
   if (ownerOnly && process.platform !== 'win32') {
     const metadata = await stat(path);
@@ -348,12 +375,21 @@ async function runCursor(action, argv, cwd, env, isInterrupted) {
     return { command: 'cursor start', operation: operationPath, result };
   }
   if (action === 'wait') {
-    const flags = parseFlags(argv, new Set(['--operation', '--timeout-ms']), ['--operation']);
+    const flags = parseFlags(
+      argv,
+      new Set(['--operation', '--timeout-ms', '--format']),
+      ['--operation'],
+    );
     const operationPath = resolve(cwd, flags['--operation']);
     const timeoutMs = flags['--timeout-ms'] === undefined
       ? 30_000
       : integerFlag(flags['--timeout-ms'], '--timeout-ms', { positive: true });
-    const result = await waitCursorWorker({ operationPath, timeoutMs, isInterrupted });
+    const format = flags['--format'] || 'full';
+    if (!['full', 'compact'].includes(format)) {
+      fail('--format must be full or compact');
+    }
+    const observed = await waitCursorWorker({ operationPath, timeoutMs, isInterrupted });
+    const result = format === 'compact' ? compactCursorWaitResult(observed) : observed;
     return { command: 'cursor wait', operation: operationPath, result };
   }
   if (action === 'interrupt') {
@@ -406,12 +442,21 @@ async function runCodex(action, argv, cwd, env, isInterrupted) {
     return { command: 'codex run', operation: operationPath, result };
   }
   if (action === 'wait') {
-    const flags = parseFlags(argv, new Set(['--operation', '--timeout-ms']), ['--operation']);
+    const flags = parseFlags(
+      argv,
+      new Set(['--operation', '--timeout-ms', '--format']),
+      ['--operation'],
+    );
     const operationPath = resolve(cwd, flags['--operation']);
     const timeoutMs = flags['--timeout-ms'] === undefined
       ? 30_000
       : integerFlag(flags['--timeout-ms'], '--timeout-ms', { positive: true });
-    const result = await waitCodexOperation({ operationPath, timeoutMs });
+    const format = flags['--format'] || 'full';
+    if (!['full', 'compact'].includes(format)) {
+      fail('--format must be full or compact');
+    }
+    const observed = await waitCodexOperation({ operationPath, timeoutMs });
+    const result = format === 'compact' ? compactCodexWaitResult(observed) : observed;
     return { command: 'codex wait', operation: operationPath, result };
   }
   if (action === 'interrupt') {

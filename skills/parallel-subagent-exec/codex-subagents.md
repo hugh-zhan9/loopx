@@ -125,11 +125,26 @@ Observe the same immutable operation:
 
 ```text
 node <skill-dir>/scripts/parallel-exec.mjs codex wait \
-  --operation <worker-dir>/operation.json --timeout-ms 30000
+  --operation <worker-dir>/operation.json \
+  --timeout-ms 900000 --format compact
 ```
 
-A wait timeout returns the retained `running` record, or `status: not_started`
-when no lifecycle evidence exists; it never invents a running process.
+Use one long-lived wait per active operation. If the controller tool yields a
+background process or session handle, reuse that same wait session until it
+returns; do not start another wait for the operation. In normal scheduling, do
+not run `tail`, `wc`, or `jq` against `events.ndjson`, `stderr.log`, handshake,
+or heartbeat files. Those retained artifacts are for terminal validation,
+failure diagnosis, and explicit user-requested inspection, not progress polling.
+
+Compact wait output contains only status, worker/role identity, process/agent
+identity, terminal time, report size, and completion path. Omit `--format
+compact` only for explicit lifecycle diagnosis. A wait timeout returns compact
+`running` evidence, or `status: not_started` when no lifecycle evidence exists;
+it never invents a running process. Progress commentary is emitted only when
+the controller state revision changes, a worker reaches terminal state, or a
+five-minute heartbeat is due, and it summarizes state without reproducing the
+helper command or JSON payload.
+
 Interrupt only the digest-bound operation:
 
 ```text

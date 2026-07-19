@@ -686,6 +686,49 @@ test('Codex wait reports not_started when no lifecycle evidence exists', async (
   assert.equal(result.process_id, null);
 });
 
+test('Codex wait compact format omits verbose lifecycle evidence from controller polling', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'loopx-codex-compact-wait-'));
+  const codexPath = await fakeCodex(root);
+  const item = await operation(root, codexPath, 'implementation:plan.md#T-compact-wait');
+  const stdout = [];
+  const stderr = [];
+
+  const waited = await runParallelExecCommand({
+    argv: [
+      'codex', 'wait',
+      '--operation', item.operationPath,
+      '--timeout-ms', '1',
+      '--format', 'compact',
+    ],
+    cwd: root,
+    env: process.env,
+    stdout: { write: (value) => stdout.push(value) },
+    stderr: { write: (value) => stderr.push(value) },
+  });
+
+  assert.equal(waited.exitCode, 0);
+  assert.equal(stderr.join(''), '');
+  const payload = JSON.parse(stdout.join('').trim());
+  assert.deepEqual(payload, {
+    ok: true,
+    command: 'codex wait',
+    operation: item.operationPath,
+    result: {
+      status: 'not_started',
+      worker_id: 'implementation:plan.md#T-compact-wait',
+      role: 'implementation',
+      agent_id: null,
+      process_id: null,
+      ended_at: null,
+      report_size: null,
+      completion_path: null,
+    },
+  });
+  assert.equal(stdout.join('').includes('protected_worktrees'), false);
+  assert.equal(stdout.join('').includes('capability_sha256'), false);
+  assert.ok(Buffer.byteLength(stdout.join('')) < 512);
+});
+
 test('Codex execution rejects controller-owned Git index mutation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'loopx-codex-git-'));
   const codexPath = await fakeCodex(root);

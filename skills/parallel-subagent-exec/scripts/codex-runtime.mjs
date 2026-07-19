@@ -33,6 +33,7 @@ const EXACT_LEAF = 'You are a leaf worker. Do not spawn, delegate to, or wait fo
 const MAX_STDERR_BYTES = 256 * 1024;
 const MAX_EVENT_LINE_BYTES = 4 * 1024 * 1024;
 const TERMINATE_GRACE_MS = 750;
+const WAIT_POLL_INTERVAL_MS = 1_000;
 const ACTIVE = new Map();
 const SKILL_PATH = fileURLToPath(new URL('../SKILL.md', import.meta.url));
 
@@ -1133,7 +1134,10 @@ export async function waitCodexOperation({ operationPath, timeoutMs = 0 } = {}) 
       if (record) running = validateLifecycle(record, CODEX_RUNNING_SCHEMA, loaded, 'Codex running state');
     }
     if (Date.now() >= deadline) break;
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+    const remainingMs = deadline - Date.now();
+    await new Promise((resolvePromise) => {
+      setTimeout(resolvePromise, Math.min(WAIT_POLL_INTERVAL_MS, remainingMs));
+    });
   } while (Date.now() <= deadline);
   return running || {
     schema: CODEX_RUNNING_SCHEMA,

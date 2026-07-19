@@ -81,6 +81,11 @@ those exact ids. Cursor's `~/.cursor/subagents/` files are platform lifecycle
 evidence, not controller state and not a substitute for the terminal result.
 Use read-only Task workers for reviews and plan/final review.
 
+For Cursor App native Tasks, keep the same agent id or agent handle until its
+terminal result arrives. Do not read, tail, or poll `~/.cursor/subagents/`, Task
+transcripts, or Task output files for progress. Use only the platform's native
+wait/terminal notification and the controller's retained state summary.
+
 Treat all concurrently reserved native Tasks as one active batch. Exclude active
 batch worktrees from per-worker sibling immutability checks because legitimate
 peers may be writing them. Require the invoking checkout, controller artifacts,
@@ -197,10 +202,17 @@ Observe without occupying another worker slot:
 
 ```text
 node <skill-dir>/scripts/parallel-exec.mjs cursor wait \
-  --operation <worker-dir>/operation.json --timeout-ms 30000
+  --operation <worker-dir>/operation.json \
+  --timeout-ms 900000 --format compact
 ```
 
-A wait timeout returns `status: running`; repeat it for the same reservation.
+Use one long-lived wait per active operation. If the controller tool yields a
+background process or session handle, reuse the same wait session until it
+returns; do not start another wait for the operation. Compact output retains
+only scheduler-facing status and identity. Omit `--format compact` only for
+explicit lifecycle diagnosis. Do not inspect `events.ndjson`, `heartbeat.json`,
+or `stderr.log` during normal progress observation. A wait timeout returns
+`status: running`; start a new wait only after the prior wait has returned.
 Request interruption through the operation:
 
 ```text

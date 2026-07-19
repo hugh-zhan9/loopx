@@ -2074,11 +2074,13 @@ describe('loopx skill governance', () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const cursorReference = await readFile(join(rootDir, 'cursor-subagents.md'), 'utf8');
+    const claudeReference = await readFile(join(rootDir, 'claude-subagents.md'), 'utf8');
     const exactLeaf = 'You are a leaf worker. Do not spawn, delegate to, or wait for other agents.';
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
-    assert.match(skill, /version:\s*"0\.3\.3"/);
+    assert.match(skill, /version:\s*"0\.3\.5"/);
     assert.match(skill, /\$parallel-subagent-exec <plan-or-package> \[--max-parallel N\]/);
     assert.match(skill, /scripts\/parallel-exec\.mjs/);
     assert.match(skill, new RegExp(exactLeaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -2095,6 +2097,9 @@ describe('loopx skill governance', () => {
     assert.match(skill, /cursor inspect/i);
     assert.match(skill, /cursor start/i);
     assert.match(skill, /cursor wait/i);
+    assert.match(cursorReference, /cursor wait[\s\S]*--timeout-ms 900000 --format compact/i);
+    assert.doesNotMatch(cursorReference, /--timeout-ms 30000|repeat it for the same reservation/i);
+    assert.match(cursorReference, /reuse[\s\S]*same[\s\S]*wait[\s\S]*session/i);
     assert.match(skill, /--workspace/);
     assert.match(skill, /worker-local.*(?:inbox|outbox)|(?:inbox|outbox).*worker-local/is);
     assert.match(skill, /Cursor Agent CLI/);
@@ -2112,6 +2117,10 @@ describe('loopx skill governance', () => {
     assert.match(skill, /Codex Agent CLI/);
     assert.match(skill, /codex inspect/);
     assert.match(skill, /codex run/);
+    assert.match(skill, /codex wait[\s\S]*--format compact/i);
+    assert.match(skill, /reuse[\s\S]*same[\s\S]*wait[\s\S]*session/i);
+    assert.match(skill, /do not[\s\S]*(?:tail|wc|jq)[\s\S]*events\.ndjson/i);
+    assert.match(skill, /state revision[\s\S]*terminal[\s\S]*(?:five|5)[ -]minute/i);
     assert.match(skill, /--disable multi_agent/);
     assert.match(skill, /never use.*dangerously-bypass|does not use.*dangerously-bypass/is);
     for (const field of [
@@ -2133,6 +2142,9 @@ describe('loopx skill governance', () => {
     assert.match(skill, /status: not_started|`not_started`/);
     assert.match(skill, /process-tree escalation/);
     assert.match(skill, /Claude Code/);
+    assert.match(claudeReference, /reuse[\s\S]*same[\s\S]*Agent[\s\S]*(?:handle|id)[\s\S]*terminal/i);
+    assert.match(claudeReference, /do not[\s\S]*(?:read|tail|poll)[\s\S]*(?:output|transcript|subagents)[\s\S]*progress/i);
+    assert.match(cursorReference, /Cursor App[\s\S]*same[\s\S]*(?:agent handle|agent id)[\s\S]*terminal/i);
     assert.match(skill, /do not use.*--worktree|never use.*--worktree/is);
     assert.match(skill, /execution-start.*finish-start.*before the first reservation/is);
     assert.match(skill, /schema v2/);

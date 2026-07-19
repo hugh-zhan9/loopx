@@ -383,6 +383,50 @@ test('Cursor worker binds CLI and process cwd, observes terminal result, and ret
   assert.equal(args.includes('--worktree'), false);
 });
 
+test('Cursor wait compact format keeps long-running observation output bounded', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'loopx-cursor-compact-wait-'));
+  const agentPath = await fakeCursor(root);
+  const workerId = '9:implementation:01-core.md#T-compact-wait';
+  const item = await operation(root, agentPath, workerId, { sleepMs: 5_000 });
+  const started = await run(['cursor', 'start', '--operation', item.operationPath], {
+    cwd: root,
+  });
+  assert.equal(started.result.exitCode, 0, started.stderr);
+  const running = JSON.parse(started.stdout).result;
+
+  try {
+    const waited = await run([
+      'cursor', 'wait',
+      '--operation', item.operationPath,
+      '--timeout-ms', '1',
+      '--format', 'compact',
+    ], { cwd: root });
+
+    assert.equal(waited.result.exitCode, 0, waited.stderr);
+    assert.equal(waited.stderr, '');
+    const payload = JSON.parse(waited.stdout);
+    assert.deepEqual(payload, {
+      ok: true,
+      command: 'cursor wait',
+      operation: item.operationPath,
+      result: {
+        status: 'running',
+        worker_id: workerId,
+        agent_id: running.agent_id,
+        supervisor_pid: running.supervisor_pid,
+        ended_at: null,
+        report_size: null,
+        completion_path: null,
+      },
+    });
+    assert.equal(waited.stdout.includes('operation_digest'), false);
+    assert.equal(waited.stdout.includes('supervisor_token'), false);
+    assert.ok(Buffer.byteLength(waited.stdout) < 768);
+  } finally {
+    await run(['cursor', 'interrupt', '--operation', item.operationPath], { cwd: root });
+  }
+});
+
 test('Cursor preparation rejects a pre-existing exchange symlink before copying controller inputs', async () => {
   const root = await mkdtemp(join(tmpdir(), 'loopx-cursor-exchange-'));
   const agentPath = await fakeCursor(root);
