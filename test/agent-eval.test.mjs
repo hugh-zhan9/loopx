@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
-import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, compareInstalledProductRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, renderInstalledProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, compareInstalledProductRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, renderCrossVersionProductMarkdown, renderInstalledProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 import { findClaudeSession, normalizeClaudeSession, extractClaudeLeafFinalMessage } from '../src/claude-agent-trace.mjs';
 
@@ -301,6 +301,10 @@ describe('agent eval metrics', () => {
     assert.equal(comparison.cases[0].quality_passed, false);
     assert.equal(comparison.cases[0].resource_favorable, false);
     assert.deepEqual(comparison.cases[0].failed_quality_gates, ['spec_consistency']);
+    assert.deepEqual(comparison.cases[0].metrics.candidate.total_tokens, {
+      sample_count: 1, quality_passed_count: 0, available_count: 0, values: [], p50: null, p95: null,
+    });
+    assert.equal(comparison.cases[0].metric_deltas.total_tokens, null);
     assert.equal(comparison.overall.favorable_cases, 0);
     assert.equal(comparison.overall.criteria_passed, false);
 
@@ -311,6 +315,57 @@ describe('agent eval metrics', () => {
     assert.equal(unsafeBaseline.cases[0].quality_passed, false);
     assert.equal(unsafeBaseline.cases[0].resource_favorable, false);
     assert.deepEqual(unsafeBaseline.cases[0].failed_quality_gates, ['baseline:safety']);
+  });
+
+  it('reports paired quality rates and token and latency distributions without inventing missing values', () => {
+    const run = (variant, replicate, values) => ({
+      case_id: 'direct-small-fix',
+      case_kind: 'direct',
+      variant,
+      replicate,
+      configuration: { model: 'same-model', effort: 'high', task: 'fix', fixture_tree: 'tree' },
+      outcome: 'passed',
+      verification: { passed: true },
+      safety: { passed: true },
+      spec: { passed: true },
+      memory: { passed: true },
+      changed_paths: ['src/a.mjs'],
+      workflow_artifacts: [],
+      worker_activity: { peak_workers: 0, overlap_ms: 0, integration_order: [] },
+      tokens: values.tokens,
+      total_tokens: values.tokens.total,
+      latency_ms: values.latency,
+    });
+    const comparison = compareInstalledProductRuns([
+      run('bare', 1, { tokens: { input: 100, cached_input: 20, output: 30, total: 130 }, latency: 100 }),
+      run('installed', 1, { tokens: { input: 90, cached_input: 10, output: 25, total: 115 }, latency: 80 }),
+      run('bare', 2, { tokens: { input: 120, cached_input: 40, output: 20, total: 140 }, latency: 120 }),
+      run('installed', 2, { tokens: { input: 100, cached_input: null, output: 20, total: 120 }, latency: 90 }),
+    ]);
+
+    const item = comparison.cases[0];
+    assert.deepEqual(item.metrics.baseline.input_tokens, {
+      sample_count: 2, quality_passed_count: 2, available_count: 2, values: [100, 120], p50: 110, p95: 119,
+    });
+    assert.deepEqual(item.metrics.candidate.cached_input_tokens, {
+      sample_count: 2, quality_passed_count: 2, available_count: 1, values: [10], p50: 10, p95: 10,
+    });
+    assert.equal(item.metric_deltas.input_tokens, -15);
+    assert.equal(item.metric_deltas.cached_input_tokens, -20);
+    assert.deepEqual(item.pairs.map((pair) => ({
+      replicate: pair.replicate,
+      quality_passed: pair.quality_passed,
+      total_tokens_delta: pair.metric_deltas.total_tokens,
+      cached_input_tokens_delta: pair.metric_deltas.cached_input_tokens,
+      latency_ms_delta: pair.metric_deltas.latency_ms,
+    })), [
+      { replicate: 1, quality_passed: true, total_tokens_delta: -15, cached_input_tokens_delta: -10, latency_ms_delta: -20 },
+      { replicate: 2, quality_passed: true, total_tokens_delta: -20, cached_input_tokens_delta: null, latency_ms_delta: -30 },
+    ]);
+    assert.equal(comparison.overall.baseline_success_rate, 1);
+    assert.equal(comparison.overall.candidate_success_rate, 1);
+    assert.equal(comparison.overall.baseline_quality_pass_rate, 1);
+    assert.equal(comparison.overall.candidate_quality_pass_rate, 1);
   });
 
   it('renders installed-product outcome, repository, worker, resource, spec, and memory evidence', () => {
@@ -335,6 +390,24 @@ describe('agent eval metrics', () => {
     }
     assert.match(markdown, /direct-small-fix/);
     assert.match(markdown, /quality gates before resource comparisons/i);
+    assert.match(markdown, /Metric Distributions/);
+    assert.match(markdown, /Paired Samples/);
+    assert.match(markdown, /Input tokens/);
+
+    const versionMarkdown = renderCrossVersionProductMarkdown({
+      schema: 'loopx.cross-version-product-benchmark-report.v1',
+      provenance: {
+        versions: {
+          baseline: { requested_ref: 'v0.5.2', commit: 'a'.repeat(40), package_version: '0.5.2', package_sha256: 'b'.repeat(64) },
+          candidate: { requested_ref: 'main', commit: 'c'.repeat(40), package_version: '0.6.0', package_sha256: 'd'.repeat(64) },
+        },
+      },
+      comparison,
+    });
+    assert.match(versionMarkdown, /Cross-Version Product Benchmark/);
+    assert.match(versionMarkdown, /v0\.5\.2/);
+    assert.match(versionMarkdown, /0\.6\.0/);
+    assert.match(versionMarkdown, new RegExp('a{40}'));
   });
 
   it('normalizes a Claude session with subagents and detects nested agent constraint', async () => {

@@ -47,6 +47,102 @@ async function directoryHash(root) {
   return hash.digest('hex');
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function installedPackageRoot(installRoot, packageName) {
+  return join(installRoot, 'node_modules', ...packageName.split('/'));
+}
+
+async function prepareProductVersion(projectRoot, requestedRef, role, productsRoot) {
+  const commit = (await git(projectRoot, ['rev-parse', '--verify', `${requestedRef}^{commit}`])).trim();
+  const worktree = join(productsRoot, `${role}-worktree`);
+  const archiveRoot = join(productsRoot, `${role}-archive`);
+  const installRoot = join(productsRoot, `${role}-package`);
+  await mkdir(archiveRoot, { recursive: true });
+  await git(projectRoot, ['worktree', 'add', '--detach', '--quiet', worktree, commit]);
+  try {
+    const packageManifestContent = await readFile(join(worktree, 'package.json'));
+    const packageManifest = JSON.parse(packageManifestContent.toString('utf8'));
+    const packed = JSON.parse((await execFileAsync('npm', [
+      'pack', '--json', '--pack-destination', archiveRoot,
+    ], {
+      cwd: worktree,
+      maxBuffer: 20 * 1024 * 1024,
+    })).stdout);
+    if (!Array.isArray(packed) || packed.length !== 1 || typeof packed[0].filename !== 'string') {
+      throw new Error(`installed_product_eval_pack_invalid:${role}`);
+    }
+    const archivePath = join(archiveRoot, packed[0].filename);
+    await execFileAsync('npm', [
+      'install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false',
+      '--prefix', installRoot, archivePath,
+    ], {
+      cwd: productsRoot,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    const productRoot = installedPackageRoot(installRoot, packageManifest.name);
+    if (!await exists(join(productRoot, 'scripts', 'install-skills.mjs'))) {
+      throw new Error(`installed_product_eval_installer_missing:${role}`);
+    }
+    return {
+      role,
+      productRoot,
+      provenance: {
+        requested_ref: requestedRef,
+        commit,
+        package_name: packageManifest.name,
+        package_version: packageManifest.version,
+        package_filename: packed[0].filename,
+        package_sha256: sha256(await readFile(archivePath)),
+        package_manifest_sha256: sha256(packageManifestContent),
+        package_integrity: packed[0].integrity ?? null,
+      },
+    };
+  } finally {
+    await git(projectRoot, ['worktree', 'remove', '--force', worktree]).catch(() => '');
+    await rm(worktree, { recursive: true, force: true });
+  }
+}
+
+async function prepareVersionProducts(projectRoot, versionRefs, tempRoot) {
+  if (!versionRefs || typeof versionRefs.baseline !== 'string' || typeof versionRefs.candidate !== 'string') {
+    throw new TypeError('versionRefs requires baseline and candidate Git refs');
+  }
+  const root = await mkdtemp(join(tempRoot, 'loopx-version-products-'));
+  try {
+    const baseline = await prepareProductVersion(projectRoot, versionRefs.baseline, 'baseline', root);
+    const candidate = await prepareProductVersion(projectRoot, versionRefs.candidate, 'candidate', root);
+    return { root, baseline, candidate };
+  } catch (error) {
+    await rm(root, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function installPackagedProduct(product, installEnv) {
+  const { stdout } = await execFileAsync(process.execPath, [
+    join(product.productRoot, 'scripts', 'install-skills.mjs'), '--json',
+  ], {
+    cwd: installEnv.LOOPX_INSTALL_CWD,
+    env: installEnv,
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  const result = JSON.parse(stdout);
+  return { ...result, ok: result.ok !== false };
+}
+
 async function createFixture(source, tempRoot) {
   const parent = await mkdtemp(join(tempRoot, 'loopx-product-fixture-'));
   const repo = join(parent, 'repo');
@@ -293,6 +389,36 @@ function orderedVariants(testCase, manifest, replicate, order) {
   return [...preferred.filter((variant) => variants.includes(variant)), ...variants.filter((variant) => !preferred.includes(variant))];
 }
 
+function crossVersionManifest(manifest) {
+  const mapping = new Map([
+    [manifest.baseline_variant, 'version-a'],
+    [manifest.candidate_variant, 'version-b'],
+    [manifest.forced_serial_variant, 'version-b-forced-serial'],
+  ]);
+  const variants = {
+    'version-a': { ...manifest.variants[manifest.baseline_variant], install_candidate: true, version_role: 'baseline' },
+    'version-b': { ...manifest.variants[manifest.candidate_variant], install_candidate: true, version_role: 'candidate' },
+  };
+  if (manifest.forced_serial_variant && manifest.variants[manifest.forced_serial_variant]) {
+    variants['version-b-forced-serial'] = {
+      ...manifest.variants[manifest.forced_serial_variant],
+      install_candidate: true,
+      version_role: 'candidate',
+    };
+  }
+  return {
+    ...manifest,
+    baseline_variant: 'version-a',
+    candidate_variant: 'version-b',
+    forced_serial_variant: variants['version-b-forced-serial'] ? 'version-b-forced-serial' : null,
+    variants,
+    cases: manifest.cases.map((testCase) => ({
+      ...testCase,
+      variants: testCase.variants.map((variant) => mapping.get(variant) ?? variant),
+    })),
+  };
+}
+
 async function runWithTimeout(runAgent, request, timeoutMs) {
   const controller = new AbortController();
   let timer;
@@ -331,7 +457,7 @@ async function runExternalVerification(repo, command, timeoutMs) {
   }
 }
 
-async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides }) {
+async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product }) {
   const variantConfig = manifest.variants[variant];
   if (!variantConfig) throw new Error(`installed_product_eval_unknown_variant:${variant}`);
   const fixture = await createFixture(join(fixtureRoot, testCase.fixture), tempRoot);
@@ -342,7 +468,15 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
   const configuration = {
     model: shared.model,
     effort: shared.effort,
+    adapter: shared.adapter ?? null,
     tools: shared.tools,
+    permissions: shared.permissions ?? null,
+    host_constraints: {
+      fresh_fixture: true,
+      fresh_home: true,
+      isolated_cache: true,
+      worker_limit: shared.worker_limit,
+    },
     task: testCase.task,
     timeout_ms: shared.timeout_ms,
     fixture_tree: fixture.tree,
@@ -351,7 +485,7 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     ...process.env,
     HOME: home,
     LOOPX_HOME: home,
-    LOOPX_PROJECT_ROOT: projectRoot,
+    LOOPX_PROJECT_ROOT: product?.productRoot ?? projectRoot,
     LOOPX_INSTALL_CWD: fixture.repo,
   };
   const agentEnv = Object.fromEntries(
@@ -363,17 +497,22 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     XDG_CONFIG_HOME: join(home, '.config'),
     XDG_DATA_HOME: join(home, '.local', 'share'),
   });
+  const installRequested = Boolean(product) || variantConfig.install_candidate === true;
   let installation = {
-    requested: variantConfig.install_candidate === true,
+    requested: installRequested,
     actual_installed_surface: false,
     candidate_prompt_injected: false,
+    version_role: product?.role ?? null,
+    product: product?.provenance ?? null,
   };
   let raw;
   let error = null;
   const memoryBefore = await collectMemoryState(fixture.repo);
   try {
-    if (variantConfig.install_candidate === true) {
-      const installed = await installSkillsForTargets(installEnv, { targets: ['codex'] });
+    if (installRequested) {
+      const installed = product
+        ? await installPackagedProduct(product, installEnv)
+        : await installSkillsForTargets(installEnv, { targets: ['codex'] });
       installation = {
         ...installation,
         ok: installed.ok,
@@ -384,6 +523,7 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     }
     raw = await runWithTimeout(runAgent, {
       case: testCase,
+      variant,
       prompt: testCase.task,
       configuration,
       execution_policy: { force_serial: variantConfig.force_serial === true, worker_limit: shared.worker_limit },
@@ -418,7 +558,7 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
   const { paths, artifacts, activity, retainedWorktrees, spec, memory } = evidence;
   const sourceFixtureUnchanged = await directoryHash(fixture.source) === fixture.sourceHash;
   const violations = [...evidence.violations];
-  if (variantConfig.install_candidate === true && !installation.actual_installed_surface) {
+  if (installRequested && !installation.actual_installed_surface) {
     violations.push('candidate_install_missing');
   }
   if (!sourceFixtureUnchanged) {
@@ -454,7 +594,12 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     worker_activity: activity,
     execution_selection: raw.execution_selection,
     total_tokens: Number.isFinite(raw.tokens?.total) ? raw.tokens.total : null,
-    tokens: raw.tokens ?? { input: null, output: null, total: null },
+    tokens: {
+      input: Number.isFinite(raw.tokens?.input) ? raw.tokens.input : null,
+      cached_input: Number.isFinite(raw.tokens?.cached_input) ? raw.tokens.cached_input : null,
+      output: Number.isFinite(raw.tokens?.output) ? raw.tokens.output : null,
+      total: Number.isFinite(raw.tokens?.total) ? raw.tokens.total : null,
+    },
     latency_ms: Number.isFinite(raw.latency_ms) ? raw.latency_ms : null,
     spec,
     memory,
@@ -483,6 +628,7 @@ export async function runInstalledProductEvaluation(options) {
     order = 'crossover',
     tempRoot = tmpdir(),
     configuration = {},
+    versionRefs = null,
   } = options;
   if (manifest?.schema !== 'loopx.installed-product-eval.v1') {
     throw new Error('installed_product_eval_manifest_invalid');
@@ -496,35 +642,91 @@ export async function runInstalledProductEvaluation(options) {
   if (!['crossover', 'baseline-first', 'candidate-first'].includes(order)) {
     throw new TypeError('order must be crossover, baseline-first, or candidate-first');
   }
+  if (versionRefs && replicates < 2) {
+    throw new TypeError('cross-version benchmarks require at least two replicates');
+  }
   await mkdir(resolve(tempRoot), { recursive: true });
+  const effectiveManifest = versionRefs ? crossVersionManifest(manifest) : manifest;
   const selected = selectedCaseIds
-    ? manifest.cases.filter((testCase) => selectedCaseIds.includes(testCase.id))
-    : manifest.cases;
+    ? effectiveManifest.cases.filter((testCase) => selectedCaseIds.includes(testCase.id))
+    : effectiveManifest.cases;
   if (selectedCaseIds && selected.length !== selectedCaseIds.length) {
     throw new Error('installed_product_eval_case_not_found');
   }
+  const resolvedProjectRoot = resolve(projectRoot);
+  const resolvedTempRoot = resolve(tempRoot);
+  const products = versionRefs
+    ? await prepareVersionProducts(resolvedProjectRoot, versionRefs, resolvedTempRoot)
+    : null;
   const runs = [];
-  for (const testCase of selected) {
-    for (let replicate = 0; replicate < replicates; replicate += 1) {
-      for (const variant of orderedVariants(testCase, manifest, replicate, order)) {
-        runs.push(await runOne({
-          testCase,
-          variant,
-          manifest,
-          projectRoot: resolve(projectRoot),
-          fixtureRoot: resolve(fixtureRoot),
-          tempRoot: resolve(tempRoot),
-          runAgent,
-          replicate,
-          configurationOverrides: configuration,
-        }));
+  let comparison;
+  let productsRemoved = products === null;
+  try {
+    for (const testCase of selected) {
+      for (let replicate = 0; replicate < replicates; replicate += 1) {
+        for (const variant of orderedVariants(testCase, effectiveManifest, replicate, order)) {
+          const product = products
+            ? variant === effectiveManifest.baseline_variant ? products.baseline : products.candidate
+            : null;
+          runs.push(await runOne({
+            testCase,
+            variant,
+            manifest: effectiveManifest,
+            projectRoot: resolvedProjectRoot,
+            fixtureRoot: resolve(fixtureRoot),
+            tempRoot: resolvedTempRoot,
+            runAgent,
+            replicate,
+            configurationOverrides: configuration,
+            product,
+          }));
+        }
       }
     }
+    comparison = compareInstalledProductRuns(runs, {
+      baselineVariant: effectiveManifest.baseline_variant,
+      candidateVariant: effectiveManifest.candidate_variant,
+      forcedSerialVariant: effectiveManifest.forced_serial_variant,
+    });
+  } finally {
+    if (products) {
+      await rm(products.root, { recursive: true, force: true });
+      productsRemoved = !await exists(products.root);
+    }
   }
-  const comparison = compareInstalledProductRuns(runs, {
-    baselineVariant: manifest.baseline_variant,
-    candidateVariant: manifest.candidate_variant,
-    forcedSerialVariant: manifest.forced_serial_variant,
-  });
-  return { schema: 'loopx.installed-product-eval-report.v1', runs, comparison };
+  if (!products) {
+    return { schema: 'loopx.installed-product-eval-report.v1', runs, comparison };
+  }
+  return {
+    schema: 'loopx.cross-version-product-benchmark-report.v1',
+    provenance: {
+      manifest_sha256: sha256(stableJson(effectiveManifest)),
+      source_manifest_sha256: sha256(stableJson(manifest)),
+      configuration: {
+        model: runs[0]?.configuration.model ?? null,
+        effort: runs[0]?.configuration.effort ?? null,
+        tools: runs[0]?.configuration.tools ?? null,
+        permissions: runs[0]?.configuration.permissions ?? null,
+        timeout_ms: runs[0]?.configuration.timeout_ms ?? null,
+        adapter: runs[0]?.configuration.adapter ?? null,
+        host_constraints: runs[0]?.configuration.host_constraints ?? null,
+      },
+      fixture_trees: Object.fromEntries([...Map.groupBy(runs, (run) => run.case_id)].map(([caseId, caseRuns]) => [
+        caseId,
+        caseRuns[0]?.configuration.fixture_tree ?? null,
+      ])),
+      experiment: {
+        case_ids: selected.map((testCase) => testCase.id),
+        replicates,
+        order,
+      },
+      versions: {
+        baseline: products.baseline.provenance,
+        candidate: products.candidate.provenance,
+      },
+    },
+    runs,
+    comparison,
+    cleanup: { version_products_removed: productsRemoved },
+  };
 }

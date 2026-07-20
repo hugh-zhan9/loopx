@@ -7,6 +7,7 @@
     "model": "configured-by-runner",
     "effort": "high",
     "tools": ["shell", "filesystem", "git"],
+    "permissions": { "sandbox": "workspace-write" },
     "timeout_ms": 600000,
     "worker_limit": 4,
     "verification_command": ["npm", "test"]

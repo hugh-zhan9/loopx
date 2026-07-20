@@ -239,6 +239,66 @@ function median(values) {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
+const installedMetricFields = Object.freeze([
+  'input_tokens',
+  'cached_input_tokens',
+  'output_tokens',
+  'total_tokens',
+  'latency_ms',
+]);
+
+function installedMetricValue(run, field) {
+  if (field === 'input_tokens') return run.tokens?.input ?? run.input_tokens ?? null;
+  if (field === 'cached_input_tokens') return run.tokens?.cached_input ?? run.cached_input_tokens ?? null;
+  if (field === 'output_tokens') return run.tokens?.output ?? run.output_tokens ?? null;
+  if (field === 'total_tokens') return run.tokens?.total ?? run.total_tokens ?? null;
+  return run.latency_ms ?? null;
+}
+
+function percentile(sorted, percent) {
+  if (sorted.length === 0) return null;
+  if (sorted.length === 1) return sorted[0];
+  const rank = (sorted.length - 1) * percent;
+  const lower = Math.floor(rank);
+  const upper = Math.ceil(rank);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (rank - lower);
+}
+
+function installedMetricDistribution(runs, field) {
+  const qualityPassedRuns = runs.filter((run) => installedProductQuality(run).failed.length === 0);
+  const values = qualityPassedRuns.map((run) => installedMetricValue(run, field)).filter(Number.isFinite).sort((left, right) => left - right);
+  return {
+    sample_count: runs.length,
+    quality_passed_count: qualityPassedRuns.length,
+    available_count: values.length,
+    values,
+    p50: percentile(values, 0.5),
+    p95: percentile(values, 0.95),
+  };
+}
+
+function installedMetricDistributions(runs) {
+  return Object.fromEntries(installedMetricFields.map((field) => [field, installedMetricDistribution(runs, field)]));
+}
+
+function installedMetricDeltas(baseline, candidate) {
+  return Object.fromEntries(installedMetricFields.map((field) => {
+    const baselineValue = baseline[field]?.p50;
+    const candidateValue = candidate[field]?.p50;
+    return [field, Number.isFinite(baselineValue) && Number.isFinite(candidateValue)
+      ? candidateValue - baselineValue
+      : null];
+  }));
+}
+
+function installedMetricPercentDeltas(baseline, candidate) {
+  return Object.fromEntries(installedMetricFields.map((field) => [
+    field,
+    percentDelta(baseline[field]?.p50, candidate[field]?.p50),
+  ]));
+}
+
 export function aggregateAgentEvalReplicates(summaries) {
   const groups = Map.groupBy(summaries, (summary) => `${summary.case_id}\u0000${summary.variant}`);
   return [...groups.values()].map((runs) => {
@@ -371,6 +431,7 @@ function stableJson(value) {
 function aggregateInstalledProductRuns(runs) {
   const first = runs[0];
   const qualities = runs.map(installedProductQuality);
+  const metrics = installedMetricDistributions(runs);
   return {
     case_id: first.case_id,
     case_kind: first.case_kind,
@@ -379,16 +440,22 @@ function aggregateInstalledProductRuns(runs) {
     configuration_consistent: runs.every((run) => stableJson(run.configuration) === stableJson(first.configuration)),
     replicate_count: runs.length,
     outcome: runs.every((run) => run.outcome === 'passed') ? 'passed' : 'failed',
+    success_rate: runs.filter((run) => run.outcome === 'passed').length / runs.length,
     verification: { passed: runs.every((run) => run.verification?.passed === true) },
     safety: { passed: runs.every((run) => run.safety?.passed === true) },
     spec: { passed: runs.every((run) => run.spec?.passed === true) },
     memory: { passed: runs.every((run) => run.memory?.passed === true) },
     quality_passed: qualities.every((quality) => quality.failed.length === 0),
+    quality_pass_rate: qualities.filter((quality) => quality.failed.length === 0).length / runs.length,
     failed_quality_gates: [...new Set(qualities.flatMap((quality) => quality.failed))],
     changed_paths: [...new Set(runs.flatMap((run) => run.changed_paths ?? []))].sort(),
     workflow_artifacts: [...new Set(runs.flatMap((run) => run.workflow_artifacts ?? []))].sort(),
-    total_tokens: median(runs.map((run) => run.total_tokens)),
-    latency_ms: median(runs.map((run) => run.latency_ms)),
+    metrics,
+    input_tokens: metrics.input_tokens.p50,
+    cached_input_tokens: metrics.cached_input_tokens.p50,
+    output_tokens: metrics.output_tokens.p50,
+    total_tokens: metrics.total_tokens.p50,
+    latency_ms: metrics.latency_ms.p50,
     execution_selection: runs.every((run) => run.execution_selection === first.execution_selection) ? first.execution_selection : 'mixed',
     worker_activity: {
       peak_workers: Math.max(...runs.map((run) => run.worker_activity?.peak_workers ?? 0)),
@@ -401,6 +468,35 @@ function aggregateInstalledProductRuns(runs) {
   };
 }
 
+function pairedInstalledProductRuns(runs, baselineVariant, candidateVariant) {
+  const byReplicate = Map.groupBy(runs, (run) => run.replicate ?? 1);
+  return [...byReplicate.entries()].sort(([left], [right]) => left - right).flatMap(([replicate, replicateRuns]) => {
+    const baseline = replicateRuns.find((run) => run.variant === baselineVariant);
+    const candidate = replicateRuns.find((run) => run.variant === candidateVariant);
+    if (!baseline || !candidate) return [];
+    const baselineMetrics = installedMetricDistributions([baseline]);
+    const candidateMetrics = installedMetricDistributions([candidate]);
+    const baselineQuality = installedProductQuality(baseline).failed.length === 0;
+    const candidateQuality = installedProductQuality(candidate).failed.length === 0;
+    const configurationParity = stableJson(baseline.configuration) === stableJson(candidate.configuration);
+    return [{
+      replicate,
+      baseline_run_id: baseline.run_id ?? null,
+      candidate_run_id: candidate.run_id ?? null,
+      baseline_quality_passed: baselineQuality,
+      candidate_quality_passed: candidateQuality,
+      configuration_parity: configurationParity,
+      quality_passed: baselineQuality && candidateQuality && configurationParity,
+      metric_deltas: installedMetricDeltas(baselineMetrics, candidateMetrics),
+      metric_percent_deltas: installedMetricPercentDeltas(baselineMetrics, candidateMetrics),
+    }];
+  });
+}
+
+function rate(runs, predicate) {
+  return runs.length > 0 ? runs.filter(predicate).length / runs.length : null;
+}
+
 export function compareInstalledProductRuns(runs, options = {}) {
   const baselineVariant = options.baselineVariant ?? 'bare';
   const candidateVariant = options.candidateVariant ?? 'installed';
@@ -408,6 +504,7 @@ export function compareInstalledProductRuns(runs, options = {}) {
   const aggregates = [...Map.groupBy(runs, (run) => `${run.case_id}\u0000${run.variant}`).values()]
     .map(aggregateInstalledProductRuns);
   const byCase = Map.groupBy(aggregates, (run) => run.case_id);
+  const rawByCase = Map.groupBy(runs, (run) => run.case_id);
   const cases = [];
 
   for (const [caseId, caseRuns] of byCase) {
@@ -439,6 +536,8 @@ export function compareInstalledProductRuns(runs, options = {}) {
     const qualityPassed = failedQualityGates.length === 0;
     const comparableTokens = Number.isFinite(baseline.total_tokens) && Number.isFinite(candidate.total_tokens);
     const comparableLatency = Number.isFinite(baseline.latency_ms) && Number.isFinite(candidate.latency_ms);
+    const metricDeltas = installedMetricDeltas(baseline.metrics, candidate.metrics);
+    const metricPercentDeltas = installedMetricPercentDeltas(baseline.metrics, candidate.metrics);
     let resourceFavorable = false;
     let resourceAssessment = 'not-applicable';
 
@@ -469,12 +568,24 @@ export function compareInstalledProductRuns(runs, options = {}) {
       baseline_variant: baselineVariant,
       candidate_variant: candidateVariant,
       configuration_parity: configurationParity,
+      baseline_success_rate: baseline.success_rate,
+      candidate_success_rate: candidate.success_rate,
+      baseline_quality_pass_rate: baseline.quality_pass_rate,
+      candidate_quality_pass_rate: candidate.quality_pass_rate,
       quality_gates: candidateQuality.gates,
       quality_passed: qualityPassed,
       failed_quality_gates: failedQualityGates,
       changed_paths: candidate.changed_paths,
       workflow_artifacts: candidate.workflow_artifacts,
       worker_activity: candidate.worker_activity,
+      metrics: {
+        baseline: baseline.metrics,
+        candidate: candidate.metrics,
+        forced_serial: forcedSerial?.metrics ?? null,
+      },
+      metric_deltas: metricDeltas,
+      metric_percent_deltas: metricPercentDeltas,
+      pairs: pairedInstalledProductRuns(rawByCase.get(caseId) ?? [], baselineVariant, candidateVariant),
       total_tokens_delta: comparableTokens ? candidate.total_tokens - baseline.total_tokens : null,
       total_tokens_percent_delta: percentDelta(baseline.total_tokens, candidate.total_tokens),
       latency_ms_delta: comparableLatency ? candidate.latency_ms - baseline.latency_ms : null,
@@ -489,6 +600,8 @@ export function compareInstalledProductRuns(runs, options = {}) {
   const allQualityPassed = cases.length > 0 && cases.every((item) => item.quality_passed);
   const criteriaPassed = allQualityPassed
     && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
+  const baselineRuns = runs.filter((run) => run.variant === baselineVariant);
+  const candidateRuns = runs.filter((run) => run.variant === candidateVariant);
   return {
     baseline_variant: baselineVariant,
     candidate_variant: candidateVariant,
@@ -501,6 +614,10 @@ export function compareInstalledProductRuns(runs, options = {}) {
       favorable_cases: cases.filter((item) => item.resource_favorable).length,
       configuration_parity_cases: cases.filter((item) => item.configuration_parity).length,
       required_favorable_cases: criteriaCases.length,
+      baseline_success_rate: rate(baselineRuns, (run) => run.outcome === 'passed'),
+      candidate_success_rate: rate(candidateRuns, (run) => run.outcome === 'passed'),
+      baseline_quality_pass_rate: rate(baselineRuns, (run) => installedProductQuality(run).failed.length === 0),
+      candidate_quality_pass_rate: rate(candidateRuns, (run) => installedProductQuality(run).failed.length === 0),
       criteria_passed: criteriaPassed,
     },
   };
@@ -513,24 +630,78 @@ function markdownCell(value) {
   return String(value ?? 'n/a').replaceAll('|', '\\|').replaceAll('\n', '<br>');
 }
 
-export function renderInstalledProductMarkdown(comparison) {
+const installedMetricLabels = Object.freeze({
+  input_tokens: 'Input tokens',
+  cached_input_tokens: 'Cached input tokens',
+  output_tokens: 'Output tokens',
+  total_tokens: 'Total tokens',
+  latency_ms: 'Latency (ms)',
+});
+
+function formatDistribution(distribution) {
+  if (!distribution || distribution.available_count === 0) return 'n/a';
+  return `${formatDelta(distribution.p50)} / ${formatDelta(distribution.p95)} (${distribution.available_count}/${distribution.sample_count})`;
+}
+
+function renderVersionProvenance(lines, provenance) {
+  if (!provenance?.versions) return;
+  lines.push('## Version Provenance', '', '| Role | Requested ref | Commit | Package version | Package SHA-256 |', '|---|---|---|---|---|');
+  for (const role of ['baseline', 'candidate']) {
+    const version = provenance.versions[role];
+    lines.push(`| ${role} | ${markdownCell(version?.requested_ref)} | ${markdownCell(version?.commit)} | ${markdownCell(version?.package_version)} | ${markdownCell(version?.package_sha256)} |`);
+  }
+  lines.push('');
+}
+
+export function renderInstalledProductMarkdown(comparison, options = {}) {
   const lines = [
-    '# Installed Product Baseline Evaluation',
+    options.title ?? '# Installed Product Baseline Evaluation',
     '',
-    `- Bare baseline: \`${comparison.baseline_variant}\``,
-    `- Installed candidate: \`${comparison.candidate_variant}\``,
+    `- Baseline: \`${comparison.baseline_variant}\``,
+    `- Candidate: \`${comparison.candidate_variant}\``,
     `- Compared cases: ${comparison.overall.compared_cases}`,
     `- Quality passed: ${comparison.overall.quality_passed_cases}`,
+    `- Baseline success rate: ${formatPercent(comparison.overall.baseline_success_rate === null ? null : comparison.overall.baseline_success_rate * 100)}`,
+    `- Candidate success rate: ${formatPercent(comparison.overall.candidate_success_rate === null ? null : comparison.overall.candidate_success_rate * 100)}`,
+    `- Baseline quality pass rate: ${formatPercent(comparison.overall.baseline_quality_pass_rate === null ? null : comparison.overall.baseline_quality_pass_rate * 100)}`,
+    `- Candidate quality pass rate: ${formatPercent(comparison.overall.candidate_quality_pass_rate === null ? null : comparison.overall.candidate_quality_pass_rate * 100)}`,
     `- Favorable after quality gates: ${comparison.overall.favorable_cases}`,
     `- Diagnostic criteria: ${comparison.overall.criteria_passed ? 'pass' : 'fail'}`,
     '',
+  ];
+  renderVersionProvenance(lines, options.provenance);
+  lines.push(
     '## Case Comparisons',
     '',
-    '| Case | Kind | Configuration parity | Quality | Tokens delta | Latency delta | Resource favorable |',
-    '|---|---|---|---|---:|---:|---|',
-  ];
+    '| Case | Kind | Configuration parity | A quality | B quality | Quality gates | Tokens delta | Latency delta | Resource favorable |',
+    '|---|---|---|---:|---:|---|---:|---:|---|',
+  );
   for (const item of comparison.cases) {
-    lines.push(`| ${markdownCell(item.case_id)} | ${markdownCell(item.case_kind)} | ${item.configuration_parity ? 'pass' : 'fail'} | ${item.quality_passed ? 'pass' : `fail: ${markdownCell(item.failed_quality_gates)}`} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.resource_favorable ? 'yes' : 'no'} |`);
+    lines.push(`| ${markdownCell(item.case_id)} | ${markdownCell(item.case_kind)} | ${item.configuration_parity ? 'pass' : 'fail'} | ${formatPercent(item.baseline_quality_pass_rate * 100)} | ${formatPercent(item.candidate_quality_pass_rate * 100)} | ${item.quality_passed ? 'pass' : `fail: ${markdownCell(item.failed_quality_gates)}`} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.resource_favorable ? 'yes' : 'no'} |`);
+  }
+  lines.push(
+    '',
+    '## Metric Distributions',
+    '',
+    '| Case | Metric | Baseline p50 / p95 | Candidate p50 / p95 | Candidate p50 delta |',
+    '|---|---|---:|---:|---:|',
+  );
+  for (const item of comparison.cases) {
+    for (const field of installedMetricFields) {
+      lines.push(`| ${markdownCell(item.case_id)} | ${installedMetricLabels[field]} | ${formatDistribution(item.metrics?.baseline?.[field])} | ${formatDistribution(item.metrics?.candidate?.[field])} | ${formatDelta(item.metric_deltas?.[field])} (${formatPercent(item.metric_percent_deltas?.[field] ?? null)}) |`);
+    }
+  }
+  lines.push(
+    '',
+    '## Paired Samples',
+    '',
+    '| Case | Replicate | Quality | Input delta | Cached input delta | Output delta | Total delta | Latency delta |',
+    '|---|---:|---|---:|---:|---:|---:|---:|',
+  );
+  for (const item of comparison.cases) {
+    for (const pair of item.pairs ?? []) {
+      lines.push(`| ${markdownCell(item.case_id)} | ${pair.replicate} | ${pair.quality_passed ? 'pass' : 'fail'} | ${formatDelta(pair.metric_deltas.input_tokens)} | ${formatDelta(pair.metric_deltas.cached_input_tokens)} | ${formatDelta(pair.metric_deltas.output_tokens)} | ${formatDelta(pair.metric_deltas.total_tokens)} | ${formatDelta(pair.metric_deltas.latency_ms, ' ms')} |`);
+    }
   }
   lines.push(
     '',
@@ -554,6 +725,13 @@ export function renderInstalledProductMarkdown(comparison) {
     '',
   );
   return lines.join('\n');
+}
+
+export function renderCrossVersionProductMarkdown(report) {
+  return renderInstalledProductMarkdown(report.comparison, {
+    title: '# Cross-Version Product Benchmark',
+    provenance: report.provenance,
+  });
 }
 
 function formatPercent(value) {

@@ -4,6 +4,11 @@ This opt-in maintainer diagnostic compares a bare prompt with the actually
 installed loopx candidate. It is not part of `npm test`, an implementation
 completion gate, or an automated release decision.
 
+It can also compare two immutable loopx Git refs. In that form, each ref is
+resolved to a commit, packed from a detached worktree, unpacked without running
+package lifecycle scripts, and installed into a fresh host home by the installer
+inside that package.
+
 ## Variants
 
 - `bare` starts with an empty temporary host home.
@@ -47,6 +52,26 @@ Two replicates alternate baseline-first and candidate-first order. More samples
 are needed before interpreting tail latency; live variability is evidence for
 maintainer judgment, not a stable SLA.
 
+To compare two loopx versions, provide both refs:
+
+```bash
+npm run eval:darwin-simple -- \
+  --live \
+  --baseline-ref v0.5.2 \
+  --candidate-ref main \
+  --model <exact-model-id> \
+  --effort high \
+  --replicates 10 \
+  --order crossover
+```
+
+The refs are required as a pair. Cross-version output uses
+`.loopx/evals/version-compare/<A>-vs-<B>/` and adds `matrix.json`. The report
+records resolved commits, package identity and hashes, evaluation manifest and fixture identity,
+shared model and adapter configuration, every raw run, p50/p95 distributions,
+and per-replicate deltas. Generated archives, homes, traces, and reports remain
+temporary or ignored.
+
 ## Interpretation
 
 Spec and memory outcomes are derived from the fixture's before/after files, not
@@ -59,3 +84,9 @@ Direct work is close to baseline when median tokens and latency are each within
 worker limit, and beat the installed forced-serial median. Strongly coupled work
 must remain serial. A cheaper or faster run with an incorrect outcome, unsafe
 mutation, stale spec, or noisy memory is a failed candidate.
+
+Cross-version reports keep success, quality, execution selection, concurrency,
+input tokens, cached input tokens, output tokens, total tokens, and latency as
+separate evidence. They do not produce a weighted product score. A resource
+delta can be inspected for a failed pair, but it is never reported as a favorable
+improvement unless every applicable quality gate passes.
