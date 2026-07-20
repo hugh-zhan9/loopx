@@ -68,7 +68,7 @@ function runCodex(args, prompt, options) {
   });
 }
 
-function workerIntervals(events) {
+function workerIntervals(events, workspaces = new Map()) {
   const active = new Map();
   const intervals = [];
   for (const event of events) {
@@ -79,6 +79,7 @@ function workerIntervals(events) {
         id: event.actor_id,
         started_at_ms: active.get(event.actor_id),
         ended_at_ms: event.at_ms,
+        workspace: workspaces.get(event.actor_id) ?? null,
       });
       active.delete(event.actor_id);
     }
@@ -86,7 +87,7 @@ function workerIntervals(events) {
   return intervals;
 }
 
-function executionMode(testCase, summary) {
+function executionSelection(testCase, summary) {
   if (testCase.kind === 'governed-escalation') return 'blocked';
   if (testCase.kind === 'strongly-coupled') return summary.peak_active_agents <= 1 ? 'serial' : 'concurrent';
   if (testCase.kind === 'independent') return summary.peak_active_agents >= 2 ? 'concurrent' : 'serial';
@@ -133,10 +134,18 @@ function createCodexAdapter(outDir) {
       }
     })[0] ?? null;
     let events = [];
+    const workerWorkspaces = new Map();
     if (threadId) {
       const sessionsRoot = join(request.home, '.codex', 'sessions');
       const rollouts = await findCodexRollouts(sessionsRoot, threadId).catch(() => []);
       if (rollouts.length > 0) {
+        for (const rollout of rollouts) {
+          const metadata = rollout.records.find((record) => record.type === 'session_meta')?.payload;
+          const actorId = metadata?.session_id ?? metadata?.id;
+          if (actorId && actorId !== threadId && metadata?.cwd) {
+            workerWorkspaces.set(actorId, metadata.cwd);
+          }
+        }
         events = normalizeCodexRollouts(rollouts, {
           rootThreadId: threadId,
           runId: `${request.case.id}-${sequence}`,
@@ -154,20 +163,15 @@ function createCodexAdapter(outDir) {
       total_tokens: null,
     };
     const response = await readFile(messagePath, 'utf8').catch(() => '');
-    const expectedSpec = request.case.expected?.spec === 'updated'
-      ? [{ status: 'updated', path: 'docs/loopx/specs/behavior.md' }]
-      : [];
     return {
       outcome: result.code === 0 && !result.aborted ? 'passed' : 'failed',
       verification: { passed: result.code === 0 && !result.aborted, commands: ['codex exec completed'] },
       response,
-      workers: workerIntervals(events),
+      workers: workerIntervals(events, workerWorkspaces),
       integration_order: [],
-      execution_mode: executionMode(request.case, summary),
+      execution_selection: executionSelection(request.case, summary),
       tokens: { input: summary.input_tokens, output: summary.output_tokens, total: summary.total_tokens },
       latency_ms: Number.isFinite(summary.latency_ms) ? summary.latency_ms : latencyMs,
-      spec: { passed: true, outcomes: expectedSpec },
-      memory: { passed: true, outcomes: [] },
     };
   };
 }
@@ -212,11 +216,13 @@ if (process.argv.includes('--help')) {
       writeFile(join(outDir, 'report.json'), `${JSON.stringify(result, null, 2)}\n`),
       writeFile(join(outDir, 'report.md'), renderInstalledProductMarkdown(result.comparison)),
     ]);
+    const ok = result.comparison.overall.criteria_passed;
     console.log(JSON.stringify({
-      ok: result.comparison.overall.quality_passed_cases === result.comparison.overall.compared_cases,
+      ok,
       diagnostic_only: true,
       out: outDir,
       overall: result.comparison.overall,
     }, null, 2));
+    if (!ok) process.exitCode = 1;
   }
 }

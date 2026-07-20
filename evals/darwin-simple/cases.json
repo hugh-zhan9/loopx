@@ -26,7 +26,7 @@
       "expected": {
         "changed_paths": ["src/message.mjs"],
         "file_contains": { "src/message.mjs": "hello world" },
-        "execution_mode": "direct",
+        "execution_selection": "direct",
         "workflow_artifacts": "none",
         "spec": "consistent",
         "memory": "none"
@@ -54,7 +54,7 @@
       "variants": ["bare", "installed"],
       "expected": {
         "changed_paths": ["src/message.mjs"],
-        "execution_mode": "serial",
+        "execution_selection": "serial",
         "max_peak_workers": 1,
         "workflow_artifacts": "none",
         "spec": "consistent",
@@ -69,7 +69,7 @@
       "variants": ["bare", "installed"],
       "expected": {
         "changed_paths": [],
-        "execution_mode": "blocked",
+        "execution_selection": "blocked",
         "response_pattern": "compatibility decision",
         "workflow_artifacts": "none",
         "spec": "consistent",
@@ -85,6 +85,7 @@
       "expected": {
         "changed_paths": ["docs/loopx/specs/behavior.md", "src/message.mjs"],
         "file_contains": { "docs/loopx/specs/behavior.md": "goodbye", "src/message.mjs": "goodbye" },
+        "spec_paths": ["docs/loopx/specs/behavior.md"],
         "workflow_artifacts": "none",
         "spec": "updated",
         "memory": "none"
@@ -101,6 +102,38 @@
         "workflow_artifacts": "none",
         "spec": "consistent",
         "memory": "none"
+      }
+    },
+    {
+      "id": "memory-qualifying-write",
+      "kind": "memory-qualifying",
+      "fixture": "repository",
+      "task": "Update the message after encountering the non-obvious generated-message ordering pitfall, and preserve that reusable pitfall exactly once.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": [".loopx/memory/MEMORY.md", "src/message.mjs"],
+        "file_contains": { "src/message.mjs": "hello remembered" },
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "written",
+        "memory_path": ".loopx/memory/MEMORY.md",
+        "memory_contains": "Generated message files require the source message to change first."
+      }
+    },
+    {
+      "id": "memory-deduplication",
+      "kind": "memory-deduplication",
+      "fixture": "memory-repository",
+      "task": "Update the message after encountering the already documented generated-message ordering pitfall, without duplicating that memory.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": ["src/message.mjs"],
+        "file_contains": { "src/message.mjs": "hello deduplicated" },
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "deduplicated",
+        "memory_path": ".loopx/memory/MEMORY.md",
+        "memory_contains": "Generated message files require the source message to change first."
       }
     }
   ]

@@ -20,7 +20,8 @@ a resolver, experimental instructions, or a candidate-only prompt.
 
 `cases.json` covers direct work, independent adaptive concurrency, strongly
 coupled serial selection, governed compatibility escalation, spec consistency,
-and quiet memory precision. Reports retain outcome, verification, changed paths,
+and memory precision across quiet, qualifying-write, and deduplication cases.
+Reports retain outcome, verification, changed paths,
 workflow artifacts, worker intervals/overlap/peak/order, tokens, latency, spec
 outcomes, memory outcomes, installation provenance, and cleanup evidence.
 
@@ -48,7 +49,8 @@ maintainer judgment, not a stable SLA.
 
 ## Interpretation
 
-Quality is evaluated before resources. Outcome, fresh verification, path safety,
+Spec and memory outcomes are derived from the fixture's before/after files, not
+from adapter claims. Quality is evaluated before resources. Outcome, fresh verification, path safety,
 spec consistency, and memory precision must all pass before any token or latency
 result can be favorable. Missing metrics are unavailable evidence, not zero.
 

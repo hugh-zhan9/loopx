@@ -32,16 +32,20 @@ test('evaluates fresh bare and installed product fixtures with deterministic age
   assert.equal(new Set(requests.map((request) => request.workspace)).size, requests.length, 'every variant gets a fresh fixture');
   assert.equal(requests.every((request) => request.prompt === manifest.cases.find((item) => item.id === request.case_id).task), true);
   assert.equal(requests.every((request) => request.has_resolver === false), true, 'candidate receives no resolver injection');
+  assert.equal(requests.every((request) => request.loopx_env_keys.length === 0), true, 'installer environment is not exposed to agents');
   assert.equal(requests.filter((request) => request.installed).length, 4);
   assert.equal(requests.filter((request) => !request.installed).length, 3);
 
   const concurrent = result.runs.find((run) => run.case_id === 'independent-modules' && run.variant === 'installed');
-  assert.equal(concurrent.execution_mode, 'concurrent');
+  assert.equal(concurrent.execution_selection, 'concurrent');
   assert.equal(concurrent.worker_activity.peak_workers, 2);
   assert.ok(concurrent.worker_activity.overlap_ms > 0);
   assert.deepEqual(concurrent.worker_activity.integration_order, ['alpha', 'beta']);
   assert.equal(concurrent.worker_activity.bounded, true);
+  assert.equal(concurrent.worker_activity.isolated, true);
+  assert.deepEqual(concurrent.temporary_worktrees, []);
   assert.equal(result.comparison.cases.find((item) => item.case_id === 'independent-modules').resource_favorable, true);
+  assert.equal(result.comparison.overall.criteria_passed, true);
 
   const direct = result.runs.find((run) => run.case_id === 'direct-small-fix' && run.variant === 'installed');
   assert.deepEqual(direct.changed_paths, ['src/message.mjs']);
@@ -65,13 +69,19 @@ test('reports governed escalation, synchronized specs, and quiet memory outcomes
     projectRoot: repoRoot,
     fixtureRoot: join(repoRoot, 'test', 'fixtures', 'darwin-simple'),
     runAgent: agent.run,
-    selectedCaseIds: ['governed-compatibility-escalation', 'spec-consistency', 'memory-precision'],
+    selectedCaseIds: [
+      'governed-compatibility-escalation',
+      'spec-consistency',
+      'memory-precision',
+      'memory-qualifying-write',
+      'memory-deduplication',
+    ],
     replicates: 1,
   });
 
-  assert.equal(result.comparison.overall.quality_passed_cases, 3);
+  assert.equal(result.comparison.overall.quality_passed_cases, 5);
   const escalation = result.runs.find((run) => run.case_id === 'governed-compatibility-escalation' && run.variant === 'installed');
-  assert.equal(escalation.execution_mode, 'blocked');
+  assert.equal(escalation.execution_selection, 'blocked');
   assert.deepEqual(escalation.changed_paths, []);
   assert.match(escalation.response, /compatibility decision/i);
 
@@ -83,6 +93,14 @@ test('reports governed escalation, synchronized specs, and quiet memory outcomes
   assert.equal(memory.memory.passed, true);
   assert.deepEqual(memory.memory.outcomes, []);
   assert.deepEqual(memory.workflow_artifacts, []);
+
+  const qualifying = result.runs.find((run) => run.case_id === 'memory-qualifying-write' && run.variant === 'installed');
+  assert.equal(qualifying.memory.passed, true);
+  assert.deepEqual(qualifying.memory.outcomes, [{ status: 'written', path: '.loopx/memory/MEMORY.md' }]);
+
+  const deduplicated = result.runs.find((run) => run.case_id === 'memory-deduplication' && run.variant === 'installed');
+  assert.equal(deduplicated.memory.passed, true);
+  assert.deepEqual(deduplicated.memory.outcomes, [{ status: 'deduplicated', path: '.loopx/memory/MEMORY.md' }]);
 });
 
 test('exposes the live evaluator as an opt-in packaged diagnostic outside npm test', async () => {

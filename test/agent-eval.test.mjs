@@ -302,6 +302,7 @@ describe('agent eval metrics', () => {
     assert.equal(comparison.cases[0].resource_favorable, false);
     assert.deepEqual(comparison.cases[0].failed_quality_gates, ['spec_consistency']);
     assert.equal(comparison.overall.favorable_cases, 0);
+    assert.equal(comparison.overall.criteria_passed, false);
 
     const unsafeBaseline = compareInstalledProductRuns([
       { ...baseline, safety: { passed: false, violations: ['source_mutated'] } },

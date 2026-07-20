@@ -389,11 +389,13 @@ function aggregateInstalledProductRuns(runs) {
     workflow_artifacts: [...new Set(runs.flatMap((run) => run.workflow_artifacts ?? []))].sort(),
     total_tokens: median(runs.map((run) => run.total_tokens)),
     latency_ms: median(runs.map((run) => run.latency_ms)),
-    execution_mode: runs.every((run) => run.execution_mode === first.execution_mode) ? first.execution_mode : 'mixed',
+    execution_selection: runs.every((run) => run.execution_selection === first.execution_selection) ? first.execution_selection : 'mixed',
     worker_activity: {
       peak_workers: Math.max(...runs.map((run) => run.worker_activity?.peak_workers ?? 0)),
       overlap_ms: median(runs.map((run) => run.worker_activity?.overlap_ms)),
       all_overlapped: runs.every((run) => (run.worker_activity?.overlap_ms ?? 0) > 0),
+      bounded: runs.every((run) => run.worker_activity?.bounded !== false),
+      isolated: runs.every((run) => run.worker_activity?.isolated !== false),
       integration_order: first.worker_activity?.integration_order ?? [],
     },
   };
@@ -457,7 +459,7 @@ export function compareInstalledProductRuns(runs, options = {}) {
     } else if (candidate.case_kind === 'strongly-coupled') {
       resourceAssessment = 'selection';
       resourceFavorable = qualityPassed
-        && candidate.execution_mode === 'serial'
+        && candidate.execution_selection === 'serial'
         && candidate.worker_activity.peak_workers <= 1;
     }
 
@@ -483,6 +485,10 @@ export function compareInstalledProductRuns(runs, options = {}) {
     });
   }
 
+  const criteriaCases = cases.filter((item) => ['direct', 'independent', 'strongly-coupled'].includes(item.case_kind));
+  const allQualityPassed = cases.length > 0 && cases.every((item) => item.quality_passed);
+  const criteriaPassed = allQualityPassed
+    && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
   return {
     baseline_variant: baselineVariant,
     candidate_variant: candidateVariant,
@@ -494,6 +500,8 @@ export function compareInstalledProductRuns(runs, options = {}) {
       quality_passed_cases: cases.filter((item) => item.quality_passed).length,
       favorable_cases: cases.filter((item) => item.resource_favorable).length,
       configuration_parity_cases: cases.filter((item) => item.configuration_parity).length,
+      required_favorable_cases: criteriaCases.length,
+      criteria_passed: criteriaPassed,
     },
   };
 }
@@ -514,6 +522,7 @@ export function renderInstalledProductMarkdown(comparison) {
     `- Compared cases: ${comparison.overall.compared_cases}`,
     `- Quality passed: ${comparison.overall.quality_passed_cases}`,
     `- Favorable after quality gates: ${comparison.overall.favorable_cases}`,
+    `- Diagnostic criteria: ${comparison.overall.criteria_passed ? 'pass' : 'fail'}`,
     '',
     '## Case Comparisons',
     '',

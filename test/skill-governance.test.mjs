@@ -321,6 +321,7 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('evals/darwin-simple/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/memory-repository/'), true);
     assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
     assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');

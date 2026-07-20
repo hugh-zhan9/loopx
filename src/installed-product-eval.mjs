@@ -78,18 +78,21 @@ async function changedPaths(repo) {
   return [...new Set(`${tracked}${untracked}`.split('\0').filter(Boolean))].sort();
 }
 
-function workerActivity(workers, limit, integrationOrder) {
+function workerActivity(workers, limit, integrationOrder, repo) {
   const intervals = (workers ?? [])
-    .filter((worker) => Number.isFinite(worker.started_at_ms) && Number.isFinite(worker.ended_at_ms))
+    .filter((worker) => Number.isFinite(worker.started_at_ms)
+      && Number.isFinite(worker.ended_at_ms)
+      && worker.ended_at_ms > worker.started_at_ms)
     .map((worker) => ({
       id: worker.id,
       started_at_ms: worker.started_at_ms,
       ended_at_ms: worker.ended_at_ms,
+      workspace: worker.workspace ?? null,
     }));
   const events = intervals.flatMap((worker) => [
     { at: worker.started_at_ms, delta: 1 },
     { at: worker.ended_at_ms, delta: -1 },
-  ]).sort((left, right) => left.at - right.at || right.delta - left.delta);
+  ]).sort((left, right) => left.at - right.at || left.delta - right.delta);
   let active = 0;
   let peak = 0;
   let overlap = 0;
@@ -100,27 +103,107 @@ function workerActivity(workers, limit, integrationOrder) {
     peak = Math.max(peak, active);
     previous = event.at;
   }
+  const workerRoots = intervals.map((worker) => worker.workspace).filter(Boolean).map((path) => resolve(path));
+  const isolated = overlap === 0 || (
+    workerRoots.length === intervals.length
+    && new Set(workerRoots).size === workerRoots.length
+    && workerRoots.every((path) => path !== resolve(repo))
+  );
   return {
     workers: intervals,
     peak_workers: peak,
     overlap_ms: overlap,
     bounded: peak <= limit,
+    isolated,
     integration_order: integrationOrder ?? [],
   };
 }
 
 async function collectWorkflowArtifacts(repo) {
-  const roots = ['.loopx/intake', '.loopx/workflows', '.loopx/runs', '.loopx/evals', '.worktrees'];
-  const artifacts = [];
-  for (const root of roots) {
-    artifacts.push(...(await listFiles(repo, join(repo, root))).map((path) => `${root}/${path}`));
-  }
-  return artifacts.sort();
+  const loopx = (await listFiles(join(repo, '.loopx')))
+    .filter((path) => path !== 'memory' && !path.startsWith('memory/'))
+    .map((path) => `.loopx/${path}`);
+  const worktrees = (await listFiles(join(repo, '.worktrees')))
+    .map((path) => `.worktrees/${path}`);
+  return [...loopx, ...worktrees].sort();
 }
 
-async function collectMemoryOutcomes(repo) {
-  const paths = await listFiles(repo, join(repo, '.loopx', 'memory'));
-  return paths.map((path) => ({ status: 'written', path: `.loopx/memory/${path}` }));
+async function collectMemoryState(repo) {
+  const memoryRoot = join(repo, '.loopx', 'memory');
+  const paths = await listFiles(memoryRoot);
+  return new Map(await Promise.all(paths.map(async (path) => [
+    `.loopx/memory/${path}`,
+    await readFile(join(memoryRoot, path), 'utf8'),
+  ])));
+}
+
+function changedMemoryPaths(before, after) {
+  return [...new Set([...before.keys(), ...after.keys()])]
+    .filter((path) => before.get(path) !== after.get(path))
+    .sort();
+}
+
+function occurrences(content, fragment) {
+  if (!fragment) return 0;
+  return content.split(fragment).length - 1;
+}
+
+function evaluateMemory(expected, before, after) {
+  const changed = changedMemoryPaths(before, after);
+  if (expected.memory === 'none') {
+    return {
+      passed: changed.length === 0,
+      outcomes: changed.map((path) => ({ status: 'unexpected', path })),
+      violations: changed.length === 0 ? [] : ['unexpected_memory'],
+    };
+  }
+  const path = expected.memory_path;
+  const content = after.get(path) ?? '';
+  if (expected.memory === 'written') {
+    const passed = changed.length === 1
+      && changed[0] === path
+      && occurrences(content, expected.memory_contains) === 1;
+    return {
+      passed,
+      outcomes: passed ? [{ status: 'written', path }] : [],
+      violations: passed ? [] : ['memory_write_imprecise'],
+    };
+  }
+  if (expected.memory === 'deduplicated') {
+    const passed = changed.length === 0 && occurrences(content, expected.memory_contains) === 1;
+    return {
+      passed,
+      outcomes: passed ? [{ status: 'deduplicated', path }] : [],
+      violations: passed ? [] : ['memory_not_deduplicated'],
+    };
+  }
+  return { passed: false, outcomes: [], violations: ['memory_expectation_invalid'] };
+}
+
+function evaluateSpec(expected, paths) {
+  if (expected.spec === 'updated') {
+    const outcomes = (expected.spec_paths ?? []).map((path) => ({
+      status: paths.includes(path) ? 'updated' : 'stale',
+      path,
+    }));
+    const passed = outcomes.length > 0 && outcomes.every((outcome) => outcome.status === 'updated');
+    return { passed, outcomes, violations: passed ? [] : ['spec_not_updated'] };
+  }
+  if (expected.spec === 'consistent') {
+    return { passed: true, outcomes: [], violations: [] };
+  }
+  return { passed: false, outcomes: [], violations: ['spec_expectation_invalid'] };
+}
+
+async function temporaryWorktrees(repo) {
+  const [output, primary] = await Promise.all([
+    git(repo, ['worktree', 'list', '--porcelain']),
+    git(repo, ['rev-parse', '--show-toplevel']),
+  ]);
+  return output.split(/\r?\n/)
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => line.slice('worktree '.length))
+    .filter((path) => resolve(path) !== resolve(primary.trim()));
 }
 
 async function inspectExpectedFiles(repo, expected = {}) {
@@ -138,7 +221,7 @@ function sameStrings(left, right) {
   return JSON.stringify([...(left ?? [])].sort()) === JSON.stringify([...(right ?? [])].sort());
 }
 
-function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, memoryOutcomes) {
+function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, retainedWorktrees) {
   const expected = testCase.expected ?? {};
   const violations = [];
   if (!sameStrings(paths, expected.changed_paths ?? [])) {
@@ -147,14 +230,17 @@ function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, me
   if (expected.workflow_artifacts === 'none' && artifacts.length > 0) {
     violations.push('workflow_artifacts_present');
   }
-  if (expected.execution_mode && raw.execution_mode !== expected.execution_mode) {
-    violations.push('execution_mode_mismatch');
+  if (expected.execution_selection && raw.execution_selection !== expected.execution_selection) {
+    violations.push('execution_selection_mismatch');
   }
   if (Number.isFinite(expected.max_peak_workers) && activity.peak_workers > expected.max_peak_workers) {
     violations.push('peak_workers_exceeded');
   }
   if (!activity.bounded) {
     violations.push('worker_limit_exceeded');
+  }
+  if (!activity.isolated) {
+    violations.push('worker_isolation_failed');
   }
   if (expected.integration_order
       && activity.integration_order.length > 0
@@ -164,13 +250,39 @@ function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, me
   if (expected.response_pattern && !new RegExp(expected.response_pattern, 'i').test(raw.response ?? '')) {
     violations.push('response_mismatch');
   }
-  if (expected.memory === 'none' && memoryOutcomes.length > 0) {
-    violations.push('unexpected_memory');
-  }
-  if (expected.spec === 'updated' && !(raw.spec?.outcomes ?? []).some((outcome) => outcome.status === 'updated')) {
-    violations.push('spec_not_updated');
+  if (retainedWorktrees.length > 0) {
+    violations.push('temporary_worktrees_present');
   }
   return violations;
+}
+
+async function evaluateRepositoryEvidence({ testCase, raw, repo, memoryBefore, workerLimit }) {
+  const [paths, artifacts, memoryAfter, retainedWorktrees] = await Promise.all([
+    changedPaths(repo),
+    collectWorkflowArtifacts(repo),
+    collectMemoryState(repo),
+    temporaryWorktrees(repo),
+  ]);
+  const activity = workerActivity(raw.workers, workerLimit, raw.integration_order, repo);
+  const spec = evaluateSpec(testCase.expected ?? {}, paths);
+  const memory = evaluateMemory(testCase.expected ?? {}, memoryBefore, memoryAfter);
+  const fileViolations = await inspectExpectedFiles(repo, testCase.expected);
+  const staleSpecPaths = (testCase.expected?.spec_paths ?? [])
+    .filter((path) => fileViolations.includes(`expected_content_missing:${path}`));
+  if (staleSpecPaths.length > 0) {
+    spec.passed = false;
+    spec.outcomes = spec.outcomes.map((outcome) => (
+      staleSpecPaths.includes(outcome.path) ? { ...outcome, status: 'stale' } : outcome
+    ));
+    spec.violations.push('spec_content_stale');
+  }
+  const violations = [
+    ...expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, retainedWorktrees),
+    ...fileViolations,
+    ...spec.violations,
+    ...memory.violations,
+  ];
+  return { paths, artifacts, activity, retainedWorktrees, spec, memory, violations };
 }
 
 function orderedVariants(testCase, manifest, replicate, order) {
@@ -258,6 +370,7 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
   };
   let raw;
   let error = null;
+  const memoryBefore = await collectMemoryState(fixture.repo);
   try {
     if (variantConfig.install_candidate === true) {
       const installed = await installSkillsForTargets(installEnv, { targets: ['codex'] });
@@ -283,11 +396,9 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     raw = {
       outcome: 'failed',
       verification: { passed: false, commands: [] },
-      execution_mode: 'failed',
+      execution_selection: 'failed',
       workers: [],
       integration_order: [],
-      spec: { passed: false, outcomes: [] },
-      memory: { passed: false, outcomes: [] },
     };
   }
 
@@ -297,15 +408,16 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     shared.timeout_ms,
   );
 
-  const paths = await changedPaths(fixture.repo);
-  const artifacts = await collectWorkflowArtifacts(fixture.repo);
-  const memoryOutcomes = await collectMemoryOutcomes(fixture.repo);
-  const activity = workerActivity(raw.workers, shared.worker_limit, raw.integration_order);
+  const evidence = await evaluateRepositoryEvidence({
+    testCase,
+    raw,
+    repo: fixture.repo,
+    memoryBefore,
+    workerLimit: shared.worker_limit,
+  });
+  const { paths, artifacts, activity, retainedWorktrees, spec, memory } = evidence;
   const sourceFixtureUnchanged = await directoryHash(fixture.source) === fixture.sourceHash;
-  const violations = [
-    ...expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, memoryOutcomes),
-    ...await inspectExpectedFiles(fixture.repo, testCase.expected),
-  ];
+  const violations = [...evidence.violations];
   if (variantConfig.install_candidate === true && !installation.actual_installed_surface) {
     violations.push('candidate_install_missing');
   }
@@ -325,14 +437,6 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
       : raw.verification?.commands ?? [],
   };
   if (externalVerification?.error) verification.error = externalVerification.error;
-  const spec = {
-    passed: raw.spec?.passed === true && !violations.some((item) => item.startsWith('spec_')),
-    outcomes: raw.spec?.outcomes ?? [],
-  };
-  const memory = {
-    passed: raw.memory?.passed === true && !violations.includes('unexpected_memory'),
-    outcomes: memoryOutcomes.length > 0 ? memoryOutcomes : raw.memory?.outcomes ?? [],
-  };
   const safety = { passed: violations.length === 0, violations };
   const run = {
     run_id: `${testCase.id}-${variant}-${replicate + 1}`,
@@ -348,13 +452,14 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     changed_paths: paths,
     workflow_artifacts: artifacts,
     worker_activity: activity,
-    execution_mode: raw.execution_mode,
+    execution_selection: raw.execution_selection,
     total_tokens: Number.isFinite(raw.tokens?.total) ? raw.tokens.total : null,
     tokens: raw.tokens ?? { input: null, output: null, total: null },
     latency_ms: Number.isFinite(raw.latency_ms) ? raw.latency_ms : null,
     spec,
     memory,
     safety,
+    temporary_worktrees: retainedWorktrees,
     isolation: { source_fixture_unchanged: sourceFixtureUnchanged },
     response: raw.response ?? '',
     error,

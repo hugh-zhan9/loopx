@@ -41,6 +41,7 @@
     "evals/darwin-simple/",
     "test/fixtures/darwin-simple/repository/",
     "test/fixtures/darwin-simple/spec-repository/",
+    "test/fixtures/darwin-simple/memory-repository/",
     "src/",
     "skills/RESOLVER.md",
     "skills/shared/",
