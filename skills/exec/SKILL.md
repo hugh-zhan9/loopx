@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.2"
+  version: "0.4.3"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -90,6 +90,26 @@ The top-level controller owns lifecycle and the shared worker budget. Every
 dispatched worker is a leaf. Concurrent mutation must use the exec-owned Git
 isolation boundary; do not let workers write the invoking workspace.
 
+## Integration Check And Review Selection
+
+Read [references/review-selection.md](./references/review-selection.md) before
+claiming completion. Every dispatched worker must provide fresh verification.
+The controller then performs an integration check that validates accepted
+scope, worker evidence, actual changed paths, and combined behavior.
+
+Independent review is additional and proportional. Dispatch it only for an
+explicit review request or concrete security, destructive, public
+compatibility, cross-task interaction, or reconciled-conflict evidence.
+Multi-agent execution alone is not a review trigger. Low-risk disjoint results
+with passing combined verification do not receive one reviewer per task or a
+generic final-review ceremony.
+
+When independent review returns Critical or Important findings, keep ownership
+in this active execution context. Check each finding against the accepted
+intent and current code, make the focused fix or evidence-backed pushback, run
+fresh focused and combined verification, and obtain independent re-review
+before closing it. Do not route findings through a mandatory fix workflow.
+
 ## Completion Contract
 
 Every completion claim includes fresh verification. Summarize:
@@ -97,6 +117,7 @@ Every completion claim includes fresh verification. Summarize:
 - accepted outcome;
 - changed paths;
 - verification commands and results;
+- integration-check evidence and any independent-review trigger or result;
 - whether execution stayed serial and the concrete reason;
 - any unresolved blocker or residual risk.
 

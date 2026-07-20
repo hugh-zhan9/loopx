@@ -4,11 +4,11 @@
 
 **Blocked by:** 04 — Run adaptive concurrency in a clean workspace.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Every worker verifies its outcome, and the controller validates scope, evidence, and combined behavior.
-- [ ] Low-risk disjoint worker results with passing combined verification do not dispatch one reviewer per task.
-- [ ] Explicit review, security-sensitive or destructive behavior, public compatibility changes, cross-task interaction, and reconciled conflicts require independent review.
-- [ ] Multi-agent execution by itself is not an independent-review trigger.
-- [ ] Critical and important findings are fixed and reverified in the active execution context.
-- [ ] Old final-review and review-fix names preserve explicit intent by forwarding to the canonical review behavior without requiring legacy report artifacts.
+- [x] Every worker verifies its outcome, and the controller validates scope, evidence, and combined behavior.
+- [x] Low-risk disjoint worker results with passing combined verification do not dispatch one reviewer per task.
+- [x] Explicit review, security-sensitive or destructive behavior, public compatibility changes, cross-task interaction, and reconciled conflicts require independent review.
+- [x] Multi-agent execution by itself is not an independent-review trigger.
+- [x] Critical and important findings are fixed and reverified in the active execution context.
+- [x] Old final-review and review-fix names preserve explicit intent by forwarding to the canonical review behavior without requiring legacy report artifacts.

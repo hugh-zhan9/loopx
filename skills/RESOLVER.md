@@ -17,9 +17,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan/SKILL.md` |
 | A clear request or persistent plan should be implemented with adaptive serial-or-concurrent selection | `skills/exec/SKILL.md` |
-| Completed task evidence, checkpoint work, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
-| Completed full feature needs final integration, runtime-risk, and test-gap review before finish | `skills/final-review/SKILL.md` |
-| Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
+| Explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence requires independent review | `skills/review/SKILL.md` |
 | Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |
 | Issue-driven bug-class intake, diagnosis, local ledger creation, or fix brief preparation | `skills/issue/SKILL.md` |
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
@@ -32,6 +30,8 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | `skills/plan-to-exec/SKILL.md` | `plan` |
 | `skills/subagent-exec/SKILL.md` | `exec` |
 | `skills/parallel-subagent-exec/SKILL.md` | `exec` |
+| `skills/final-review/SKILL.md` | `review` |
+| `skills/fix-review/SKILL.md` | `review` |
 
 ## Support Skills
 
@@ -61,10 +61,10 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 5. `plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
 6. `exec` accepts a clear request or a persistent plan and derives the current execution graph. Strongly coupled or uncertain work stays serial in the current context.
 7. `plan-to-exec`, `subagent-exec`, and `parallel-subagent-exec` forward only when explicitly invoked; they do not participate in automatic routing or ask the user to choose an execution mode.
-8. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review state with `plan_review.status`, and the package receives one spec-level final-review report before finish.
-9. Use `review` to request code review of completed task or checkpoint work.
-10. Use `fix-review` only after feedback exists.
-11. Use `finish` only after implementation, final review, and verification are complete.
+8. Every completed execution receives a controller-owned integration check. Use `review` only for explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence; multi-agent execution alone is not a trigger.
+9. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`. They preserve whole-feature-review or existing-feedback intent without requiring legacy report or ledger artifacts.
+10. Critical and Important review findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
+11. Use `finish` only for explicit Git disposition after implementation and fresh verification are complete.
 12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
 13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
 14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
@@ -73,7 +73,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
 18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan` step only when the user asks.
 19. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. Use its output as source material for `plan`; direct user invocation is for ad-hoc plan audits only.
-20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, `final-review`, and `fix`, while planning stages may only note downstream activation.
+20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, and `review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard
 

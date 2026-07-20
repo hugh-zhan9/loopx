@@ -594,6 +594,53 @@ describe('loopx retained workflow shell', () => {
     }
   });
 
+  it('installs proportional independent review with explicit-only legacy aliases', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-proportional-review-'));
+    const result = await installBundledSkills(loopxEnv(home));
+
+    assert.equal(result.ok, true);
+    const installedRoot = join(home, '.agents', 'skills');
+    const execSkill = await readFile(join(installedRoot, 'exec', 'SKILL.md'), 'utf8');
+    const selection = await readFile(join(installedRoot, 'exec', 'references', 'review-selection.md'), 'utf8');
+    const reviewSkill = await readFile(join(installedRoot, 'review', 'SKILL.md'), 'utf8');
+    const reviewContract = await readFile(join(installedRoot, 'shared', 'review-contract.md'), 'utf8');
+    const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
+    const routing = managedBlock(codexGuidance, 'prompt-first-routing');
+
+    assert.match(execSkill, /every (?:dispatched )?worker.*fresh verification/is);
+    assert.match(execSkill, /controller.*scope.*evidence.*combined behavior/is);
+    assert.match(execSkill, /integration check/i);
+    assert.match(selection, /every completed change.*integration check/is);
+    assert.match(selection, /low-risk, disjoint changes with passing combined verification[^\n]+\| Not required \|/i);
+    assert.match(selection, /multi-agent execution.*not.*trigger/is);
+    for (const trigger of [
+      /explicit (?:user )?review request/i,
+      /security-sensitive or destructive behavior/i,
+      /public compatibility change/i,
+      /cross-task interaction/i,
+      /reconciled (?:integration )?conflict/i,
+    ]) {
+      assert.match(selection, trigger);
+    }
+    assert.match(selection, /do not\s+dispatch one reviewer per task/i);
+    assert.match(reviewSkill, /Critical and Important.*active\s+execution context.*fix.*verification/is);
+    assert.match(reviewContract, /fresh\s+focused verification.*combined verification.*independent re-review/is);
+    assert.match(routing, /independent review.*explicit.*security.*destructive.*compatibility.*cross-task.*conflict/is);
+    assert.match(routing, /multi-agent execution alone.*not.*review trigger/is);
+
+    for (const [alias, intentPattern] of [
+      ['final-review', /whole-feature review/i],
+      ['fix-review', /existing review feedback/i],
+    ]) {
+      const aliasSkill = await readFile(join(installedRoot, alias, 'SKILL.md'), 'utf8');
+      assert.equal(aliasSkill.match(/^disable-model-invocation: true$/gm)?.length, 1);
+      assert.match(aliasSkill, /compatibility alias.*canonical `review` intent/is);
+      assert.match(aliasSkill, intentPattern);
+      assert.match(aliasSkill, /same (?:arguments|input)/i);
+      assert.match(aliasSkill, /does not require.*(?:report|ledger) artifact/is);
+    }
+  });
+
   it('finish audit lifecycle records a local decision', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-'));
     await initGitRepo(wd);

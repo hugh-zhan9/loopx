@@ -81,7 +81,8 @@ const LOOPX_ROUTING_GUIDANCE_CONTENT = [
   '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
   '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
   '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
-  '- Use persistent planning, governed execution, independent review, recovery state, or Git disposition only when its concrete trigger is present. Fresh verification is required for every completion claim.',
+  '- Use persistent planning, governed execution, recovery state, or Git disposition only when its concrete trigger is present. Fresh verification is required for every completion claim.',
+  '- Use independent review only for explicit review intent, security-sensitive or destructive behavior, public compatibility changes, cross-task interaction, or conflict reconciliation. Multi-agent execution alone is not a review trigger.',
 ].join('\n');
 const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
