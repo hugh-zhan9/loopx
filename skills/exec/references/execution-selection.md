@@ -36,7 +36,10 @@ ordering. That graph may run concurrently without first writing a plan.
 Concurrent mutation requires reliable task-worktree binding and a protected
 integration workspace. Missing capacity or isolation selects serial execution
 inside `exec`; it does not select a legacy executor or fail otherwise valid
-work. Read-only work may overlap only when it cannot mutate shared state.
+work. Read-only work may overlap only when every outcome is explicitly
+non-mutating and the host proves a reliable read-only binding. A dirty path
+that overlaps a declared write surface or relevant baseline input selects
+current-context serial execution; unrelated dirty paths remain user-owned.
 
 ## 5. Shared Budget
 

@@ -3,10 +3,15 @@
 Use this path only after `execution-selection.md` admits independent mutating
 outcomes and the host proves task-worktree binding.
 
-## Clean Workspace Lifecycle
+## Isolated Mutation Lifecycle
 
-1. Inspect the invoking Git topology and record its clean baseline commit.
-2. Create one temporary run manifest under `.loopx/exec/<run-id>/`.
+1. Inspect the invoking Git topology, user-owned changes, baseline commit, and
+   target-path content snapshots. Overlapping write or relevant-read paths
+   select serial execution before creating owned state.
+2. Create one owner-only run manifest under `.loopx/exec/<run-id>/` with the
+   invoking identity, exact worktree descriptors, semantic task contracts,
+   task and verification state, integration state, and
+   `$exec --resume <run-id>` instruction.
 3. Create one owned task worktree per outcome and one protected integration
    workspace from the same baseline.
 4. Dispatch at most the admitted worker limit. Every prompt must state:
@@ -15,9 +20,9 @@ outcomes and the host proves task-worktree binding.
    the declared write scope before creating the ephemeral task commit.
 6. Apply verified task commits to the integration workspace in dependency and
    stable input order. Run relevant combined verification there.
-7. Apply the one verified integration result to the unchanged invoking
-   workspace without moving its branch or creating a formal commit. Unstage the
-   result and run the same relevant verification again.
+7. Recheck the invoking identity and target snapshots. Apply the one verified
+   integration patch to the working tree without moving the branch or changing
+   the user's index, then run the same relevant verification again.
 8. Remove every owned worktree, branch, and run-manifest directory. The only
    remaining repository change is the intended unstaged product diff.
 
@@ -32,7 +37,16 @@ workspace, write scope, and verification obligation.
 - An integration verification failure blocks application.
 - An application verification failure cannot be reported as success.
 - A changed invoking baseline or target surface blocks automatic application.
+- A blocked or interrupted run keeps the single manifest and exact owned
+  worker results. Resume validates repository, baseline, target, branch, path,
+  and commit identities before applying or cleaning anything. It retries only
+  unfinished tasks from the current execution graph, rebuilds interrupted
+  integration from verified task commits, and recognizes an already-applied
+  result before rerunning verification and cleanup.
+- Identity or baseline mismatch never deletes retained worker results.
+- Unrelated tracked or untracked user changes are never stashed, committed,
+  unstaged, overwritten, or included in the integration result.
 
-Dirty-workspace preservation and interruption recovery extend this lifecycle
-only when their dedicated contract is active; do not improvise stash, commit,
-or overwrite behavior.
+Successful application and verification remove the manifest, owned worktrees,
+and owned branches. Nothing cleans an owned result whose persisted identity no
+longer matches the actual resource.

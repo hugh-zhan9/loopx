@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, realpath, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, readlink, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -49,6 +49,53 @@ function normalizeRepoPath(value, root, label) {
 function isInside(root, target) {
   const value = relative(root, target);
   return value === '' || (value !== '..' && !value.startsWith(`..${sep}`) && !isAbsolute(value));
+}
+
+async function fingerprintWorkspacePath(path) {
+  let stats;
+  try {
+    stats = await lstat(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return { kind: 'missing' };
+    throw error;
+  }
+  const mode = stats.mode & 0o777;
+  if (stats.isSymbolicLink()) {
+    return {
+      kind: 'symlink',
+      mode,
+      sha256: createHash('sha256').update(await readlink(path)).digest('hex'),
+    };
+  }
+  if (stats.isFile()) {
+    return {
+      kind: 'file',
+      mode,
+      sha256: createHash('sha256').update(await readFile(path)).digest('hex'),
+    };
+  }
+  if (stats.isDirectory()) {
+    const entries = [];
+    for (const name of (await readdir(path)).sort()) {
+      entries.push([name, await fingerprintWorkspacePath(join(path, name))]);
+    }
+    return {
+      kind: 'directory',
+      mode,
+      sha256: createHash('sha256').update(JSON.stringify(entries)).digest('hex'),
+    };
+  }
+  return { kind: 'other', mode };
+}
+
+export async function snapshotWorkspacePaths({ cwd, paths }) {
+  const root = resolve(cwd);
+  const normalized = [...new Set(paths.map((path) => normalizeRepoPath(path, root, 'snapshot path')))].sort();
+  const snapshot = [];
+  for (const path of normalized) {
+    snapshot.push({ path, ...(await fingerprintWorkspacePath(join(root, path))) });
+  }
+  return snapshot;
 }
 
 function parseWorktreeList(text) {
@@ -108,29 +155,39 @@ function parsePorcelainZ(text) {
   return entries;
 }
 
-export async function inspectInvokingWorktree({ cwd, sourcePaths = [], writeScope = [] }) {
+function pathsOverlap(first, second) {
+  return first === second || first.startsWith(`${second}/`) || second.startsWith(`${first}/`);
+}
+
+export async function inspectInvokingWorktree({ cwd, sourcePaths = [], writeScope = [], relevantPaths = [] }) {
   const topology = await inspectGitTopology({ cwd });
   const sources = sourcePaths.map((path) => normalizeRepoPath(path, topology.invoking_root, 'source path'));
   const scope = writeScope.map((path) => normalizeRepoPath(path, topology.invoking_root, 'write scope'));
-  const sourceSet = new Set(sources);
-  const scopeSet = new Set(scope);
+  const relevant = relevantPaths.map((path) => normalizeRepoPath(path, topology.invoking_root, 'relevant path'));
   const statusText = (await runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout;
   const entries = parsePorcelainZ(statusText);
-  const trackedDirty = entries.filter(({ status, path }) => status !== '??' && !sourceSet.has(path));
-  if (trackedDirty.length > 0) {
-    fail('parallel_invoking_tracked_dirty', 'invoking worktree contains tracked implementation changes', { entries: trackedDirty });
-  }
-  const untracked = entries.filter(({ status }) => status === '??').map(({ path }) => path);
-  const overlap = untracked.filter((path) => scopeSet.has(path));
-  if (overlap.length > 0) {
-    fail('parallel_invoking_untracked_overlap', 'untracked files overlap declared write scope', { paths: overlap });
-  }
+  const dirtyPaths = [...new Set(entries.flatMap(({ path, source_path: sourcePath }) => (
+    sourcePath ? [path, sourcePath] : [path]
+  )))].sort();
+  const writeOverlap = dirtyPaths.filter((dirtyPath) => scope.some((path) => pathsOverlap(dirtyPath, path)));
+  const relevantOverlap = dirtyPaths.filter((dirtyPath) => relevant.some((path) => pathsOverlap(dirtyPath, path)));
+  const executionOverlap = [...new Set([...writeOverlap, ...relevantOverlap])].sort();
+  const targetSnapshot = await snapshotWorkspacePaths({ cwd: topology.invoking_root, paths: scope });
   return {
     topology,
     source_paths: sources,
     write_scope: scope,
-    tracked_source_paths: entries.filter(({ status, path }) => status !== '??' && sourceSet.has(path)).map(({ path }) => path),
-    untracked_paths: untracked,
+    relevant_paths: relevant,
+    dirty_entries: entries,
+    dirty_paths: dirtyPaths,
+    write_overlap: writeOverlap,
+    relevant_overlap: relevantOverlap,
+    execution_overlap: executionOverlap,
+    target_snapshot: targetSnapshot,
+    tracked_source_paths: entries.filter(({ status, path }) => (
+      status !== '??' && sources.some((source) => pathsOverlap(path, source))
+    )).map(({ path }) => path),
+    untracked_paths: entries.filter(({ status }) => status === '??').map(({ path }) => path),
   };
 }
 
@@ -242,6 +299,13 @@ export async function removeOwnedWorktree({ topology, descriptor, removeBranch =
     await runGit(topology.primary_root, ['branch', '-D', verified.branch]);
   }
   return { removed: true, path: verified.path, branch: verified.branch, branch_removed: removeBranch };
+}
+
+export async function resetOwnedWorktree({ topology, descriptor }) {
+  const verified = await verifyOwnedWorktree({ topology, descriptor });
+  await runGit(verified.path, ['reset', '--hard', verified.head]);
+  await runGit(verified.path, ['clean', '-fdx']);
+  return verifyOwnedWorktree({ topology, descriptor: verified });
 }
 
 export function changedPathsFromStatus(text) {

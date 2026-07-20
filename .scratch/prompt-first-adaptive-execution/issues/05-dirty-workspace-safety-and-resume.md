@@ -4,12 +4,12 @@
 
 **Blocked by:** 04 — Run adaptive concurrency in a clean workspace.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Unrelated tracked and untracked user changes remain byte-for-byte intact through concurrent execution.
-- [ ] Overlapping or semantically relevant user changes select current-context serial execution instead of worktree concurrency.
-- [ ] A target path changed after the execution baseline prevents automatic application and preserves the verified integration result.
-- [ ] loopx never stashes, formally commits, or overwrites pre-existing user work.
-- [ ] Interrupted concurrent writes retain one compact run manifest with ownership, task status, verification, integration state, and an exact resume instruction.
-- [ ] Successful recovery cleans owned state; identity or baseline mismatch stops automatic integration without deleting worker results.
-- [ ] Missing host capacity or reliable worktree binding safely narrows execution to read-only concurrency or serial work.
+- [x] Unrelated tracked and untracked user changes remain byte-for-byte intact through concurrent execution.
+- [x] Overlapping or semantically relevant user changes select current-context serial execution instead of worktree concurrency.
+- [x] A target path changed after the execution baseline prevents automatic application and preserves the verified integration result.
+- [x] loopx never stashes, formally commits, or overwrites pre-existing user work.
+- [x] Interrupted concurrent writes retain one compact run manifest with ownership, task status, verification, integration state, and an exact resume instruction.
+- [x] Successful recovery cleans owned state; identity or baseline mismatch stops automatic integration without deleting worker results.
+- [x] Missing host capacity or reliable worktree binding safely narrows execution to read-only concurrency or serial work.

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
@@ -13,6 +13,7 @@ import {
   inspectInvokingWorktree,
   ownedRefNames,
   removeOwnedWorktree,
+  snapshotWorkspacePaths,
   snapshotIntegrationTree,
 } from './git-isolation.mjs';
 
@@ -25,6 +26,42 @@ async function git(cwd, args, { allowFailure = false } = {}) {
     if (allowFailure) return { stdout: error.stdout || '', stderr: error.stderr || '', failed: true };
     throw error;
   }
+}
+
+async function gitWithInput(cwd, args, input, { allowFailure = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    const stdout = [];
+    const stderr = [];
+    child.stdout.on('data', (chunk) => stdout.push(chunk));
+    child.stderr.on('data', (chunk) => stderr.push(chunk));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      const result = {
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: Buffer.concat(stderr).toString(),
+        failed: code !== 0,
+      };
+      if (code === 0 || allowFailure) resolve(result);
+      else reject(new Error(`git ${args[0]} failed: ${result.stderr.trim()}`));
+    });
+    child.stdin.end(input);
+  });
+}
+
+async function integrationPatch({ cwd, baselineHead, boundaryCommit, expectedPaths }) {
+  const expected = [...new Set(expectedPaths)].sort();
+  const integratedPathsRaw = (await git(cwd, [
+    'diff', '--no-renames', '--name-only', '-z', baselineHead, boundaryCommit, '--', ...expected,
+  ])).stdout;
+  const integratedPaths = integratedPathsRaw.split('\0').filter(Boolean).sort();
+  if (JSON.stringify(integratedPaths) !== JSON.stringify(expected)) {
+    throw new Error(`verified integration paths differ from expected paths: ${integratedPaths.join(', ')}`);
+  }
+  const patch = (await git(cwd, [
+    'diff', '--no-renames', '--binary', baselineHead, boundaryCommit, '--', ...expected,
+  ])).stdout;
+  return { expected, patch };
 }
 
 function descriptor(topology, runId, kind, qualifiedId) {
@@ -41,9 +78,16 @@ function descriptor(topology, runId, kind, qualifiedId) {
   };
 }
 
-export async function createConcurrentWorkspaces({ cwd, runId, outcomes }) {
+export async function createConcurrentWorkspaces({ cwd, runId, outcomes, inspectedWorkspace = null }) {
   const writeScope = outcomes.flatMap((outcome) => outcome.write_scope);
-  const inspected = await inspectInvokingWorktree({ cwd, writeScope });
+  const relevantPaths = outcomes.flatMap((outcome) => outcome.relevant_paths || []);
+  const inspected = inspectedWorkspace || await inspectInvokingWorktree({ cwd, writeScope, relevantPaths });
+  if (inspected.execution_overlap.length > 0) {
+    const error = new Error(`user changes overlap concurrent execution paths: ${inspected.execution_overlap.join(', ')}`);
+    error.code = 'parallel_invoking_overlap';
+    error.details = { paths: inspected.execution_overlap };
+    throw error;
+  }
   const { topology } = inspected;
   const integration = await createOwnedWorktree({
     topology,
@@ -66,7 +110,14 @@ export async function createConcurrentWorkspaces({ cwd, runId, outcomes }) {
     await removeOwnedWorktree({ topology, descriptor: integration, removeBranch: true });
     throw error;
   }
-  return { topology, baseline_head: topology.head, integration, tasks };
+  return {
+    topology,
+    baseline_head: topology.head,
+    target_snapshot: inspected.target_snapshot,
+    invoking_workspace: inspected,
+    integration,
+    tasks,
+  };
 }
 
 export async function commitTaskWorkspace({ topology, task, outcome, verification }) {
@@ -98,24 +149,76 @@ export async function commitIntegratedResult({ topology, integration, message })
   return createBoundaryCommit({ topology, integration, message });
 }
 
-export async function applyIntegratedResult({ cwd, baselineHead, boundaryCommit, expectedPaths }) {
+export async function applyIntegratedResult({
+  cwd,
+  baselineHead,
+  baselineBranch = null,
+  boundaryCommit,
+  expectedPaths,
+  targetSnapshot = null,
+}) {
   const observed = await inspectInvokingWorktree({ cwd, writeScope: expectedPaths });
-  if (observed.topology.head !== baselineHead) {
-    throw new Error('invoking workspace HEAD changed after the execution baseline');
+  const invokingRoot = observed.topology.invoking_root;
+  if (
+    observed.topology.head !== baselineHead
+    || (baselineBranch !== null && observed.topology.branch !== baselineBranch)
+  ) {
+    const error = new Error('invoking workspace identity changed after the execution baseline');
+    error.code = 'adaptive_workspace_identity_mismatch';
+    throw error;
   }
-  const applied = await git(cwd, ['cherry-pick', '--no-commit', boundaryCommit], { allowFailure: true });
-  if (applied.failed) {
-    await git(cwd, ['cherry-pick', '--abort'], { allowFailure: true });
-    throw new Error(`verified integration result could not be applied: ${applied.stderr.trim()}`);
+  if (observed.write_overlap.length > 0) {
+    const error = new Error('target paths contain user changes after the execution baseline');
+    error.code = 'adaptive_target_snapshot_mismatch';
+    error.details = { paths: observed.write_overlap };
+    throw error;
   }
-  await git(cwd, ['reset', '--mixed', 'HEAD']);
-  const status = (await git(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout;
-  const changed = changedPathsFromStatus(status);
-  const expected = [...new Set(expectedPaths)].sort();
+  if (targetSnapshot) {
+    const snapshotPaths = targetSnapshot.map(({ path }) => path);
+    const currentSnapshot = await snapshotWorkspacePaths({ cwd: invokingRoot, paths: snapshotPaths });
+    if (JSON.stringify(currentSnapshot) !== JSON.stringify(targetSnapshot)) {
+      const error = new Error('target paths changed after the execution baseline');
+      error.code = 'adaptive_target_snapshot_mismatch';
+      error.details = { expected: targetSnapshot, observed: currentSnapshot };
+      throw error;
+    }
+  }
+  const { expected, patch } = await integrationPatch({
+    cwd: invokingRoot,
+    baselineHead,
+    boundaryCommit,
+    expectedPaths,
+  });
+  const checked = await gitWithInput(invokingRoot, ['apply', '--check', '--binary', '-'], patch, { allowFailure: true });
+  if (checked.failed) {
+    throw new Error(`verified integration result could not be applied: ${checked.stderr.trim()}`);
+  }
+  await gitWithInput(invokingRoot, ['apply', '--binary', '-'], patch);
+  const status = (await git(invokingRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout;
+  const expectedSet = new Set(expected);
+  const changed = changedPathsFromStatus(status).filter((path) => expectedSet.has(path));
   if (JSON.stringify(changed) !== JSON.stringify(expected)) {
     throw new Error(`applied paths differ from verified integration: ${changed.join(', ')}`);
   }
   return { changed_paths: changed };
+}
+
+export async function integratedResultIsApplied({ cwd, baselineHead, boundaryCommit, expectedPaths }) {
+  const topology = await inspectGitTopology({ cwd });
+  if (topology.head !== baselineHead) return false;
+  const { patch } = await integrationPatch({
+    cwd: topology.invoking_root,
+    baselineHead,
+    boundaryCommit,
+    expectedPaths,
+  });
+  const checked = await gitWithInput(
+    topology.invoking_root,
+    ['apply', '--reverse', '--check', '--binary', '-'],
+    patch,
+    { allowFailure: true },
+  );
+  return !checked.failed;
 }
 
 export async function cleanupConcurrentWorkspaces({ topology, integration, taskResults }) {

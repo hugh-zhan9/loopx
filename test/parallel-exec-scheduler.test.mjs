@@ -132,3 +132,24 @@ test('keeps coupled or capability-uncertain work serial with a concrete reason',
   assert.equal(singleWorkerBudget.kind, 'serial');
   assert.match(singleWorkerBudget.reason, /worker budget.*below two/i);
 });
+
+test('uses reliable read-only concurrency without requiring mutating worktree isolation', () => {
+  const outcomes = [
+    { ...independentOutcome('inspect-alpha', 'unused-alpha'), mutates: false, write_scope: [] },
+    { ...independentOutcome('inspect-beta', 'unused-beta'), mutates: false, write_scope: [] },
+  ];
+  const admitted = selectAdaptiveExecution({
+    outcomes,
+    runtimeCapability: { worker_capacity: 3, read_only_binding: true, task_worktree_binding: false },
+  });
+  assert.equal(admitted.kind, 'concurrent');
+  assert.equal(admitted.execution_boundary, 'read-only');
+  assert.equal(admitted.worker_limit, 2);
+
+  const uncertain = selectAdaptiveExecution({
+    outcomes,
+    runtimeCapability: { worker_capacity: 3, read_only_binding: false, task_worktree_binding: false },
+  });
+  assert.equal(uncertain.kind, 'serial');
+  assert.match(uncertain.reason, /reliable read-only binding is unavailable.*serial/i);
+});

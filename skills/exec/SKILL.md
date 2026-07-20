@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.1"
+  version: "0.4.2"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -77,6 +77,14 @@ outcome in isolated task worktrees. The controller validates actual changed
 paths, integrates in a protected workspace, verifies the combination, applies
 one complete result to the unchanged invoking workspace, verifies again, and
 removes all successful run state.
+
+Unrelated tracked, staged, unstaged, and untracked user changes may remain in
+the invoking workspace. A user change that overlaps an outcome's
+`write_scope` or `relevant_paths` selects current-context serial execution.
+Never stash, commit, unstage, or overwrite pre-existing user work. If the
+baseline identity or a target snapshot changes after dispatch, retain the
+verified integration result and follow the manifest's exact `$exec --resume`
+instruction only after the user-owned target is safe again.
 
 The top-level controller owns lifecycle and the shared worker budget. Every
 dispatched worker is a leaf. Concurrent mutation must use the exec-owned Git
