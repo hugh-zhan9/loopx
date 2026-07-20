@@ -2,173 +2,86 @@
 
 [English](./skills.md)
 
-这份文档介绍 loopx v1 已安装 skills 的用途，以及它们如何组合使用。这里覆盖的是 `loopx install-skills` 安装的 bundled skills，不包括仓库里可能存在的其他辅助源目录。
+安装后的产品采用 prompt-first。清晰且边界明确的工作可以直接实现并完成新鲜验证。
+只有在歧义、风险、恢复、协调或明确用户意图需要时，workflow skills 才增加治理。
 
-## 心智模型
+## Canonical Workflow Intents
 
-loopx skills 分成两类：
-
-- 核心工作流 skills 推动一次功能工作的生命周期：澄清、必要时设计、计划、执行、评审、处理反馈、收尾。
-- issue-driven 工作流 skills 单独处理 bug 类问题：`issue` 负责诊断并写入本地 ledger，`fix` 执行 ready 的 ledger。
-- 辅助 skills 给特定活动增加纪律，例如测试、调试、隔离工作区、文档可读性、API 设计、SQL、Go 或 CLI 行为。它们是 lens，不是 workflow state。
-
-普通产品或代码变更使用核心工作流。任务有专门风险时，再叠加对应的辅助 skill。
-
-推荐流程：
-
-```text
-clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
-```
-
-skill suite 使用 controller-only agent topology：只有顶层 controller 可以创建、
-等待、发消息、替换、中断或释放 agent。所有被派发 worker 都是 leaf worker，不能
-继续委派。pre-v2 运行中 workflow artifacts 不属于当前合同，必须重新开始。
-
-Issue-driven 流程：
-
-```text
-issue -> fix -> finish
-```
-
-## 核心工作流 Skills
+六个 canonical workflow intents 都是可选的，不构成必须依次经过的流程。
 
 | Skill | 什么时候用 | 产出 |
 |---|---|---|
-| `clarify` | 请求含糊、范围不清，或缺少决策/非目标。 | `.loopx/intake/YYYY-MM-DD-<slug>/` 下的 intake package，包含 canonical `requirements.md`、supporting `clarification.md`，以及进入 `spec` 或 `plan-to-exec` 的路线。 |
-| `spec` | 产品行为、API、数据、状态、权限、迁移、兼容、边界场景或架构决策需要先固定。 | 默认产出 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`；只有需要 proposal 级取舍或评审时才额外产出 `设计提案.md`。 |
-| `codebase-spec` | 已有仓库、模块或接口需要基于证据生成当前状态规格文档。 | `docs/loopx/codebase-specs/` 下的详细 codebase spec。 |
-| `plan-to-exec` | 需求或 spec 已批准，需要拆成可执行任务。 | `docs/loopx/plans/` 下的小步实施计划。 |
-| `subagent-exec` | 已批准计划包含独立任务，并且可以使用 subagents。 | 带 staged review checkpoints 的任务执行结果。 |
-| `exec` | 已批准计划需要 inline 执行，或不能/不想使用 subagents。 | 带验证和评审 checkpoint 的顺序实现。 |
-| `review` | 已完成的任务、checkpoint 或重要改动需要独立代码评审。 | 绑定 git range 和需求的 review findings。 |
-| `final-review` | 整个 feature 已实现，需要在收尾前检查集成、运行时和测试缺口风险。 | `finish` 前的最终风险评审。 |
-| `fix-review` | 已经有具体 review feedback，需要技术评估或实现。 | 逐条处理反馈、必要时 pushback，并完成验证。 |
-| `finish` | 实现和验证已完成，需要决定 merge、PR、保留或丢弃。 | 完成决策和本地 finish audit 记录。 |
-| `issue` | bug 类 issue 需要 intake、triage、诊断和 fix brief。 | 带诊断与 handoff 状态的 `.loopx/issues` ledger。 |
-| `fix` | 一个或多个 `.loopx/issues` ledger 已标记为 `ready_for_fix`。 | 带验证、评审和 finish handoff 的限定范围 bug 修复。 |
-| `refactor-plan` | 用户想要行为保持的重构计划，并且希望用小提交推进。 | 有边界的 refactor plan；不是立即实现。 |
+| `clarify` | 意图、范围、验收、权限、secret 或 destructive choice 尚未解决。 | 已解决的 intake package 或明确 blocker。 |
+| `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要长期一致。 | 已接受的 design contract。 |
+| `plan` | 用户明确要求计划，或审批、中断恢复、持久协调需要计划。 | 包含 outcomes、boundaries、dependencies、acceptance 和 verification 的 lean plan。 |
+| `exec` | 清晰请求或 lean plan 需要 adaptive execution。 | 顺序或隔离并发的实现，以及新鲜验证。 |
+| `review` | 用户明确要求评审，或安全、破坏性行为、公共兼容、跨任务交互、冲突合并需要独立性。 | 有证据的 findings，以及 blocking issue 的闭环。 |
+| `finish` | 用户明确要求 commit 或 branch placement、merge、pull request、keep、cleanup 或 discard。 | 用户要求的 Git disposition。 |
 
-## 辅助 Skills
+普通工作可以不调用任何 canonical intent。`finish` 不是完成仪式，不负责验证、独立
+评审或知识提取。
 
-| Skill | 什么时候用 | 说明 |
-|---|---|---|
-| `tdd` | feature 或 bugfix 应该先写失败测试。 | 行为可测试时，在生产代码之前使用。 |
-| `debug` | bug、失败测试、构建失败、回归或异常行为需要 root-cause investigation。 | 先诊断，再改代码。 |
-| `verify` | agent 准备声称完成、修复、测试通过、可评审或可提交。 | 必须有新鲜命令输出作为证据。 |
-| `using-git-worktrees` | 实现工作需要隔离当前 checkout，或用户要求设置 git worktree。 | 先检测已有隔离；优先使用原生 worktree 工具，再 fallback 到 git worktree。 |
-| `doc-readability` | 文档、PRD、spec、会议纪要或知识库文章不清楚、臃肿或 AI 味重。 | 在把文档当成 source material 前，先评估或重写。 |
-| `requirement-analyzer` | 现有需求需要检查歧义、缺口、可行性、追踪关系或开发就绪度。 | 输出 gap report；不推进 workflow state。 |
-| `plan-reviewer` | 草稿或既有实施计划需要检查 source-to-plan 覆盖、scope drift、验证路径或任务交接质量。 | 由 `plan-to-exec` 内部使用；直接调用只用于临时 plan audit，不推进 workflow state。 |
-| `go-style` | 编辑或评审 Go 代码。 | 覆盖 Go 风格、错误处理、context、命名、测试和 interface 边界。 |
-| `kratos` | 处理 Go-Kratos 服务、proto/buf API、service/biz/data 层、middleware、auth 或 config。 | 同时有框架和 Go 代码问题时，可与 `go-style` 一起用。 |
-| `api-designer` | 设计 REST、GraphQL、OpenAPI、resources、pagination、versioning、compatibility 或 error models。 | 在 `spec`、实现或 review 中增加 API discipline。 |
-| `architecture-designer` | 决策涉及边界、ADR、NFR、可扩展性、failure modes、operability 或技术取舍。 | 用于设计阶段和 final review 的系统级风险判断。 |
-| `sql-style` | 修改 SQL、schema、index、migration、方言行为或性能敏感的数据访问。 | schema 或 migration 决策建议配合 `spec` 使用。 |
-| `cli-developer` | 设计 CLI commands、flags、人类/JSON 输出、错误、交互、help text、shell 行为或跨平台 UX。 | 用于 CLI 产品表面变更。 |
-| `lancet` | 实现或评审有过度工程、可避免依赖、额外文件，或本该删除的抽象风险。 | 仅 Codex 自动启用，且只在实现/评审阶段自动注入；其他场景仍需显式使用。 |
+## 显式兼容别名
 
-## 如何选择下一个 Skill
+在一个 release 周期内，以下 explicit-only compatibility aliases 继续安装，但不参与
+自动路由：
 
-按这条规则路由：
+| 别名 | 转发到 |
+|---|---|
+| `plan-to-exec` | `plan` |
+| `subagent-exec` | `exec` |
+| `parallel-subagent-exec` | `exec` |
+| `final-review` | `review` |
+| `fix-review` | `review` |
 
-1. 工作还不清楚，用 `clarify`。
-2. 计划前需要固定决策，用 `spec`；默认写 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`，只有 proposal 级取舍时才额外写 `设计提案.md`。
-3. 用户要记录当前代码库现状而不是设计未来变更，用 `codebase-spec`。
-4. 设计已定，需要拆任务，用 `plan-to-exec`，source 可以是 intake package 目录或详细设计文档。`plan-to-exec` 会在最终 handoff 前内部运行 `plan-reviewer`；普通用户仍然直接继续到 `subagent-exec` 或 `exec`。
-5. 已有批准计划，独立任务用 `subagent-exec`，inline 执行用 `exec`。
-6. 实现完成但还没评审，用 `review` 或 `final-review`。
-7. 已有反馈，用 `fix-review`。
-8. 测试和最终评审都完成后，用 `finish`。
-9. 请求是 bug 类 issue 时，用 `issue`；只有 ledger 为 `ready_for_fix` 后才用 `fix`。
+别名原样保留输入和显式意图，但不会恢复旧的 plan schema、execution-mode 选择、
+scheduler state、强制 review report、feedback ledger 或 finish gate。
 
-辅助 skills 可以叠加到这条路径上。例如：
+## Issue Workflows
 
-- 数据库 feature 可以走 `clarify -> spec`，在 `spec` 中叠加 `sql-style`，然后进入 `plan-to-exec`。
-- 公共 API 变更可以在 `spec` 和 `review` 中使用 `api-designer`。
-- 高风险架构变更应该让 `spec` 默认在 `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/` 下同时产出 `设计提案.md` 和 `需求设计文档.md`。
-- 失败测试应该先走 `debug`；新行为可以在实现前使用 `tdd`。
-- 不希望污染当前 checkout 的实现工作，可以在 `exec` 或手动编辑前使用 `using-git-worktrees`。
-- Codex 的实现和评审工作在启用时会自动收到 `lancet` 指引；其他 agent 需要时应显式调用 `lancet`。
-- PRD 或 source document 可以先用 `doc-readability` 或 `requirement-analyzer` 检查，再进入 `clarify`。
+`issue` 和 `fix` 作为 bug 类问题工作流继续保留，但不加入固定 feature 路径：
 
-## 常见例子
+```text
+$issue <bug-report-or-failing-output>
+$fix .loopx/issues/<ready-ledger>.md
+```
 
-含糊的功能请求：
+只有 ledger 为 `ready_for_fix` 时才使用 `fix`。Feature request 回到 prompt-first
+工作，或进入有具体理由的 canonical intent。
+
+## 辅助 Lenses
+
+辅助 skills 仍可直接调用，也可与 canonical intents 组合：
+
+| Skill | 关注点 |
+|---|---|
+| `codebase-spec` | 基于证据记录当前行为。 |
+| `refactor-plan` | 行为保持的重构计划。 |
+| `tdd` | 先写失败测试。 |
+| `debug` | 根因诊断。 |
+| `verify` | 声称完成前取得新鲜证据。 |
+| `using-git-worktrees` | 显式工作区隔离。 |
+| `doc-readability` | 文档清晰度和重写。 |
+| `requirement-analyzer` | 需求缺口和就绪度。 |
+| `plan-reviewer` | 对照 source 临时审核 lean plan。 |
+| `go-style`、`kratos` | Go 和 Go-Kratos discipline。 |
+| `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 特定领域的设计和评审 lens。 |
+| `lancet` | 实现和评审阶段的简化。 |
+
+辅助 lens 不创建 workflow state，也不替代 `clarify`、`spec`、`plan`、`exec`、
+`review` 或 `finish`。
+
+## 示例
 
 ```text
 $clarify add team-level usage limits
-```
-
-设计较重的变更：
-
-```text
 $spec billing-state-transitions
+$plan docs/loopx/design/2026-07-20-billing/requirements.md
+$exec docs/loopx/plans/2026-07-20-billing.md
+$review HEAD~1
+$finish commit this change
 ```
 
-已批准的实现计划：
-
-```text
-$plan-to-exec billing-state-transitions
-$subagent-exec billing-state-transitions
-```
-
-隔离实现工作区：
-
-```text
-$using-git-worktrees billing-state-transitions
-```
-
-inline 执行：
-
-```text
-$exec billing-state-transitions
-```
-
-Bug 调查：
-
-```text
-$debug failing renewal invoice test
-```
-
-Issue-driven bug 类工作流：
-
-```text
-$issue failing renewal invoice test
-$fix .loopx/issues/issue-renewal-invoice-2026-06-23.md
-```
-
-已有代码库文档：
-
-```text
-$codebase-spec src/cli.mjs
-```
-
-文档评审：
-
-```text
-$doc-readability docs/product/usage-limits-prd.md
-```
-
-收尾：
-
-```text
-$final-review billing-state-transitions
-$finish
-```
-
-Lancet 控制：
-
-```text
-$lancet on
-$lancet off
-$lancet status
-```
-
-## Guardrails
-
-- 范围、非目标或决策边界未解决时，不要跳过 `clarify`。
-- 不要用 `plan-to-exec` 发明缺失的产品或架构决策。
-- 不要把辅助 skills 当作 workflow states。
-- 不要对含糊报告直接使用 `fix`；先运行 `issue`，并要求 ledger 为 `ready_for_fix`。
-- 没有 `verify` 风格的新鲜证据，不要声称工作完成。
-- 实现、评审和验证没有真正完成前，不要运行 `finish`。
+每条完成路径都需要新鲜、与任务相关的验证。只有顶层 controller 管理 agent
+生命周期；implementer、reviewer 和 fixer 都是 leaf worker。Prompt-first 工作不会
+创建 plan、review report、finish record 或其他 workflow artifact，除非存在具体触发条件。

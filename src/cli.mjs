@@ -6,7 +6,6 @@ import { createInterface } from 'node:readline/promises';
 
 import { checkForUpdates, updateNotification } from './version-check.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
-import { executionStartStage, finishAuditStage, finishRecordStage, finishStartStage } from './finish-runtime.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
 import { readLancetConfig, readLancetSession, writeLancetSession } from './lancet-runtime.mjs';
@@ -37,10 +36,6 @@ function usage() {
     '  loopx lancet <on|off|status> [--json]',
     '  loopx doctor [--json]',
     '  loopx repair-install',
-    '  loopx finish-start [slug] [--source <path>] [--json]',
-    '  loopx execution-start [slug] [--source <path>] [--design <path>] [--json]',
-    '  loopx finish-audit [slug] [--baseline <git-ref>] [--json]',
-    '  loopx finish-record <audit-id-or-path> --action <merge|pr|keep|discard> --status <pending|done|failed|aborted> [--summary <text>] [--url <url>]',
   ].join('\n');
 }
 
@@ -50,7 +45,7 @@ async function promptInstallOptions() {
     const targetAnswer = (await rl.question('Install targets (codex, claude, all) [all]: ')).trim().toLowerCase();
     const projectAnswer = (await rl.question('Install Claude project skills instead of user skills? [y/N]: ')).trim().toLowerCase();
     const modeAnswer = (await rl.question('Install mode (copy, symlink) [copy]: ')).trim().toLowerCase();
-    const guidanceAnswer = (await rl.question('Add loopx guidance to Codex AGENTS.md / Claude CLAUDE.md? [y/N]: ')).trim().toLowerCase();
+    const guidanceAnswer = (await rl.question('Add loopx specs and memory context to Codex AGENTS.md / Claude CLAUDE.md? [y/N]: ')).trim().toLowerCase();
     const proceedAnswer = (await rl.question('Proceed? [y/N]: ')).trim().toLowerCase();
     if (proceedAnswer !== 'y' && proceedAnswer !== 'yes') {
       return null;
@@ -108,17 +103,6 @@ function parseArgs(argv) {
   }
 
   return { command, positionals, options };
-}
-
-function stringOption(options, name) {
-  const value = options.get(name);
-  if (value === undefined) {
-    return null;
-  }
-  if (value === true || String(value).trim() === '') {
-    throw new Error(`${name}_requires_value`);
-  }
-  return value;
 }
 
 function blockersForStatus(state) {
@@ -562,92 +546,6 @@ async function main() {
         } else {
           printHumanClarify(result);
         }
-        return;
-      }
-      case 'finish-start': {
-        const result = await finishStartStage(process.cwd(), positionals[0], {
-          source: stringOption(options, '--source'),
-        });
-        if (options.get('--json')) {
-          console.log(JSON.stringify({
-            ok: true,
-            command,
-            path: result.path,
-            latestPath: result.latestPath,
-            state: result.state,
-          }, null, 2));
-        } else {
-          console.log(`finish baseline: ${result.state.slug}`);
-          console.log(`path: ${result.path}`);
-          console.log(`head: ${result.state.head_short}`);
-          console.log(`source: ${result.state.source ?? '(none)'}`);
-        }
-        return;
-      }
-      case 'execution-start': {
-        const result = await executionStartStage(process.cwd(), positionals[0], {
-          source: stringOption(options, '--source'),
-          design: stringOption(options, '--design'),
-        });
-        if (options.get('--json')) {
-          console.log(JSON.stringify({
-            ok: true,
-            command,
-            path: result.path,
-            state: result.state,
-            reused: result.reused,
-          }, null, 2));
-        } else {
-          console.log(`execution start: ${result.state.slug}`);
-          console.log(`path: ${result.path}`);
-          console.log(`reused: ${result.reused ? 'yes' : 'no'}`);
-          console.log(`head: ${result.state.start_commit_short}`);
-          console.log(`source: ${result.state.source_artifact}`);
-          console.log(`design: ${result.state.design_artifact ?? '(none)'}`);
-        }
-        return;
-      }
-      case 'finish-audit': {
-        const result = await finishAuditStage(process.cwd(), positionals[0], {
-          baselineRef: stringOption(options, '--baseline'),
-        });
-        if (options.get('--json')) {
-          console.log(JSON.stringify({
-            ok: true,
-            command,
-            audit_id: result.auditId,
-            auditId: result.auditId,
-            root: result.root,
-            state: result.state,
-            reportPath: result.reportPath,
-            statePath: result.statePath,
-          }, null, 2));
-        } else {
-          console.log(`finish audit: ${result.auditId}`);
-          console.log(`root: ${result.root}`);
-          console.log(`report: ${result.reportPath}`);
-          console.log(`state: ${result.statePath}`);
-          console.log(`slug: ${result.state?.slug ?? positionals[0] ?? '(unknown)'}`);
-          console.log(`status: ${result.state?.status ?? '(unknown)'}`);
-        }
-        return;
-      }
-      case 'finish-record': {
-        const result = await finishRecordStage(process.cwd(), positionals[0], {
-          action: options.get('--action'),
-          status: options.get('--status'),
-          summary: options.get('--summary') || null,
-          url: options.get('--url') || null,
-        });
-        console.log(JSON.stringify({
-          ok: true,
-          command,
-          root: result.root,
-          state: result.state,
-          choice: result.state.choice,
-          reportPath: result.reportPath,
-          statePath: result.statePath,
-        }, null, 2));
         return;
       }
       case 'render': {

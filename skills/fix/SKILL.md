@@ -1,9 +1,9 @@
 ---
 name: fix
-description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, local review, whole diff review, and finish handoff. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
+description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.2"
+  version: "0.1.4"
 ---
 
 # Fix
@@ -20,11 +20,13 @@ status: ready_for_fix
 
 Do not use `fix` for feature requests, enhancements, vague reports, or bug reports that have not gone through `$issue` diagnosis and fix brief preparation.
 
-Do not invoke `subagent-exec` or `loopx:exec` as the execution engine for this workflow.
+Do not invoke a separate `exec` workflow from inside this issue-owned fix context.
 
 Use `git worktree` only when parallel subagents will directly modify code. Serial execution may edit the main worktree. Parallel subagents that do not use isolated worktrees must produce patches or reports only; they must not directly modify the main worktree.
 
-Controllers and subagents must not commit, must not push, and must not close issues. `finish` remains the final completion step.
+Controllers and subagents must not commit, must not push, and must not close
+issues. Use `finish` afterward only when the user explicitly requests Git
+disposition.
 
 ## Inputs
 
@@ -192,7 +194,7 @@ When executing a ready ledger, append or update these sections:
   - status: clean | findings_addressed | blocked
   - findings:
     - <finding or none>
-- fix_review_decisions:
+- review_decisions:
   - <Critical/Important finding handled, pushed back with evidence, or none>
 
 ## Verification
@@ -207,7 +209,7 @@ When executing a ready ledger, append or update these sections:
 
 - status: complete | failed | blocked
 - response_draft: <final user/reporter response>
-- finish_handoff: `$finish` when complete, or blocker summary when failed/blocked
+- git_disposition: requested | not_requested | blocked
 ```
 
 ## Review
@@ -217,17 +219,21 @@ Every code modification through `fix` requires:
 - local review per bug against that ledger's Diagnosis Summary, Fix Brief, and actual diff
 - whole diff review after all individual fixes are complete
 
-Use existing review standards. Critical and Important findings must be handled with `fix-review` discipline: verify the finding, implement a focused change or give evidence-based pushback, then re-run relevant verification and re-review.
+Use the canonical `review` contract. Critical and Important findings must be verified, addressed with a focused change or evidence-based pushback, freshly reverified, and independently re-reviewed.
 
 Minor findings may be fixed or recorded, but must not expand scope.
 
-## Verification And Finish Handoff
+## Verification And Completion
 
-After local review, whole diff review, and any `fix-review` pass:
+After local review, whole diff review, and any blocking-finding closure:
 
 1. Run final verification commands from every ledger.
 2. Append or update `## Execution Reports`, `## Reviews`, `## Verification`, and `## Closeout`.
 3. Set status to `complete`, `failed`, or `blocked`.
-4. Only when all ledgers are complete, hand off to `finish`.
+4. For both serial and concurrent fixes, apply the quiet completion check in
+   [../shared/completion-check.md](../shared/completion-check.md) before any
+   completion claim.
+5. Record whether Git disposition was explicitly requested. Invoke `finish`
+   only for that explicit Git disposition; otherwise close out without it.
 
 Do not call the work complete until verification and review evidence is recorded.

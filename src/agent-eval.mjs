@@ -1,4 +1,4 @@
-import { parseReviewResult, validateReviewResult } from '../skills/subagent-exec/scripts/review-result-lib.mjs';
+import { parseReviewResult, validateReviewResult } from './review-result.mjs';
 
 export { parseReviewResult };
 
@@ -342,6 +342,218 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       controller_integration_passed_cases: cases.filter((item) => item.candidate_integration_passed === true).length,
     },
   };
+}
+
+function installedProductQuality(run) {
+  const gates = {
+    outcome: run.outcome === 'passed',
+    verification: run.verification?.passed === true,
+    safety: run.safety?.passed === true,
+    spec_consistency: run.spec?.passed === true,
+    memory_precision: run.memory?.passed === true,
+  };
+  return {
+    gates,
+    failed: Object.entries(gates).filter(([, passed]) => !passed).map(([name]) => name),
+  };
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function aggregateInstalledProductRuns(runs) {
+  const first = runs[0];
+  const qualities = runs.map(installedProductQuality);
+  return {
+    case_id: first.case_id,
+    case_kind: first.case_kind,
+    variant: first.variant,
+    configuration: first.configuration,
+    configuration_consistent: runs.every((run) => stableJson(run.configuration) === stableJson(first.configuration)),
+    replicate_count: runs.length,
+    outcome: runs.every((run) => run.outcome === 'passed') ? 'passed' : 'failed',
+    verification: { passed: runs.every((run) => run.verification?.passed === true) },
+    safety: { passed: runs.every((run) => run.safety?.passed === true) },
+    spec: { passed: runs.every((run) => run.spec?.passed === true) },
+    memory: { passed: runs.every((run) => run.memory?.passed === true) },
+    quality_passed: qualities.every((quality) => quality.failed.length === 0),
+    failed_quality_gates: [...new Set(qualities.flatMap((quality) => quality.failed))],
+    changed_paths: [...new Set(runs.flatMap((run) => run.changed_paths ?? []))].sort(),
+    workflow_artifacts: [...new Set(runs.flatMap((run) => run.workflow_artifacts ?? []))].sort(),
+    total_tokens: median(runs.map((run) => run.total_tokens)),
+    latency_ms: median(runs.map((run) => run.latency_ms)),
+    execution_selection: runs.every((run) => run.execution_selection === first.execution_selection) ? first.execution_selection : 'mixed',
+    worker_activity: {
+      peak_workers: Math.max(...runs.map((run) => run.worker_activity?.peak_workers ?? 0)),
+      overlap_ms: median(runs.map((run) => run.worker_activity?.overlap_ms)),
+      all_overlapped: runs.every((run) => (run.worker_activity?.overlap_ms ?? 0) > 0),
+      bounded: runs.every((run) => run.worker_activity?.bounded !== false),
+      isolated: runs.every((run) => run.worker_activity?.isolated !== false),
+      integration_order: first.worker_activity?.integration_order ?? [],
+    },
+  };
+}
+
+export function compareInstalledProductRuns(runs, options = {}) {
+  const baselineVariant = options.baselineVariant ?? 'bare';
+  const candidateVariant = options.candidateVariant ?? 'installed';
+  const forcedSerialVariant = options.forcedSerialVariant ?? 'forced-serial';
+  const aggregates = [...Map.groupBy(runs, (run) => `${run.case_id}\u0000${run.variant}`).values()]
+    .map(aggregateInstalledProductRuns);
+  const byCase = Map.groupBy(aggregates, (run) => run.case_id);
+  const cases = [];
+
+  for (const [caseId, caseRuns] of byCase) {
+    const variants = Object.fromEntries(caseRuns.map((run) => [run.variant, run]));
+    const baseline = variants[baselineVariant];
+    const candidate = variants[candidateVariant];
+    if (!baseline || !candidate) {
+      continue;
+    }
+    const forcedSerial = variants[forcedSerialVariant] ?? null;
+    const configurationParity = baseline.configuration_consistent
+      && candidate.configuration_consistent
+      && (!forcedSerial || forcedSerial.configuration_consistent)
+      && stableJson(baseline.configuration) === stableJson(candidate.configuration);
+    const baselineQuality = installedProductQuality(baseline);
+    const candidateQuality = installedProductQuality(candidate);
+    const forcedSerialQuality = forcedSerial ? installedProductQuality(forcedSerial) : null;
+    const failedQualityGates = [
+      ...candidateQuality.failed,
+      ...baselineQuality.failed.map((gate) => `baseline:${gate}`),
+      ...(forcedSerialQuality?.failed ?? []).map((gate) => `forced-serial:${gate}`),
+    ];
+    if (!configurationParity) {
+      failedQualityGates.push('configuration_parity');
+      candidateQuality.gates.configuration_parity = false;
+    } else {
+      candidateQuality.gates.configuration_parity = true;
+    }
+    const qualityPassed = failedQualityGates.length === 0;
+    const comparableTokens = Number.isFinite(baseline.total_tokens) && Number.isFinite(candidate.total_tokens);
+    const comparableLatency = Number.isFinite(baseline.latency_ms) && Number.isFinite(candidate.latency_ms);
+    let resourceFavorable = false;
+    let resourceAssessment = 'not-applicable';
+
+    if (candidate.case_kind === 'direct') {
+      resourceAssessment = comparableTokens && comparableLatency ? 'available' : 'unavailable';
+      resourceFavorable = qualityPassed
+        && comparableTokens
+        && comparableLatency
+        && percentDelta(baseline.total_tokens, candidate.total_tokens) <= 10
+        && percentDelta(baseline.latency_ms, candidate.latency_ms) <= 10;
+    } else if (candidate.case_kind === 'independent') {
+      const serialComparable = Number.isFinite(candidate.latency_ms) && Number.isFinite(forcedSerial?.latency_ms);
+      resourceAssessment = serialComparable ? 'available' : 'unavailable';
+      resourceFavorable = qualityPassed
+        && candidate.worker_activity.all_overlapped
+        && serialComparable
+        && candidate.latency_ms < forcedSerial.latency_ms;
+    } else if (candidate.case_kind === 'strongly-coupled') {
+      resourceAssessment = 'selection';
+      resourceFavorable = qualityPassed
+        && candidate.execution_selection === 'serial'
+        && candidate.worker_activity.peak_workers <= 1;
+    }
+
+    cases.push({
+      case_id: caseId,
+      case_kind: candidate.case_kind,
+      baseline_variant: baselineVariant,
+      candidate_variant: candidateVariant,
+      configuration_parity: configurationParity,
+      quality_gates: candidateQuality.gates,
+      quality_passed: qualityPassed,
+      failed_quality_gates: failedQualityGates,
+      changed_paths: candidate.changed_paths,
+      workflow_artifacts: candidate.workflow_artifacts,
+      worker_activity: candidate.worker_activity,
+      total_tokens_delta: comparableTokens ? candidate.total_tokens - baseline.total_tokens : null,
+      total_tokens_percent_delta: percentDelta(baseline.total_tokens, candidate.total_tokens),
+      latency_ms_delta: comparableLatency ? candidate.latency_ms - baseline.latency_ms : null,
+      latency_percent_delta: percentDelta(baseline.latency_ms, candidate.latency_ms),
+      forced_serial_latency_ms: forcedSerial?.latency_ms ?? null,
+      resource_assessment: resourceAssessment,
+      resource_favorable: resourceFavorable,
+    });
+  }
+
+  const criteriaCases = cases.filter((item) => ['direct', 'independent', 'strongly-coupled'].includes(item.case_kind));
+  const allQualityPassed = cases.length > 0 && cases.every((item) => item.quality_passed);
+  const criteriaPassed = allQualityPassed
+    && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
+  return {
+    baseline_variant: baselineVariant,
+    candidate_variant: candidateVariant,
+    forced_serial_variant: forcedSerialVariant,
+    runs: aggregates,
+    cases,
+    overall: {
+      compared_cases: cases.length,
+      quality_passed_cases: cases.filter((item) => item.quality_passed).length,
+      favorable_cases: cases.filter((item) => item.resource_favorable).length,
+      configuration_parity_cases: cases.filter((item) => item.configuration_parity).length,
+      required_favorable_cases: criteriaCases.length,
+      criteria_passed: criteriaPassed,
+    },
+  };
+}
+
+function markdownCell(value) {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join('<br>') : 'none';
+  }
+  return String(value ?? 'n/a').replaceAll('|', '\\|').replaceAll('\n', '<br>');
+}
+
+export function renderInstalledProductMarkdown(comparison) {
+  const lines = [
+    '# Installed Product Baseline Evaluation',
+    '',
+    `- Bare baseline: \`${comparison.baseline_variant}\``,
+    `- Installed candidate: \`${comparison.candidate_variant}\``,
+    `- Compared cases: ${comparison.overall.compared_cases}`,
+    `- Quality passed: ${comparison.overall.quality_passed_cases}`,
+    `- Favorable after quality gates: ${comparison.overall.favorable_cases}`,
+    `- Diagnostic criteria: ${comparison.overall.criteria_passed ? 'pass' : 'fail'}`,
+    '',
+    '## Case Comparisons',
+    '',
+    '| Case | Kind | Configuration parity | Quality | Tokens delta | Latency delta | Resource favorable |',
+    '|---|---|---|---|---:|---:|---|',
+  ];
+  for (const item of comparison.cases) {
+    lines.push(`| ${markdownCell(item.case_id)} | ${markdownCell(item.case_kind)} | ${item.configuration_parity ? 'pass' : 'fail'} | ${item.quality_passed ? 'pass' : `fail: ${markdownCell(item.failed_quality_gates)}`} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.resource_favorable ? 'yes' : 'no'} |`);
+  }
+  lines.push(
+    '',
+    '## Run Evidence',
+    '',
+    '| Case / variant | Outcome | Verification | Safety | Changed paths | Workflow artifacts | Workers | Tokens | Latency | Spec | Memory |',
+    '|---|---|---|---|---|---|---|---:|---:|---|---|',
+  );
+  for (const run of comparison.runs) {
+    const workers = `peak ${run.worker_activity.peak_workers}; overlap ${formatDelta(run.worker_activity.overlap_ms, ' ms')}; order ${markdownCell(run.worker_activity.integration_order)}`;
+    lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant}`)} | ${run.outcome} | ${run.verification.passed ? 'pass' : 'fail'} | ${run.safety.passed ? 'pass' : 'fail'} | ${markdownCell(run.changed_paths)} | ${markdownCell(run.workflow_artifacts)} | ${workers} | ${formatDelta(run.total_tokens)} | ${formatDelta(run.latency_ms, ' ms')} | ${run.spec.passed ? 'pass' : 'fail'} | ${run.memory.passed ? 'pass' : 'fail'} |`);
+  }
+  lines.push(
+    '',
+    '## Interpretation',
+    '',
+    '- Evaluate outcome, verification, safety, spec consistency, and memory precision quality gates before resource comparisons.',
+    '- Missing live token or latency metrics are unavailable evidence, never zero-cost improvement.',
+    '- Independent work is favorable only with measured worker overlap and a lower median latency than the installed forced-serial variant.',
+    '- Live results are maintainer diagnostics, not an automated release or completion gate.',
+    '',
+  );
+  return lines.join('\n');
 }
 
 function formatPercent(value) {

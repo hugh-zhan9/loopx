@@ -49,12 +49,10 @@ loopx doctor [--json]
 loopx repair-install
 ```
 
-`loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 用来帮助 agent
-和用户找到下一次 skill handoff。黄金路径仍然发生在 agent 中：
-
-```text
-clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
-```
+`loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 支撑本地 intake
+和 handoff state。安装后的产品在其他情况下保持 prompt-first。六个 canonical workflow intents
+是 `clarify`、`spec`、`plan`、`exec`、`review` 和 `finish`；
+它们是可选治理工具，不是固定路径。
 
 新的 `clarify` workflow 会在 `.loopx/intake/YYYY-MM-DD-<slug>/` 下写入本地 intake package，包含 canonical `requirements.md` 和 supporting `clarification.md`。人类输出展示简洁路径；完整 state 字段使用 `--json`。
 
@@ -116,8 +114,9 @@ loopx install-skills --target all --add-agent-guidance
 loopx install-skills --target all --yes
 ```
 
-Agent guidance 是 opt-in。`--add-agent-guidance` 会写入 loopx managed block，
-提示 agent 读取 repo specs 和 memory context。Managed block 之外的用户内容会保留。
+Prompt-first routing guidance 会自动安装到两个 host。`--add-agent-guidance`
+会额外写入一个 loopx managed block，提示 agent 读取 repo specs 和 memory context。
+Managed block 之外的用户内容会保留。
 
 Claude project install 会把 skills 和 settings 写入当前仓库的 `.claude/skills/` 和
 `.claude/settings.json`。

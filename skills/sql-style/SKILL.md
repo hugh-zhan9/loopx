@@ -4,7 +4,7 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---
@@ -17,7 +17,7 @@ metadata:
 
 Do not delete or flatten useful SQL/database guidance from other skills just because `sql-style` exists. Instead, make related skills call `sql-style` when SQL, database schema, migration, indexing, or query-performance discipline is relevant.
 
-Use it directly for SQL, schema, index, migration, and database performance work. Use it from `spec`, `exec`, `review`, or `final-review` when work touches persistent data or performance-sensitive data access.
+Use it directly for SQL, schema, index, migration, and database performance work. Use it from `spec`, `exec`, or `review` when work touches persistent data or performance-sensitive data access.
 
 This skill does not replace `spec`. If data ownership, product semantics, migration compatibility, permission boundaries, or rollback decisions are unresolved, route those decisions through `clarify` or `spec`.
 

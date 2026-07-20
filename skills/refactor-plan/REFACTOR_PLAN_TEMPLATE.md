@@ -164,7 +164,7 @@ Expected:
 
 ## Execution Handoff
 
-**Ready for:** `exec` | `subagent-exec` | `clarify` | `spec` | `blocked`
+**Ready for:** `exec` | `clarify` | `spec` | `blocked`
 
 **Reason:**
 
@@ -173,8 +173,8 @@ Expected:
 **Execution notes:**
 
 - Use `exec` for sequential or tightly coupled refactors.
-- Use `subagent-exec` only when tasks are independent and can be reviewed separately.
-- Do not use `plan-to-exec` unless this document is intentionally high-level and missing execution-ready tiny commits.
+- Let `exec` decide whether independent tasks admit isolated concurrency.
+- Use `plan` only when this document is intentionally high-level and missing an execution-ready lean plan.
 
 ## Further Notes
 

@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go coding style for .go edits, tests, errors, context, naming, and interface boundaries. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, go tests, gofmt, idiomatic Go, Go style, Go 代码"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Go Style
@@ -12,7 +12,7 @@ metadata:
 
 `go-style` is a lightweight Go coding discipline skill. It should guide edits to `.go` files without overriding the repository's established conventions.
 
-Use it as a support skill from `subagent-exec` or `exec` when Go files are created or modified, and directly when the user asks for Go style, idiomatic Go, or Go code cleanup.
+Use it as a support skill from `exec` when Go files are created or modified, and directly when the user asks for Go style, idiomatic Go, or Go code cleanup.
 
 ## Core Rules
 

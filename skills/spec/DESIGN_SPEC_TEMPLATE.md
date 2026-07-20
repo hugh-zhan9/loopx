@@ -319,13 +319,13 @@
 
 ### 10.5 Planning Handoff
 
-- `plan-to-exec` 可以决定：
+- `plan` 可以决定：
 - 必须返回 `spec` 的事项：
 - 必须返回 `clarify` 的事项：
 - 推荐下一步：
 
 ```text
-$plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+$plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 ```
 
 ## 十一、QA
@@ -340,7 +340,7 @@ $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 
 | 问题 | 需要谁确认 | 阻塞阶段 | 推荐答案 | 状态 |
 |---|---|---|---|---|
-| <问题> | <角色> | clarify/spec/plan/subagent-exec/exec/review | <建议> | open/closed |
+| <问题> | <角色> | clarify/spec/plan/exec/review | <建议> | open/closed |
 
 ### 11.3 Verification Strategy / TC 覆盖映射
 
@@ -356,4 +356,4 @@ Design anchors: not applicable only when this detailed design has no implementat
 
 | D anchor | Source AC | Contract type | Decision summary | Boundary / non-goal | Downstream expectation |
 |---|---|---|---|---|---|
-| <D-001> | <AC-001 或 not_applicable> | <behavior/data/state/CLI/compatibility/operations/workflow contract> | <简短决策> | <决策停止适用的边界或非目标> | <plan-to-exec/review 必须保留的约束> |
+| <D-001> | <AC-001 或 not_applicable> | <behavior/data/state/CLI/compatibility/operations/workflow contract> | <简短决策> | <决策停止适用的边界或非目标> | <plan/review 必须保留的约束> |

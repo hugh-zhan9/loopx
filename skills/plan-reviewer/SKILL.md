@@ -1,129 +1,61 @@
 ---
 name: plan-reviewer
-description: "Reviews draft implementation plans for source-to-plan coverage, scope drift, verification gaps, and task handoff readiness. Not for writing plans, reviewing implementation code, changing workflow state, or redesigning approved requirements."
-when_to_use: "plan review, source-to-plan review, plan artifact audit, coverage audit, implementation plan quality, draft plan review, 计划审核, 计划覆盖检查"
+description: "Reviews a lean implementation plan against its approved source for missing outcomes, scope drift, dependency mistakes, weak acceptance, and unverifiable claims. Not for creating plans, reviewing implemented code, scheduler validation, or advancing workflow state."
+when_to_use: "explicit plan review, lean plan audit, source-to-plan coverage, plan scope drift, plan verification quality"
 metadata:
-  version: "0.1.4"
+  version: "0.2.0"
+argument-hint: "<lean plan path and approved source>"
 ---
 
 # Plan Reviewer
 
-`plan-reviewer` is a support lens, not a workflow state. It reviews a draft implementation plan against its approved source artifact before execution starts.
-
-When dispatched independently, you are a leaf worker. Do not spawn, delegate to, or wait for other agents. Complete the review directly and return findings to the controller.
-
-Use it inside `plan-to-exec` after a draft plan exists and before the final plan is saved or execution handoff is offered. It may also be invoked directly for an ad-hoc plan audit.
-
-## Do not use this skill for:
-
-- Writing or rewriting the implementation plan from scratch.
-- Do not review implementation code or git diffs.
-- Running `exec`, `subagent-exec`, `review`, `final-review`, or `finish`.
-- Creating a new workflow state, CLI command, or required user handoff.
-- Do not redesign approved product, architecture, data, API, permission, or workflow decisions.
-- Migrating historical plans.
-
-If the source is missing required decisions, contradictory, or not testable, report that the work must return to `clarify` or `spec`. Do not invent decisions inside the review.
-
-It must not create a workflow state.
-
-## STOP Conditions
-
-Stop and return `needs_revision`, `return_to_clarify`, or `return_to_spec` when Critical or Important findings remain. Do not approve a draft plan with missing source coverage, invented behavior, weak verification, or insufficient isolated-task context.
+Use this support lens for an explicit ad-hoc review of a lean plan. It must not create a workflow state, approval ledger, scheduler manifest, or mandatory review artifact.
 
 ## Inputs
 
-Read:
+Read the plan and its named approved source. A current lean plan contains:
 
-1. Source artifact:
-   - intake package directory with canonical `requirements.md` and supporting `clarification.md`, or
-   - design spec with Source AC, Design anchors, Test cases, `AC-*`, `D-*`, `TC-*`, and verification strategy.
-2. Draft implementation plan.
-3. Relevant repo specs or memory summaries already selected by the caller.
+- Outcomes
+- Boundaries
+- Likely Modules
+- Known Dependencies
+- Acceptance
+- Verification
 
-Do not inspect implementation code or git diffs. If the caller asks for post-implementation code review, route that work to `review` or `final-review`.
+If the approved source is missing or materially ambiguous, stop and identify
+the exact source needed. Do not infer product or architecture decisions during
+plan review.
 
-## Review Rubric
+## Review
 
-Build a source-to-plan coverage matrix:
+Check:
 
-- Every Source AC maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
-- Every Design anchors row maps to a task, verification step, review focus, expected execution evidence, or deferred-with-rationale row.
-- Every Test cases row maps to an automated command, integration/e2e/API/CLI/manual check, or deferred-with-rationale row.
-- Non-goals, compatibility rules, surface boundaries, and unchanged behaviors from the source remain preserved in the plan.
-- For refactor plans, the Behavior Preservation Contract inventories current
-  observable behavior, callers, data/config/schema surfaces, generated
-  artifacts, and verification evidence; every planned unit maps back to it.
-- The plan does not add product, API, data, permission, workflow, runtime, or compatibility behavior not justified by the source.
-- Each task has enough interfaces, context, support lenses, and expected evidence for an `exec` or `subagent-exec` implementer and reviewer to work independently.
+1. Every accepted outcome and applicable `AC-*`, `TC-*`, or `D-*` anchor appears in outcomes or acceptance.
+2. Boundaries preserve explicit non-goals and protected behavior.
+3. Likely modules orient execution without claiming immutable file ownership.
+4. Known dependencies are supported by source or repository evidence and do not prescribe a fixed schedule.
+5. Acceptance is observable and verification is fresh, task-relevant, and feasible.
+6. The plan avoids implementation transcripts, code snippets, task microsteps, executor selection, concurrency metadata, reviewer stages, and finish gates.
 
-## Severity
-
-Use these severities:
-
-- Critical: a required Source AC, Design anchor, or Test case is absent from the plan; the plan contradicts the source; or the plan invents behavior that would change product, API, data, permission, workflow, runtime, or compatibility semantics.
-- Important: coverage is partial, verification is too weak to prove the source requirement, task handoff context is insufficient for isolated execution, or support-lens/surface-change evidence is missing.
-- Minor: clarity or organization issue that does not risk missed implementation, extra behavior, weak verification, or failed handoff.
-
-Critical and Important findings block final plan save and execution handoff until revised and rechecked.
+Treat missing or contradictory accepted outcomes as blocking. Report narrower
+clarity, scope, or verification improvements as non-blocking. The output is
+review advice for the caller; `plan` remains the owner of any plan update.
 
 ## Output
 
-Return findings in this shape:
+Report:
 
-```markdown
-## Plan Review Result
+- reviewed plan and approved source;
+- blocking findings with source evidence;
+- non-blocking improvements;
+- coverage of applicable anchors;
+- assessment: ready, ready after named fixes, or blocked.
 
-- Review mode: subagent | same-context
-- Reviewer independence: independent | degraded
-- Verdict: approved | needs_revision | return_to_clarify | return_to_spec
-- Unresolved findings: none | <count>
-- Residual risk: none | <concrete risk>
+When dispatching an independent reviewer, make it a leaf worker. Include:
+"Do not spawn, delegate to, or wait for other agents."
 
-## Coverage Matrix
+## STOP Conditions
 
-| Source anchor | Plan coverage | Status | Notes |
-|---|---|---|---|
-| AC-001 | T-001 verification | covered | |
-
-## Findings
-
-### Critical
-
-1. <finding or none>
-
-### Important
-
-1. <finding or none>
-
-### Minor
-
-1. <finding or none>
-
-## Recheck Notes
-
-For each fixed Critical or Important finding, state what changed and whether the affected source anchor is now covered.
-```
-
-For each finding, include:
-
-- source anchor or source section
-- draft plan location
-- what is missing, extra, contradictory, or unverifiable
-- why it matters
-- what change or evidence would resolve it
-
-## Boundary Rules
-
-- Same-context review is allowed only as a degraded fallback when subagent review is unavailable.
-- A same-context review must still use this exact rubric and must record the independence risk.
-- Minor findings may remain if the final plan records residual risk and they do not affect execution correctness.
-- Scratch review artifacts may live under `.loopx/plan-to-exec/<slug>-plan-review.md`; they are local workflow state and not repo-tracked docs by default.
-
-## Failure Handling
-
-| Trigger | First action | If still blocked |
-|---|---|---|
-| Source artifact is missing | Report `return_to_clarify` or `return_to_spec` with the missing path | Do not infer requirements from the draft plan alone |
-| Draft plan lacks anchors | Map by exact source section names where possible | Mark coverage unverifiable if stable anchors cannot be recovered |
-| Reviewer is same-context | Record `Reviewer independence: degraded` | Keep Critical/Important findings blocking exactly as in independent review |
+Stop when the plan or approved source is unreadable, source authority is
+unclear, a material decision belongs in `clarify` or `spec`, or the request is
+actually for implementation or code review.

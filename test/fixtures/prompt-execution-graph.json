@@ -1,0 +1,50 @@
+{
+  "input": {
+    "kind": "prompt",
+    "summary": "Add a normalized config parser and update the renderer to consume it."
+  },
+  "persistence": "none",
+  "outcomes": [
+    {
+      "id": "normalize-config",
+      "likely_modules": ["src/config-loader.mjs"],
+      "depends_on": []
+    },
+    {
+      "id": "render-normalized-config",
+      "likely_modules": ["src/renderer.mjs"],
+      "depends_on": ["normalize-config"]
+    }
+  ],
+  "selection": {
+    "kind": "serial",
+    "reason": "The config loader is the producer and the renderer is the consumer of the same new interface."
+  },
+  "verification": [
+    "Run focused config loader and renderer tests.",
+    "Run the repository test suite."
+  ],
+  "independent_prompt_case": {
+    "input": {
+      "kind": "prompt",
+      "summary": "Add independent GitHub and GitLab link formatters."
+    },
+    "persistence": "none",
+    "outcomes": [
+      {
+        "id": "github-link-formatter",
+        "likely_modules": ["src/github-link.mjs"],
+        "depends_on": []
+      },
+      {
+        "id": "gitlab-link-formatter",
+        "likely_modules": ["src/gitlab-link.mjs"],
+        "depends_on": []
+      }
+    ],
+    "selection": {
+      "kind": "concurrent",
+      "reason": "The adapters have distinct write surfaces, no shared contract decision, independent tests, and no integration ordering."
+    }
+  }
+}

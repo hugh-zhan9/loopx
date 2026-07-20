@@ -16,6 +16,7 @@ const DEFAULT_SESSION = {
 const STAGE_MAP = new Map([
   ['exec', 'implementation'],
   ['subagent-exec', 'implementation'],
+  ['parallel-subagent-exec', 'implementation'],
   ['fix', 'implementation'],
   ['review', 'review'],
   ['final-review', 'review'],

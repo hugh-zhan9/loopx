@@ -6,7 +6,11 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { LOOPX_BUNDLED_SKILLS } from '../src/install-discovery.mjs';
+import {
+  LOOPX_BUNDLED_SKILLS,
+  LOOPX_CANONICAL_WORKFLOW_SKILLS,
+  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+} from '../src/install-discovery.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -46,6 +50,22 @@ const activeMaintenanceDocs = [
 const personalPathPattern = /\/(?:Users|home)\/[A-Za-z0-9._-]+\//;
 const localRefPattern = /(?<![/.])\b(?:references|agents|scripts)\/[\w/.-]+\b/g;
 const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const obsoleteImplementationPaths = [
+  'src/codex-exec-runtime.mjs',
+  'src/finish-runtime.mjs',
+  'skills/shared/parallel-plan-contract.md',
+  'skills/shared/scripts/parallel-plan-contract.mjs',
+  'skills/exec/references/checkpoints-and-resume.md',
+  'skills/exec/references/multi-plan-package-mode.md',
+  'skills/final-review/final-reviewer.md',
+  'skills/final-review/references/report-template.en.md',
+  'skills/final-review/references/report-template.zh-CN.md',
+  'skills/finish/references/final-review-and-finish-gates.md',
+  'skills/finish/references/memory-and-spec-candidates.md',
+  'skills/plan-to-exec/references/internal-plan-review.md',
+  'skills/plan-to-exec/references/plan-schema.md',
+  'skills/plan-to-exec/references/surface-change-planning.md',
+];
 
 function parseFrontmatter(path, text) {
   assert.equal(text.startsWith('---\n'), true, `${path} must start with YAML frontmatter`);
@@ -197,33 +217,33 @@ async function assertPublicDocsAligned() {
   assertNoRemovedRuntimeCommandExposure(readmeZh, 'README.zh-CN.md');
   assertNoRemovedRuntimeCommandExposure(cliDoc, 'docs/loopx/cli.md');
   assertNoRemovedRuntimeCommandExposure(cliDocZh, 'docs/loopx/cli.zh-CN.md');
-  assertContains(readme, 'skill suite', 'README.md');
-  assertContains(readme, 'workflow happens by invoking skills inside the agent', 'README.md');
+  assertContains(readme, 'Skill-first workflow suite', 'README.md');
+  assertContains(readme, 'six canonical workflow intents', 'README.md');
+  assertContains(readme, 'prompt-first', 'README.md');
   assertContains(readme, './docs/loopx/cli.md', 'README.md');
   assertContains(readme, '$clarify', 'README.md');
   assertContains(readme, '$finish', 'README.md');
-  assertContains(readme, 'local audit ledger', 'README.md');
-  assertContains(readme, '.loopx/finish/<audit-id>/', 'README.md');
-  assert.match(readme, /`none` means|none means/i, 'README.md missing none means');
+  assertContains(readme, 'explicit-only compatibility', 'README.md');
+  assert.match(readme, /does not write a local audit ledger/i, 'README.md must contract finish audit state');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
   assertContains(cliDoc, 'remove loopx-managed user-level artifacts', 'docs/loopx/cli.md');
   assertContains(installationSpec, 'Undo installed files', 'docs/loopx/specs/installation.md');
-  assertContains(readme, 'Golden path', 'README.md');
   assertContains(readme, 'pre-v2', 'README.md');
   assertContains(readme, 'leaf worker', 'README.md');
+  assert.doesNotMatch(readme, /Golden path|finish-audit|finish-start|finish-record|execution-start/i);
 
-  assertContains(readmeZh, 'skill 调用完成', 'README.zh-CN.md');
+  assertContains(readmeZh, '六个 canonical workflow intents', 'README.zh-CN.md');
+  assertContains(readmeZh, 'prompt-first', 'README.zh-CN.md');
   assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
   assertContains(readmeZh, '$clarify', 'README.zh-CN.md');
   assertContains(readmeZh, '$finish', 'README.zh-CN.md');
-  assertContains(readmeZh, '本地 audit ledger', 'README.zh-CN.md');
-  assertContains(readmeZh, '.loopx/finish/<audit-id>/', 'README.zh-CN.md');
-  assertContains(readmeZh, '`none` 表示', 'README.zh-CN.md');
+  assertContains(readmeZh, 'explicit-only compatibility aliases', 'README.zh-CN.md');
+  assertContains(readmeZh, '不会写本地', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
   assertContains(cliDocZh, '移除 loopx 管理的用户级 artifacts', 'docs/loopx/cli.zh-CN.md');
-  assertContains(readmeZh, '黄金路径', 'README.zh-CN.md');
   assertContains(readmeZh, 'pre-v2', 'README.zh-CN.md');
   assertContains(readmeZh, 'leaf worker', 'README.zh-CN.md');
+  assert.doesNotMatch(readmeZh, /黄金路径|finish-audit|finish-start|finish-record|execution-start/i);
   assertContains(cliDoc, 'top-level controller', 'docs/loopx/cli.md');
   assertContains(cliDocZh, '顶层 controller', 'docs/loopx/cli.zh-CN.md');
   for (const required of [
@@ -346,8 +366,13 @@ assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), tru
 assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true, 'npm package must include agent eval runner');
 assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true, 'npm package must include Codex trace normalizer');
 assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true, 'npm package must include Codex live eval runner');
+assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true, 'npm package must include installed-product live eval runner');
 assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true, 'npm package must include agent eval aggregator');
 assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true, 'npm package must include GPT-5.6 eval contracts');
+assert.equal(packageJson.files.includes('evals/darwin-simple/'), true, 'npm package must include installed-product eval contracts');
+assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true, 'npm package must include installed-product eval fixture');
+assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true, 'npm package must include installed-product spec eval fixture');
+assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/memory-repository/'), true, 'npm package must include installed-product memory eval fixture');
 assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload directory must be absent');
 assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
 assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
@@ -362,8 +387,22 @@ assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
 assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
+assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan', 'exec', 'review', 'finish']);
+assert.deepEqual(
+  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  ['plan-to-exec', 'subagent-exec', 'parallel-subagent-exec', 'final-review', 'fix-review'],
+);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
+}
+for (const skillName of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
+  const entries = (await readdir(join(repoRoot, 'skills', skillName)))
+    .filter((entry) => entry !== '.DS_Store')
+    .sort();
+  assert.deepEqual(entries, ['SKILL.md'], `${skillName} must contain only its compatibility forwarding skill`);
+}
+for (const relativePath of obsoleteImplementationPaths) {
+  assert.equal(existsSync(join(repoRoot, relativePath)), false, `${relativePath} must remain removed`);
 }
 assert.deepEqual(
   packageJson.files.filter((path) => path.startsWith('skills/')).sort(),

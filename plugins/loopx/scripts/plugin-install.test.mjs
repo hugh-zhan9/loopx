@@ -76,19 +76,21 @@ describe('loopx plugin shell', () => {
     }
   });
 
-  it('locks plan-to-exec as the canonical implementation-planning contract', async () => {
-    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan-to-exec', 'SKILL.md'), 'utf8');
+  it('installs lean plan as canonical and keeps plan-to-exec explicit-only', async () => {
+    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
+    const planAlias = await readFile(join(ROOT_SKILLS_DIR, 'plan-to-exec', 'SKILL.md'), 'utf8');
 
-    assert.match(planSkill, /Bite-Sized Task Granularity/);
-    assert.match(planSkill, /No Placeholders/);
+    assert.match(planSkill, /optional lean implementation plan/i);
+    assert.match(planSkill, /Outcomes/);
+    assert.match(planSkill, /Boundaries/);
+    assert.match(planSkill, /Known Dependencies/);
+    assert.match(planSkill, /Acceptance/);
+    assert.match(planSkill, /Verification/);
     assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
-    assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\//);
-    assert.match(planSkill, /loopx:subagent-exec/);
-    assert.match(planSkill, /Plan Boundary Commit Policy|Boundary Commit Policy/);
-    assert.match(planSkill, /single-plan.*one.*commit|one.*commit.*single-plan/is);
-    assert.doesNotMatch(planSkill, /Frequent commits|Step 5: Commit|"Commit" is a step/);
-    assert.doesNotMatch(planSkill, /Planner -> Architect -> Critic/);
-    assert.doesNotMatch(planSkill, /consensus-first/i);
+    assert.doesNotMatch(planSkill, /Bite-Sized Task Granularity|loopx-parallel-plan|max_parallel/);
+    assert.match(planAlias, /disable-model-invocation: true/);
+    assert.match(planAlias, /canonical `plan` intent/i);
+    assert.match(planAlias, /same (?:input|arguments)/i);
   });
 
   it('locks clarify to use the conditional spec or plan handoff gate', async () => {
@@ -133,6 +135,11 @@ describe('loopx plugin shell', () => {
         true,
       );
     }
+
+    const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
+    assert.match(codexGuidance, /loopx:managed:block prompt-first-routing/);
+    assert.match(codexGuidance, /clear, bounded.*ordinary model work/is);
+    assert.doesNotMatch(codexGuidance, /skills\/RESOLVER\.md/);
 
     const installedSpecTemplate = await readFile(join(home, '.agents', 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const rootSpecTemplate = await readFile(join(ROOT_SKILLS_DIR, 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');

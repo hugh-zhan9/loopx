@@ -14,13 +14,30 @@ import {
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(MODULE_DIR, '..');
+export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
+  'clarify',
+  'spec',
+  'plan',
+  'exec',
+  'review',
+  'finish',
+]);
+export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
+  'plan-to-exec',
+  'subagent-exec',
+  'parallel-subagent-exec',
+  'final-review',
+  'fix-review',
+]);
 const LOOPX_SKILLS = [
   'clarify',
   'spec',
   'codebase-spec',
+  'plan',
   'plan-to-exec',
   'plan-reviewer',
   'subagent-exec',
+  'parallel-subagent-exec',
   'exec',
   'review',
   'final-review',
@@ -71,6 +88,22 @@ const LOOPX_AGENT_GUIDANCE_CONTENT = [
   '- If `.loopx/memory/MEMORY.md` exists, read it as curated project memory.',
   '- If `.loopx/memory/index.jsonl` exists, use it only to find relevant active memory cards.',
   '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
+].join('\n');
+const LOOPX_ROUTING_GUIDANCE_BLOCK_ID = 'prompt-first-routing';
+const LOOPX_ROUTING_GUIDANCE_CONTENT = [
+  '## loopx Prompt-First Routing',
+  '',
+  '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
+  '- The six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
+  '- `plan-to-exec`, `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review` are explicit-only compatibility aliases. Never select them automatically.',
+  '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
+  '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
+  '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',
+  '- Use independent review only for explicit review intent, security-sensitive or destructive behavior, public compatibility changes, cross-task interaction, or conflict reconciliation. Multi-agent execution alone is not a review trigger.',
+  '- Before every completion claim, run a quiet completion check: require fresh task-relevant verification; compare accepted intent and the final diff with applicable specs; and synchronize any applicable spec changed by the implementation. Write a new durable rule only with an explicit user decision, approved requirement, or existing spec authority.',
+  '- Preserve local memory automatically only for an encountered, evidence-backed, non-obvious, reusable project pitfall, after deduplication. Shared memory and newly tracked knowledge require explicit acceptance. Never preserve secrets, raw conversation, workflow state, generic path-based candidates, commit summaries, or obvious code facts as knowledge.',
+  '- When neither an applicable spec nor qualifying knowledge changed, create no artifact or reminder. Mention spec or knowledge only when it was actually written.',
+  '- Use `finish` only when the user explicitly requests Git disposition such as commit, branch, merge, pull request, keep, cleanup, or discard.',
 ].join('\n');
 const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
@@ -212,15 +245,25 @@ async function fileHash(path) {
 
 async function sharedContractsHash(path) {
   const hash = createHash('sha1');
-  for (const entry of (await readdir(path)).sort()) {
-    const entryPath = join(path, entry);
-    const stat = await lstat(entryPath);
-    if (!stat.isFile()) {
-      continue;
+  async function visit(currentPath, relativePath) {
+    const metadata = await lstat(currentPath);
+    const normalized = relativePath.split('\\').join('/');
+    if (metadata.isDirectory()) {
+      hash.update(`directory\0${normalized}\0`);
+      for (const entry of (await readdir(currentPath)).sort()) {
+        await visit(join(currentPath, entry), normalized ? `${normalized}/${entry}` : entry);
+      }
+      return;
     }
-    hash.update(entry);
-    hash.update(await readFile(entryPath));
+    if (metadata.isSymbolicLink()) {
+      hash.update(`symlink\0${normalized}\0${await readlink(currentPath)}\0`);
+      return;
+    }
+    hash.update(`file\0${normalized}\0`);
+    hash.update(await readFile(currentPath));
+    hash.update('\0');
   }
+  await visit(path, '');
   return hash.digest('hex');
 }
 
@@ -539,23 +582,31 @@ export async function installAgentGuidanceFile(path, options = {}) {
   };
 }
 
-function agentGuidanceEnabled(options = {}) {
+function contextGuidanceEnabled(options = {}) {
   return Boolean(options.agentGuidance || options.codexAgentsGuidance);
 }
 
 export async function installAgentGuidance(env = process.env, options = {}) {
   const target = options.target || env.LOOPX_INSTALL_TARGET || 'codex';
-  const enabled = agentGuidanceEnabled(options);
+  const contextEnabled = contextGuidanceEnabled(options);
   const result = {};
   if (target === 'codex' || target === 'all') {
     const path = getCodexAgentsPath(env);
-    result.codex = enabled
+    result.codex = await installAgentGuidanceFile(path, {
+      content: LOOPX_ROUTING_GUIDANCE_CONTENT,
+      id: LOOPX_ROUTING_GUIDANCE_BLOCK_ID,
+    });
+    result.codex.context = contextEnabled
       ? await installAgentGuidanceFile(path)
       : { status: 'recommended', path };
   }
   if (target === 'claude' || target === 'all') {
     const path = getClaudeAgentsPath(env, options);
-    result.claude = enabled
+    result.claude = await installAgentGuidanceFile(path, {
+      content: LOOPX_ROUTING_GUIDANCE_CONTENT,
+      id: LOOPX_ROUTING_GUIDANCE_BLOCK_ID,
+    });
+    result.claude.context = contextEnabled
       ? await installAgentGuidanceFile(path)
       : { status: 'recommended', path };
   }

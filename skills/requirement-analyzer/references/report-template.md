@@ -35,7 +35,7 @@ Score confidence: [high / medium / low]
 
 ## Readiness Recommendation
 
-Recommended next step: `clarify` | `spec` | `plan-to-exec` | blocked pending owner decisions
+Recommended next step: `clarify` | `spec` | `plan` | blocked pending owner decisions
 
 Reason:
 

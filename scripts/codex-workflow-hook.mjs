@@ -94,7 +94,7 @@ function nextSkill(state) {
     return '$finish';
   }
   if (clarifyReady(state)) {
-    return `$plan-to-exec ${clarifyHandoffArg(state)}`;
+    return `$plan ${clarifyHandoffArg(state)}`;
   }
   if (state.current_stage === 'clarify') {
     return `$clarify ${state.slug}`;

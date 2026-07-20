@@ -3,7 +3,7 @@ name: requirement-analyzer
 description: "Use when reviewing existing requirements, PRDs, specs, or feature briefs for ambiguity, missing business closure, state/workflow behavior, data mutations, traceability, implementation fit, feasibility, or development readiness. Not for changing workflow state, inventing business decisions, writing implementation plans, or editing code."
 when_to_use: "requirement-analyzer, PRD review, requirement gaps, feasibility review, ambiguity analysis, development readiness, 需求分析, 需求缺口, 需求评审, 状态机分析, 行为模型"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Requirement Analyzer
@@ -12,7 +12,7 @@ metadata:
 
 `requirement-analyzer` reviews an existing written requirement and produces an evidence-backed gap and readiness report. It can extract behavioral models, check traceability, compare nearby implementation, and include diagnostic scoring when useful. It is a support skill like `doc-readability`: users can invoke it directly, and loopx workflow skills may use its output as source material later, but this skill does not advance workflow state.
 
-Do not turn this skill into `clarify`, `spec`, or `plan-to-exec`. If analysis shows the requirement is not ready, report the gaps. If the user later wants to proceed, route that separate request through the normal loopx flow.
+Do not turn this skill into `clarify`, `spec`, or `plan`. If analysis shows the requirement is not ready, report the gaps. If the user later wants to proceed, route that separate request through the normal loopx flow.
 
 The readiness recommendation is authoritative. Maturity scores and quality scores explain confidence and risk; they do not route work by themselves.
 
@@ -82,7 +82,7 @@ This skill analyzes requirements. It does NOT:
     the user requests it or deep analysis benefits from it. The qualitative
     evidence-backed verdict remains authoritative; avoid double-counting the
     same gap across completeness, testability, and behavior.
-13. **Recommend next step** — Recommend `clarify`, `spec`, `plan-to-exec`, or blocked pending owner decisions. This is only a recommendation; do not create workflow artifacts unless separately asked.
+13. **Recommend next step** — Recommend `clarify`, `spec`, `plan`, or blocked pending owner decisions. This is only a recommendation; do not create workflow artifacts unless separately asked.
 
 ## Reference Guide
 
@@ -94,7 +94,7 @@ Load detailed guidance based on context:
 | Behavioral model guide | `references/behavioral-model-guide.md` | Requirement involves stateful entities, workflows, approval chains, async tasks, lifecycle |
 | Quality attributes rubric | `references/quality-attributes-rubric.md` | Scoring individual requirement statements for quality |
 | Traceability guide | `references/traceability-guide.md` | Generating traceability matrix or checking cross-document consistency |
-| Readiness rubric | `references/readiness-rubric.md` | Deciding whether work is ready for `clarify`, `spec`, or `plan-to-exec` |
+| Readiness rubric | `references/readiness-rubric.md` | Deciding whether work is ready for `clarify`, `spec`, or `plan` |
 | Report template | `references/report-template.md` | Writing a gap checklist or narrative analysis report |
 | Example reports | `references/example-reports.md` | Understanding expected output quality and format |
 
@@ -181,7 +181,7 @@ State whether the requirement is ready for:
 
 - `clarify`
 - `spec`
-- `plan-to-exec`
+- `plan`
 - blocked pending owner decisions
 
 This is a recommendation only. Do not create workflow artifacts unless the user separately asks.
@@ -190,7 +190,7 @@ Use these readiness rules:
 
 - Ready for `clarify` when the analysis has already surfaced the concrete contradictions, candidate interpretations, repo evidence, and owner decisions needed before design.
 - Ready for `spec` when product behavior is mostly clear but API, data, permission, migration, compatibility, or architecture decisions must be fixed before planning.
-- Ready for `plan-to-exec` when scope, non-goals, acceptance rules, affected surfaces, and constraints are clear enough to break into implementation tasks.
+- Ready for `plan` when scope, non-goals, acceptance rules, affected surfaces, and constraints are clear enough for a lean implementation plan.
 - Blocked pending owner decisions when a P0 question has no safe default and no local repo evidence can answer it.
 
 ## Maturity Scorecard

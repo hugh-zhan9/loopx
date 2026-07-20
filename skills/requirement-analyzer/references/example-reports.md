@@ -64,7 +64,7 @@ Source: "Multi-tenant API Key Management — Feature Brief v1"
 - Source: Multi-tenant API Key Management Feature Brief v1
 - Document type: Product requirement (mixed with some technical design)
 - Analysis depth: standard
-- Overall readiness: Not ready for plan-to-exec
+- Overall readiness: Not ready for plan
 - Maturity score: 71/100 (Ready for spec)
 - Highest priority issue: Tenant isolation model for key scopes is undefined
 
@@ -174,7 +174,7 @@ Source: JIRA ticket "Add export button to analytics dashboard"
 
 ## 结论
 
-- 推荐下一步：plan-to-exec
+- 推荐下一步：plan
 - 成熟度评分：88/100 (可进入规划)
 - 阻塞项数量：0
 - 主要风险：大数据量导出的超时和内存问题（P1，不阻塞规划）
@@ -198,13 +198,13 @@ Source: JIRA ticket "Add export button to analytics dashboard"
 
 - [ ] 问题：导出数据量上限
       证据：ticket 说 "导出当前筛选结果"，但仪表盘数据可能达百万行
-      建议：plan-to-exec 时设计分页导出或异步下载，设定单次导出上限
+      建议：plan 时记录分页导出或异步下载边界，设定单次导出上限
 
 - [ ] 问题：导出格式
       证据：ticket 仅说 "导出为 CSV"
       建议：确认是否需要 Excel (.xlsx) 支持，以及 CSV 编码（UTF-8 BOM for 中文兼容）
 
-## 为什么可以进入 plan-to-exec
+## 为什么可以进入 plan
 
 - 范围明确：在现有仪表盘页面增加导出按钮
 - 接受标准可测试：点击导出 → 下载包含当前筛选数据的文件
@@ -224,7 +224,7 @@ Source: "公司行动事件处理系统 PRD v1.2"
 - Source: 公司行动事件处理系统 PRD v1.2
 - Document type: Product requirement (complex stateful workflow)
 - Analysis depth: deep
-- Overall readiness: Not ready for plan-to-exec
+- Overall readiness: Not ready for plan
 - Maturity score: 63/100 (Needs clarify)
 - Highest priority issue: 事件确认后的明细生成失败回滚路径未定义
 

@@ -1,9 +1,9 @@
 ---
 name: clarify
-description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
-when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
+description: "Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records the required handoff. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation."
+when_to_use: "clarify, unresolved intent, unclear scope, non-goals, acceptance criteria, permission decision, secret handling, destructive choice, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.14"
+  version: "0.3.16"
 ---
 
 # loopx Clarify
@@ -16,7 +16,7 @@ First load only relevant repo context, then alternate between evidence gathering
 
 ## STOP Conditions
 
-Stop before handoff when any material scope, non-goal, acceptance criterion, rollout, safety, ownership, or verification question remains unresolved. The only valid unresolved outcome is `blocked`; do not route to `spec` or `plan-to-exec` with hidden assumptions.
+Stop before handoff when any material scope, non-goal, acceptance criterion, rollout, safety, ownership, or verification question remains unresolved. The only valid unresolved outcome is `blocked`; do not route to `spec` or `plan` with hidden assumptions.
 
 ## Repo Specs And Memory Context
 
@@ -64,9 +64,9 @@ Acceptance scenarios in `requirements.md` must use stable `TC-*` anchors under a
 
 `requirements.md` is the canonical `AC-*` and `TC-*` source. If AC/TC anchors are missing, contradictory, or not testable, keep the package blocked and continue clarification.
 
-Main-chain handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for downstream chain work. `spec`, `plan-to-exec`, `exec`, `subagent-exec`, `review`, `final-review`, and `finish` consume those anchors as source contract identifiers. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
+Handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for `spec`, `plan`, `exec`, and `review`. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
 
-The completed intake package must preserve the information `spec` or `plan-to-exec` needs:
+The completed intake package must preserve the information `spec` or `plan` needs:
 
 - intent and desired outcome
 - in-scope work
@@ -146,30 +146,25 @@ Generic: Use the spec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
 Then stop before implementation planning and report:
 
 ```text
-skill: plan-to-exec
+skill: plan
 args: docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Codex: $plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Claude Code: /plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Cursor Agent Skills: /plan-to-exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Generic: Use the plan-to-exec skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
+Codex: $plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Claude Code: /plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Cursor Agent Skills: /plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Generic: Use the plan skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
 ```
 
-For `direct_to_plan`, hand off to the `plan-to-exec` skill with the intake package directory as the source:
+For `direct_to_plan`, hand off to the `plan` skill with the intake package directory as the source:
 
 ```text
-skill: plan-to-exec
+skill: plan
 args: .loopx/intake/YYYY-MM-DD-<slug>/
-Codex: $plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
-Claude Code: /plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
-Cursor Agent Skills: /plan-to-exec .loopx/intake/YYYY-MM-DD-<slug>/
-Generic: Use the plan-to-exec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
+Codex: $plan .loopx/intake/YYYY-MM-DD-<slug>/
+Claude Code: /plan .loopx/intake/YYYY-MM-DD-<slug>/
+Cursor Agent Skills: /plan .loopx/intake/YYYY-MM-DD-<slug>/
+Generic: Use the plan skill with .loopx/intake/YYYY-MM-DD-<slug>/.
 ```
 
-`plan-to-exec` writes:
-
-- Single plan: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`
-- Multiple plans from one source: `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`
-
-For multiple plans from one source, child plans are executed independently; each child plan gets plan-level final-review, and the package gets one spec-level final-review before `finish`.
+`plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`.
 
 Do not write implementation plans or start code changes inside `clarify`.
