@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Existing parallel execution behavior and Git safety tests remain green while callers can use the new exec-owned boundary.
-- [ ] The boundary owns task worktrees, integration snapshots, conflict restoration, and cleanup without taking ownership of user changes.
-- [ ] No routing, planning, review, finish, or user-facing execution behavior changes in this ticket.
-- [ ] The old implementation remains available until the later contract ticket removes it.
+- [x] Existing parallel execution behavior and Git safety tests remain green while callers can use the new exec-owned boundary.
+- [x] The boundary owns task worktrees, integration snapshots, conflict restoration, and cleanup without taking ownership of user changes.
+- [x] No routing, planning, review, finish, or user-facing execution behavior changes in this ticket.
+- [x] The old implementation remains available until the later contract ticket removes it.
