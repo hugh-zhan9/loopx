@@ -1,4 +1,4 @@
-import { parseReviewResult, validateReviewResult } from '../skills/subagent-exec/scripts/review-result-lib.mjs';
+import { parseReviewResult, validateReviewResult } from './review-result.mjs';
 
 export { parseReviewResult };
 

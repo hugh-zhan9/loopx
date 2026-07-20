@@ -136,6 +136,19 @@ async function readSkillSurface(skillName, referenceFiles = []) {
   return parts.join('\n\n');
 }
 
+async function relativeFilesUnder(root) {
+  const files = [];
+  async function visit(path, prefix = '') {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const relativePath = join(prefix, entry.name);
+      if (entry.isDirectory()) await visit(join(path, entry.name), relativePath);
+      else if (entry.isFile() && entry.name !== '.DS_Store') files.push(relativePath);
+    }
+  }
+  await visit(root);
+  return files.sort();
+}
+
 async function rgCurrentSurface(paths, patterns) {
   const outputs = [];
   const files = new Set();
@@ -393,9 +406,7 @@ describe('loopx skill governance', () => {
   it('keeps every loopx-dispatched worker as a leaf worker', async () => {
     const dispatchSurfaces = [
       'skills/plan-reviewer/SKILL.md',
-      'skills/subagent-exec/implementer-prompt.md',
-      'skills/subagent-exec/task-reviewer-prompt.md',
-      'skills/parallel-subagent-exec/reconciliation-prompt.md',
+      'skills/exec/scripts/adaptive-exec.mjs',
       'skills/review/code-reviewer.md',
       'skills/final-review/final-reviewer.md',
       'skills/fix/SKILL.md',
@@ -405,10 +416,6 @@ describe('loopx skill governance', () => {
       assert.match(text, /leaf worker/i, `${relativePath} must identify dispatched workers as leaf workers`);
       assert.match(text, /Do not spawn, delegate to, or wait for (?:other |any )?agents/i, `${relativePath} must prohibit nested delegation`);
     }
-    const codexReference = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'codex-subagents.md'), 'utf8');
-    assert.match(codexReference, /Required capabilities.*create.*await/is);
-    assert.match(codexReference, /Optional capabilities.*inspect.*message.*release/is);
-    assert.doesNotMatch(codexReference, /spawn_agent`, `wait_agent`, and `close_agent` are directly available/);
   });
 
   it('keeps workflow recovery and planning detail in owned contracts', async () => {
@@ -833,7 +840,13 @@ describe('loopx skill governance', () => {
     const removedQualityPrompt = ['code', 'quality', 'reviewer', 'prompt.md'].join('-');
     const removedTwoStagePhrase = ['two', 'stage review'].join('-');
     const removedPromptPattern = new RegExp(`${removedSpecPrompt}|${removedQualityPrompt}|${removedTwoStagePhrase}`, 'i');
-    const rootSkill = await readSkillSurface('subagent-exec', ['task-handoff-and-review.md']);
+    const rootSkill = await readFile(join(rootSkillDir, 'SKILL.md'), 'utf8');
+    if (parseFrontmatter(rootSkill)['disable-model-invocation'] === 'true') {
+      assertExplicitCompatibilityAlias(rootSkill, 'subagent-exec', 'exec');
+      assert.match(rootSkill, /Not for automatic routing/i);
+      assert.deepEqual(await relativeFilesUnder(rootSkillDir), ['SKILL.md']);
+      return;
+    }
     const taskReviewer = await readFile(join(rootSkillDir, 'task-reviewer-prompt.md'), 'utf8');
     const implementer = await readFile(join(rootSkillDir, 'implementer-prompt.md'), 'utf8');
     const platformReference = await readFile(join(rootSkillDir, 'platform-subagents.md'), 'utf8');
@@ -841,12 +854,6 @@ describe('loopx skill governance', () => {
     const claudeReference = await readFile(join(rootSkillDir, 'claude-subagents.md'), 'utf8');
     const cursorReference = await readFile(join(rootSkillDir, 'cursor-subagents.md'), 'utf8');
     const reviewResultContract = await readFile(join(rootSkillDir, 'references', 'review-result-contract.md'), 'utf8');
-
-    if (parseFrontmatter(rootSkill)['disable-model-invocation'] === 'true') {
-      assertExplicitCompatibilityAlias(rootSkill, 'subagent-exec', 'exec');
-      assert.match(rootSkill, /Not for automatic routing/i);
-      return;
-    }
 
     assert.equal(existsSync(removedPluginPayloadDir), false, 'plugin skill payload directory must be absent');
     assert.equal(existsSync(join(rootSkillDir, 'task-reviewer-prompt.md')), true);
@@ -969,6 +976,10 @@ describe('loopx skill governance', () => {
     await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
 
     const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
+    if (!existsSync(join(scriptsDir, 'subagent-workspace'))) {
+      assert.deepEqual(await relativeFilesUnder(join(repoRoot, 'skills', 'subagent-exec')), ['SKILL.md']);
+      return;
+    }
     for (const scriptName of ['subagent-workspace', 'task-brief', 'review-package', 'review-result', 'review-artifact-verify']) {
       const mode = (await stat(join(scriptsDir, scriptName))).mode;
       assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
@@ -1106,9 +1117,11 @@ describe('loopx skill governance', () => {
   it('governs boundary commit policy and task review worktree evidence', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['checkpoints-and-resume.md']);
-    const subagentSkill = await readSkillSurface('subagent-exec', ['task-handoff-and-review.md', 'model-selection-and-retry.md']);
-    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
-    const reviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+    const subagentSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8') : '';
+    const reviewerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8') : '';
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const resolver = await readFile(resolverPath, 'utf8');
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
@@ -1144,7 +1157,7 @@ describe('loopx skill governance', () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['multi-plan-package-mode.md', 'task-handoff-and-review.md']);
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
@@ -1217,7 +1230,7 @@ describe('loopx skill governance', () => {
   it('governs multi-plan package execution mode across execution skills', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['multi-plan-package-mode.md', 'checkpoints-and-resume.md']);
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['multi-plan-package-mode.md', 'task-handoff-and-review.md']);
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
@@ -1453,9 +1466,11 @@ describe('loopx skill governance', () => {
   it('governs plan task anchors across planning execution and review', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['multi-plan-package-mode.md']);
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['multi-plan-package-mode.md', 'task-handoff-and-review.md']);
-    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
-    const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8') : '';
+    const taskReviewerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8') : '';
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const planFields = parseFrontmatter(planSkill);
@@ -1634,9 +1649,11 @@ describe('loopx skill governance', () => {
     const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['multi-plan-package-mode.md']);
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['multi-plan-package-mode.md', 'task-handoff-and-review.md']);
-    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
-    const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
+    const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8') : '';
+    const taskReviewerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8') : '';
 
     if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
       const canonicalPlan = await readSkillSurface('plan', ['plan-schema.md']);
@@ -1956,12 +1973,14 @@ describe('loopx skill governance', () => {
     const resolver = await readFile(resolverPath, 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['execution-selection.md']);
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['task-handoff-and-review.md']);
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const fixSkill = await readFile(join(repoRoot, 'skills', 'fix', 'SKILL.md'), 'utf8');
-    const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
-    const reviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
+    const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8') : '';
+    const reviewerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'))
+      ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8') : '';
 
     assert.match(resolver, /`lancet` is implementation\/review-only/i);
     assert.doesNotMatch(resolver, /`lancet` add[s]? domain discipline to `spec`/i);
@@ -1974,10 +1993,12 @@ describe('loopx skill governance', () => {
     assert.match(finalReviewSkill, /deletable abstractions/i);
     assert.match(fixSkill, /smallest root-cause fix/i);
     assert.match(fixSkill, /Use `lancet` discipline/i);
-    assert.match(implementerPrompt, /LANCET_CONTEXT/);
-    assert.match(implementerPrompt, /smallest correct diff/);
-    assert.match(reviewerPrompt, /over-engineering/);
-    assert.match(reviewerPrompt, /repo reuse, stdlib\/native\s+alternatives/);
+    if (implementerPrompt) {
+      assert.match(implementerPrompt, /LANCET_CONTEXT/);
+      assert.match(implementerPrompt, /smallest correct diff/);
+      assert.match(reviewerPrompt, /over-engineering/);
+      assert.match(reviewerPrompt, /repo reuse, stdlib\/native\s+alternatives/);
+    }
   });
 
   it('documents lancet as bundled but Codex-only auto activation', async () => {
@@ -2059,7 +2080,7 @@ describe('loopx skill governance', () => {
   it('finish wording avoids colliding with the assistant final channel', async () => {
     const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
     const execSkill = await readSkillSurface('exec', ['multi-plan-package-mode.md']);
-    const subagentExecSkill = await readSkillSurface('subagent-exec', ['multi-plan-package-mode.md']);
+    const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
 
     assert.doesNotMatch(finishSkill, /Final Response Contract/i);
     assert.doesNotMatch(finishSkill, /final response must/i);
@@ -2111,28 +2132,14 @@ describe('loopx skill governance', () => {
   });
 
   it('governs parallel-subagent-exec as a manual bounded controller', async () => {
-    const referenceSurface = await readSkillSurface('parallel-subagent-exec', [
-      'task-pipeline.md',
-      'scheduler-and-state.md',
-      'worktree-integration.md',
-      'package-mode.md',
-    ]);
+    const referenceSurface = await readFile(join(repoRoot, 'skills', 'parallel-subagent-exec', 'SKILL.md'), 'utf8');
     const rootDir = join(repoRoot, 'skills', 'parallel-subagent-exec');
-    const skill = [
-      referenceSurface,
-      ...await Promise.all([
-        'platform-subagents.md',
-        'codex-subagents.md',
-        'claude-subagents.md',
-        'cursor-subagents.md',
-        'reconciliation-prompt.md',
-      ].map((path) => readFile(join(rootDir, path), 'utf8'))),
-    ].join('\n');
+    const skill = referenceSurface;
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
-    const cursorReference = await readFile(join(rootDir, 'cursor-subagents.md'), 'utf8');
-    const claudeReference = await readFile(join(rootDir, 'claude-subagents.md'), 'utf8');
+    const cursorReference = '';
+    const claudeReference = '';
     const exactLeaf = 'You are a leaf worker. Do not spawn, delegate to, or wait for other agents.';
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
@@ -2141,6 +2148,7 @@ describe('loopx skill governance', () => {
       assertExplicitCompatibilityAlias(referenceSurface, 'parallel-subagent-exec', 'exec');
       assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
       assert.match(resolver, /do not participate in automatic routing/i);
+      assert.deepEqual(await relativeFilesUnder(rootDir), ['SKILL.md']);
       return;
     }
     assert.match(skill, /version:\s*"0\.3\.5"/);

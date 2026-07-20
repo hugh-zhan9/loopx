@@ -72,12 +72,8 @@ export function validateReviewResult(result) {
 
 export function parseReviewResult(message) {
   const matches = [...String(message ?? '').matchAll(/```loopx-review-result\s*\n([\s\S]*?)\n```/gi)];
-  if (matches.length === 0) {
-    return null;
-  }
-  if (matches.length !== 1) {
-    throw new Error('review_result_block_count_invalid');
-  }
+  if (matches.length === 0) return null;
+  if (matches.length !== 1) throw new Error('review_result_block_count_invalid');
   let result;
   try {
     result = JSON.parse(matches[0][1]);

@@ -98,8 +98,12 @@ function parsePorcelainZ(text) {
     const token = tokens[index];
     const status = token.slice(0, 2);
     const path = token.slice(3);
-    entries.push({ status, path });
-    if (status.includes('R') || status.includes('C')) index += 1;
+    const entry = { status, path };
+    if (status.includes('R') || status.includes('C')) {
+      index += 1;
+      entry.source_path = tokens[index];
+    }
+    entries.push(entry);
   }
   return entries;
 }
@@ -240,8 +244,11 @@ export async function removeOwnedWorktree({ topology, descriptor, removeBranch =
   return { removed: true, path: verified.path, branch: verified.branch, branch_removed: removeBranch };
 }
 
-function changedPathsFromStatus(text) {
-  return parsePorcelainZ(text).map(({ path }) => path).sort();
+export function changedPathsFromStatus(text) {
+  const paths = parsePorcelainZ(text).flatMap(({ status, path, source_path: sourcePath }) => (
+    status.includes('R') ? [path, sourcePath] : [path]
+  ));
+  return [...new Set(paths)].sort();
 }
 
 async function assertSnapshotCurrent(topology, descriptor, snapshot) {

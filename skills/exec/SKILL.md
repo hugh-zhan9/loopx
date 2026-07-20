@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -69,6 +69,14 @@ Concurrency is admissible only when every independence condition in
 `execution-selection.md` is satisfied and the host provides the required
 isolation. Missing or uncertain capability narrows execution to serial work in
 this same intent; it does not fail the request or recommend another executor.
+
+For admitted concurrent mutation, read
+[references/concurrent-execution.md](./references/concurrent-execution.md) and
+use the exec-owned runtime in `scripts/adaptive-exec.mjs`. Workers verify their
+outcome in isolated task worktrees. The controller validates actual changed
+paths, integrates in a protected workspace, verifies the combination, applies
+one complete result to the unchanged invoking workspace, verifies again, and
+removes all successful run state.
 
 The top-level controller owns lifecycle and the shared worker budget. Every
 dispatched worker is a leaf. Concurrent mutation must use the exec-owned Git
