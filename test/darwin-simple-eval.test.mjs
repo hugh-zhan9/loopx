@@ -19,10 +19,12 @@ async function createVersionProductRepository(t) {
     "import { join } from 'node:path';",
     'const root = process.env.LOOPX_PROJECT_ROOT;',
     'const home = process.env.LOOPX_HOME;',
-    "await mkdir(join(home, '.codex'), { recursive: true });",
-    "await mkdir(join(home, '.agents', 'skills'), { recursive: true });",
-    "await writeFile(join(home, '.codex', 'AGENTS.md'), await readFile(join(root, 'AGENTS.md')));",
-    "await cp(join(root, 'skills', 'exec'), join(home, '.agents', 'skills', 'exec'), { recursive: true });",
+    "const agentsPath = process.env.LOOPX_CODEX_AGENTS_PATH ?? join(home, '.codex', 'AGENTS.md');",
+    "const skillsRoot = process.env.LOOPX_SKILLS_ROOT ?? join(home, '.agents', 'skills');",
+    'await mkdir(join(agentsPath, \'..\'), { recursive: true });',
+    'await mkdir(skillsRoot, { recursive: true });',
+    "await writeFile(agentsPath, await readFile(join(root, 'AGENTS.md')));",
+    "await cp(join(root, 'skills', 'exec'), join(skillsRoot, 'exec'), { recursive: true });",
     "console.log(JSON.stringify({ ok: true }));",
     '',
   ].join('\n');
@@ -179,6 +181,18 @@ test('exposes the live evaluator as an opt-in packaged diagnostic outside npm te
 
 test('compares isolated package installs from two immutable Git refs in crossover order', async (t) => {
   const productRoot = await createVersionProductRepository(t);
+  const leakedAgentsPath = join(productRoot, 'leaked', 'AGENTS.md');
+  const leakedSkillsRoot = join(productRoot, 'leaked', 'skills');
+  const previousAgentsPath = process.env.LOOPX_CODEX_AGENTS_PATH;
+  const previousSkillsRoot = process.env.LOOPX_SKILLS_ROOT;
+  process.env.LOOPX_CODEX_AGENTS_PATH = leakedAgentsPath;
+  process.env.LOOPX_SKILLS_ROOT = leakedSkillsRoot;
+  t.after(() => {
+    if (previousAgentsPath === undefined) delete process.env.LOOPX_CODEX_AGENTS_PATH;
+    else process.env.LOOPX_CODEX_AGENTS_PATH = previousAgentsPath;
+    if (previousSkillsRoot === undefined) delete process.env.LOOPX_SKILLS_ROOT;
+    else process.env.LOOPX_SKILLS_ROOT = previousSkillsRoot;
+  });
   const manifest = JSON.parse(await readFile(join(repoRoot, 'evals', 'darwin-simple', 'cases.json'), 'utf8'));
   const agent = createDarwinSimpleFakeAgent();
   const result = await runInstalledProductEvaluation({
@@ -225,9 +239,15 @@ test('compares isolated package installs from two immutable Git refs in crossove
     },
   });
   assert.match(result.provenance.fixture_trees['direct-small-fix'], /^[a-f0-9]{40}$/);
+  assert.deepEqual(result.provenance.experiment, {
+    case_ids: ['direct-small-fix'],
+    replicates: 2,
+    order: 'crossover',
+  });
   assert.equal(result.runs.every((run) => run.installation.actual_installed_surface), true);
   const requests = agent.requests();
   assert.equal(new Set(requests.map((request) => request.home)).size, requests.length);
+  assert.equal(requests.every((request) => request.loopx_env_keys.length === 0), true);
   assert.deepEqual(requests.map((request) => [request.variant, request.installed_marker]), [
     ['version-a', 'installed-product: baseline'],
     ['version-b', 'installed-product: candidate'],
@@ -237,6 +257,10 @@ test('compares isolated package installs from two immutable Git refs in crossove
   assert.equal(result.comparison.baseline_variant, 'version-a');
   assert.equal(result.comparison.candidate_variant, 'version-b');
   assert.equal(result.comparison.cases[0].pairs.length, 2);
+  assert.equal(result.comparison.cases[0].verdict, 'quality_tie');
   assert.equal(result.comparison.cases[0].metrics.baseline.total_tokens.sample_count, 2);
+  assert.equal(result.comparison.overall.version_products_cleanup_passed, true);
   assert.equal(result.cleanup.version_products_removed, true);
+  await assert.rejects(access(leakedAgentsPath));
+  await assert.rejects(access(leakedSkillsRoot));
 });

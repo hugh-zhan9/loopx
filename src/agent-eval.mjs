@@ -1,4 +1,5 @@
 import { parseReviewResult, validateReviewResult } from './review-result.mjs';
+import { stableJson } from './stable-json.mjs';
 
 export { parseReviewResult };
 
@@ -239,21 +240,13 @@ function median(values) {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
-const installedMetricFields = Object.freeze([
-  'input_tokens',
-  'cached_input_tokens',
-  'output_tokens',
-  'total_tokens',
-  'latency_ms',
+const installedMetrics = Object.freeze([
+  { field: 'input_tokens', label: 'Input tokens', value: (run) => run.tokens?.input ?? run.input_tokens ?? null },
+  { field: 'cached_input_tokens', label: 'Cached input tokens', value: (run) => run.tokens?.cached_input ?? run.cached_input_tokens ?? null },
+  { field: 'output_tokens', label: 'Output tokens', value: (run) => run.tokens?.output ?? run.output_tokens ?? null },
+  { field: 'total_tokens', label: 'Total tokens', value: (run) => run.tokens?.total ?? run.total_tokens ?? null },
+  { field: 'latency_ms', label: 'Latency (ms)', value: (run) => run.latency_ms ?? null },
 ]);
-
-function installedMetricValue(run, field) {
-  if (field === 'input_tokens') return run.tokens?.input ?? run.input_tokens ?? null;
-  if (field === 'cached_input_tokens') return run.tokens?.cached_input ?? run.cached_input_tokens ?? null;
-  if (field === 'output_tokens') return run.tokens?.output ?? run.output_tokens ?? null;
-  if (field === 'total_tokens') return run.tokens?.total ?? run.total_tokens ?? null;
-  return run.latency_ms ?? null;
-}
 
 function percentile(sorted, percent) {
   if (sorted.length === 0) return null;
@@ -265,9 +258,9 @@ function percentile(sorted, percent) {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (rank - lower);
 }
 
-function installedMetricDistribution(runs, field) {
+function installedMetricDistribution(runs, metric) {
   const qualityPassedRuns = runs.filter((run) => installedProductQuality(run).failed.length === 0);
-  const values = qualityPassedRuns.map((run) => installedMetricValue(run, field)).filter(Number.isFinite).sort((left, right) => left - right);
+  const values = qualityPassedRuns.map(metric.value).filter(Number.isFinite).sort((left, right) => left - right);
   return {
     sample_count: runs.length,
     quality_passed_count: qualityPassedRuns.length,
@@ -279,23 +272,23 @@ function installedMetricDistribution(runs, field) {
 }
 
 function installedMetricDistributions(runs) {
-  return Object.fromEntries(installedMetricFields.map((field) => [field, installedMetricDistribution(runs, field)]));
+  return Object.fromEntries(installedMetrics.map((metric) => [metric.field, installedMetricDistribution(runs, metric)]));
 }
 
 function installedMetricDeltas(baseline, candidate) {
-  return Object.fromEntries(installedMetricFields.map((field) => {
-    const baselineValue = baseline[field]?.p50;
-    const candidateValue = candidate[field]?.p50;
-    return [field, Number.isFinite(baselineValue) && Number.isFinite(candidateValue)
+  return Object.fromEntries(installedMetrics.map((metric) => {
+    const baselineValue = baseline[metric.field]?.p50;
+    const candidateValue = candidate[metric.field]?.p50;
+    return [metric.field, Number.isFinite(baselineValue) && Number.isFinite(candidateValue)
       ? candidateValue - baselineValue
       : null];
   }));
 }
 
 function installedMetricPercentDeltas(baseline, candidate) {
-  return Object.fromEntries(installedMetricFields.map((field) => [
-    field,
-    percentDelta(baseline[field]?.p50, candidate[field]?.p50),
+  return Object.fromEntries(installedMetrics.map((metric) => [
+    metric.field,
+    percentDelta(baseline[metric.field]?.p50, candidate[metric.field]?.p50),
   ]));
 }
 
@@ -405,27 +398,21 @@ export function compareAgentEvalRuns(summaries, options = {}) {
 }
 
 function installedProductQuality(run) {
+  const cleanupPassed = !run.cleanup
+    || run.cleanup.passed === true
+    || (run.cleanup.workspace_removed === true && run.cleanup.host_home_removed === true);
   const gates = {
     outcome: run.outcome === 'passed',
     verification: run.verification?.passed === true,
     safety: run.safety?.passed === true,
     spec_consistency: run.spec?.passed === true,
     memory_precision: run.memory?.passed === true,
+    cleanup: cleanupPassed,
   };
   return {
     gates,
     failed: Object.entries(gates).filter(([, passed]) => !passed).map(([name]) => name),
   };
-}
-
-function stableJson(value) {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(',')}]`;
-  }
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
 
 function aggregateInstalledProductRuns(runs) {
@@ -445,6 +432,7 @@ function aggregateInstalledProductRuns(runs) {
     safety: { passed: runs.every((run) => run.safety?.passed === true) },
     spec: { passed: runs.every((run) => run.spec?.passed === true) },
     memory: { passed: runs.every((run) => run.memory?.passed === true) },
+    cleanup: { passed: runs.every((run) => installedProductQuality(run).gates.cleanup) },
     quality_passed: qualities.every((quality) => quality.failed.length === 0),
     quality_pass_rate: qualities.filter((quality) => quality.failed.length === 0).length / runs.length,
     failed_quality_gates: [...new Set(qualities.flatMap((quality) => quality.failed))],
@@ -497,10 +485,24 @@ function rate(runs, predicate) {
   return runs.length > 0 ? runs.filter(predicate).length / runs.length : null;
 }
 
+function crossVersionVerdict({ baseline, candidate, configurationParity, resourceFavorable, metricPercentDeltas }) {
+  if (!configurationParity) return 'inconclusive';
+  if (candidate.quality_pass_rate > baseline.quality_pass_rate) return 'B_wins_quality';
+  if (candidate.quality_pass_rate < baseline.quality_pass_rate) return 'A_wins_quality';
+  if (candidate.quality_pass_rate === 0) return 'inconclusive';
+  if (resourceFavorable) return 'B_wins_resource';
+  const tokenDelta = metricPercentDeltas.total_tokens;
+  const latencyDelta = metricPercentDeltas.latency_ms;
+  if (!Number.isFinite(tokenDelta) || !Number.isFinite(latencyDelta)) return 'inconclusive';
+  if (tokenDelta > 10 || latencyDelta > 10) return 'mixed';
+  return 'quality_tie';
+}
+
 export function compareInstalledProductRuns(runs, options = {}) {
   const baselineVariant = options.baselineVariant ?? 'bare';
   const candidateVariant = options.candidateVariant ?? 'installed';
   const forcedSerialVariant = options.forcedSerialVariant ?? 'forced-serial';
+  const comparisonMode = options.comparisonMode ?? 'product-baseline';
   const aggregates = [...Map.groupBy(runs, (run) => `${run.case_id}\u0000${run.variant}`).values()]
     .map(aggregateInstalledProductRuns);
   const byCase = Map.groupBy(aggregates, (run) => run.case_id);
@@ -522,11 +524,13 @@ export function compareInstalledProductRuns(runs, options = {}) {
     const baselineQuality = installedProductQuality(baseline);
     const candidateQuality = installedProductQuality(candidate);
     const forcedSerialQuality = forcedSerial ? installedProductQuality(forcedSerial) : null;
-    const failedQualityGates = [
-      ...candidateQuality.failed,
-      ...baselineQuality.failed.map((gate) => `baseline:${gate}`),
-      ...(forcedSerialQuality?.failed ?? []).map((gate) => `forced-serial:${gate}`),
-    ];
+    const failedQualityGates = comparisonMode === 'cross-version'
+      ? [...candidateQuality.failed]
+      : [
+          ...candidateQuality.failed,
+          ...baselineQuality.failed.map((gate) => `baseline:${gate}`),
+          ...(forcedSerialQuality?.failed ?? []).map((gate) => `forced-serial:${gate}`),
+        ];
     if (!configurationParity) {
       failedQualityGates.push('configuration_parity');
       candidateQuality.gates.configuration_parity = false;
@@ -540,8 +544,31 @@ export function compareInstalledProductRuns(runs, options = {}) {
     const metricPercentDeltas = installedMetricPercentDeltas(baseline.metrics, candidate.metrics);
     let resourceFavorable = false;
     let resourceAssessment = 'not-applicable';
+    let withinVersionSerialFavorable = null;
 
-    if (candidate.case_kind === 'direct') {
+    if (comparisonMode === 'cross-version') {
+      const tokenDelta = metricPercentDeltas.total_tokens;
+      const latencyDelta = metricPercentDeltas.latency_ms;
+      const comparable = Number.isFinite(tokenDelta) && Number.isFinite(latencyDelta);
+      const qualityNonRegressed = candidate.quality_pass_rate >= baseline.quality_pass_rate;
+      const qualitySamplesAvailable = candidate.quality_pass_rate > 0 && baseline.quality_pass_rate > 0;
+      const improved = comparable && (tokenDelta < 0 || latencyDelta < 0);
+      const withinTolerance = comparable && tokenDelta <= 10 && latencyDelta <= 10;
+      const concurrencyValid = candidate.case_kind !== 'independent'
+        || (candidate.worker_activity.all_overlapped
+          && candidate.worker_activity.bounded
+          && candidate.worker_activity.isolated);
+      resourceAssessment = comparable ? 'available' : 'unavailable';
+      resourceFavorable = configurationParity && qualityNonRegressed && qualitySamplesAvailable
+        && improved && withinTolerance && concurrencyValid;
+      if (candidate.case_kind === 'independent') {
+        const serialComparable = Number.isFinite(candidate.latency_ms) && Number.isFinite(forcedSerial?.latency_ms);
+        withinVersionSerialFavorable = serialComparable
+          && forcedSerialQuality?.failed.length === 0
+          && candidate.worker_activity.all_overlapped
+          && candidate.latency_ms < forcedSerial.latency_ms;
+      }
+    } else if (candidate.case_kind === 'direct') {
       resourceAssessment = comparableTokens && comparableLatency ? 'available' : 'unavailable';
       resourceFavorable = qualityPassed
         && comparableTokens
@@ -562,6 +589,9 @@ export function compareInstalledProductRuns(runs, options = {}) {
         && candidate.worker_activity.peak_workers <= 1;
     }
 
+    const verdict = comparisonMode === 'cross-version'
+      ? crossVersionVerdict({ baseline, candidate, configurationParity, resourceFavorable, metricPercentDeltas })
+      : null;
     cases.push({
       case_id: caseId,
       case_kind: candidate.case_kind,
@@ -593,25 +623,33 @@ export function compareInstalledProductRuns(runs, options = {}) {
       forced_serial_latency_ms: forcedSerial?.latency_ms ?? null,
       resource_assessment: resourceAssessment,
       resource_favorable: resourceFavorable,
+      within_version_serial_favorable: withinVersionSerialFavorable,
+      verdict,
     });
   }
 
   const criteriaCases = cases.filter((item) => ['direct', 'independent', 'strongly-coupled'].includes(item.case_kind));
   const allQualityPassed = cases.length > 0 && cases.every((item) => item.quality_passed);
-  const criteriaPassed = allQualityPassed
-    && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
+  const criteriaPassed = comparisonMode === 'cross-version'
+    ? cases.length > 0 && cases.every((item) => item.configuration_parity
+      && item.candidate_quality_pass_rate >= item.baseline_quality_pass_rate)
+    : allQualityPassed
+      && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
   const baselineRuns = runs.filter((run) => run.variant === baselineVariant);
   const candidateRuns = runs.filter((run) => run.variant === candidateVariant);
   return {
     baseline_variant: baselineVariant,
     candidate_variant: candidateVariant,
     forced_serial_variant: forcedSerialVariant,
+    comparison_mode: comparisonMode,
     runs: aggregates,
     cases,
     overall: {
       compared_cases: cases.length,
       quality_passed_cases: cases.filter((item) => item.quality_passed).length,
-      favorable_cases: cases.filter((item) => item.resource_favorable).length,
+      favorable_cases: cases.filter((item) => comparisonMode === 'cross-version'
+        ? ['B_wins_quality', 'B_wins_resource'].includes(item.verdict)
+        : item.resource_favorable).length,
       configuration_parity_cases: cases.filter((item) => item.configuration_parity).length,
       required_favorable_cases: criteriaCases.length,
       baseline_success_rate: rate(baselineRuns, (run) => run.outcome === 'passed'),
@@ -629,14 +667,6 @@ function markdownCell(value) {
   }
   return String(value ?? 'n/a').replaceAll('|', '\\|').replaceAll('\n', '<br>');
 }
-
-const installedMetricLabels = Object.freeze({
-  input_tokens: 'Input tokens',
-  cached_input_tokens: 'Cached input tokens',
-  output_tokens: 'Output tokens',
-  total_tokens: 'Total tokens',
-  latency_ms: 'Latency (ms)',
-});
 
 function formatDistribution(distribution) {
   if (!distribution || distribution.available_count === 0) return 'n/a';
@@ -673,11 +703,11 @@ export function renderInstalledProductMarkdown(comparison, options = {}) {
   lines.push(
     '## Case Comparisons',
     '',
-    '| Case | Kind | Configuration parity | A quality | B quality | Quality gates | Tokens delta | Latency delta | Resource favorable |',
-    '|---|---|---|---:|---:|---|---:|---:|---|',
+    '| Case | Kind | Configuration parity | A quality | B quality | Quality gates | Tokens delta | Latency delta | Resource favorable | Verdict |',
+    '|---|---|---|---:|---:|---|---:|---:|---|---|',
   );
   for (const item of comparison.cases) {
-    lines.push(`| ${markdownCell(item.case_id)} | ${markdownCell(item.case_kind)} | ${item.configuration_parity ? 'pass' : 'fail'} | ${formatPercent(item.baseline_quality_pass_rate * 100)} | ${formatPercent(item.candidate_quality_pass_rate * 100)} | ${item.quality_passed ? 'pass' : `fail: ${markdownCell(item.failed_quality_gates)}`} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.resource_favorable ? 'yes' : 'no'} |`);
+    lines.push(`| ${markdownCell(item.case_id)} | ${markdownCell(item.case_kind)} | ${item.configuration_parity ? 'pass' : 'fail'} | ${formatPercent(item.baseline_quality_pass_rate * 100)} | ${formatPercent(item.candidate_quality_pass_rate * 100)} | ${item.quality_passed ? 'pass' : `fail: ${markdownCell(item.failed_quality_gates)}`} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.resource_favorable ? 'yes' : 'no'} | ${markdownCell(item.verdict)} |`);
   }
   lines.push(
     '',
@@ -687,32 +717,36 @@ export function renderInstalledProductMarkdown(comparison, options = {}) {
     '|---|---|---:|---:|---:|',
   );
   for (const item of comparison.cases) {
-    for (const field of installedMetricFields) {
-      lines.push(`| ${markdownCell(item.case_id)} | ${installedMetricLabels[field]} | ${formatDistribution(item.metrics?.baseline?.[field])} | ${formatDistribution(item.metrics?.candidate?.[field])} | ${formatDelta(item.metric_deltas?.[field])} (${formatPercent(item.metric_percent_deltas?.[field] ?? null)}) |`);
+    for (const metric of installedMetrics) {
+      lines.push(`| ${markdownCell(item.case_id)} | ${metric.label} | ${formatDistribution(item.metrics?.baseline?.[metric.field])} | ${formatDistribution(item.metrics?.candidate?.[metric.field])} | ${formatDelta(item.metric_deltas?.[metric.field])} (${formatPercent(item.metric_percent_deltas?.[metric.field] ?? null)}) |`);
     }
   }
   lines.push(
     '',
     '## Paired Samples',
     '',
-    '| Case | Replicate | Quality | Input delta | Cached input delta | Output delta | Total delta | Latency delta |',
-    '|---|---:|---|---:|---:|---:|---:|---:|',
+    `| Case | Replicate | Quality | ${installedMetrics.map((metric) => `${metric.label} delta`).join(' | ')} |`,
+    `|---|---:|---|${installedMetrics.map(() => '---:').join('|')}|`,
   );
   for (const item of comparison.cases) {
     for (const pair of item.pairs ?? []) {
-      lines.push(`| ${markdownCell(item.case_id)} | ${pair.replicate} | ${pair.quality_passed ? 'pass' : 'fail'} | ${formatDelta(pair.metric_deltas.input_tokens)} | ${formatDelta(pair.metric_deltas.cached_input_tokens)} | ${formatDelta(pair.metric_deltas.output_tokens)} | ${formatDelta(pair.metric_deltas.total_tokens)} | ${formatDelta(pair.metric_deltas.latency_ms, ' ms')} |`);
+      const deltas = installedMetrics.map((metric) => formatDelta(
+        pair.metric_deltas[metric.field],
+        metric.field === 'latency_ms' ? ' ms' : '',
+      ));
+      lines.push(`| ${markdownCell(item.case_id)} | ${pair.replicate} | ${pair.quality_passed ? 'pass' : 'fail'} | ${deltas.join(' | ')} |`);
     }
   }
   lines.push(
     '',
     '## Run Evidence',
     '',
-    '| Case / variant | Outcome | Verification | Safety | Changed paths | Workflow artifacts | Workers | Tokens | Latency | Spec | Memory |',
-    '|---|---|---|---|---|---|---|---:|---:|---|---|',
+    '| Case / variant | Outcome | Verification | Safety | Cleanup | Changed paths | Workflow artifacts | Workers | Tokens | Latency | Spec | Memory |',
+    '|---|---|---|---|---|---|---|---|---:|---:|---|---|',
   );
   for (const run of comparison.runs) {
     const workers = `peak ${run.worker_activity.peak_workers}; overlap ${formatDelta(run.worker_activity.overlap_ms, ' ms')}; order ${markdownCell(run.worker_activity.integration_order)}`;
-    lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant}`)} | ${run.outcome} | ${run.verification.passed ? 'pass' : 'fail'} | ${run.safety.passed ? 'pass' : 'fail'} | ${markdownCell(run.changed_paths)} | ${markdownCell(run.workflow_artifacts)} | ${workers} | ${formatDelta(run.total_tokens)} | ${formatDelta(run.latency_ms, ' ms')} | ${run.spec.passed ? 'pass' : 'fail'} | ${run.memory.passed ? 'pass' : 'fail'} |`);
+    lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant}`)} | ${run.outcome} | ${run.verification.passed ? 'pass' : 'fail'} | ${run.safety.passed ? 'pass' : 'fail'} | ${run.cleanup?.passed === false ? 'fail' : 'pass'} | ${markdownCell(run.changed_paths)} | ${markdownCell(run.workflow_artifacts)} | ${workers} | ${formatDelta(run.total_tokens)} | ${formatDelta(run.latency_ms, ' ms')} | ${run.spec.passed ? 'pass' : 'fail'} | ${run.memory.passed ? 'pass' : 'fail'} |`);
   }
   lines.push(
     '',

@@ -7,6 +7,8 @@ import { promisify } from 'node:util';
 
 import { compareInstalledProductRuns } from './agent-eval.mjs';
 import { installSkillsForTargets } from './install-discovery.mjs';
+import { stableJson } from './stable-json.mjs';
+import { installVersionProduct, prepareVersionProducts } from './version-product-source.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -47,100 +49,8 @@ async function directoryHash(root) {
   return hash.digest('hex');
 }
 
-function stableJson(value) {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(',')}]`;
-  }
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function installedPackageRoot(installRoot, packageName) {
-  return join(installRoot, 'node_modules', ...packageName.split('/'));
-}
-
-async function prepareProductVersion(projectRoot, requestedRef, role, productsRoot) {
-  const commit = (await git(projectRoot, ['rev-parse', '--verify', `${requestedRef}^{commit}`])).trim();
-  const worktree = join(productsRoot, `${role}-worktree`);
-  const archiveRoot = join(productsRoot, `${role}-archive`);
-  const installRoot = join(productsRoot, `${role}-package`);
-  await mkdir(archiveRoot, { recursive: true });
-  await git(projectRoot, ['worktree', 'add', '--detach', '--quiet', worktree, commit]);
-  try {
-    const packageManifestContent = await readFile(join(worktree, 'package.json'));
-    const packageManifest = JSON.parse(packageManifestContent.toString('utf8'));
-    const packed = JSON.parse((await execFileAsync('npm', [
-      'pack', '--json', '--pack-destination', archiveRoot,
-    ], {
-      cwd: worktree,
-      maxBuffer: 20 * 1024 * 1024,
-    })).stdout);
-    if (!Array.isArray(packed) || packed.length !== 1 || typeof packed[0].filename !== 'string') {
-      throw new Error(`installed_product_eval_pack_invalid:${role}`);
-    }
-    const archivePath = join(archiveRoot, packed[0].filename);
-    await execFileAsync('npm', [
-      'install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false',
-      '--prefix', installRoot, archivePath,
-    ], {
-      cwd: productsRoot,
-      maxBuffer: 20 * 1024 * 1024,
-    });
-    const productRoot = installedPackageRoot(installRoot, packageManifest.name);
-    if (!await exists(join(productRoot, 'scripts', 'install-skills.mjs'))) {
-      throw new Error(`installed_product_eval_installer_missing:${role}`);
-    }
-    return {
-      role,
-      productRoot,
-      provenance: {
-        requested_ref: requestedRef,
-        commit,
-        package_name: packageManifest.name,
-        package_version: packageManifest.version,
-        package_filename: packed[0].filename,
-        package_sha256: sha256(await readFile(archivePath)),
-        package_manifest_sha256: sha256(packageManifestContent),
-        package_integrity: packed[0].integrity ?? null,
-      },
-    };
-  } finally {
-    await git(projectRoot, ['worktree', 'remove', '--force', worktree]).catch(() => '');
-    await rm(worktree, { recursive: true, force: true });
-  }
-}
-
-async function prepareVersionProducts(projectRoot, versionRefs, tempRoot) {
-  if (!versionRefs || typeof versionRefs.baseline !== 'string' || typeof versionRefs.candidate !== 'string') {
-    throw new TypeError('versionRefs requires baseline and candidate Git refs');
-  }
-  const root = await mkdtemp(join(tempRoot, 'loopx-version-products-'));
-  try {
-    const baseline = await prepareProductVersion(projectRoot, versionRefs.baseline, 'baseline', root);
-    const candidate = await prepareProductVersion(projectRoot, versionRefs.candidate, 'candidate', root);
-    return { root, baseline, candidate };
-  } catch (error) {
-    await rm(root, { recursive: true, force: true });
-    throw error;
-  }
-}
-
-async function installPackagedProduct(product, installEnv) {
-  const { stdout } = await execFileAsync(process.execPath, [
-    join(product.productRoot, 'scripts', 'install-skills.mjs'), '--json',
-  ], {
-    cwd: installEnv.LOOPX_INSTALL_CWD,
-    env: installEnv,
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  const result = JSON.parse(stdout);
-  return { ...result, ok: result.ok !== false };
 }
 
 async function createFixture(source, tempRoot) {
@@ -457,11 +367,13 @@ async function runExternalVerification(repo, command, timeoutMs) {
   }
 }
 
-async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product }) {
+async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product }, registerResources) {
   const variantConfig = manifest.variants[variant];
   if (!variantConfig) throw new Error(`installed_product_eval_unknown_variant:${variant}`);
   const fixture = await createFixture(join(fixtureRoot, testCase.fixture), tempRoot);
+  registerResources({ workspace: fixture.parent });
   const hostParent = await mkdtemp(join(tempRoot, 'loopx-product-home-'));
+  registerResources({ host: hostParent });
   const home = join(hostParent, 'home');
   await mkdir(home, { recursive: true });
   const shared = { ...manifest.configuration, ...configurationOverrides };
@@ -481,22 +393,24 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
     timeout_ms: shared.timeout_ms,
     fixture_tree: fixture.tree,
   };
-  const installEnv = {
-    ...process.env,
+  const inheritedHostEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('LOOPX_')),
+  );
+  const isolatedHostEnv = {
     HOME: home,
+    CODEX_HOME: join(home, '.codex'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+    XDG_CONFIG_HOME: join(home, '.config'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+  };
+  const installEnv = {
+    ...inheritedHostEnv,
+    ...isolatedHostEnv,
     LOOPX_HOME: home,
     LOOPX_PROJECT_ROOT: product?.productRoot ?? projectRoot,
     LOOPX_INSTALL_CWD: fixture.repo,
   };
-  const agentEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !name.startsWith('LOOPX_')),
-  );
-  Object.assign(agentEnv, {
-    HOME: home,
-    XDG_CACHE_HOME: join(home, '.cache'),
-    XDG_CONFIG_HOME: join(home, '.config'),
-    XDG_DATA_HOME: join(home, '.local', 'share'),
-  });
+  const agentEnv = { ...inheritedHostEnv, ...isolatedHostEnv };
   const installRequested = Boolean(product) || variantConfig.install_candidate === true;
   let installation = {
     requested: installRequested,
@@ -511,7 +425,7 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
   try {
     if (installRequested) {
       const installed = product
-        ? await installPackagedProduct(product, installEnv)
+        ? await installVersionProduct(product, installEnv)
         : await installSkillsForTargets(installEnv, { targets: ['codex'] });
       installation = {
         ...installation,
@@ -617,6 +531,22 @@ async function runOne({ testCase, variant, manifest, projectRoot, fixtureRoot, t
   return run;
 }
 
+async function runOne(options) {
+  const resources = { workspace: null, host: null };
+  let run;
+  try {
+    run = await runOneUnmanaged(options, (registered) => Object.assign(resources, registered));
+    return run;
+  } finally {
+    if (resources.workspace) await rm(resources.workspace, { recursive: true, force: true });
+    if (resources.host) await rm(resources.host, { recursive: true, force: true });
+    if (run) {
+      run.cleanup.workspace_removed = !resources.workspace || !await exists(resources.workspace);
+      run.cleanup.host_home_removed = !resources.host || !await exists(resources.host);
+    }
+  }
+}
+
 export async function runInstalledProductEvaluation(options) {
   const {
     manifest,
@@ -687,6 +617,7 @@ export async function runInstalledProductEvaluation(options) {
       baselineVariant: effectiveManifest.baseline_variant,
       candidateVariant: effectiveManifest.candidate_variant,
       forcedSerialVariant: effectiveManifest.forced_serial_variant,
+      comparisonMode: versionRefs ? 'cross-version' : 'product-baseline',
     });
   } finally {
     if (products) {
@@ -697,6 +628,8 @@ export async function runInstalledProductEvaluation(options) {
   if (!products) {
     return { schema: 'loopx.installed-product-eval-report.v1', runs, comparison };
   }
+  comparison.overall.version_products_cleanup_passed = productsRemoved;
+  comparison.overall.criteria_passed = comparison.overall.criteria_passed && productsRemoved;
   return {
     schema: 'loopx.cross-version-product-benchmark-report.v1',
     provenance: {

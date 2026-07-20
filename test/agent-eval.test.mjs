@@ -368,6 +368,63 @@ describe('agent eval metrics', () => {
     assert.equal(comparison.overall.candidate_quality_pass_rate, 1);
   });
 
+  it('uses quality-first cross-version verdicts instead of bare-product favorability rules', () => {
+    const run = (variant, values = {}) => ({
+      case_id: values.case_id ?? 'direct-small-fix',
+      case_kind: values.case_kind ?? 'direct',
+      variant,
+      replicate: 1,
+      configuration: { model: 'same-model', effort: 'high', task: 'fix', fixture_tree: 'tree' },
+      outcome: values.outcome ?? 'passed',
+      verification: { passed: values.outcome !== 'failed' },
+      safety: { passed: true },
+      spec: { passed: true },
+      memory: { passed: true },
+      cleanup: values.cleanup ?? { workspace_removed: true, host_home_removed: true },
+      changed_paths: ['src/a.mjs'],
+      workflow_artifacts: [],
+      worker_activity: { peak_workers: 0, overlap_ms: 0, bounded: true, isolated: true, integration_order: [] },
+      tokens: { input: values.tokens, cached_input: 0, output: 0, total: values.tokens },
+      total_tokens: values.tokens,
+      latency_ms: values.latency,
+    });
+    const options = {
+      baselineVariant: 'version-a',
+      candidateVariant: 'version-b',
+      comparisonMode: 'cross-version',
+    };
+
+    const qualityWin = compareInstalledProductRuns([
+      run('version-a', { outcome: 'failed', tokens: 80, latency: 80 }),
+      run('version-b', { tokens: 100, latency: 100 }),
+    ], options);
+    assert.equal(qualityWin.cases[0].verdict, 'B_wins_quality');
+    assert.equal(qualityWin.cases[0].quality_passed, true);
+    assert.equal(qualityWin.cases[0].resource_favorable, false);
+    assert.equal(qualityWin.overall.criteria_passed, true);
+
+    const closeRegression = compareInstalledProductRuns([
+      run('version-a', { tokens: 100, latency: 100 }),
+      run('version-b', { tokens: 105, latency: 105 }),
+    ], options);
+    assert.equal(closeRegression.cases[0].verdict, 'quality_tie');
+    assert.equal(closeRegression.cases[0].resource_favorable, false);
+
+    const resourceWin = compareInstalledProductRuns([
+      run('version-a', { tokens: 100, latency: 100 }),
+      run('version-b', { tokens: 90, latency: 105 }),
+    ], options);
+    assert.equal(resourceWin.cases[0].verdict, 'B_wins_resource');
+    assert.equal(resourceWin.cases[0].resource_favorable, true);
+
+    const cleanupRegression = compareInstalledProductRuns([
+      run('version-a', { tokens: 100, latency: 100 }),
+      run('version-b', { tokens: 90, latency: 90, cleanup: { workspace_removed: false, host_home_removed: true } }),
+    ], options);
+    assert.equal(cleanupRegression.cases[0].verdict, 'A_wins_quality');
+    assert.deepEqual(cleanupRegression.cases[0].failed_quality_gates, ['cleanup']);
+  });
+
   it('renders installed-product outcome, repository, worker, resource, spec, and memory evidence', () => {
     const comparison = compareInstalledProductRuns([
       {
@@ -408,6 +465,7 @@ describe('agent eval metrics', () => {
     assert.match(versionMarkdown, /v0\.5\.2/);
     assert.match(versionMarkdown, /0\.6\.0/);
     assert.match(versionMarkdown, new RegExp('a{40}'));
+    assert.match(versionMarkdown, /Verdict/);
   });
 
   it('normalizes a Claude session with subagents and detects nested agent constraint', async () => {

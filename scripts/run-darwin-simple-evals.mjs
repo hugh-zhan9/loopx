@@ -17,7 +17,7 @@ function option(name, fallback = null) {
 }
 
 function pathSegment(value) {
-  return value.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'ref';
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'ref';
 }
 
 function usage() {
@@ -252,13 +252,13 @@ if (process.argv.includes('--help')) {
       reportWrites.push(writeFile(join(outDir, 'matrix.json'), `${JSON.stringify(result.provenance, null, 2)}\n`));
     }
     await Promise.all(reportWrites);
-    const ok = result.comparison.overall.criteria_passed;
+    const ok = baselineRef ? true : result.comparison.overall.criteria_passed;
     console.log(JSON.stringify({
       ok,
       diagnostic_only: true,
       out: outDir,
       overall: result.comparison.overall,
     }, null, 2));
-    if (!ok) process.exitCode = 1;
+    if (!ok && !baselineRef) process.exitCode = 1;
   }
 }
