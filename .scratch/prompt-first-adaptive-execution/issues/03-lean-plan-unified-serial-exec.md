@@ -4,10 +4,10 @@
 
 **Blocked by:** 02 — Route the installed product prompt-first.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] An ordinary persistent plan contains outcomes, boundaries, likely modules, known dependencies, acceptance, and verification.
-- [ ] Ordinary plans do not require implementation transcription, minute-scale steps, review ceremonies, or fixed parallel metadata.
-- [ ] Persistent planning is selected only for explicit planning, approval boundaries, interruption recovery, or durable coordination.
-- [ ] The exec intent accepts either a clear request or a plan and completes a strongly coupled case serially with fresh verification.
-- [ ] Old planning and execution names forward explicitly to the canonical intent without participating in automatic routing.
+- [x] An ordinary persistent plan contains outcomes, boundaries, likely modules, known dependencies, acceptance, and verification.
+- [x] Ordinary plans do not require implementation transcription, minute-scale steps, review ceremonies, or fixed parallel metadata.
+- [x] Persistent planning is selected only for explicit planning, approval boundaries, interruption recovery, or durable coordination.
+- [x] The exec intent accepts either a clear request or a plan and completes a strongly coupled case serially with fresh verification.
+- [x] Old planning and execution names forward explicitly to the canonical intent without participating in automatic routing.

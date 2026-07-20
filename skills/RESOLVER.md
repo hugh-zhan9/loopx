@@ -15,9 +15,8 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
 | Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
-| Approved intake package, requirements, or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
-| Approved plan has independent tasks and should run with subagents plus task-scoped review | `skills/subagent-exec/SKILL.md` |
-| Approved plan should run inline or without subagent-first execution | `skills/exec/SKILL.md` |
+| Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan/SKILL.md` |
+| A clear request or persistent plan should be implemented with adaptive serial-or-concurrent selection | `skills/exec/SKILL.md` |
 | Completed task evidence, checkpoint work, major feature, or pre-merge work needs independent code review | `skills/review/SKILL.md` |
 | Completed full feature needs final integration, runtime-risk, and test-gap review before finish | `skills/final-review/SKILL.md` |
 | Existing code review feedback needs technical evaluation and implementation | `skills/fix-review/SKILL.md` |
@@ -26,16 +25,13 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
 
-## Manual And Experimental Skills
+## Explicit Compatibility Aliases
 
-| Explicit invocation only | Skill |
+| Explicit invocation only | Canonical intent |
 |---|---|
-| Strict parallel plan or complete package with machine-readable DAG metadata, requested explicitly by the user | `skills/parallel-subagent-exec/SKILL.md` |
-
-`parallel-subagent-exec` is not a core automatic route. Missing or legacy
-parallel metadata and direct numbered-child input stop with the same-path
-`subagent-exec` handoff. Missing runtime capability stops with exit `5` and no
-fallback.
+| `skills/plan-to-exec/SKILL.md` | `plan` |
+| `skills/subagent-exec/SKILL.md` | `exec` |
+| `skills/parallel-subagent-exec/SKILL.md` | `exec` |
 
 ## Support Skills
 
@@ -61,24 +57,23 @@ fallback.
 1. Keep clear, bounded requests prompt-first, including local defects and small features. Do not select a skill merely because implementation or verification is required.
 2. Stop before mutation and use `clarify` when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
 3. Use `spec` when an unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision must be fixed before implementation. Local implementation choices do not trigger `spec`.
-4. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they explicitly request persistent implementation planning from settled requirements, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
-5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`.
-6. For single plans, use `subagent-exec` when subagents are available and tasks are independent; use `exec` for inline execution or when subagents are unavailable.
-7. For multi-plan packages, call `subagent-exec` or `exec` with `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package directory to run package mode. Package mode executes child plans strictly sequentially, then runs one spec-level `final-review` and `finish` only when clean.
-8. Direct numbered child plan execution is targeted/resume/manual-control mode and must not be presented as the primary package handoff.
-9. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review state with `plan_review.status`, and the package receives one spec-level final-review report before finish.
-10. Use `review` to request code review of completed task or checkpoint work.
-11. Use `fix-review` only after feedback exists.
-12. Use `finish` only after implementation, final review, and verification are complete.
-13. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
-14. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
-15. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-16. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan-to-exec`.
-17. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
-18. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
-19. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan-to-exec` step only when the user asks.
-20. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. `plan-to-exec` uses it internally before final plan handoff; direct user invocation is for ad-hoc plan audits only.
-21. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `subagent-exec`, `review`, `final-review`, and `fix`, while planning stages may only note downstream activation.
+4. If the user wants to document what an existing repository currently does, use `codebase-spec`. Use `plan` only for explicit planning, approval boundaries, interruption recovery, or durable coordination.
+5. `plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
+6. `exec` accepts a clear request or a persistent plan and derives the current execution graph. Strongly coupled or uncertain work stays serial in the current context.
+7. `plan-to-exec`, `subagent-exec`, and `parallel-subagent-exec` forward only when explicitly invoked; they do not participate in automatic routing or ask the user to choose an execution mode.
+8. Use `final-review` after the whole feature is implemented and before `finish`; for multi-plan packages, child plans receive plan-level final-review state with `plan_review.status`, and the package receives one spec-level final-review report before finish.
+9. Use `review` to request code review of completed task or checkpoint work.
+10. Use `fix-review` only after feedback exists.
+11. Use `finish` only after implementation, final review, and verification are complete.
+12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
+13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
+14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
+15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan`.
+16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
+17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
+18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan` step only when the user asks.
+19. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. Use its output as source material for `plan`; direct user invocation is for ad-hoc plan audits only.
+20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, `review`, and `final-review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, `final-review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard
 

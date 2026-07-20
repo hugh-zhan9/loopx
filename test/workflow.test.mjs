@@ -519,6 +519,81 @@ describe('loopx retained workflow shell', () => {
     assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
   });
 
+  it('installs an optional lean planning intent without execution transcription', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-lean-plan-'));
+    const result = await installBundledSkills(loopxEnv(home));
+
+    assert.equal(result.ok, true);
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan'), true);
+    const planSkill = await readFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const planSchema = await readFile(join(home, '.agents', 'skills', 'plan', 'references', 'plan-schema.md'), 'utf8');
+    const fixture = await readFile(join(repoRoot, 'test', 'fixtures', 'lean-plan.md'), 'utf8');
+
+    assert.match(planSkill, /explicit planning.*approval boundar.*interruption recovery.*durable coordination/is);
+    assert.match(planSkill, /clear, bounded request.*prompt-first/is);
+    for (const heading of ['Outcomes', 'Boundaries', 'Likely Modules', 'Known Dependencies', 'Acceptance', 'Verification']) {
+      assert.match(planSchema, new RegExp(`^## ${heading}$`, 'm'));
+      assert.match(fixture, new RegExp(`^## ${heading}$`, 'm'));
+    }
+    for (const forbidden of [
+      /Bite-Sized Task Granularity/i,
+      /minute-scale/i,
+      /review ceremon/i,
+      /loopx-parallel-(?:plan|task|package)/i,
+      /max_parallel/i,
+      /implementation code/i,
+    ]) {
+      assert.doesNotMatch(planSchema, forbidden);
+      assert.doesNotMatch(fixture, forbidden);
+    }
+  });
+
+  it('installs one exec intent for prompt or plan input with explicit-only aliases', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-unified-exec-'));
+    const result = await installBundledSkills(loopxEnv(home));
+
+    assert.equal(result.ok, true);
+    const execSkill = await readFile(join(home, '.agents', 'skills', 'exec', 'SKILL.md'), 'utf8');
+    const selection = await readFile(join(home, '.agents', 'skills', 'exec', 'references', 'execution-selection.md'), 'utf8');
+    const graphFixture = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'prompt-execution-graph.json'), 'utf8'));
+
+    assert.match(execSkill, /clear request.*persistent plan/is);
+    assert.match(execSkill, /temporary execution graph/i);
+    assert.match(execSkill, /strongly coupled.*serial.*current context/is);
+    assert.match(execSkill, /fresh verification/i);
+    assert.match(execSkill, /ordinary clear single-outcome work stays prompt-first/i);
+    assert.match(selection, /same file.*producer.*consumer.*generated output.*debugging/is);
+    assert.match(selection, /default shared worker budget is four/i);
+    assert.match(selection, /uncertain.*serial/is);
+    assert.doesNotMatch(execSkill, /requires? a persistent plan/i);
+    assert.doesNotMatch(execSkill, /ask the user to choose.*(?:serial|subagent|parallel)/is);
+    assert.doesNotMatch(selection, /risk score/i);
+
+    assert.equal(graphFixture.input.kind, 'prompt');
+    assert.equal(graphFixture.persistence, 'none');
+    assert.equal(graphFixture.selection.kind, 'serial');
+    assert.match(graphFixture.selection.reason, /producer.*consumer/i);
+    assert.equal(graphFixture.independent_prompt_case.input.kind, 'prompt');
+    assert.equal(graphFixture.independent_prompt_case.persistence, 'none');
+    assert.equal(graphFixture.independent_prompt_case.selection.kind, 'concurrent');
+    assert.match(
+      graphFixture.independent_prompt_case.selection.reason,
+      /distinct write surfaces.*no shared contract decision.*independent tests.*no integration ordering/i,
+    );
+
+    for (const [alias, canonical] of [
+      ['plan-to-exec', 'plan'],
+      ['subagent-exec', 'exec'],
+      ['parallel-subagent-exec', 'exec'],
+    ]) {
+      const aliasSkill = await readFile(join(home, '.agents', 'skills', alias, 'SKILL.md'), 'utf8');
+      assert.match(aliasSkill, /^disable-model-invocation: true$/m, `${alias} must be explicit-only`);
+      assert.match(aliasSkill, new RegExp(`compatibility alias.*${canonical}`, 'is'));
+      assert.match(aliasSkill, /same (?:arguments|input)/i);
+      assert.doesNotMatch(aliasSkill, /choose (?:a |an )?(?:serial|subagent|parallel)/i);
+    }
+  });
+
   it('finish audit lifecycle records a local decision', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-finish-'));
     await initGitRepo(wd);
