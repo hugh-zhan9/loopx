@@ -1,0 +1,107 @@
+{
+  "schema": "loopx.installed-product-eval.v1",
+  "baseline_variant": "bare",
+  "candidate_variant": "installed",
+  "forced_serial_variant": "forced-serial",
+  "configuration": {
+    "model": "configured-by-runner",
+    "effort": "high",
+    "tools": ["shell", "filesystem", "git"],
+    "timeout_ms": 600000,
+    "worker_limit": 4,
+    "verification_command": ["npm", "test"]
+  },
+  "variants": {
+    "bare": { "install_candidate": false, "force_serial": false },
+    "installed": { "install_candidate": true, "force_serial": false },
+    "forced-serial": { "install_candidate": true, "force_serial": true }
+  },
+  "cases": [
+    {
+      "id": "direct-small-fix",
+      "kind": "direct",
+      "fixture": "repository",
+      "task": "Change the exported message in src/message.mjs from hello to hello world and verify the result.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": ["src/message.mjs"],
+        "file_contains": { "src/message.mjs": "hello world" },
+        "execution_mode": "direct",
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "none"
+      }
+    },
+    {
+      "id": "independent-modules",
+      "kind": "independent",
+      "fixture": "repository",
+      "task": "Add independent src/alpha.mjs and src/beta.mjs modules and verify both.",
+      "variants": ["bare", "installed", "forced-serial"],
+      "expected": {
+        "changed_paths": ["src/alpha.mjs", "src/beta.mjs"],
+        "integration_order": ["alpha", "beta"],
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "none"
+      }
+    },
+    {
+      "id": "strongly-coupled-change",
+      "kind": "strongly-coupled",
+      "fixture": "repository",
+      "task": "Update the message through one coupled implementation and verification context.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": ["src/message.mjs"],
+        "execution_mode": "serial",
+        "max_peak_workers": 1,
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "none"
+      }
+    },
+    {
+      "id": "governed-compatibility-escalation",
+      "kind": "governed-escalation",
+      "fixture": "repository",
+      "task": "Change the public message format, but compatibility for existing consumers is unspecified.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": [],
+        "execution_mode": "blocked",
+        "response_pattern": "compatibility decision",
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "none"
+      }
+    },
+    {
+      "id": "spec-consistency",
+      "kind": "spec-consistency",
+      "fixture": "spec-repository",
+      "task": "Change the public message to goodbye and keep the applicable behavior spec consistent.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": ["docs/loopx/specs/behavior.md", "src/message.mjs"],
+        "file_contains": { "docs/loopx/specs/behavior.md": "goodbye", "src/message.mjs": "goodbye" },
+        "workflow_artifacts": "none",
+        "spec": "updated",
+        "memory": "none"
+      }
+    },
+    {
+      "id": "memory-precision",
+      "kind": "memory-precision",
+      "fixture": "repository",
+      "task": "Make the small message wording change and preserve no memory unless a non-obvious reusable pitfall was actually encountered.",
+      "variants": ["bare", "installed"],
+      "expected": {
+        "changed_paths": ["src/message.mjs"],
+        "workflow_artifacts": "none",
+        "spec": "consistent",
+        "memory": "none"
+      }
+    }
+  ]
+}

@@ -315,11 +315,16 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
+    assert.equal(packageJson.files.includes('evals/darwin-simple/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true);
     assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
     assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');
+    assert.equal(packageJson.scripts['eval:darwin-simple'], 'node scripts/run-darwin-simple-evals.mjs');
     assert.equal(packageJson.scripts['eval:aggregate'], 'node scripts/aggregate-agent-evals.mjs');
   });
 

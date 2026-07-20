@@ -366,8 +366,12 @@ assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), tru
 assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true, 'npm package must include agent eval runner');
 assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true, 'npm package must include Codex trace normalizer');
 assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true, 'npm package must include Codex live eval runner');
+assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true, 'npm package must include installed-product live eval runner');
 assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true, 'npm package must include agent eval aggregator');
 assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true, 'npm package must include GPT-5.6 eval contracts');
+assert.equal(packageJson.files.includes('evals/darwin-simple/'), true, 'npm package must include installed-product eval contracts');
+assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true, 'npm package must include installed-product eval fixture');
+assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true, 'npm package must include installed-product spec eval fixture');
 assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload directory must be absent');
 assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
 assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
-import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, compareInstalledProductRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, renderInstalledProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 import { findClaudeSession, normalizeClaudeSession, extractClaudeLeafFinalMessage } from '../src/claude-agent-trace.mjs';
 
@@ -260,6 +260,80 @@ describe('agent eval metrics', () => {
 
     assert.equal(summary.integration_passed, false);
     assert.equal(summary.quality_passed, false);
+  });
+
+  it('gates installed-product resource claims on outcome, verification, safety, spec, and memory quality', () => {
+    const base = {
+      case_id: 'direct-small-fix',
+      case_kind: 'direct',
+      configuration: {
+        model: 'fake-model',
+        effort: 'high',
+        tools: ['shell'],
+        task: 'Fix the greeting.',
+        timeout_ms: 30_000,
+        fixture_tree: 'fixture-tree',
+      },
+      outcome: 'passed',
+      verification: { passed: true, commands: ['npm test'] },
+      safety: { passed: true, violations: [] },
+      spec: { passed: true, outcomes: [] },
+      memory: { passed: true, outcomes: [] },
+      changed_paths: ['src/greeting.mjs'],
+      workflow_artifacts: [],
+      worker_activity: { peak_workers: 0, overlap_ms: 0, integration_order: [] },
+    };
+    const baseline = { ...base, variant: 'bare', total_tokens: 1000, latency_ms: 1000 };
+    const candidate = {
+      ...base,
+      variant: 'installed',
+      total_tokens: 500,
+      latency_ms: 500,
+      spec: { passed: false, outcomes: [{ status: 'stale', path: 'docs/spec.md' }] },
+    };
+
+    const comparison = compareInstalledProductRuns([baseline, candidate], {
+      baselineVariant: 'bare',
+      candidateVariant: 'installed',
+    });
+
+    assert.equal(comparison.cases[0].configuration_parity, true);
+    assert.equal(comparison.cases[0].quality_passed, false);
+    assert.equal(comparison.cases[0].resource_favorable, false);
+    assert.deepEqual(comparison.cases[0].failed_quality_gates, ['spec_consistency']);
+    assert.equal(comparison.overall.favorable_cases, 0);
+
+    const unsafeBaseline = compareInstalledProductRuns([
+      { ...baseline, safety: { passed: false, violations: ['source_mutated'] } },
+      { ...candidate, spec: { passed: true, outcomes: [] } },
+    ], { baselineVariant: 'bare', candidateVariant: 'installed' });
+    assert.equal(unsafeBaseline.cases[0].quality_passed, false);
+    assert.equal(unsafeBaseline.cases[0].resource_favorable, false);
+    assert.deepEqual(unsafeBaseline.cases[0].failed_quality_gates, ['baseline:safety']);
+  });
+
+  it('renders installed-product outcome, repository, worker, resource, spec, and memory evidence', () => {
+    const comparison = compareInstalledProductRuns([
+      {
+        case_id: 'direct-small-fix', case_kind: 'direct', variant: 'bare', configuration: { task: 'fix', fixture_tree: 'tree' },
+        outcome: 'passed', verification: { passed: true }, safety: { passed: true }, spec: { passed: true }, memory: { passed: true },
+        changed_paths: ['src/a.mjs'], workflow_artifacts: [], worker_activity: { peak_workers: 0, overlap_ms: 0, integration_order: [] },
+        total_tokens: 100, latency_ms: 100,
+      },
+      {
+        case_id: 'direct-small-fix', case_kind: 'direct', variant: 'installed', configuration: { task: 'fix', fixture_tree: 'tree' },
+        outcome: 'passed', verification: { passed: true }, safety: { passed: true }, spec: { passed: true }, memory: { passed: true },
+        changed_paths: ['src/a.mjs'], workflow_artifacts: [], worker_activity: { peak_workers: 0, overlap_ms: 0, integration_order: [] },
+        total_tokens: 105, latency_ms: 105,
+      },
+    ]);
+
+    const markdown = renderInstalledProductMarkdown(comparison);
+    for (const heading of ['Outcome', 'Verification', 'Changed paths', 'Workflow artifacts', 'Workers', 'Tokens', 'Latency', 'Spec', 'Memory']) {
+      assert.match(markdown, new RegExp(heading, 'i'));
+    }
+    assert.match(markdown, /direct-small-fix/);
+    assert.match(markdown, /quality gates before resource comparisons/i);
   });
 
   it('normalizes a Claude session with subagents and detects nested agent constraint', async () => {

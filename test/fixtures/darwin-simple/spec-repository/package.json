@@ -1,0 +1,8 @@
+{
+  "name": "darwin-simple-spec-eval-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

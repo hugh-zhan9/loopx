@@ -32,11 +32,15 @@
     "scripts/run-agent-evals.mjs",
     "scripts/normalize-codex-agent-trace.mjs",
     "scripts/run-codex-live-agent-evals.mjs",
+    "scripts/run-darwin-simple-evals.mjs",
     "scripts/aggregate-agent-evals.mjs",
     "scripts/claude-workflow-hook.mjs",
     "scripts/codex-workflow-hook.mjs",
     "assets/logo.svg",
     "evals/gpt-5.6/",
+    "evals/darwin-simple/",
+    "test/fixtures/darwin-simple/repository/",
+    "test/fixtures/darwin-simple/spec-repository/",
     "src/",
     "skills/RESOLVER.md",
     "skills/shared/",
@@ -85,6 +89,7 @@
     "eval:codex-normalize": "node scripts/normalize-codex-agent-trace.mjs",
     "eval:codex-live": "node scripts/run-codex-live-agent-evals.mjs",
     "eval:claude-live": "node scripts/run-claude-live-agent-evals.mjs",
+    "eval:darwin-simple": "node scripts/run-darwin-simple-evals.mjs",
     "eval:aggregate": "node scripts/aggregate-agent-evals.mjs",
     "test": "node scripts/verify-skills.mjs && node --test test/*.test.mjs"
   }
