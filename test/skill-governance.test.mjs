@@ -432,7 +432,7 @@ describe('loopx skill governance', () => {
     assertExplicitCompatibilityAlias(fixReview, 'fix-review', 'review');
     assert.match(fixReview, /does not require a feedback ledger or report artifact/i);
     assert.match(finishRecording, /prepare -> perform -> record -> reconcile/);
-    assert.match(finishRecording, /Git action succeeds but `finish-record` fails/);
+    assert.match(finishRecording, /Git or remote action succeeded.*Do not\s+repeat/is);
   });
 
   it('governs diagnosis TDD verification and worktree safety', async () => {
@@ -689,6 +689,9 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /whole diff review/i);
     assert.match(fixSkill, /fix-review/i);
     assert.match(fixSkill, /finish/i);
+    assert.match(fixSkill, /shared\/completion-check\.md/);
+    assert.match(fixSkill, /finish.*explicit.*Git disposition/is);
+    assert.doesNotMatch(fixSkill, /finish_handoff:\s*`?\$finish|hand off to `finish`/i);
     assert.match(fixSkill, /Execution Reports/);
     assert.match(fixSkill, /Reviews/);
     assert.match(fixSkill, /Verification/);
@@ -1888,29 +1891,25 @@ describe('loopx skill governance', () => {
   });
 
   it('finish presents branch placement for normal repos and worktree choices only for worktrees', async () => {
-    const finishSkill = await readSkillSurface('finish', ['branch-worktree-and-recording.md', 'final-review-and-finish-gates.md']);
+    const finishSkill = await readSkillSurface('finish', ['branch-worktree-and-recording.md']);
     assert.match(finishSkill, /Match the user's language/);
-    assert.match(finishSkill, /Match the user's language/);
-    assert.match(finishSkill, /`GIT_DIR == GIT_COMMON` means a normal repo\. Present the 2 commit-placement options only/);
-    assert.match(finishSkill, /`GIT_DIR != GIT_COMMON` with a branch means a named worktree/);
-    assert.match(finishSkill, /create a new branch and commit there/i);
-    assert.match(finishSkill, /`finish-record` must preserve/);
-    assert.match(finishSkill, /audit id or path/);
-    assert.match(finishSkill, /chosen action/);
-    assert.match(finishSkill, /final status/);
-    assert.match(finishSkill, /summary/);
-    assert.doesNotMatch(finishSkill, /Normal repo and named-branch worktree — present exactly these 4 options/);
+    assert.match(finishSkill, /Equal resolved Git and common directories indicate a normal repository/);
+    assert.match(finishSkill, /Different directories with a branch indicate a named worktree/);
+    assert.match(finishSkill, /create a new branch.*commit there/is);
+    assert.match(finishSkill, /merge locally.*pull request.*keep as-is.*clean up.*discard/is);
+    assert.match(finishSkill, /explicit typed confirmation.*exact branch\/worktree.*target/is);
+    assert.match(finishSkill, /Do not require a review report, extraction candidate, audit artifact, or other\s+workflow state/is);
+    assert.doesNotMatch(finishSkill, /final-review-and-finish-gates|memory-and-spec-candidates/);
   });
 
   it('finish wording avoids colliding with the assistant final channel', async () => {
-    const finishSkill = await readSkillSurface('finish', ['final-review-and-finish-gates.md']);
+    const finishSkill = await readSkillSurface('finish', ['branch-worktree-and-recording.md']);
     const execSkill = await readSkillSurface('exec', ['multi-plan-package-mode.md']);
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
 
     assert.doesNotMatch(finishSkill, /Final Response Contract/i);
     assert.doesNotMatch(finishSkill, /final response must/i);
-    assert.match(finishSkill, /Completion Summary Contract/);
-    assert.match(finishSkill, /completion summary must list/);
+    assert.match(finishSkill, /Report the chosen action, resulting branch and HEAD/i);
     assert.match(execSkill, /Completion Contract/);
     assert.match(execSkill, /fresh verification/i);
     assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');

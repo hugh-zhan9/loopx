@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.3"
+  version: "0.4.4"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -112,7 +112,13 @@ before closing it. Do not route findings through a mandatory fix workflow.
 
 ## Completion Contract
 
-Every completion claim includes fresh verification. Summarize:
+Before every completion claim, apply the direct, serial, and concurrent
+completion check in [../shared/completion-check.md](../shared/completion-check.md).
+It confirms fresh verification, synchronizes an applicable spec changed by the
+implementation, and preserves only qualifying reusable knowledge. A quiet
+`none` outcome creates no artifact or reminder.
+
+Then summarize:
 
 - accepted outcome;
 - changed paths;

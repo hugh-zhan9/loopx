@@ -1397,12 +1397,11 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
     `env.LOOPX_DEVELOPER=${String(env.LOOPX_DEVELOPER || 'unknown')}`,
   ];
   const choices = finishChoices();
-  const extractionCandidates = createExtractionCandidates(changeWindow);
   const state = {
     schema_version: FINISH_SCHEMA_VERSION,
     audit_id: auditId,
     slug: normalizedSlug,
-    status: 'needs-agent-audit',
+    status: 'audited',
     updated_at: auditDate.toISOString(),
     inputs: {
       scanned: scannedInputs,
@@ -1414,8 +1413,8 @@ export async function finishAuditStage(cwd, slug, { env = process.env, date = ne
       head: evidence.head,
       accepted_candidates: [],
       rejected_candidates: [],
-      extraction_candidates: extractionCandidates,
-      no_candidates_reason: DEFAULT_NO_CANDIDATES_REASON,
+      extraction_candidates: [],
+      no_candidates_reason: 'Knowledge extraction is outside Git disposition.',
       change_window: changeWindow,
       report_candidates: {
         accepted: choices.accepted.map((item) => ({ ...item })),
@@ -1554,10 +1553,6 @@ export async function finishRecordStage(cwd, auditIdOrPath, {
   if (normalizedStatus === 'done') {
     assertAuditHeadCurrentForFinish(state, currentEvidence);
     await assertNoTrackedDirtyForFinish(stateRoot);
-    await assertMultiPlanReadyForFinish(stateRoot, state);
-  }
-  if (normalizedStatus === 'done' && !isFinishAuditReadyForDone(state)) {
-    throw new Error('finish_record_audit_incomplete');
   }
 
   const updatedAt = new Date().toISOString();

@@ -2,7 +2,7 @@
 
 Governance index for loopx bundled skills. Keep this file in sync with every bundled `skills/<name>/SKILL.md`. It is not installed host guidance or runtime routing authority; normal and plugin installs route from the prompt-first managed guidance block and installed skill frontmatter.
 
-Clear, bounded work stays prompt-first: inspect, implement, verify with fresh evidence, and report without selecting a workflow skill or creating workflow artifacts. A local defect or small feature is not, by itself, a workflow trigger. Governed escalation requires a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.
+Clear, bounded work stays prompt-first: inspect, implement, verify with fresh evidence, apply the quiet completion check in `skills/shared/completion-check.md`, and report without selecting a workflow skill or creating workflow artifacts. A local defect or small feature is not, by itself, a workflow trigger. Governed escalation requires a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.
 
 Current contract: pre-v2 running workflow state is unsupported and must restart.
 Only the top-level controller owns agent lifecycle; every dispatched worker is
@@ -18,7 +18,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan/SKILL.md` |
 | A clear request or persistent plan should be implemented with adaptive serial-or-concurrent selection | `skills/exec/SKILL.md` |
 | Explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence requires independent review | `skills/review/SKILL.md` |
-| Completed implementation with passing tests needs merge, PR, keep, or discard decision | `skills/finish/SKILL.md` |
+| User explicitly requests commit or branch placement, merge, pull request, keep, cleanup, or discard after verified implementation | `skills/finish/SKILL.md` |
 | Issue-driven bug-class intake, diagnosis, local ledger creation, or fix brief preparation | `skills/issue/SKILL.md` |
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
@@ -61,10 +61,10 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 5. `plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
 6. `exec` accepts a clear request or a persistent plan and derives the current execution graph. Strongly coupled or uncertain work stays serial in the current context.
 7. `plan-to-exec`, `subagent-exec`, and `parallel-subagent-exec` forward only when explicitly invoked; they do not participate in automatic routing or ask the user to choose an execution mode.
-8. Every completed execution receives a controller-owned integration check. Use `review` only for explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence; multi-agent execution alone is not a trigger.
+8. Every completed execution receives a controller-owned integration check and the quiet completion check from `skills/shared/completion-check.md`. The latter synchronizes applicable specs changed by the implementation and preserves only qualifying reusable knowledge across direct, serial, and concurrent paths. Use `review` only for explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence; multi-agent execution alone is not a trigger.
 9. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`. They preserve whole-feature-review or existing-feedback intent without requiring legacy report or ledger artifacts.
 10. Critical and Important review findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
-11. Use `finish` only for explicit Git disposition after implementation and fresh verification are complete.
+11. Use `finish` only for explicit Git disposition after implementation and fresh verification are complete. It has no review-report, extraction-candidate, or workflow-state precondition.
 12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
 13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
 14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.

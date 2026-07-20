@@ -1,79 +1,53 @@
-# Branch Worktree And Recording
+# Branch, Worktree, And Git Disposition
 
-## Partial Failure Reconciliation
+## Inspect Repository Shape
 
-Treat completion as `prepare -> perform -> record -> reconcile`.
-
-- Record the intended action before a destructive or externally visible Git
-  operation.
-- If the Git action succeeds but `finish-record` fails, do not repeat the Git
-  action. Inspect repository state and retry only the recording step.
-- If recording succeeds but cleanup fails, keep the recorded outcome and report
-  cleanup as a separate incomplete operation.
-- Before retrying, compare the recorded action, current branch/worktree state,
-  and audit ID. Never guess whether merge, discard, or branch deletion ran.
-
-## Detect Repo Shape
-
-Collect:
+Collect current evidence without mutating the repository:
 
 ```bash
-GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
-GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
-CURRENT_BRANCH=$(git branch --show-current)
-WORKTREE_PATH=$(git rev-parse --show-toplevel)
+git rev-parse --git-dir
+git rev-parse --git-common-dir
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse --short HEAD
 git status --short
 ```
 
-Interpretation:
+- Equal resolved Git and common directories indicate a normal repository.
+- Different directories with a branch indicate a named worktree.
+- Different directories without a branch indicate a detached worktree.
 
-- `GIT_DIR == GIT_COMMON` means a normal repo. Present the 2 commit-placement options only.
-- `GIT_DIR != GIT_COMMON` with a branch means a named worktree. Present merge, PR, keep, or discard.
-- `GIT_DIR != GIT_COMMON` with detached HEAD means no local merge option. Present PR, keep, or discard.
+Match the user's language. If no action was named, present only the choices
+valid for the detected shape:
 
-## Commit Merge PR Keep Discard Choice
+- normal repository: commit on the current branch, or create a new branch and
+  commit there;
+- named worktree: merge locally, push and create a pull request, keep as-is,
+  clean up an already integrated owned worktree, or discard;
+- detached worktree: create a branch and pull request, keep as-is, clean up an
+  already integrated owned worktree, or discard.
 
-Use the current repo shape to present the exact finish choice:
+## Operation Rules
 
-- normal repo: commit on current branch, or create a new branch and commit there
-- named worktree: merge locally, push and create a Pull Request, keep as-is, or discard
-- detached HEAD: push as new branch and create a Pull Request, keep as-is, or discard
+- Stage and commit only paths belonging to the accepted change. Do not make an
+  empty commit when the intended commit already exists.
+- Before a local merge, discover the destination branch and check that its
+  worktree is clean. Never assume `main`.
+- Before a pull request, confirm the source branch, remote, base branch, and
+  authentication. Return the created URL.
+- `keep` performs no cleanup or deletion.
+- `cleanup` is valid only for an already integrated worktree owned by this
+  workflow. Remove it from the main repository, not from inside that worktree.
+- `discard` requires explicit typed confirmation of the exact branch/worktree
+  target and a final check for uncommitted or unpushed work.
+- Untracked files are never auto-added or deleted. Report them unless the user
+  explicitly included an exact path in cleanup or discard.
 
-Require explicit typed confirmation before discard.
+## Partial Failure Reconciliation
 
-## `finish-record` Fields
-
-`finish-record` must preserve:
-
-- audit id or path
-- chosen action
-- final status
-- summary
-
-The completion summary must also preserve the audit evidence window:
-
-- requirement start commit
-- final `HEAD`
-- commit list
-- changed files
-- tracked status summary
-- untracked summary
-
-## Stale Audit Head Handling
-
-`finish-audit` provides the evidence window and audit state. Read the latest finish audit state before calling `finish-record`.
-
-If the recorded audit head is stale relative to current `HEAD`, refresh the audit state first. Do not record done against an out-of-date audit window.
-
-## Dirty Tracked Status Handling
-
-- If tracked files are still staged or unstaged, commit the intended tracked work before `finish-record --status done`.
-- If the working tree is clean and the completion commit already exists, do not create an empty commit.
-- Untracked files remain non-blocking and should be reported, not auto-added.
-
-## Cleanup Rules
-
-- Normal repo choices never remove a worktree.
-- Preserve named worktrees for PR and keep choices.
-- Only remove a worktree after a successful local merge or an explicit discard confirmation, and only when the worktree is owned by the workflow.
-- Run removal from the main repo root, not from inside the worktree being removed.
+Treat completion as `prepare -> perform -> record -> reconcile`; within the
+perform step, use `inspect -> perform -> verify -> optional cleanup`.
+If the Git or remote action succeeded but reporting or cleanup failed, inspect
+the resulting branch, HEAD, worktrees, and remote state before retrying. Do not
+repeat a commit, merge, push, pull-request creation, deletion, or discard based
+only on missing local bookkeeping.
