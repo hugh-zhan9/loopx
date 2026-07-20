@@ -7,7 +7,10 @@ import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 
-import {
+import * as execGitIsolation from '../skills/exec/scripts/git-isolation.mjs';
+import * as legacyGitIsolation from '../skills/parallel-subagent-exec/scripts/git-lib.mjs';
+
+const {
   applyBoundaryCommit,
   applyEphemeralCommit,
   assertWorktreeRootIgnored,
@@ -23,9 +26,16 @@ import {
   restoreIntegrationTree,
   snapshotIntegrationTree,
   verifyOwnedWorktree,
-} from '../skills/parallel-subagent-exec/scripts/git-lib.mjs';
+} = execGitIsolation;
 
 const execFileAsync = promisify(execFile);
+
+test('legacy parallel Git imports expose the exec-owned isolation interface', () => {
+  assert.deepEqual(Object.keys(legacyGitIsolation).sort(), Object.keys(execGitIsolation).sort());
+  for (const name of Object.keys(execGitIsolation)) {
+    assert.equal(legacyGitIsolation[name], execGitIsolation[name], name);
+  }
+});
 
 async function git(cwd, args, options = {}) {
   const result = await execFileAsync('git', args, { cwd, ...options });
