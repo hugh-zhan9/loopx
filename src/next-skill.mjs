@@ -22,7 +22,7 @@ export function nextSkillCommand(state) {
       return `$spec ${clarifyHandoffArg(state)}`;
     }
     if (state.handoff_decision === 'direct_to_plan') {
-      return `$plan-to-exec ${clarifyHandoffArg(state)}`;
+      return `$plan ${clarifyHandoffArg(state)}`;
     }
     return null;
   }
@@ -33,7 +33,7 @@ export function nextSkillCommand(state) {
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'
     && state.rollback_target === 'plan') {
-    return `$plan-to-exec ${state.slug}`;
+    return `$plan ${state.slug}`;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'

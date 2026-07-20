@@ -52,13 +52,10 @@ loopx doctor [--json]
 loopx repair-install
 ```
 
-`loopx init`, `loopx clarify`, `loopx status`, and `loopx next` exist to help an
-agent and user find the next skill handoff. The Golden path still happens in
-the agent:
-
-```text
-clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
-```
+`loopx init`, `loopx clarify`, `loopx status`, and `loopx next` support local
+intake and handoff state. The installed product otherwise stays prompt-first.
+Its six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`,
+`review`, and `finish`; they are optional governance tools, not a fixed path.
 
 New `clarify` workflows write a local intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with canonical `requirements.md` and supporting `clarification.md`. Human output shows concise paths; use `--json` for full state fields.
 

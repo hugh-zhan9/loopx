@@ -4,7 +4,7 @@ description: "Applies loopx CLI design discipline for commands, flags, human and
 when_to_use: "cli-developer, CLI, command design, flags, JSON output, stdout stderr, interactive prompt, help text, shell completion, 命令行"
 license: MIT
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/cli-developer
   maintained_by: loopx
 ---
@@ -13,9 +13,9 @@ metadata:
 
 ## loopx Boundary
 
-`cli-developer` is a support lens, not a workflow state. Use it directly when the user asks for CLI design or implementation guidance, and use it from `spec`, `exec`, `review`, or `final-review` when changes affect command behavior.
+`cli-developer` is a support lens, not a workflow state. Use it directly when the user asks for CLI design or implementation guidance, and use it from `spec`, `exec`, or `review` when changes affect command behavior.
 
-This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `final-review`. If product behavior, compatibility, migration, or public CLI contract decisions are unclear, route those decisions through `clarify` or `spec`.
+This skill does not replace `clarify`, `spec`, `plan`, or `review`. If product behavior, compatibility, migration, or public CLI contract decisions are unclear, route those decisions through `clarify` or `spec`.
 
 For loopx itself, preserve the established rule that human output is default for first-use commands and complete runtime payloads require explicit `--json`.
 

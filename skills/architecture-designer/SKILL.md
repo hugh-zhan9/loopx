@@ -4,7 +4,7 @@ description: "Applies loopx architecture discipline for system boundaries, ADRs,
 when_to_use: "architecture-designer, architecture, system design, ADR, NFR, scalability, failure modes, technology tradeoff, 架构设计"
 license: MIT
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/architecture-designer
   maintained_by: loopx
 ---
@@ -13,9 +13,9 @@ metadata:
 
 ## loopx Boundary
 
-`architecture-designer` is a support lens, not a workflow state. Use it directly for architecture review or system design discussion, and use it from `spec`, `review`, or `final-review` when changes affect system boundaries, operational behavior, or long-lived design decisions.
+`architecture-designer` is a support lens, not a workflow state. Use it directly for architecture review or system design discussion, and use it from `spec` or `review` when changes affect system boundaries, operational behavior, or long-lived design decisions.
 
-This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `final-review`. If architecture decisions are not yet approved, produce options and route the work through `spec`.
+This skill does not replace `clarify`, `spec`, `plan`, or `review`. If architecture decisions are not yet approved, produce options and route the work through `spec`.
 
 When database technology, ownership, schema, migration, or query performance is part of the architecture decision, also use `sql-style`.
 

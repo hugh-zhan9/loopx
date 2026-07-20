@@ -213,14 +213,14 @@ export function ownedRefNames({ runId, kind, qualifiedId = 'root', attempt = 1 }
   else suffix = `retry/${item}/r${attempt}`;
   return {
     branch: `loopx/parallel/${run}/${suffix}`,
-    relative_path: `.worktrees/parallel-subagent-exec/${run}/${suffix}`,
+    relative_path: `.worktrees/loopx-exec/${run}/${suffix}`,
   };
 }
 
 export async function assertWorktreeRootIgnored({ primaryRoot, worktreeRoot }) {
   const primary = await realpath(primaryRoot);
   const target = resolve(worktreeRoot);
-  const requiredRoot = join(primary, '.worktrees', 'parallel-subagent-exec');
+  const requiredRoot = join(primary, '.worktrees', 'loopx-exec');
   if (!isInside(requiredRoot, target) || target === requiredRoot) {
     fail('parallel_worktree_root_invalid', `worktree root must be a run directory under ${requiredRoot}`);
   }
@@ -239,7 +239,7 @@ function assertDescriptor(topology, descriptor) {
   if (!descriptor.path || !descriptor.branch || !descriptor.head || !descriptor.kind || !descriptor.run_id) {
     fail('parallel_worktree_ownership_mismatch', 'descriptor is missing identity fields');
   }
-  const ownedRoot = join(topology.primary_root, '.worktrees', 'parallel-subagent-exec');
+  const ownedRoot = join(topology.primary_root, '.worktrees', 'loopx-exec');
   if (!isInside(ownedRoot, resolve(descriptor.path))) {
     fail('parallel_worktree_ownership_mismatch', `descriptor path is outside owned root: ${descriptor.path}`);
   }

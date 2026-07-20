@@ -209,7 +209,7 @@ Quick checks to determine if the requirement is ready for the next loopx workflo
 - [ ] Clear enough to compare options but not to write tasks
 - [ ] Behavioral model is mostly complete but implementation approach needs design
 
-### Ready for `plan-to-exec`
+### Ready for `plan`
 
 - [ ] Scope and non-goals are explicit
 - [ ] Acceptance rules are testable

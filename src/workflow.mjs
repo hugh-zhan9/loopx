@@ -150,9 +150,9 @@ function buildWorkspaceReadme() {
     '',
     'This directory is initialized for the loopx skill-first helper contract.',
     '',
-    '## Skill Flow',
+    '## Workflow Intents',
     '',
-    '`clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish`',
+    '`clarify`, `spec`, `plan`, `exec`, `review`, and `finish` are optional governed intents, not a required sequence.',
     '',
     '## User Commands',
     '',
@@ -174,7 +174,6 @@ function buildWorkspaceReadme() {
     '- `intake/YYYY-MM-DD-<slug>/` clarify intake packages (`clarification.md`, `requirements.md`)',
     '- historical `intake/clarify-*.md` clarify snapshots may exist from older loopx versions',
     '- `context/domain.md` and `agents/*.md` for project context and collaboration guidance',
-    '- `finish/` audit state',
     '- `views/` and `workflows/<slug>/view/` generated HTML views',
   ].join('\n');
 }
@@ -468,8 +467,7 @@ export async function initWorkspace(cwd, { slug } = {}) {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'skill-first-helper',
-    default_flow: ['clarify', 'plan-to-exec', 'exec-or-subagent-exec', 'final-review', 'fix-review', 'finish'],
-    preferred_surface: ['clarify', 'spec', 'plan-to-exec', 'exec', 'subagent-exec', 'review', 'final-review', 'fix-review', 'finish'],
+    workflow_intents: ['clarify', 'spec', 'plan', 'exec', 'review', 'finish'],
     source_of_truth_policy: projectConventions.source_of_truth_policy,
     project_conventions: {
       existing_ai_rules: projectConventions.existing_ai_rules,

@@ -8,17 +8,22 @@ Current contract: pre-v2 running workflow state is unsupported and must restart.
 Only the top-level controller owns agent lifecycle; every dispatched worker is
 a leaf worker and must not spawn, delegate to, or wait for other agents.
 
-## Core Workflow Skills
+## Canonical Workflow Intents
 
 | Trigger | Skill |
 |---|---|
 | Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
 | Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
-| Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan/SKILL.md` |
 | A clear request or persistent plan should be implemented with adaptive serial-or-concurrent selection | `skills/exec/SKILL.md` |
 | Explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence requires independent review | `skills/review/SKILL.md` |
 | User explicitly requests commit or branch placement, merge, pull request, keep, cleanup, or discard after verified implementation | `skills/finish/SKILL.md` |
+
+## Retained Specialized Workflows
+
+| Trigger | Skill |
+|---|---|
+| Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Issue-driven bug-class intake, diagnosis, local ledger creation, or fix brief preparation | `skills/issue/SKILL.md` |
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
@@ -43,7 +48,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 | Implementation work needs an isolated workspace, existing isolation must be detected, or git worktree setup is requested | `skills/using-git-worktrees/SKILL.md` |
 | Document readability, PRD assessment, requirements gaps, unclear viewpoint, AI-like prose, or document rewriting | `skills/doc-readability/SKILL.md` |
 | Existing requirement, PRD, spec, or feature brief needs ambiguity, gap, impact, feasibility, or readiness analysis | `skills/requirement-analyzer/SKILL.md` |
-| Plan artifact source-to-plan coverage audit, plan review, draft implementation plan quality, or checking whether AC/D/TC anchors map to tasks and verification | `skills/plan-reviewer/SKILL.md` |
+| Lean plan source coverage, scope drift, dependency, acceptance, or verification audit | `skills/plan-reviewer/SKILL.md` |
 | Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
 | Go-Kratos proto, service, biz, data, middleware, auth, config, or troubleshooting | `skills/kratos/SKILL.md` |
 | REST/GraphQL API design, resource modeling, OpenAPI, pagination, versioning, or API error model discipline | `skills/api-designer/SKILL.md` |
@@ -72,7 +77,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
 17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
 18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan` step only when the user asks.
-19. `plan-reviewer` may audit a draft or existing implementation plan, but it must not advance loopx workflow state. Use its output as source material for `plan`; direct user invocation is for ad-hoc plan audits only.
+19. `plan-reviewer` may audit a lean plan against its approved source, but it must not advance loopx workflow state, validate scheduler metadata, or create review artifacts. Use its output as source material for `plan`; direct user invocation is for ad-hoc plan audits only.
 20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, and `review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard

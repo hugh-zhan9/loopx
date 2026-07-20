@@ -3,7 +3,7 @@ name: using-git-worktrees
 description: "Sets up or verifies an isolated workspace for implementation work using native worktree support first and git worktree fallback only when needed. Not for ordinary read-only tasks, existing isolated worktrees, issue-ledger fix parallel worktrees, finish branch placement, or committing workflow changes."
 when_to_use: "using-git-worktrees, isolated workspace, git worktree, worktree setup, feature branch isolation, implementation workspace, 隔离工作区"
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Using Git Worktrees
@@ -12,7 +12,7 @@ Use this support skill before implementation work when the current checkout shou
 
 ## loopx Boundary
 
-`using-git-worktrees` is a support lens, not a workflow state. Use it before `exec` or manual implementation when isolation is needed. Do not use it to replace `plan-to-exec`, `subagent-exec`, `exec`, `fix`, or `finish`.
+`using-git-worktrees` is a support lens, not a workflow state. Use it before `exec` or manual implementation when isolation is needed. Do not use it to replace `plan`, `exec`, `fix`, or `finish`.
 
 Do not use this skill for:
 

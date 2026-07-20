@@ -7,6 +7,13 @@ import test from 'node:test';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(import.meta.dirname, '..');
+const compatibilityAliases = [
+  'plan-to-exec',
+  'subagent-exec',
+  'parallel-subagent-exec',
+  'final-review',
+  'fix-review',
+];
 
 async function recursiveFiles(root) {
   const files = [];
@@ -23,7 +30,7 @@ async function recursiveFiles(root) {
   return files.sort();
 }
 
-test('release tarball contains the thin adaptive runtime and alias-only legacy skills', async () => {
+test('release tarball contains the adaptive runtime and alias-only compatibility skills', async () => {
   const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], {
     cwd: repoRoot,
     maxBuffer: 16 * 1024 * 1024,
@@ -36,23 +43,29 @@ test('release tarball contains the thin adaptive runtime and alias-only legacy s
     'skills/exec/scripts/git-isolation.mjs',
     'skills/exec/scripts/run-manifest.mjs',
     'skills/exec/scripts/worktree-integration.mjs',
-    'skills/subagent-exec/SKILL.md',
-    'skills/parallel-subagent-exec/SKILL.md',
+    ...compatibilityAliases.map((alias) => `skills/${alias}/SKILL.md`),
   ]) {
     assert.equal(packaged.has(path), true, `tarball missing ${path}`);
   }
   for (const path of packaged) {
-    if (path.startsWith('skills/subagent-exec/') || path.startsWith('skills/parallel-subagent-exec/')) {
-      assert.match(path, /^skills\/(?:subagent-exec|parallel-subagent-exec)\/SKILL\.md$/);
+    if (compatibilityAliases.some((alias) => path.startsWith(`skills/${alias}/`))) {
+      assert.match(path, new RegExp(`^skills/(?:${compatibilityAliases.join('|')})/SKILL\\.md$`));
     }
+  }
+  for (const path of [
+    'src/codex-exec-runtime.mjs',
+    'src/finish-runtime.mjs',
+    'skills/shared/parallel-plan-contract.md',
+    'skills/shared/scripts/parallel-plan-contract.mjs',
+  ]) {
+    assert.equal(packaged.has(path), false, `tarball must exclude ${path}`);
   }
 });
 
-test('source tree contains no legacy execution payload outside compatibility aliases', async () => {
-  assert.deepEqual(await recursiveFiles(join(repoRoot, 'skills', 'subagent-exec')), [
-    'skills/subagent-exec/SKILL.md',
-  ]);
-  assert.deepEqual(await recursiveFiles(join(repoRoot, 'skills', 'parallel-subagent-exec')), [
-    'skills/parallel-subagent-exec/SKILL.md',
-  ]);
+test('source compatibility aliases contain only forwarding skills', async () => {
+  for (const alias of compatibilityAliases) {
+    assert.deepEqual(await recursiveFiles(join(repoRoot, 'skills', alias)), [
+      `skills/${alias}/SKILL.md`,
+    ]);
+  }
 });

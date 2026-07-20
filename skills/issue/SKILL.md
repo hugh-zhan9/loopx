@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Issue
@@ -18,11 +18,9 @@ Issue-driven handles:
 - build failure
 - unexpected behavior
 
-Issue-driven does not handle feature requests or enhancements. Route those to the feature-driven workflow:
-
-```text
-clarify -> spec? -> plan-to-exec -> exec/subagent-exec -> review/final-review -> fix-review? -> finish
-```
+Issue-driven does not handle feature requests or enhancements. Return those to
+prompt-first work or the justified canonical intent: `clarify`, `spec`, `plan`,
+`exec`, `review`, or `finish`.
 
 ## Contract
 
@@ -55,8 +53,8 @@ Reject or route:
 
 - feature request -> `feature_request`, suggest `$clarify`
 - enhancement -> `feature_request`, suggest `$clarify`
-- pure review feedback -> suggest `$fix-review`
-- approved implementation plan -> suggest `$exec` or `$subagent-exec`
+- pure review feedback -> suggest `$review`
+- approved implementation plan -> suggest `$exec`
 
 ## Triage Decision Matrix
 
@@ -111,7 +109,7 @@ metadata:
 ## Triage
 
 - classification: bug | regression | failing_test | build_failure | unexpected_behavior | not_a_bug | needs_info | feature_request
-- routing_decision: issue_driven | feature_driven | fix_review | exec | blocked
+- routing_decision: issue_driven | prompt_first | review | exec | blocked
 - decision_question_results:
   - previously_worked: yes | no | unknown
   - documented_or_accepted_contract: yes | no | unknown

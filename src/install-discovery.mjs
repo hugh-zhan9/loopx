@@ -14,6 +14,21 @@ import {
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(MODULE_DIR, '..');
+export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
+  'clarify',
+  'spec',
+  'plan',
+  'exec',
+  'review',
+  'finish',
+]);
+export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
+  'plan-to-exec',
+  'subagent-exec',
+  'parallel-subagent-exec',
+  'final-review',
+  'fix-review',
+]);
 const LOOPX_SKILLS = [
   'clarify',
   'spec',
@@ -79,6 +94,8 @@ const LOOPX_ROUTING_GUIDANCE_CONTENT = [
   '## loopx Prompt-First Routing',
   '',
   '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
+  '- The six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
+  '- `plan-to-exec`, `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review` are explicit-only compatibility aliases. Never select them automatically.',
   '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
   '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
   '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',

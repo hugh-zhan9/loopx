@@ -4,7 +4,7 @@ description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, re
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---
@@ -15,9 +15,9 @@ API design discipline for REST, GraphQL, and OpenAPI 3.1 contracts.
 
 ## loopx Boundary
 
-`api-designer` is a support lens, not a workflow state. Use it directly when the user asks for API design help, and use it from `spec`, `exec`, `review`, or `final-review` when work touches API contracts.
+`api-designer` is a support lens, not a workflow state. Use it directly when the user asks for API design help, and use it from `spec`, `exec`, or `review` when work touches API contracts.
 
-This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `final-review`. If product behavior, permissions, compatibility, migration, or client contract decisions are unresolved, route those decisions through `clarify` or `spec` instead of deciding them inside this skill.
+This skill does not replace `clarify`, `spec`, `plan`, or `review`. If product behavior, permissions, compatibility, migration, or client contract decisions are unresolved, route those decisions through `clarify` or `spec` instead of deciding them inside this skill.
 
 ## Core Workflow
 
@@ -33,7 +33,7 @@ This skill does not replace `clarify`, `spec`, `plan-to-exec`, `review`, or `fin
 Stop before finalizing an API contract when:
 
 - Product behavior, authorization, compatibility, or migration rules are unresolved.
-- The request needs implementation planning rather than contract design; route to `plan-to-exec` after `spec`.
+- The request needs implementation planning rather than contract design; route to `plan` after `spec`.
 - Existing clients or public schemas may break and no approved deprecation or migration path exists.
 
 ## Reference Guide

@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.4"
+  version: "0.4.5"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -102,7 +102,7 @@ explicit review request or concrete security, destructive, public
 compatibility, cross-task interaction, or reconciled-conflict evidence.
 Multi-agent execution alone is not a review trigger. Low-risk disjoint results
 with passing combined verification do not receive one reviewer per task or a
-generic final-review ceremony.
+generic final review ceremony.
 
 When independent review returns Critical or Important findings, keep ownership
 in this active execution context. Check each finding against the accepted

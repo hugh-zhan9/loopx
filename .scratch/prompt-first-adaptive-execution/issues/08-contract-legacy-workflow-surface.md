@@ -4,12 +4,12 @@
 
 **Blocked by:** 05 — Preserve dirty workspaces and resume safely; 06 — Select independent review proportionally; 07 — Distill completion knowledge and narrow finish.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Automatic discovery exposes clarify, spec, plan, exec, review, and finish as the canonical workflow intents.
-- [ ] Former planning, execution, final-review, and review-fix names remain explicit-only forwarding aliases for one release.
-- [ ] Obsolete host-specific lifecycle wrappers, strict plan scheduler state, mandatory reviewer orchestration, and generic extraction gates are removed.
-- [ ] Normal and plugin installations contain the same canonical payload and short routing guidance.
-- [ ] Skill versions, package governance, compatibility checks, and English and Chinese documentation agree.
-- [ ] Issue-driven workflows and support lenses remain available without reintroducing the fixed Golden path.
-- [ ] The complete deterministic repository test suite remains green after the contract step.
+- [x] Automatic discovery exposes clarify, spec, plan, exec, review, and finish as the canonical workflow intents.
+- [x] Former planning, execution, final-review, and review-fix names remain explicit-only forwarding aliases for one release.
+- [x] Obsolete host-specific lifecycle wrappers, strict plan scheduler state, mandatory reviewer orchestration, and generic extraction gates are removed.
+- [x] Normal and plugin installations contain the same canonical payload and short routing guidance.
+- [x] Skill versions, package governance, compatibility checks, and English and Chinese documentation agree.
+- [x] Issue-driven workflows and support lenses remain available without reintroducing the fixed Golden path.
+- [x] The complete deterministic repository test suite remains green after the contract step.

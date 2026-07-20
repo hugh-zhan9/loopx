@@ -49,12 +49,10 @@ loopx doctor [--json]
 loopx repair-install
 ```
 
-`loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 用来帮助 agent
-和用户找到下一次 skill handoff。黄金路径仍然发生在 agent 中：
-
-```text
-clarify -> spec? -> plan-to-exec -> (exec | subagent-exec) -> review/final-review -> fix-review? -> finish
-```
+`loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 支撑本地 intake
+和 handoff state。安装后的产品在其他情况下保持 prompt-first。六个 canonical workflow intents
+是 `clarify`、`spec`、`plan`、`exec`、`review` 和 `finish`；
+它们是可选治理工具，不是固定路径。
 
 新的 `clarify` workflow 会在 `.loopx/intake/YYYY-MM-DD-<slug>/` 下写入本地 intake package，包含 canonical `requirements.md` 和 supporting `clarification.md`。人类输出展示简洁路径；完整 state 字段使用 `--json`。
 
