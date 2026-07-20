@@ -134,6 +134,11 @@ describe('loopx plugin shell', () => {
       );
     }
 
+    const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
+    assert.match(codexGuidance, /loopx:managed:block prompt-first-routing/);
+    assert.match(codexGuidance, /clear, bounded.*ordinary model work/is);
+    assert.doesNotMatch(codexGuidance, /skills\/RESOLVER\.md/);
+
     const installedSpecTemplate = await readFile(join(home, '.agents', 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const rootSpecTemplate = await readFile(join(ROOT_SKILLS_DIR, 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const installedSpecProposal = await readFile(join(home, '.agents', 'skills', 'spec', 'references', 'design-proposal.md'), 'utf8');

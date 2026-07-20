@@ -8,7 +8,12 @@ import { promisify } from 'node:util';
 import { describe, it } from 'node:test';
 
 import { executionStartStage, finishAuditStage, finishRecordStage, finishStartStage, resolveExecutionRangePath } from '../src/finish-runtime.mjs';
-import { installBundledSkills, LOOPX_BUNDLED_SKILLS, verifyInstallState } from '../src/install-discovery.mjs';
+import {
+  installBundledSkills,
+  installSkillsForTargets,
+  LOOPX_BUNDLED_SKILLS,
+  verifyInstallState,
+} from '../src/install-discovery.mjs';
 import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
 import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWorkspaceRoot, statusSummary } from '../src/workflow.mjs';
 
@@ -37,6 +42,13 @@ function loopxEnv(home) {
     LOOPX_SKILL_LOCK_PATH: join(home, '.agents', '.skill-lock.json'),
     LOOPX_PROJECT_ROOT: repoRoot,
   };
+}
+
+function managedBlock(text, id) {
+  const pattern = new RegExp(
+    `<!-- loopx:managed:block ${escapeRegExp(id)} -->\\n([\\s\\S]*?)\\n<!-- /loopx:managed:block ${escapeRegExp(id)} -->`,
+  );
+  return text.match(pattern)?.[1] ?? null;
 }
 
 async function writeResolvedSpec(root, slug) {
@@ -470,6 +482,41 @@ describe('loopx retained workflow shell', () => {
     const drifted = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(drifted.ok, false);
     assert.ok(drifted.failures.includes('shared_contracts_drifted'));
+  });
+
+  it('installs the same prompt-first routing authority for Codex and Claude', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-routing-'));
+    const env = loopxEnv(home);
+
+    const result = await installSkillsForTargets(env, { targets: ['codex', 'claude'] });
+
+    assert.equal(result.ok, true);
+    const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
+    const claudeGuidance = await readFile(join(home, '.claude', 'CLAUDE.md'), 'utf8');
+    const codexRouting = managedBlock(codexGuidance, 'prompt-first-routing');
+    const claudeRouting = managedBlock(claudeGuidance, 'prompt-first-routing');
+    assert.ok(codexRouting, 'Codex guidance must contain prompt-first routing');
+    assert.equal(claudeRouting, codexRouting, 'Codex and Claude routing must be byte-consistent');
+
+    assert.match(codexRouting, /clear, bounded.*ordinary model work/is);
+    assert.match(codexRouting, /local defect.*small feature/is);
+    assert.match(codexRouting, /fresh verification/i);
+    assert.match(codexRouting, /no workflow artifacts/i);
+    assert.match(codexRouting, /ambiguity.*risk.*recovery.*coordination.*explicit user intent/is);
+    assert.match(codexRouting, /compatibility.*permission.*secret.*destructive migration.*architecture/is);
+    assert.match(codexRouting, /before mutation.*clarify.*spec/is);
+    for (const forbidden of [/\$direct/i, /direct mode/i, /risk score/i, /Golden[- ]path/i, /skills\/RESOLVER\.md/i]) {
+      assert.doesNotMatch(codexRouting, forbidden);
+    }
+
+    const clarifySkill = await readFile(join(home, '.agents', 'skills', 'clarify', 'SKILL.md'), 'utf8');
+    const specSkill = await readFile(join(home, '.agents', 'skills', 'spec', 'SKILL.md'), 'utf8');
+    const agentTopology = await readFile(join(home, '.agents', 'skills', 'shared', 'agent-topology.md'), 'utf8');
+    assert.match(clarifySkill, /description:.*concrete ambiguity.*Not for clear bounded requests/i);
+    assert.match(specSkill, /description:.*unresolved compatibility.*architecture decisions.*Not for clear local implementation/i);
+    assert.match(agentTopology, /top-level controller.*only orchestration owner/is);
+    assert.match(agentTopology, /default shared worker budget is four/i);
+    assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
   });
 
   it('finish audit lifecycle records a local decision', async () => {

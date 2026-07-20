@@ -1,9 +1,9 @@
 ---
 name: spec
-description: "Writes software design specs from already-clarified requirements, including solution approach, architecture outline, detailed design, tradeoffs, verification design, and handoff context. Not for unresolved requirements, PRD generation, implementation task planning, or code changes."
-when_to_use: "spec, design spec, technical design, design proposal, detailed design, architecture design, 设计方案, 概要设计, 详细设计, 技术方案"
+description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
+when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.3.12"
+  version: "0.3.13"
 ---
 
 # loopx Spec

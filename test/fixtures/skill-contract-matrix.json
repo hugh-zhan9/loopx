@@ -17,8 +17,8 @@
     "refactor-plan": { "max": 220 }
   },
   "skills": [
-    { "skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan-to-exec"], "required_references": [], "version": "0.3.14" },
-    { "skill": "spec", "role": "workflow", "boundary": "Do not write an implementation plan", "required_outputs": ["Accepted proposal"], "safety_invariants": ["STOP Conditions"], "integrations": ["plan-to-exec"], "required_references": [], "version": "0.3.12" },
+    { "skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan-to-exec"], "required_references": [], "version": "0.3.15" },
+    { "skill": "spec", "role": "workflow", "boundary": "Do not write an implementation plan", "required_outputs": ["Accepted proposal"], "safety_invariants": ["STOP Conditions"], "integrations": ["plan-to-exec"], "required_references": [], "version": "0.3.13" },
     { "skill": "codebase-spec", "role": "workflow", "boundary": "Do not:", "required_outputs": ["Evidence Standard"], "safety_invariants": ["Never print secret values"], "integrations": ["spec"], "required_references": ["references/output-template.md"], "version": "0.1.2" },
     { "skill": "plan-to-exec", "role": "workflow", "boundary": "Do not re-decide product or architecture", "required_outputs": ["Expected execution evidence"], "safety_invariants": ["STOP Conditions"], "integrations": ["plan-reviewer"], "required_references": ["references/plan-schema.md"], "version": "0.3.20" },
     { "skill": "plan-reviewer", "role": "support", "boundary": "must not create a workflow state", "required_outputs": ["Coverage Matrix"], "safety_invariants": ["Critical and Important findings block"], "integrations": ["plan-to-exec"], "required_references": [], "version": "0.1.5" },

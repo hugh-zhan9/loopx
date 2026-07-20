@@ -121,9 +121,10 @@ loopx install-skills --target all --add-agent-guidance
 loopx install-skills --target all --yes
 ```
 
-Agent guidance is opt-in. `--add-agent-guidance` writes a loopx managed block
-that tells agents to read repo specs and memory context. User content outside
-the managed block is preserved.
+Prompt-first routing guidance is installed automatically for both hosts.
+`--add-agent-guidance` adds a separate loopx managed block that tells agents to
+read repo specs and memory context. User content outside managed blocks is
+preserved.
 
 Claude project install writes skills and settings to the current repository's
 `.claude/skills/` and `.claude/settings.json`.

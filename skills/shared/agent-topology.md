@@ -1,6 +1,8 @@
 # Agent Topology Contract
 
-The controller is the only orchestration owner for loopx workflow execution.
+The top-level controller is the only orchestration owner and agent lifecycle
+owner for loopx execution. This remains true for prompt-first requests and
+explicit workflow skills.
 
 ## Hard Rules
 
@@ -8,8 +10,9 @@ The controller is the only orchestration owner for loopx workflow execution.
 - A leaf worker completes its assigned role directly. It must not spawn,
   delegate to, wait for, message, replace, interrupt, or terminate another
   agent.
-- The controller creates exactly one active worker for a task stage unless an
-  owning workflow contract explicitly permits bounded parallel read-only work.
+- The controller may dispatch only work admitted by the owning execution
+  contract. Concurrent workers must have independent assignments and remain
+  leaves.
 - A replacement requires explicit completion, failure, interruption,
   `BLOCKED`, or `NEEDS_CONTEXT`. Never replace a worker that is still running.
 
@@ -26,13 +29,16 @@ an unbounded `wait -> message -> wait` polling loop.
 
 ## Agent Budget And Stop Rule
 
-The approved plan defines the agent budget: one implementer and one combined
-task reviewer for each task that actually reaches those stages. Do not create
+The default shared worker budget is four active leaf workers. Implementers,
+reviewers, fixers, and any other dispatched roles all consume the same budget;
+an owning execution contract may lower it but must not create a second pool.
+Use at most the minimum of ready independent work, observed host capacity, and
+the configured budget. Do not create
 exploratory helpers, duplicate reviewers, speculative parallel workers, or a
 replacement merely because a worker is slow. A new worker is justified only by
-the next planned stage or a terminal replacement condition from the hard rules.
-When the current stage has sufficient evidence for its required output, record
-the result and stop dispatching.
+admitted ready work or a terminal replacement condition from the hard rules.
+When sufficient evidence exists for the required output, record the result and
+stop dispatching.
 
 ## Dispatch Clause
 

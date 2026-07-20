@@ -1,9 +1,9 @@
 ---
 name: clarify
-description: "Grills ambiguous loopx work until material questions are answered, then routes to spec or plan-to-exec using a design gate. Not for clear implementation tasks, approved specs, or code changes."
-when_to_use: "clarify, requirements, ambiguous request, unclear scope, non-goals, decision boundaries, acceptance criteria, 需求澄清, 范围不清"
+description: "Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records the required handoff. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation."
+when_to_use: "clarify, unresolved intent, unclear scope, non-goals, acceptance criteria, permission decision, secret handling, destructive choice, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.14"
+  version: "0.3.15"
 ---
 
 # loopx Clarify

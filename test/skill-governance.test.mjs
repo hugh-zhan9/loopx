@@ -363,6 +363,8 @@ describe('loopx skill governance', () => {
     assert.match(agentTopology, /controller is the only orchestration owner/i);
     assert.match(agentTopology, /leaf worker/i);
     assert.match(agentTopology, /Agent Budget And Stop Rule/);
+    assert.match(agentTopology, /default shared worker budget is four/i);
+    assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
     assert.match(agentTopology, /Do not create\s+exploratory helpers, duplicate reviewers, speculative parallel workers/is);
     assert.match(agentTopology, /required capabilities.*create.*await/is);
     assert.match(agentTopology, /optional capabilities.*inspect.*message.*release/is);
@@ -549,7 +551,8 @@ describe('loopx skill governance', () => {
     const fields = parseFrontmatter(clarifySkill);
 
     assert.equal(fields.name, 'clarify');
-    assert.match(fields.description, /ambiguous loopx work/i);
+    assert.match(fields.description, /concrete ambiguity/i);
+    assert.match(fields.description, /clear bounded requests/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /requirements|unclear scope|需求澄清/i);
     assert.match(fields['metadata.version'] ?? '', semverPattern);
@@ -1366,7 +1369,7 @@ describe('loopx skill governance', () => {
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.12');
+    assert.equal(specFields['metadata.version'], '0.3.13');
     assert.equal(planFields['metadata.version'], '0.3.20');
     assert.equal(reviewFields['metadata.version'], '0.3.13');
 
@@ -1587,8 +1590,8 @@ describe('loopx skill governance', () => {
     const implementerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'), 'utf8');
     const taskReviewerPrompt = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.14');
-    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.12');
+    assert.equal(parseFrontmatter(clarifySkill)['metadata.version'], '0.3.15');
+    assert.equal(parseFrontmatter(specSkill)['metadata.version'], '0.3.13');
     assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.20');
     assert.equal(parseFrontmatter(execSkill)['metadata.version'], '0.3.12');
     assert.equal(parseFrontmatter(subagentExecSkill)['metadata.version'], '0.3.22');

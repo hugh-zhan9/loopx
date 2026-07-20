@@ -50,7 +50,7 @@ async function promptInstallOptions() {
     const targetAnswer = (await rl.question('Install targets (codex, claude, all) [all]: ')).trim().toLowerCase();
     const projectAnswer = (await rl.question('Install Claude project skills instead of user skills? [y/N]: ')).trim().toLowerCase();
     const modeAnswer = (await rl.question('Install mode (copy, symlink) [copy]: ')).trim().toLowerCase();
-    const guidanceAnswer = (await rl.question('Add loopx guidance to Codex AGENTS.md / Claude CLAUDE.md? [y/N]: ')).trim().toLowerCase();
+    const guidanceAnswer = (await rl.question('Add loopx specs and memory context to Codex AGENTS.md / Claude CLAUDE.md? [y/N]: ')).trim().toLowerCase();
     const proceedAnswer = (await rl.question('Proceed? [y/N]: ')).trim().toLowerCase();
     if (proceedAnswer !== 'y' && proceedAnswer !== 'yes') {
       return null;

@@ -73,6 +73,15 @@ const LOOPX_AGENT_GUIDANCE_CONTENT = [
   '- If `.loopx/memory/index.jsonl` exists, use it only to find relevant active memory cards.',
   '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
 ].join('\n');
+const LOOPX_ROUTING_GUIDANCE_BLOCK_ID = 'prompt-first-routing';
+const LOOPX_ROUTING_GUIDANCE_CONTENT = [
+  '## loopx Prompt-First Routing',
+  '',
+  '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
+  '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
+  '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
+  '- Use persistent planning, governed execution, independent review, recovery state, or Git disposition only when its concrete trigger is present. Fresh verification is required for every completion claim.',
+].join('\n');
 const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
   {
@@ -550,23 +559,31 @@ export async function installAgentGuidanceFile(path, options = {}) {
   };
 }
 
-function agentGuidanceEnabled(options = {}) {
+function contextGuidanceEnabled(options = {}) {
   return Boolean(options.agentGuidance || options.codexAgentsGuidance);
 }
 
 export async function installAgentGuidance(env = process.env, options = {}) {
   const target = options.target || env.LOOPX_INSTALL_TARGET || 'codex';
-  const enabled = agentGuidanceEnabled(options);
+  const contextEnabled = contextGuidanceEnabled(options);
   const result = {};
   if (target === 'codex' || target === 'all') {
     const path = getCodexAgentsPath(env);
-    result.codex = enabled
+    result.codex = await installAgentGuidanceFile(path, {
+      content: LOOPX_ROUTING_GUIDANCE_CONTENT,
+      id: LOOPX_ROUTING_GUIDANCE_BLOCK_ID,
+    });
+    result.codex.context = contextEnabled
       ? await installAgentGuidanceFile(path)
       : { status: 'recommended', path };
   }
   if (target === 'claude' || target === 'all') {
     const path = getClaudeAgentsPath(env, options);
-    result.claude = enabled
+    result.claude = await installAgentGuidanceFile(path, {
+      content: LOOPX_ROUTING_GUIDANCE_CONTENT,
+      id: LOOPX_ROUTING_GUIDANCE_BLOCK_ID,
+    });
+    result.claude.context = contextEnabled
       ? await installAgentGuidanceFile(path)
       : { status: 'recommended', path };
   }

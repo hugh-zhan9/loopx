@@ -1,8 +1,8 @@
 # loopx Skill Resolver
 
-Central routing map for loopx bundled skills. Keep this file in sync with every bundled `skills/<name>/SKILL.md`. Normal and plugin installs both consume this canonical package-root `skills/` source.
+Governance index for loopx bundled skills. Keep this file in sync with every bundled `skills/<name>/SKILL.md`. It is not installed host guidance or runtime routing authority; normal and plugin installs route from the prompt-first managed guidance block and installed skill frontmatter.
 
-Read the selected skill file before acting. If multiple skills match, read every likely candidate and use the disambiguation rules below.
+Clear, bounded work stays prompt-first: inspect, implement, verify with fresh evidence, and report without selecting a workflow skill or creating workflow artifacts. A local defect or small feature is not, by itself, a workflow trigger. Governed escalation requires a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.
 
 Current contract: pre-v2 running workflow state is unsupported and must restart.
 Only the top-level controller owns agent lifecycle; every dispatched worker is
@@ -12,8 +12,8 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 
 | Trigger | Skill |
 |---|---|
-| Ambiguous request, unclear scope, non-goals, decision boundaries, requirements interview | `skills/clarify/SKILL.md` |
-| Design方案, technical design, API/data/state/security decisions, or architecture tradeoffs | `skills/spec/SKILL.md` |
+| Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
+| Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Approved intake package, requirements, or design need a bite-sized implementation plan | `skills/plan-to-exec/SKILL.md` |
 | Approved plan has independent tasks and should run with subagents plus task-scoped review | `skills/subagent-exec/SKILL.md` |
@@ -58,10 +58,10 @@ fallback.
 
 ## Disambiguation
 
-1. If intent, scope, non-goals, or decision boundaries are unresolved, use `clarify`. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
-2. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they want to design a future change, use `spec`.
-3. If remaining questions are product behavior, API, state, data, permission, migration, compatibility, or architecture decisions, use `spec`.
-4. If remaining questions are local implementation choices, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
+1. Keep clear, bounded requests prompt-first, including local defects and small features. Do not select a skill merely because implementation or verification is required.
+2. Stop before mutation and use `clarify` when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
+3. Use `spec` when an unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision must be fixed before implementation. Local implementation choices do not trigger `spec`.
+4. If the user wants to document what an existing repository currently does, use `codebase-spec`. If they explicitly request persistent implementation planning from settled requirements, use `plan-to-exec`; approved intake packages may be passed as `.loopx/intake/YYYY-MM-DD-<slug>/`.
 5. `plan-to-exec` writes a single plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`, or multiple plans from one source under `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/`.
 6. For single plans, use `subagent-exec` when subagents are available and tasks are independent; use `exec` for inline execution or when subagents are unavailable.
 7. For multi-plan packages, call `subagent-exec` or `exec` with `docs/loopx/plans/YYYY-MM-DD-<feature-slug>/00-overview.md` or the package directory to run package mode. Package mode executes child plans strictly sequentially, then runs one spec-level `final-review` and `finish` only when clean.

@@ -4,10 +4,10 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Codex and Claude installations receive the same short prompt-first routing authority.
-- [ ] Clear local defects and small features do not automatically select a loopx workflow skill.
-- [ ] Unresolved compatibility, permission, secret, destructive migration, or architecture decisions select clarify or spec before mutation.
-- [ ] Routing is driven by installed guidance and bounded skill descriptions rather than an uninstalled resolver document.
-- [ ] No direct skill, direct mode, numeric risk score, or Golden-path default is introduced.
+- [x] Codex and Claude installations receive the same short prompt-first routing authority.
+- [x] Clear local defects and small features do not automatically select a loopx workflow skill.
+- [x] Unresolved compatibility, permission, secret, destructive migration, or architecture decisions select clarify or spec before mutation.
+- [x] Routing is driven by installed guidance and bounded skill descriptions rather than an uninstalled resolver document.
+- [x] No direct skill, direct mode, numeric risk score, or Golden-path default is introduced.
