@@ -487,15 +487,49 @@ function rate(runs, predicate) {
 
 function crossVersionVerdict({ baseline, candidate, configurationParity, resourceFavorable, metricPercentDeltas }) {
   if (!configurationParity) return 'inconclusive';
-  if (candidate.quality_pass_rate > baseline.quality_pass_rate) return 'B_wins_quality';
-  if (candidate.quality_pass_rate < baseline.quality_pass_rate) return 'A_wins_quality';
-  if (candidate.quality_pass_rate === 0) return 'inconclusive';
-  if (resourceFavorable) return 'B_wins_resource';
+  if (candidate.quality_pass_rate === 0 && baseline.quality_pass_rate === 0) return 'inconclusive';
   const tokenDelta = metricPercentDeltas.total_tokens;
   const latencyDelta = metricPercentDeltas.latency_ms;
-  if (!Number.isFinite(tokenDelta) || !Number.isFinite(latencyDelta)) return 'inconclusive';
-  if (tokenDelta > 10 || latencyDelta > 10) return 'mixed';
+  const resourcesComparable = Number.isFinite(tokenDelta) && Number.isFinite(latencyDelta);
+  const resourceRegression = resourcesComparable && (tokenDelta > 10 || latencyDelta > 10);
+  if (candidate.quality_pass_rate > baseline.quality_pass_rate) {
+    return resourceRegression ? 'mixed' : 'B_wins_quality';
+  }
+  if (candidate.quality_pass_rate < baseline.quality_pass_rate) return 'A_wins_quality';
+  if (resourceFavorable) return 'B_wins_resource';
+  if (!resourcesComparable) return 'inconclusive';
+  if (resourceRegression) return 'mixed';
   return 'quality_tie';
+}
+
+const crossVersionVerdictMetadata = Object.freeze({
+  B_wins_quality: { summary: 'quality_improvement_cases', favorable: true, comparable: true },
+  A_wins_quality: { summary: 'quality_regression_cases', favorable: false, comparable: true },
+  B_wins_resource: { summary: 'resource_improvement_cases', favorable: true, comparable: true },
+  quality_tie: { summary: null, favorable: false, comparable: true },
+  mixed: { summary: 'mixed_cases', favorable: false, comparable: true },
+  inconclusive: { summary: 'inconclusive_cases', favorable: false, comparable: false },
+});
+
+function crossVersionSuiteSummary(cases) {
+  const summary = {
+    quality_regression_cases: [],
+    quality_improvement_cases: [],
+    resource_improvement_cases: [],
+    mixed_cases: [],
+    inconclusive_cases: [],
+  };
+  for (const item of cases) {
+    const bucket = crossVersionVerdictMetadata[item.verdict]?.summary;
+    if (bucket) summary[bucket].push(item.case_id);
+  }
+  let suiteVerdict = 'quality_tie';
+  if (cases.length === 0 || summary.inconclusive_cases.length === cases.length) suiteVerdict = 'inconclusive';
+  else if (summary.quality_regression_cases.length > 0) suiteVerdict = 'release_risk';
+  else if (summary.mixed_cases.length > 0 || summary.inconclusive_cases.length > 0) suiteVerdict = 'mixed';
+  else if (summary.quality_improvement_cases.length > 0) suiteVerdict = 'B_wins_quality';
+  else if (summary.resource_improvement_cases.length > 0) suiteVerdict = 'B_wins_resource';
+  return { suite_verdict: suiteVerdict, ...summary };
 }
 
 export function compareInstalledProductRuns(runs, options = {}) {
@@ -632,11 +666,13 @@ export function compareInstalledProductRuns(runs, options = {}) {
   const allQualityPassed = cases.length > 0 && cases.every((item) => item.quality_passed);
   const criteriaPassed = comparisonMode === 'cross-version'
     ? cases.length > 0 && cases.every((item) => item.configuration_parity
+      && crossVersionVerdictMetadata[item.verdict]?.comparable === true
       && item.candidate_quality_pass_rate >= item.baseline_quality_pass_rate)
     : allQualityPassed
       && (criteriaCases.length === 0 || criteriaCases.every((item) => item.resource_favorable));
   const baselineRuns = runs.filter((run) => run.variant === baselineVariant);
   const candidateRuns = runs.filter((run) => run.variant === candidateVariant);
+  const suiteSummary = comparisonMode === 'cross-version' ? crossVersionSuiteSummary(cases) : {};
   return {
     baseline_variant: baselineVariant,
     candidate_variant: candidateVariant,
@@ -648,7 +684,7 @@ export function compareInstalledProductRuns(runs, options = {}) {
       compared_cases: cases.length,
       quality_passed_cases: cases.filter((item) => item.quality_passed).length,
       favorable_cases: cases.filter((item) => comparisonMode === 'cross-version'
-        ? ['B_wins_quality', 'B_wins_resource'].includes(item.verdict)
+        ? crossVersionVerdictMetadata[item.verdict]?.favorable === true
         : item.resource_favorable).length,
       configuration_parity_cases: cases.filter((item) => item.configuration_parity).length,
       required_favorable_cases: criteriaCases.length,
@@ -657,6 +693,7 @@ export function compareInstalledProductRuns(runs, options = {}) {
       baseline_quality_pass_rate: rate(baselineRuns, (run) => installedProductQuality(run).failed.length === 0),
       candidate_quality_pass_rate: rate(candidateRuns, (run) => installedProductQuality(run).failed.length === 0),
       criteria_passed: criteriaPassed,
+      ...suiteSummary,
     },
   };
 }
@@ -675,7 +712,18 @@ function formatDistribution(distribution) {
 
 function renderVersionProvenance(lines, provenance) {
   if (!provenance?.versions) return;
-  lines.push('## Version Provenance', '', '| Role | Requested ref | Commit | Package version | Package SHA-256 |', '|---|---|---|---|---|');
+  lines.push(
+    '## Experiment Matrix',
+    '',
+    `- Model: ${markdownCell(provenance.configuration?.model)}`,
+    `- Effort: ${markdownCell(provenance.configuration?.effort)}`,
+    `- Replicates: ${markdownCell(provenance.experiment?.replicates)}`,
+    `- Order: ${markdownCell(provenance.experiment?.order)}`,
+    `- Cases: ${markdownCell(provenance.experiment?.case_ids)}`,
+    '',
+    '| Role | Requested ref | Commit | Package version | Package SHA-256 |',
+    '|---|---|---|---|---|',
+  );
   for (const role of ['baseline', 'candidate']) {
     const version = provenance.versions[role];
     lines.push(`| ${role} | ${markdownCell(version?.requested_ref)} | ${markdownCell(version?.commit)} | ${markdownCell(version?.package_version)} | ${markdownCell(version?.package_sha256)} |`);
@@ -700,6 +748,19 @@ export function renderInstalledProductMarkdown(comparison, options = {}) {
     '',
   ];
   renderVersionProvenance(lines, options.provenance);
+  if (options.crossVersion) {
+    lines.push(
+      '## Suite Verdict Summary',
+      '',
+      `- Suite verdict: ${markdownCell(comparison.overall.suite_verdict)}`,
+      `- Quality regressions: ${markdownCell(comparison.overall.quality_regression_cases)}`,
+      `- Quality improvements: ${markdownCell(comparison.overall.quality_improvement_cases)}`,
+      `- Resource improvements: ${markdownCell(comparison.overall.resource_improvement_cases)}`,
+      `- Mixed cases: ${markdownCell(comparison.overall.mixed_cases)}`,
+      `- Inconclusive cases: ${markdownCell(comparison.overall.inconclusive_cases)}`,
+      '',
+    );
+  }
   lines.push(
     '## Case Comparisons',
     '',
@@ -748,6 +809,25 @@ export function renderInstalledProductMarkdown(comparison, options = {}) {
     const workers = `peak ${run.worker_activity.peak_workers}; overlap ${formatDelta(run.worker_activity.overlap_ms, ' ms')}; order ${markdownCell(run.worker_activity.integration_order)}`;
     lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant}`)} | ${run.outcome} | ${run.verification.passed ? 'pass' : 'fail'} | ${run.safety.passed ? 'pass' : 'fail'} | ${run.cleanup?.passed === false ? 'fail' : 'pass'} | ${markdownCell(run.changed_paths)} | ${markdownCell(run.workflow_artifacts)} | ${workers} | ${formatDelta(run.total_tokens)} | ${formatDelta(run.latency_ms, ' ms')} | ${run.spec.passed ? 'pass' : 'fail'} | ${run.memory.passed ? 'pass' : 'fail'} |`);
   }
+  if (options.crossVersion) {
+    const failedRuns = comparison.runs.filter((run) => (
+      run.outcome !== 'passed' || run.quality_passed === false || run.cleanup?.passed === false
+    ));
+    const inconclusiveCases = comparison.cases.filter((item) => item.verdict === 'inconclusive');
+    lines.push('', '## Failures And Inconclusive Evidence', '');
+    if (failedRuns.length === 0 && inconclusiveCases.length === 0) {
+      lines.push('None.', '');
+    } else {
+      lines.push('| Scope | Status | Evidence |', '|---|---|---|');
+      for (const run of failedRuns) {
+        lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant}`)} | failed quality | ${markdownCell(run.failed_quality_gates)} |`);
+      }
+      for (const item of inconclusiveCases) {
+        lines.push(`| ${markdownCell(item.case_id)} | inconclusive | resource ${markdownCell(item.resource_assessment)}; gates ${markdownCell(item.failed_quality_gates)} |`);
+      }
+      lines.push('');
+    }
+  }
   lines.push(
     '',
     '## Interpretation',
@@ -765,6 +845,7 @@ export function renderCrossVersionProductMarkdown(report) {
   return renderInstalledProductMarkdown(report.comparison, {
     title: '# Cross-Version Product Benchmark',
     provenance: report.provenance,
+    crossVersion: true,
   });
 }
 

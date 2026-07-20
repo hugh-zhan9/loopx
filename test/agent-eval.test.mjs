@@ -373,7 +373,7 @@ describe('agent eval metrics', () => {
       case_id: values.case_id ?? 'direct-small-fix',
       case_kind: values.case_kind ?? 'direct',
       variant,
-      replicate: 1,
+      replicate: values.replicate ?? 1,
       configuration: { model: 'same-model', effort: 'high', task: 'fix', fixture_tree: 'tree' },
       outcome: values.outcome ?? 'passed',
       verification: { passed: values.outcome !== 'failed' },
@@ -423,6 +423,25 @@ describe('agent eval metrics', () => {
     ], options);
     assert.equal(cleanupRegression.cases[0].verdict, 'A_wins_quality');
     assert.deepEqual(cleanupRegression.cases[0].failed_quality_gates, ['cleanup']);
+
+    const allFailed = compareInstalledProductRuns([
+      run('version-a', { outcome: 'failed', tokens: 100, latency: 100 }),
+      run('version-b', { outcome: 'failed', tokens: 90, latency: 90 }),
+    ], options);
+    assert.equal(allFailed.cases[0].verdict, 'inconclusive');
+    assert.equal(allFailed.overall.criteria_passed, false);
+    assert.equal(allFailed.overall.suite_verdict, 'inconclusive');
+    assert.deepEqual(allFailed.overall.inconclusive_cases, ['direct-small-fix']);
+
+    const qualityWinWithResourceRegression = compareInstalledProductRuns([
+      run('version-a', { replicate: 1, outcome: 'failed', tokens: 100, latency: 100 }),
+      run('version-b', { replicate: 1, tokens: 140, latency: 140 }),
+      run('version-a', { replicate: 2, tokens: 100, latency: 100 }),
+      run('version-b', { replicate: 2, tokens: 140, latency: 140 }),
+    ], options);
+    assert.equal(qualityWinWithResourceRegression.cases[0].verdict, 'mixed');
+    assert.equal(qualityWinWithResourceRegression.overall.suite_verdict, 'mixed');
+    assert.deepEqual(qualityWinWithResourceRegression.overall.mixed_cases, ['direct-small-fix']);
   });
 
   it('renders installed-product outcome, repository, worker, resource, spec, and memory evidence', () => {
@@ -435,7 +454,7 @@ describe('agent eval metrics', () => {
       },
       {
         case_id: 'direct-small-fix', case_kind: 'direct', variant: 'installed', configuration: { task: 'fix', fixture_tree: 'tree' },
-        outcome: 'passed', verification: { passed: true }, safety: { passed: true }, spec: { passed: true }, memory: { passed: true },
+        outcome: 'passed', verification: { passed: true }, safety: { passed: true }, spec: { passed: true }, memory: { passed: false },
         changed_paths: ['src/a.mjs'], workflow_artifacts: [], worker_activity: { peak_workers: 0, overlap_ms: 0, integration_order: [] },
         total_tokens: 105, latency_ms: 105,
       },
@@ -466,6 +485,9 @@ describe('agent eval metrics', () => {
     assert.match(versionMarkdown, /0\.6\.0/);
     assert.match(versionMarkdown, new RegExp('a{40}'));
     assert.match(versionMarkdown, /Verdict/);
+    assert.match(versionMarkdown, /Suite Verdict Summary/);
+    assert.match(versionMarkdown, /Failures And Inconclusive Evidence/);
+    assert.match(versionMarkdown, /failed quality \| memory/);
   });
 
   it('normalizes a Claude session with subagents and detects nested agent constraint', async () => {

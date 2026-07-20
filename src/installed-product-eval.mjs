@@ -53,8 +53,9 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-async function createFixture(source, tempRoot) {
+async function createFixture(source, tempRoot, registerParent) {
   const parent = await mkdtemp(join(tempRoot, 'loopx-product-fixture-'));
+  registerParent(parent);
   const repo = join(parent, 'repo');
   const sourceHash = await directoryHash(source);
   await cp(source, repo, { recursive: true });
@@ -370,8 +371,11 @@ async function runExternalVerification(repo, command, timeoutMs) {
 async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product }, registerResources) {
   const variantConfig = manifest.variants[variant];
   if (!variantConfig) throw new Error(`installed_product_eval_unknown_variant:${variant}`);
-  const fixture = await createFixture(join(fixtureRoot, testCase.fixture), tempRoot);
-  registerResources({ workspace: fixture.parent });
+  const fixture = await createFixture(
+    join(fixtureRoot, testCase.fixture),
+    tempRoot,
+    (workspace) => registerResources({ workspace }),
+  );
   const hostParent = await mkdtemp(join(tempRoot, 'loopx-product-home-'));
   registerResources({ host: hostParent });
   const home = join(hostParent, 'home');
@@ -524,10 +528,6 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
     error,
     cleanup: { workspace_removed: false, host_home_removed: false },
   };
-  await rm(fixture.parent, { recursive: true, force: true });
-  await rm(hostParent, { recursive: true, force: true });
-  run.cleanup.workspace_removed = !await exists(fixture.parent);
-  run.cleanup.host_home_removed = !await exists(hostParent);
   return run;
 }
 

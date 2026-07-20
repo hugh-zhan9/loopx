@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -151,6 +151,26 @@ test('reports governed escalation, synchronized specs, and quiet memory outcomes
   const deduplicated = result.runs.find((run) => run.case_id === 'memory-deduplication' && run.variant === 'installed');
   assert.equal(deduplicated.memory.passed, true);
   assert.deepEqual(deduplicated.memory.outcomes, [{ status: 'deduplicated', path: '.loopx/memory/MEMORY.md' }]);
+});
+
+test('removes a temporary fixture when fixture initialization fails', async (t) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'loopx-fixture-failure-'));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const manifest = JSON.parse(await readFile(join(repoRoot, 'evals', 'darwin-simple', 'cases.json'), 'utf8'));
+
+  await assert.rejects(runInstalledProductEvaluation({
+    manifest,
+    projectRoot: repoRoot,
+    fixtureRoot: join(tempRoot, 'missing-fixtures'),
+    tempRoot,
+    runAgent: async () => {
+      throw new Error('agent must not run');
+    },
+    selectedCaseIds: ['direct-small-fix'],
+    replicates: 1,
+  }));
+
+  assert.deepEqual(await readdir(tempRoot), []);
 });
 
 test('exposes the live evaluator as an opt-in packaged diagnostic outside npm test', async () => {

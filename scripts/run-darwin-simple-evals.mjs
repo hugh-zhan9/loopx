@@ -252,7 +252,7 @@ if (process.argv.includes('--help')) {
       reportWrites.push(writeFile(join(outDir, 'matrix.json'), `${JSON.stringify(result.provenance, null, 2)}\n`));
     }
     await Promise.all(reportWrites);
-    const ok = baselineRef ? true : result.comparison.overall.criteria_passed;
+    const ok = result.comparison.overall.criteria_passed;
     console.log(JSON.stringify({
       ok,
       diagnostic_only: true,
