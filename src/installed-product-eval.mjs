@@ -445,10 +445,13 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
       installation = {
         ...installation,
         ok: installed.ok,
-        actual_installed_surface: installed.ok
-          && await exists(join(home, '.codex', 'AGENTS.md'))
-          && await exists(join(home, '.agents', 'skills', 'exec', 'SKILL.md')),
+        surfaces: {
+          codex_agents: await exists(join(home, '.codex', 'AGENTS.md')),
+          exec_skill: await exists(join(home, '.agents', 'skills', 'exec', 'SKILL.md')),
+        },
       };
+      installation.actual_installed_surface = installed.ok
+        && Object.values(installation.surfaces).some(Boolean);
     }
     raw = await runWithTimeout(runAgent, {
       case: testCase,

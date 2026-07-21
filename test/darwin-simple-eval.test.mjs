@@ -23,7 +23,8 @@ async function createVersionProductRepository(t) {
     "const skillsRoot = process.env.LOOPX_SKILLS_ROOT ?? join(home, '.agents', 'skills');",
     'await mkdir(join(agentsPath, \'..\'), { recursive: true });',
     'await mkdir(skillsRoot, { recursive: true });',
-    "await writeFile(agentsPath, await readFile(join(root, 'AGENTS.md')));",
+    "const agents = await readFile(join(root, 'AGENTS.md'));",
+    "if (agents.includes('candidate product')) await writeFile(agentsPath, agents);",
     "await cp(join(root, 'skills', 'exec'), join(skillsRoot, 'exec'), { recursive: true });",
     "console.log(JSON.stringify({ ok: true }));",
     '',
@@ -265,6 +266,10 @@ test('compares isolated package installs from two immutable Git refs in crossove
     order: 'crossover',
   });
   assert.equal(result.runs.every((run) => run.installation.actual_installed_surface), true);
+  assert.deepEqual(result.runs.find((run) => run.variant === 'version-a').installation.surfaces, {
+    codex_agents: false,
+    exec_skill: true,
+  });
   const requests = agent.requests();
   assert.equal(new Set(requests.map((request) => request.home)).size, requests.length);
   assert.equal(requests.every((request) => request.loopx_env_keys.length === 0), true);
