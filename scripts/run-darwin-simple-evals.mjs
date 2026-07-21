@@ -2,6 +2,7 @@
 
 import { execFile, spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -111,7 +112,7 @@ function createCodexAdapter(outDir) {
     await mkdir(runDir, { recursive: true });
     const messagePath = join(runDir, 'message.txt');
     const args = [
-      'exec', '-', '--json', '--ignore-user-config', '--ignore-rules',
+      'exec', '-', '--json', '--ignore-rules',
       '-s', 'workspace-write', '-C', request.repo,
       '-m', request.configuration.model,
       '-c', `model_reasoning_effort=${JSON.stringify(request.configuration.effort)}`,
@@ -216,6 +217,7 @@ if (process.argv.includes('--help')) {
     const outDir = resolve(option('--out', defaultOut));
     const manifestPath = resolve(option('--manifest', join(repoRoot, 'evals', 'darwin-simple', 'cases.json')));
     const fixtureRoot = resolve(option('--fixtures', join(repoRoot, 'test', 'fixtures', 'darwin-simple')));
+    const codeyHome = resolve(process.env.CODEY_HOME || join(homedir(), '.codey'));
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     const selectedCase = option('--case');
     const replicates = Number.parseInt(option('--replicates', '2'), 10);
@@ -228,6 +230,7 @@ if (process.argv.includes('--help')) {
       projectRoot: repoRoot,
       fixtureRoot,
       runAgent: createCodexAdapter(outDir),
+      codexConfigRoot: codeyHome,
       selectedCaseIds: selectedCase ? [selectedCase] : null,
       replicates,
       order: option('--order', 'crossover'),

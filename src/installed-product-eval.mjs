@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -372,7 +372,7 @@ async function runExternalVerification(repo, command, timeoutMs) {
   }
 }
 
-async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product }, registerResources) {
+async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product, codexConfigRoot }, registerResources) {
   const variantConfig = manifest.variants[variant];
   if (!variantConfig) throw new Error(`installed_product_eval_unknown_variant:${variant}`);
   const fixture = await createFixture(
@@ -384,12 +384,13 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
   registerResources({ host: hostParent });
   const home = join(hostParent, 'home');
   await mkdir(home, { recursive: true });
-  const sourceCodexHome = process.env.CODEX_HOME || join(process.env.HOME || homedir(), '.codex');
-  const sourceAuth = join(sourceCodexHome, 'auth.json');
-  if (await exists(sourceAuth)) {
+  if (codexConfigRoot) {
     const targetCodexHome = join(home, '.codex');
     await mkdir(targetCodexHome, { recursive: true });
-    await cp(sourceAuth, join(targetCodexHome, 'auth.json'));
+    for (const name of ['config.toml', 'auth.json']) {
+      const source = join(codexConfigRoot, name);
+      if (await exists(source)) await cp(source, join(targetCodexHome, name));
+    }
   }
   const shared = { ...manifest.configuration, ...configurationOverrides };
   const configuration = {
@@ -573,6 +574,7 @@ export async function runInstalledProductEvaluation(options) {
     tempRoot = tmpdir(),
     configuration = {},
     versionRefs = null,
+    codexConfigRoot = null,
   } = options;
   if (manifest?.schema !== 'loopx.installed-product-eval.v1') {
     throw new Error('installed_product_eval_manifest_invalid');
@@ -623,6 +625,7 @@ export async function runInstalledProductEvaluation(options) {
             replicate,
             configurationOverrides: configuration,
             product,
+            codexConfigRoot: codexConfigRoot ? resolve(codexConfigRoot) : null,
           }));
         }
       }

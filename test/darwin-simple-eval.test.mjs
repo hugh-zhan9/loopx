@@ -154,6 +154,28 @@ test('reports governed escalation, synchronized specs, and quiet memory outcomes
   assert.deepEqual(deduplicated.memory.outcomes, [{ status: 'deduplicated', path: '.loopx/memory/MEMORY.md' }]);
 });
 
+test('copies only an explicitly selected Codex config root into isolated homes', async (t) => {
+  const codeyHome = await mkdtemp(join(tmpdir(), 'loopx-codey-home-'));
+  t.after(() => rm(codeyHome, { recursive: true, force: true }));
+  await writeFile(join(codeyHome, 'auth.json'), '{"auth":"codey-test"}\n');
+  await writeFile(join(codeyHome, 'config.toml'), 'model = "codey-test-model"\n');
+  const manifest = JSON.parse(await readFile(join(repoRoot, 'evals', 'darwin-simple', 'cases.json'), 'utf8'));
+  const agent = createDarwinSimpleFakeAgent();
+
+  await runInstalledProductEvaluation({
+    manifest,
+    projectRoot: repoRoot,
+    fixtureRoot: join(repoRoot, 'test', 'fixtures', 'darwin-simple'),
+    runAgent: agent.run,
+    selectedCaseIds: ['direct-small-fix'],
+    replicates: 1,
+    codexConfigRoot: codeyHome,
+  });
+
+  assert.equal(agent.requests()[0].codex_auth, '{"auth":"codey-test"}\n');
+  assert.equal(agent.requests()[0].codex_config, 'model = "codey-test-model"\n');
+});
+
 test('removes a temporary fixture when fixture initialization fails', async (t) => {
   const tempRoot = await mkdtemp(join(tmpdir(), 'loopx-fixture-failure-'));
   t.after(() => rm(tempRoot, { recursive: true, force: true }));

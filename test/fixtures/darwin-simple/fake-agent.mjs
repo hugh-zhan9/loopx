@@ -22,6 +22,8 @@ export function createDarwinSimpleFakeAgent() {
       const installed = await access(join(request.home, '.codex', 'AGENTS.md')).then(() => true, () => false);
       const installedMarker = await readFile(join(request.home, '.agents', 'skills', 'exec', 'SKILL.md'), 'utf8')
         .then((content) => content.trim(), () => null);
+      const codexAuth = await readFile(join(request.home, '.codex', 'auth.json'), 'utf8').catch(() => null);
+      const codexConfig = await readFile(join(request.home, '.codex', 'config.toml'), 'utf8').catch(() => null);
       requests.push({
         case_id: request.case.id,
         variant: request.variant,
@@ -29,6 +31,8 @@ export function createDarwinSimpleFakeAgent() {
         configuration: structuredClone(request.configuration),
         installed,
         installed_marker: installedMarker,
+        codex_auth: codexAuth,
+        codex_config: codexConfig,
         has_resolver: Object.hasOwn(request, 'resolver'),
         loopx_env_keys: Object.keys(request.env).filter((name) => name.startsWith('LOOPX_')),
         workspace: request.repo,
