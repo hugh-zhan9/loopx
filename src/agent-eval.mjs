@@ -855,7 +855,29 @@ const threeWayPairLabels = Object.freeze({
   baseline_to_candidate: 'B baseline -> C candidate',
 });
 
+function demonstratedProductAdvantages(item) {
+  if (item.candidate_quality_pass_rate < item.baseline_quality_pass_rate) {
+    return 'not demonstrated: quality regressed';
+  }
+  const advantages = [];
+  if (item.candidate_quality_pass_rate > item.baseline_quality_pass_rate) {
+    advantages.push('higher quality pass rate');
+  }
+  if (Number.isFinite(item.total_tokens_percent_delta) && item.total_tokens_percent_delta < 0) {
+    advantages.push('fewer total tokens');
+  }
+  if (Number.isFinite(item.latency_percent_delta) && item.latency_percent_delta < 0) {
+    advantages.push('lower latency');
+  }
+  return advantages.length > 0 ? advantages.join('; ') : 'not demonstrated';
+}
+
 export function renderThreeWayProductMarkdown(report) {
+  const armDefinitions = [
+    { label: 'A no-loopx', variant: 'no-loopx' },
+    { label: 'B baseline', variant: 'version-a' },
+    { label: 'C candidate', variant: 'version-b' },
+  ];
   const lines = [
     '# Three-Way Product Benchmark',
     '',
@@ -865,6 +887,32 @@ export function renderThreeWayProductMarkdown(report) {
     '',
   ];
   renderVersionProvenance(lines, report.provenance);
+  lines.push(
+    '## Arm Summary',
+    '',
+    '| Arm | Samples | Success rate | Quality pass rate |',
+    '|---|---:|---:|---:|',
+  );
+  for (const arm of armDefinitions) {
+    const runs = report.runs.filter((run) => run.variant === arm.variant);
+    const successes = runs.filter((run) => run.outcome === 'passed').length;
+    const qualityPasses = runs.filter((run) => installedProductQuality(run).failed.length === 0).length;
+    lines.push(`| ${arm.label} | ${runs.length} | ${formatPercent(runs.length > 0 ? successes / runs.length * 100 : null)} | ${formatPercent(runs.length > 0 ? qualityPasses / runs.length * 100 : null)} |`);
+  }
+  lines.push(
+    '',
+    '## Product Benefit Summary',
+    '',
+    '| Pair | Case | Quality pass delta | Token delta | Latency delta | Demonstrated advantage |',
+    '|---|---|---:|---:|---:|---|',
+  );
+  for (const [name, comparison] of Object.entries(report.comparisons)) {
+    for (const item of comparison.cases) {
+      const qualityDelta = (item.candidate_quality_pass_rate - item.baseline_quality_pass_rate) * 100;
+      lines.push(`| ${threeWayPairLabels[name]} | ${markdownCell(item.case_id)} | ${formatDelta(Number(qualityDelta.toFixed(1)), ' pp')} | ${formatPercent(item.total_tokens_percent_delta)} | ${formatPercent(item.latency_percent_delta)} | ${demonstratedProductAdvantages(item)} |`);
+    }
+  }
+  lines.push('');
   lines.push(
     '## Pairwise Summary',
     '',

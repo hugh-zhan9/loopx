@@ -331,6 +331,10 @@ test('compares no-loopx, baseline, and candidate arms from immutable Git refs in
   assert.equal(result.cleanup.version_products_removed, true);
   const markdown = renderThreeWayProductMarkdown(result);
   assert.match(markdown, /A: `no-loopx`/);
+  assert.match(markdown, /Arm Summary/);
+  assert.match(markdown, /A no-loopx \| 2 \| 100\.0% \| 100\.0%/);
+  assert.match(markdown, /Product Benefit Summary/);
+  assert.match(markdown, /Demonstrated advantage/);
   assert.match(markdown, /A no-loopx -> B baseline/);
   assert.match(markdown, /A no-loopx -> C candidate/);
   assert.match(markdown, /B baseline -> C candidate/);
