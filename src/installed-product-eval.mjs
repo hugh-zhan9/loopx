@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -14,6 +14,10 @@ const execFileAsync = promisify(execFile);
 
 async function exists(path) {
   return access(path).then(() => true, () => false);
+}
+
+async function removeTree(path) {
+  await rm(path, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
 }
 
 function normalizePath(path) {
@@ -380,6 +384,13 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
   registerResources({ host: hostParent });
   const home = join(hostParent, 'home');
   await mkdir(home, { recursive: true });
+  const sourceCodexHome = process.env.CODEX_HOME || join(process.env.HOME || homedir(), '.codex');
+  const sourceAuth = join(sourceCodexHome, 'auth.json');
+  if (await exists(sourceAuth)) {
+    const targetCodexHome = join(home, '.codex');
+    await mkdir(targetCodexHome, { recursive: true });
+    await cp(sourceAuth, join(targetCodexHome, 'auth.json'));
+  }
   const shared = { ...manifest.configuration, ...configurationOverrides };
   const configuration = {
     model: shared.model,
@@ -538,8 +549,8 @@ async function runOne(options) {
     run = await runOneUnmanaged(options, (registered) => Object.assign(resources, registered));
     return run;
   } finally {
-    if (resources.workspace) await rm(resources.workspace, { recursive: true, force: true });
-    if (resources.host) await rm(resources.host, { recursive: true, force: true });
+    if (resources.workspace) await removeTree(resources.workspace);
+    if (resources.host) await removeTree(resources.host);
     if (run) {
       run.cleanup.workspace_removed = !resources.workspace || !await exists(resources.workspace);
       run.cleanup.host_home_removed = !resources.host || !await exists(resources.host);
@@ -621,7 +632,7 @@ export async function runInstalledProductEvaluation(options) {
     });
   } finally {
     if (products) {
-      await rm(products.root, { recursive: true, force: true });
+      await removeTree(products.root);
       productsRemoved = !await exists(products.root);
     }
   }
