@@ -849,6 +849,71 @@ export function renderCrossVersionProductMarkdown(report) {
   });
 }
 
+const threeWayPairLabels = Object.freeze({
+  control_to_baseline: 'A no-loopx -> B baseline',
+  control_to_candidate: 'A no-loopx -> C candidate',
+  baseline_to_candidate: 'B baseline -> C candidate',
+});
+
+export function renderThreeWayProductMarkdown(report) {
+  const lines = [
+    '# Three-Way Product Benchmark',
+    '',
+    '- A: `no-loopx`',
+    '- B: `version-a` (baseline ref)',
+    '- C: `version-b` (candidate ref)',
+    '',
+  ];
+  renderVersionProvenance(lines, report.provenance);
+  lines.push(
+    '## Pairwise Summary',
+    '',
+    '| Pair | Case | Baseline quality | Candidate quality | Total tokens delta | Latency delta | Verdict |',
+    '|---|---|---:|---:|---:|---:|---|',
+  );
+  for (const [name, comparison] of Object.entries(report.comparisons)) {
+    for (const item of comparison.cases) {
+      lines.push(`| ${threeWayPairLabels[name]} | ${markdownCell(item.case_id)} | ${formatPercent(item.baseline_quality_pass_rate * 100)} | ${formatPercent(item.candidate_quality_pass_rate * 100)} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${markdownCell(item.verdict)} |`);
+    }
+  }
+  lines.push(
+    '',
+    '## Metric Distributions',
+    '',
+    '| Pair | Case | Metric | Baseline p50 / p95 | Candidate p50 / p95 | Candidate p50 delta |',
+    '|---|---|---|---:|---:|---:|',
+  );
+  for (const [name, comparison] of Object.entries(report.comparisons)) {
+    for (const item of comparison.cases) {
+      for (const metric of installedMetrics) {
+        lines.push(`| ${threeWayPairLabels[name]} | ${markdownCell(item.case_id)} | ${metric.label} | ${formatDistribution(item.metrics?.baseline?.[metric.field])} | ${formatDistribution(item.metrics?.candidate?.[metric.field])} | ${formatDelta(item.metric_deltas?.[metric.field])} (${formatPercent(item.metric_percent_deltas?.[metric.field] ?? null)}) |`);
+      }
+    }
+  }
+  lines.push(
+    '',
+    '## Run Evidence',
+    '',
+    '| Case / variant / replicate | Outcome | Quality | Failed gates | Tokens | Latency | Cleanup |',
+    '|---|---|---|---|---:|---:|---|',
+  );
+  for (const run of report.runs) {
+    const quality = installedProductQuality(run);
+    const cleanupPassed = quality.gates.cleanup;
+    lines.push(`| ${markdownCell(`${run.case_id} / ${run.variant} / ${run.replicate}`)} | ${run.outcome} | ${quality.failed.length === 0 ? 'pass' : 'fail'} | ${markdownCell(quality.failed)} | ${formatDelta(run.total_tokens)} | ${formatDelta(run.latency_ms, ' ms')} | ${cleanupPassed ? 'pass' : 'fail'} |`);
+  }
+  lines.push(
+    '',
+    '## Interpretation',
+    '',
+    '- Read A to B and A to C as product uplift over the no-loopx control; read B to C as version-to-version change.',
+    '- Quality pass rate is evaluated before token and latency deltas, and unavailable metrics remain unavailable.',
+    '- This live benchmark is diagnostic evidence, not an automatic release gate.',
+    '',
+  );
+  return lines.join('\n');
+}
+
 function formatPercent(value) {
   return value === null ? 'n/a' : `${value.toFixed(1)}%`;
 }

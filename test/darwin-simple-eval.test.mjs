@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { promisify } from 'node:util';
 
 import { runInstalledProductEvaluation } from '../src/installed-product-eval.mjs';
+import { renderThreeWayProductMarkdown } from '../src/agent-eval.mjs';
 import { createDarwinSimpleFakeAgent } from './fixtures/darwin-simple/fake-agent.mjs';
 
 const repoRoot = new URL('..', import.meta.url).pathname;
@@ -210,6 +211,7 @@ test('exposes the live evaluator as an opt-in packaged diagnostic outside npm te
   assert.match(stdout, /--baseline-ref <git-ref>/);
   assert.match(stdout, /--candidate-ref <git-ref>/);
   assert.match(stdout, /--order <crossover\|baseline-first\|candidate-first>/);
+  assert.match(stdout, /three isolated arms: no-loopx, the baseline/i);
   await assert.rejects(
     execFileAsync(process.execPath, [
       'scripts/run-darwin-simple-evals.mjs', '--live', '--model', 'not-invoked', '--baseline-ref', 'HEAD',
@@ -222,7 +224,7 @@ test('exposes the live evaluator as an opt-in packaged diagnostic outside npm te
   );
 });
 
-test('compares isolated package installs from two immutable Git refs in crossover order', async (t) => {
+test('compares no-loopx, baseline, and candidate arms from immutable Git refs in crossover order', async (t) => {
   const productRoot = await createVersionProductRepository(t);
   const leakedAgentsPath = join(productRoot, 'leaked', 'AGENTS.md');
   const leakedSkillsRoot = join(productRoot, 'leaked', 'skills');
@@ -255,7 +257,7 @@ test('compares isolated package installs from two immutable Git refs in crossove
     },
   });
 
-  assert.equal(result.schema, 'loopx.cross-version-product-benchmark-report.v1');
+  assert.equal(result.schema, 'loopx.three-way-product-benchmark-report.v1');
   assert.equal(result.provenance.versions.baseline.requested_ref, 'baseline-product');
   assert.equal(result.provenance.versions.candidate.requested_ref, 'candidate-product');
   assert.match(result.provenance.versions.baseline.commit, /^[a-f0-9]{40}$/);
@@ -286,8 +288,16 @@ test('compares isolated package installs from two immutable Git refs in crossove
     case_ids: ['direct-small-fix'],
     replicates: 2,
     order: 'crossover',
+    arms: {
+      control: 'no-loopx',
+      baseline: 'version-a',
+      candidate: 'version-b',
+    },
   });
-  assert.equal(result.runs.every((run) => run.installation.actual_installed_surface), true);
+  assert.equal(result.runs.filter((run) => run.variant !== 'no-loopx')
+    .every((run) => run.installation.actual_installed_surface), true);
+  assert.equal(result.runs.filter((run) => run.variant === 'no-loopx')
+    .every((run) => run.installation.requested === false), true);
   assert.deepEqual(result.runs.find((run) => run.variant === 'version-a').installation.surfaces, {
     codex_agents: false,
     exec_skill: true,
@@ -296,11 +306,22 @@ test('compares isolated package installs from two immutable Git refs in crossove
   assert.equal(new Set(requests.map((request) => request.home)).size, requests.length);
   assert.equal(requests.every((request) => request.loopx_env_keys.length === 0), true);
   assert.deepEqual(requests.map((request) => [request.variant, request.installed_marker]), [
+    ['no-loopx', null],
     ['version-a', 'installed-product: baseline'],
     ['version-b', 'installed-product: candidate'],
     ['version-b', 'installed-product: candidate'],
     ['version-a', 'installed-product: baseline'],
+    ['no-loopx', null],
   ]);
+  assert.deepEqual(Object.keys(result.comparisons), [
+    'control_to_baseline',
+    'control_to_candidate',
+    'baseline_to_candidate',
+  ]);
+  assert.equal(result.comparisons.control_to_baseline.baseline_variant, 'no-loopx');
+  assert.equal(result.comparisons.control_to_baseline.candidate_variant, 'version-a');
+  assert.equal(result.comparisons.control_to_candidate.baseline_variant, 'no-loopx');
+  assert.equal(result.comparisons.control_to_candidate.candidate_variant, 'version-b');
   assert.equal(result.comparison.baseline_variant, 'version-a');
   assert.equal(result.comparison.candidate_variant, 'version-b');
   assert.equal(result.comparison.cases[0].pairs.length, 2);
@@ -308,6 +329,11 @@ test('compares isolated package installs from two immutable Git refs in crossove
   assert.equal(result.comparison.cases[0].metrics.baseline.total_tokens.sample_count, 2);
   assert.equal(result.comparison.overall.version_products_cleanup_passed, true);
   assert.equal(result.cleanup.version_products_removed, true);
+  const markdown = renderThreeWayProductMarkdown(result);
+  assert.match(markdown, /A: `no-loopx`/);
+  assert.match(markdown, /A no-loopx -> B baseline/);
+  assert.match(markdown, /A no-loopx -> C candidate/);
+  assert.match(markdown, /B baseline -> C candidate/);
   await assert.rejects(access(leakedAgentsPath));
   await assert.rejects(access(leakedSkillsRoot));
 });

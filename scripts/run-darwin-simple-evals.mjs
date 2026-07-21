@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
-import { renderCrossVersionProductMarkdown, renderInstalledProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
+import { renderCrossVersionProductMarkdown, renderInstalledProductMarkdown, renderThreeWayProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
 import { findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 import { runInstalledProductEvaluation } from '../src/installed-product-eval.mjs';
 
@@ -39,8 +39,8 @@ function usage() {
     '  --timeout-ms <milliseconds>  Shared timeout for every variant',
     '  --out <directory>            Ignored report directory under .loopx/evals',
     '',
-    'With both ref options, each version is packed and installed into its own fresh',
-    'temporary host home. Every variant receives the exact task with no prompt injection.',
+    'With both ref options, every case runs three isolated arms: no-loopx, the baseline',
+    'ref, and the candidate ref. Every arm receives the exact task with no prompt injection.',
   ].join('\n');
 }
 
@@ -246,21 +246,29 @@ if (process.argv.includes('--help')) {
       writeFile(join(outDir, 'report.json'), `${JSON.stringify(result, null, 2)}\n`),
       writeFile(
         join(outDir, 'report.md'),
-        result.schema === 'loopx.cross-version-product-benchmark-report.v1'
-          ? renderCrossVersionProductMarkdown(result)
-          : renderInstalledProductMarkdown(result.comparison),
+        result.schema === 'loopx.three-way-product-benchmark-report.v1'
+          ? renderThreeWayProductMarkdown(result)
+          : result.schema === 'loopx.cross-version-product-benchmark-report.v1'
+            ? renderCrossVersionProductMarkdown(result)
+            : renderInstalledProductMarkdown(result.comparison),
       ),
     ];
     if (result.provenance) {
       reportWrites.push(writeFile(join(outDir, 'matrix.json'), `${JSON.stringify(result.provenance, null, 2)}\n`));
     }
     await Promise.all(reportWrites);
-    const ok = result.comparison.overall.criteria_passed;
+    const comparisonOveralls = result.comparisons
+      ? Object.fromEntries(Object.entries(result.comparisons).map(([name, value]) => [name, value.overall]))
+      : null;
+    const ok = comparisonOveralls
+      ? Object.values(comparisonOveralls).every((overall) => overall.criteria_passed)
+      : result.comparison.overall.criteria_passed;
     console.log(JSON.stringify({
       ok,
       diagnostic_only: true,
       out: outDir,
       overall: result.comparison.overall,
+      comparisons: comparisonOveralls,
     }, null, 2));
     if (!ok && !baselineRef) process.exitCode = 1;
   }

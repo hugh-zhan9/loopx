@@ -4,10 +4,11 @@ This opt-in maintainer diagnostic compares a bare prompt with the actually
 installed loopx candidate. It is not part of `npm test`, an implementation
 completion gate, or an automated release decision.
 
-It can also compare two immutable loopx Git refs. In that form, each ref is
-resolved to a commit, packed from a detached worktree, unpacked without running
-package lifecycle scripts, and installed into a fresh host home by the installer
-inside that package.
+It can also run a three-arm product benchmark using two immutable loopx Git
+refs. Arm A installs no loopx, arm B installs the baseline ref, and arm C
+installs the candidate ref. Each ref is resolved to a commit, packed from a
+detached worktree, unpacked without running package lifecycle scripts, and
+installed into a fresh host home by the installer inside that package.
 
 ## Variants
 
@@ -32,8 +33,9 @@ outcomes, memory outcomes, installation provenance, and cleanup evidence.
 
 ## Run
 
-Live runs require Codex authentication that works with a fresh `CODEX_HOME`,
-such as provider credentials supplied through the process environment.
+Live runs copy `config.toml` and `auth.json` from `CODEY_HOME` or `~/.codey`
+into each fresh `CODEX_HOME`. Source configuration and credentials are never
+modified, and session history or caches are not copied.
 
 ```bash
 npm run eval:darwin-simple -- \
@@ -52,12 +54,13 @@ Two replicates alternate baseline-first and candidate-first order. More samples
 are needed before interpreting tail latency; live variability is evidence for
 maintainer judgment, not a stable SLA.
 
-To compare two loopx versions, provide both refs:
+To compare no loopx, a baseline release, and the current candidate, provide
+both refs:
 
 ```bash
 npm run eval:darwin-simple -- \
   --live \
-  --baseline-ref v0.5.2 \
+  --baseline-ref v0.5.1 \
   --candidate-ref main \
   --model <exact-model-id> \
   --effort high \
@@ -65,11 +68,13 @@ npm run eval:darwin-simple -- \
   --order crossover
 ```
 
-The refs are required as a pair. Cross-version output uses
-`.loopx/evals/version-compare/<A>-vs-<B>/` and adds `matrix.json`. The report
-records resolved commits, package identity and hashes, evaluation manifest and fixture identity,
-shared model and adapter configuration, every raw run, p50/p95 distributions,
-and per-replicate deltas. Generated archives, homes, traces, and reports remain
+The refs are required as a pair. Every replicate includes all three arms and
+crossover order reverses on alternating replicates. Cross-version output uses
+`.loopx/evals/version-compare/<B>-vs-<C>/` and adds `matrix.json`. The report
+contains complete A-to-B, A-to-C, and B-to-C comparisons, resolved commits,
+package identity and hashes, evaluation manifest and fixture identity, shared
+model and adapter configuration, every raw run, p50/p95 distributions, and
+per-replicate deltas. Generated archives, homes, traces, and reports remain
 temporary or ignored.
 
 ## Interpretation

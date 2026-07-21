@@ -305,12 +305,8 @@ function orderedVariants(testCase, manifest, replicate, order) {
 }
 
 function crossVersionManifest(manifest) {
-  const mapping = new Map([
-    [manifest.baseline_variant, 'version-a'],
-    [manifest.candidate_variant, 'version-b'],
-    [manifest.forced_serial_variant, 'version-b-forced-serial'],
-  ]);
   const variants = {
+    'no-loopx': { ...manifest.variants[manifest.baseline_variant], install_candidate: false, version_role: null },
     'version-a': { ...manifest.variants[manifest.baseline_variant], install_candidate: true, version_role: 'baseline' },
     'version-b': { ...manifest.variants[manifest.candidate_variant], install_candidate: true, version_role: 'candidate' },
   };
@@ -323,15 +319,52 @@ function crossVersionManifest(manifest) {
   }
   return {
     ...manifest,
+    control_variant: 'no-loopx',
     baseline_variant: 'version-a',
     candidate_variant: 'version-b',
     forced_serial_variant: variants['version-b-forced-serial'] ? 'version-b-forced-serial' : null,
     variants,
     cases: manifest.cases.map((testCase) => ({
       ...testCase,
-      variants: testCase.variants.map((variant) => mapping.get(variant) ?? variant),
+      variants: [
+        'no-loopx',
+        'version-a',
+        'version-b',
+        ...(testCase.variants.includes(manifest.forced_serial_variant) ? ['version-b-forced-serial'] : []),
+      ],
     })),
   };
+}
+
+function compareThreeWayRuns(runs, manifest) {
+  const pairs = {
+    control_to_baseline: {
+      baselineVariant: manifest.control_variant,
+      candidateVariant: manifest.baseline_variant,
+      forcedSerialVariant: null,
+    },
+    control_to_candidate: {
+      baselineVariant: manifest.control_variant,
+      candidateVariant: manifest.candidate_variant,
+      forcedSerialVariant: manifest.forced_serial_variant,
+    },
+    baseline_to_candidate: {
+      baselineVariant: manifest.baseline_variant,
+      candidateVariant: manifest.candidate_variant,
+      forcedSerialVariant: manifest.forced_serial_variant,
+    },
+  };
+  return Object.fromEntries(Object.entries(pairs).map(([name, pair]) => {
+    const includedVariants = new Set([
+      pair.baselineVariant,
+      pair.candidateVariant,
+      pair.forcedSerialVariant,
+    ].filter(Boolean));
+    return [name, compareInstalledProductRuns(
+      runs.filter((run) => includedVariants.has(run.variant)),
+      { ...pair, comparisonMode: 'cross-version' },
+    )];
+  }));
 }
 
 async function runWithTimeout(runAgent, request, timeoutMs) {
@@ -612,7 +645,11 @@ export async function runInstalledProductEvaluation(options) {
       for (let replicate = 0; replicate < replicates; replicate += 1) {
         for (const variant of orderedVariants(testCase, effectiveManifest, replicate, order)) {
           const product = products
-            ? variant === effectiveManifest.baseline_variant ? products.baseline : products.candidate
+            ? variant === effectiveManifest.control_variant
+              ? null
+              : variant === effectiveManifest.baseline_variant
+                ? products.baseline
+                : products.candidate
             : null;
           runs.push(await runOne({
             testCase,
@@ -630,12 +667,14 @@ export async function runInstalledProductEvaluation(options) {
         }
       }
     }
-    comparison = compareInstalledProductRuns(runs, {
-      baselineVariant: effectiveManifest.baseline_variant,
-      candidateVariant: effectiveManifest.candidate_variant,
-      forcedSerialVariant: effectiveManifest.forced_serial_variant,
-      comparisonMode: versionRefs ? 'cross-version' : 'product-baseline',
-    });
+    if (!versionRefs) {
+      comparison = compareInstalledProductRuns(runs, {
+        baselineVariant: effectiveManifest.baseline_variant,
+        candidateVariant: effectiveManifest.candidate_variant,
+        forcedSerialVariant: effectiveManifest.forced_serial_variant,
+        comparisonMode: 'product-baseline',
+      });
+    }
   } finally {
     if (products) {
       await removeTree(products.root);
@@ -645,10 +684,14 @@ export async function runInstalledProductEvaluation(options) {
   if (!products) {
     return { schema: 'loopx.installed-product-eval-report.v1', runs, comparison };
   }
-  comparison.overall.version_products_cleanup_passed = productsRemoved;
-  comparison.overall.criteria_passed = comparison.overall.criteria_passed && productsRemoved;
+  const comparisons = compareThreeWayRuns(runs, effectiveManifest);
+  for (const pair of Object.values(comparisons)) {
+    pair.overall.version_products_cleanup_passed = productsRemoved;
+    pair.overall.criteria_passed = pair.overall.criteria_passed && productsRemoved;
+  }
+  comparison = comparisons.baseline_to_candidate;
   return {
-    schema: 'loopx.cross-version-product-benchmark-report.v1',
+    schema: 'loopx.three-way-product-benchmark-report.v1',
     provenance: {
       manifest_sha256: sha256(stableJson(effectiveManifest)),
       source_manifest_sha256: sha256(stableJson(manifest)),
@@ -669,6 +712,11 @@ export async function runInstalledProductEvaluation(options) {
         case_ids: selected.map((testCase) => testCase.id),
         replicates,
         order,
+        arms: {
+          control: effectiveManifest.control_variant,
+          baseline: effectiveManifest.baseline_variant,
+          candidate: effectiveManifest.candidate_variant,
+        },
       },
       versions: {
         baseline: products.baseline.provenance,
@@ -677,6 +725,7 @@ export async function runInstalledProductEvaluation(options) {
     },
     runs,
     comparison,
+    comparisons,
     cleanup: { version_products_removed: productsRemoved },
   };
 }
