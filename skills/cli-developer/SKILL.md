@@ -4,7 +4,7 @@ description: "Applies loopx CLI design discipline for commands, flags, human and
 when_to_use: "cli-developer, CLI, command design, flags, JSON output, stdout stderr, interactive prompt, help text, shell completion, 命令行"
 license: MIT
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/cli-developer
   maintained_by: loopx
 ---
@@ -88,7 +88,9 @@ Load detailed guidance based on context:
 - First-run commands should be readable without `--json` and should not require users to know internal workflow state.
 - Installer and postinstall flows must be non-interactive-safe unless the package manager or platform explicitly permits prompts.
 - Avoid writing generated runtime state into the repository unless the command explicitly operates on repo-managed artifacts.
-- For loopx plugin or skill installation flows, preserve mirror expectations and avoid overwriting user-edited installed copies outside the current repository.
+- For loopx plugin or skill installation flows, preserve the canonical
+  package-root skill source and recorded install provenance; avoid overwriting
+  user-edited installed copies outside the current repository.
 - Keep help text and error text compatible with common terminals and package manager logs.
 
 ## Shell And Cross-Platform Discipline

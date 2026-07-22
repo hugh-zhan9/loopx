@@ -442,6 +442,7 @@ describe('loopx skill governance', () => {
 
   it('governs diagnosis TDD verification and worktree safety', async () => {
     const diagnosis = await readFile(join(repoRoot, 'skills', 'debug', 'references', 'diagnosis-contract.md'), 'utf8');
+    const debugSkill = await readFile(join(repoRoot, 'skills', 'debug', 'SKILL.md'), 'utf8');
     const issue = await readFile(join(repoRoot, 'skills', 'issue', 'SKILL.md'), 'utf8');
     const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
     const verify = await readFile(join(repoRoot, 'skills', 'verify', 'SKILL.md'), 'utf8');
@@ -452,9 +453,25 @@ describe('loopx skill governance', () => {
     }
     assert.doesNotMatch(issue, /root_cause_hypothesis/);
     assert.doesNotMatch(tdd, /Delete it\. Start over/i);
+    assert.doesNotMatch(tdd, /Delete means delete|All of these mean:\s*Delete code/i);
+    assert.doesNotMatch(tdd, /Delete and rewrite with TDD|Never fix bugs without a test|skipped TDD\. Start over/i);
     assert.match(tdd, /preserve it.*characterization or regression/is);
+    assert.match(tdd, /Never delete user-owned code merely to simulate a red phase/i);
+    assert.match(tdd, /Do not claim strict test-first TDD when the implementation predates the test/i);
+    for (const supportSkill of [debugSkill, tdd, verify]) {
+      assert.match(supportSkill, /explicitly invoked|explicit .*invocation/i);
+      assert.match(supportSkill, /owning .*workflow|issue or implementation workflow/i);
+    }
+    assert.match(debugSkill, /Not for automatic routing of ordinary prompt-first defects/i);
+    assert.match(tdd, /Not for automatic routing of ordinary prompt-first work/i);
+    assert.match(verify, /Not for automatic workflow selection/i);
+    assert.doesNotMatch(debugSkill, /\benv\s*\|\s*grep\b|\bprintenv\b/i);
+    assert.match(debugSkill, /remain in diagnosis unless the user explicitly\s+requested a fix/i);
+    assert.match(debugSkill, /do not implement them from a diagnosis-only call/i);
     assert.match(verify, /shared\/evidence-contract\.md/);
     assert.doesNotMatch(worktrees, /npm install/);
+    assert.doesNotMatch(worktrees, /Auto-detect and run project setup/i);
+    assert.match(worktrees, /Run only repository-documented project setup/i);
     assert.match(worktrees, /postinstall hooks/);
   });
 
@@ -462,6 +479,7 @@ describe('loopx skill governance', () => {
     const api = await readFile(join(repoRoot, 'skills', 'api-designer', 'SKILL.md'), 'utf8');
     const apiVersioning = await readFile(join(repoRoot, 'skills', 'api-designer', 'references', 'versioning.md'), 'utf8');
     const architecturePatterns = await readFile(join(repoRoot, 'skills', 'architecture-designer', 'references', 'architecture-patterns.md'), 'utf8');
+    const cliSkill = await readFile(join(repoRoot, 'skills', 'cli-developer', 'SKILL.md'), 'utf8');
     const cliRefs = await Promise.all(['design-patterns.md', 'node-cli.md', 'python-cli.md', 'go-cli.md'].map((name) => readFile(join(repoRoot, 'skills', 'cli-developer', 'references', name), 'utf8')));
     const kratosRefs = await Promise.all(['http-customization.md', 'troubleshooting.md'].map((name) => readFile(join(repoRoot, 'skills', 'kratos', 'references', name), 'utf8')));
     const requirements = await readFile(join(repoRoot, 'skills', 'requirement-analyzer', 'SKILL.md'), 'utf8');
@@ -477,6 +495,8 @@ describe('loopx skill governance', () => {
     for (const text of cliRefs) {
       assert.doesNotMatch(text, /(?:exit|code|DENIED|NOT_FOUND)[^\n]*(?:77|127)/i);
     }
+    assert.doesNotMatch(cliSkill, /preserve mirror expectations/i);
+    assert.match(cliSkill, /canonical\s+package-root skill source/i);
     for (const text of kratosRefs) {
       assert.doesNotMatch(text, /find .*\.pb\.go.*sed/);
       assert.match(text, /Do not (?:patch|edit) generated `\.pb\.go`/);
@@ -692,9 +712,11 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /defensive_fix/);
     assert.match(fixSkill, /status: needs_scope_change/);
     assert.match(fixSkill, /metadata `status: blocked`/);
-    assert.match(fixSkill, /local review/i);
-    assert.match(fixSkill, /whole diff review/i);
-    assert.match(fixSkill, /canonical `review` contract/i);
+    assert.match(fixSkill, /controller-owned scope and\s+integration check/i);
+    assert.match(fixSkill, /independent reviewer only for an explicit review request/i);
+    assert.match(fixSkill, /routine low-risk fix does\s+not require a local reviewer and whole-diff reviewer ceremony/i);
+    assert.doesNotMatch(fixSkill, /Every code modification through `fix` requires:[\s\S]{0,200}local review/i);
+    assert.doesNotMatch(fixSkill, /local_review:|whole_diff_review:/i);
     assert.match(fixSkill, /finish/i);
     assert.match(fixSkill, /shared\/completion-check\.md/);
     assert.match(fixSkill, /finish.*explicit.*Git disposition/is);

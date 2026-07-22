@@ -1,9 +1,9 @@
 ---
 name: verify
-description: "Requires fresh verification evidence before claiming work is complete, fixed, passing, review-ready, or ready to commit. Not for speculative confidence or stale results."
-when_to_use: "verify, completion claim, fixed claim, tests pass, review-ready, commit, fresh evidence, 验证, 完成前检查"
+description: "Audits fresh verification evidence when explicitly invoked or activated by an owning workflow before a completion, fixed, passing, review-ready, or commit-readiness claim. Not for automatic workflow selection, replacing the quiet completion check, speculative confidence, or stale results."
+when_to_use: "explicit verify invocation, owning workflow requests verification audit, fresh evidence for completion or commit readiness, 验证审计"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Verification Before Completion

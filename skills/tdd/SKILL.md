@@ -1,9 +1,9 @@
 ---
 name: tdd
-description: "Guides feature and bugfix implementation through a failing test before production code and red-green-refactor discipline. Not for generated files or throwaway prototypes."
-when_to_use: "tdd, failing test first, feature implementation, bugfix, regression test, red green refactor, 测试先行"
+description: "Applies failing-test-first and red-green-refactor discipline when explicitly invoked or activated by an owning implementation workflow. Not for automatic routing of ordinary prompt-first work, generated files, throwaway prototypes, or deleting existing user-owned implementation to recreate a red phase."
+when_to_use: "explicit TDD invocation, owning workflow requests failing-test-first discipline, red green refactor, characterization or regression evidence, 测试先行"
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 # Test-Driven Development (TDD)
@@ -18,36 +18,34 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 ## When to Use
 
-**Always:**
+After explicit invocation or activation by an owning implementation workflow,
+use strict test-first development for:
 - New features
 - Bug fixes
 - Refactoring
 - Behavior changes
 
-**Exceptions (ask your human partner):**
+**Use explicit permission or a different evidence strategy for:**
 - Throwaway prototypes
 - Generated code
 - Configuration files
+- Existing user-owned implementation where a strict test-first rewrite would
+  require deleting or replacing code
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
-## The Iron Law
+## Test-First Contract
 
 ```
-NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
+NO NEW PRODUCTION BEHAVIOR WITHOUT A FAILING TEST FIRST
 ```
 
 If implementation already exists, preserve it. Do not claim strict test-first
-TDD; add characterization or regression evidence, or obtain explicit approval
-before reworking user-owned code.
-
-**No exceptions:**
-- Don't keep it as "reference"
-- Don't "adapt" it while writing tests
-- Don't look at it
-- Delete means delete
-
-Implement fresh from tests. Period.
+TDD for work that began before the test. Add characterization or regression
+evidence first, then make the smallest change that preserves the accepted
+behavior. Never delete user-owned code merely to simulate a red phase. A full
+rewrite or replacement requires explicit user approval and a separate rollback
+plan.
 
 ## Red-Green-Refactor
 
@@ -230,13 +228,12 @@ Manual testing is ad-hoc. You think you tested everything but:
 
 Automated tests are systematic. They run the same way every time.
 
-**"Deleting X hours of work is wasteful"**
+**"The implementation already exists"**
 
-Sunk cost fallacy. The time is already gone. Your choice now:
-- Delete and rewrite with TDD (X more hours, high confidence)
-- Keep it and add tests after (30 min, low confidence, likely bugs)
-
-The "waste" is keeping code you can't trust. Working code without real tests is technical debt.
+Do not delete it to manufacture a red phase. Preserve the safe baseline, add a
+characterization or regression test that demonstrates the relevant behavior,
+and state that the implementation predates the test. Rewrite only with explicit
+approval and a rollback plan.
 
 **"TDD is dogmatic, being pragmatic means adapting"**
 
@@ -266,15 +263,15 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 | "I'll test after" | Tests passing immediately prove nothing. |
 | "Tests after achieve same goals" | Tests-after = "what does this do?" Tests-first = "what should this do?" |
 | "Already manually tested" | Ad-hoc ≠ systematic. No record, can't re-run. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is technical debt. |
-| "Keep as reference, write tests first" | You'll adapt it. That's testing after. Delete means delete. |
-| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
+| "The implementation already exists" | Preserve it, characterize the relevant behavior, and do not claim strict test-first evidence. |
+| "Keep as reference, write tests first" | Preserve existing user-owned code; characterize it first and label the evidence honestly. |
+| "Need to explore first" | Keep exploration isolated from production; once the behavior is understood, start new production behavior with a failing test. |
 | "Test hard = design unclear" | Listen to test. Hard to test = hard to use. |
 | "TDD will slow me down" | TDD faster than debugging. Pragmatic = test-first. |
 | "Manual test faster" | Manual doesn't prove edge cases. You'll re-test every change. |
 | "Existing code has no tests" | You're improving it. Add tests for existing code. |
 
-## Red Flags - STOP and Start Over
+## Red Flags - Stop And Re-establish Evidence
 
 - Code before test
 - Test after implementation
@@ -285,12 +282,13 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 - "I already manually tested it"
 - "Tests after achieve the same purpose"
 - "It's about spirit not ritual"
-- "Keep as reference" or "adapt existing code"
-- "Already spent X hours, deleting is wasteful"
+- "Delete the existing implementation so the test can fail"
+- "Rewrite user-owned code just to simulate test-first"
 - "TDD is dogmatic, I'm being pragmatic"
 - "This is different because..."
 
-**All of these mean: Delete code. Start over with TDD.**
+**These mean: stop, restore the safe baseline if it was changed, and return to
+the red phase or characterization-test path without deleting user-owned code.**
 
 ## Example: Bug Fix
 
@@ -342,7 +340,10 @@ Before marking work complete:
 - [ ] Tests use real code (mocks only if unavoidable)
 - [ ] Edge cases and errors covered
 
-Can't check all boxes? You skipped TDD. Start over.
+For new behavior, unchecked red-green items mean strict TDD is incomplete; stop
+and re-establish the missing evidence. For pre-existing behavior, use the
+characterization/regression path and state the limitation instead of deleting
+the implementation.
 
 ## When Stuck
 
@@ -355,13 +356,14 @@ Can't check all boxes? You skipped TDD. Start over.
 
 ## Debugging Integration
 
-Bug found? Write failing test reproducing it. Follow TDD cycle. Test proves fix and prevents regression.
-
-Never fix bugs without a test.
+Bug found? Prefer a failing automated test that reproduces it, then follow the
+TDD cycle. When automation is impractical, record the concrete exception and
+use the strongest repeatable verification available; do not claim strict TDD.
 
 ## Testing Anti-Patterns
 
-When adding mocks or test utilities, read @testing-anti-patterns.md to avoid common pitfalls:
+When adding mocks or test utilities, read
+[`testing-anti-patterns.md`](testing-anti-patterns.md) to avoid common pitfalls:
 - Testing mock behavior instead of real behavior
 - Adding test-only methods to production classes
 - Mocking without understanding dependencies
@@ -369,8 +371,9 @@ When adding mocks or test utilities, read @testing-anti-patterns.md to avoid com
 ## Final Rule
 
 ```
-Production code → test exists and failed first
-Otherwise → not TDD
+New production code → test exists and failed first
+Existing production code → characterization or regression evidence, with the
+test-first limitation stated honestly
 ```
 
-No exceptions without your human partner's permission.
+Do not claim strict test-first TDD when the implementation predates the test.

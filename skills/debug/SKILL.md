@@ -1,9 +1,9 @@
 ---
 name: debug
-description: "Finds root cause for bugs, failing tests, build failures, regressions, and unexpected behavior before fixes. Not for new feature planning or routine code review."
-when_to_use: "debug, bug, test failure, build failure, regression, unexpected behavior, root cause, 报错, 失败, 回归, 排查"
+description: "Applies root-cause diagnosis when explicitly invoked or activated by an issue or implementation workflow for a bug, failing test, build failure, regression, or unexpected behavior. Not for automatic routing of ordinary prompt-first defects, new feature planning, routine code review, or unauthorized fixes."
+when_to_use: "explicit debug invocation, issue workflow diagnosis, owning implementation workflow requests root-cause investigation, regression or failure diagnosis, 根因排查"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Systematic Debugging
@@ -30,7 +30,8 @@ If you haven't completed Phase 1, you cannot propose fixes.
 
 ## When to Use
 
-Use for ANY technical issue:
+Once explicitly invoked or activated by an owning workflow, use for technical
+issues such as:
 - Test failures
 - Bugs in production
 - Unexpected behavior
@@ -80,11 +81,13 @@ You MUST complete each phase before proceeding to the next.
 
    **WHEN system has multiple components (CI → build → signing, API → service → database):**
 
-   **BEFORE proposing fixes, add diagnostic instrumentation:**
+   **BEFORE proposing fixes, add narrowly scoped diagnostic instrumentation only
+   when it is safe and authorized:**
    ```
    For EACH component boundary:
-     - Log what data enters component
-     - Log what data exits component
+     - Log only the minimum metadata or shape needed at component entry
+     - Log only the minimum metadata or shape needed at component exit
+     - Redact secrets, credentials, tokens, personal data, and payload values
      - Verify environment/config propagation
      - Check state at each layer
 
@@ -95,15 +98,13 @@ You MUST complete each phase before proceeding to the next.
 
    **Example (multi-layer system):**
    ```bash
-   # Layer 1: Workflow
-   echo "=== Secrets available in workflow: ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
+   # Layer 1: Workflow (report presence only; never print secret values)
+   if [ -n "${IDENTITY:-}" ]; then echo "IDENTITY=SET"; else echo "IDENTITY=UNSET"; fi
 
-   # Layer 2: Build script
-   echo "=== Env vars in build script: ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
+   # Layer 2: Build script (inspect an allowlisted variable by presence only)
+   if [ -n "${IDENTITY:-}" ]; then echo "IDENTITY propagated=SET"; else echo "IDENTITY propagated=UNSET"; fi
 
-   # Layer 3: Signing script
+   # Layer 3: Signing script (do not print private key material)
    echo "=== Keychain state: ==="
    security list-keychains
    security find-identity -v
@@ -309,12 +310,16 @@ Rules:
 
 ## When Process Reveals "No Root Cause"
 
-If systematic investigation reveals issue is truly environmental, timing-dependent, or external:
+If systematic investigation reveals the issue is truly environmental,
+timing-dependent, or external, remain in diagnosis unless the user explicitly
+requested a fix:
 
 1. You've completed the process
 2. Document what you investigated
-3. Implement appropriate handling (retry, timeout, error message)
-4. Add monitoring/logging for future investigation
+3. Record retry, timeout, error-message, or monitoring options as diagnosis
+   findings; do not implement them from a diagnosis-only call
+4. If the user explicitly requested a fix, hand off the approved option through
+   the issue/fix contract before changing code
 
 **But:** 95% of "no root cause" cases are incomplete investigation.
 

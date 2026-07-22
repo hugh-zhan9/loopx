@@ -1,9 +1,9 @@
 ---
 name: fix
-description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
+description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # Fix
@@ -186,12 +186,13 @@ When executing a ready ledger, append or update these sections:
 
 ## Reviews
 
-- local_review:
+- integration_check:
   - status: clean | findings_addressed | blocked
   - findings:
-    - <finding or none>
-- whole_diff_review:
-  - status: clean | findings_addressed | blocked
+    - <scope, ledger, diff, or combined-behavior finding or none>
+- independent_review:
+  - trigger: <explicit request, security, destructive behavior, public compatibility, cross-task interaction, reconciled conflict, or none>
+  - status: not_required | clean | findings_addressed | blocked
   - findings:
     - <finding or none>
 - review_decisions:
@@ -214,18 +215,24 @@ When executing a ready ledger, append or update these sections:
 
 ## Review
 
-Every code modification through `fix` requires:
+Every code modification through `fix` receives a controller-owned scope and
+integration check against the ledger's Diagnosis Summary, Fix Brief, actual
+diff, and verification evidence. Use the canonical independent-review
+contract: dispatch an independent reviewer only for an explicit review request,
+security-sensitive or destructive behavior, public compatibility changes,
+cross-task interaction, or a reconciled conflict. A routine low-risk fix does
+not require a local reviewer and whole-diff reviewer ceremony.
 
-- local review per bug against that ledger's Diagnosis Summary, Fix Brief, and actual diff
-- whole diff review after all individual fixes are complete
-
-Use the canonical `review` contract. Critical and Important findings must be verified, addressed with a focused change or evidence-based pushback, freshly reverified, and independently re-reviewed.
+When an independent review is triggered, Critical and Important findings must be
+verified, addressed with a focused change or evidence-based pushback, freshly
+reverified, and independently re-reviewed.
 
 Minor findings may be fixed or recorded, but must not expand scope.
 
 ## Verification And Completion
 
-After local review, whole diff review, and any blocking-finding closure:
+After the controller integration check and any triggered blocking-finding
+closure:
 
 1. Run final verification commands from every ledger.
 2. Append or update `## Execution Reports`, `## Reviews`, `## Verification`, and `## Closeout`.
@@ -236,4 +243,5 @@ After local review, whole diff review, and any blocking-finding closure:
 5. Record whether Git disposition was explicitly requested. Invoke `finish`
    only for that explicit Git disposition; otherwise close out without it.
 
-Do not call the work complete until verification and review evidence is recorded.
+Do not call the work complete until verification, the controller integration
+check, and any triggered independent-review evidence are recorded.

@@ -3,7 +3,7 @@ name: using-git-worktrees
 description: "Sets up or verifies an isolated workspace for implementation work using native worktree support first and git worktree fallback only when needed. Not for ordinary read-only tasks, existing isolated worktrees, issue-ledger fix parallel worktrees, finish branch placement, or committing workflow changes."
 when_to_use: "using-git-worktrees, isolated workspace, git worktree, worktree setup, feature branch isolation, implementation workspace, 隔离工作区"
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Using Git Worktrees
@@ -206,5 +206,6 @@ Ready to implement <feature-name>
 - Prefer native tools over git fallback
 - Follow directory priority: explicit instructions > existing project-local directory > default
 - Verify directory is ignored for project-local
-- Auto-detect and run project setup
+- Run only repository-documented project setup; preview setup with hooks,
+  user-level writes, or external access and obtain confirmation when required
 - Verify clean test baseline
