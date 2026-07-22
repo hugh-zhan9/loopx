@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
@@ -39,18 +39,6 @@ function argvPayload() {
     return null;
   }
   return process.argv[index + 1] || '';
-}
-
-function latestWorkflowSlug(runtimeRoot) {
-  const workflowsRoot = join(runtimeRoot, 'workflows');
-  if (!existsSync(workflowsRoot)) {
-    return null;
-  }
-  return readdirSync(workflowsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .at(-1) || null;
 }
 
 function findNearestLoopxRuntimeRoot(startCwd) {
@@ -139,7 +127,7 @@ try {
   const cwd = resolve(input.cwd || process.cwd());
   const runtimeRoot = findNearestLoopxRuntimeRoot(cwd);
   if (runtimeRoot) {
-    const workflow = input.workflow || input.slug || latestWorkflowSlug(runtimeRoot);
+    const workflow = input.workflow || input.slug || null;
     const statePath = workflow ? join(runtimeRoot, 'workflows', workflow, 'state.json') : null;
     if (!statePath || !existsSync(statePath)) {
       process.stdout.write([

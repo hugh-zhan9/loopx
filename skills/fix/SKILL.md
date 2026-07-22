@@ -3,7 +3,7 @@ name: fix
 description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 ---
 
 # Fix
@@ -25,8 +25,8 @@ Do not invoke a separate `exec` workflow from inside this issue-owned fix contex
 Use `git worktree` only when parallel subagents will directly modify code. Serial execution may edit the main worktree. Parallel subagents that do not use isolated worktrees must produce patches or reports only; they must not directly modify the main worktree.
 
 Controllers and subagents must not commit, must not push, and must not close
-issues. Use `finish` afterward only when the user explicitly requests Git
-disposition.
+issues. Use `finish` afterward only for Git disposition of work completed by
+the active fix run, or when the user explicitly invokes `$finish`.
 
 ## Inputs
 
@@ -240,8 +240,9 @@ closure:
 4. For both serial and concurrent fixes, apply the quiet completion check in
    [../shared/completion-check.md](../shared/completion-check.md) before any
    completion claim.
-5. Record whether Git disposition was explicitly requested. Invoke `finish`
-   only for that explicit Git disposition; otherwise close out without it.
+5. Record whether Git disposition was explicitly requested for work completed
+   by the active fix run. Invoke `finish` only for that disposition or an
+   explicit `$finish` invocation; otherwise close out without it.
 
 Do not call the work complete until verification, the controller integration
 check, and any triggered independent-review evidence are recorded.

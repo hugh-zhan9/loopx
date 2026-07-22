@@ -122,4 +122,32 @@ describe('loopx retained hardening', () => {
       assert.doesNotMatch(stdout, /runtime gates remain authoritative|implementation gate|authorization|build context|review context/);
     }
   });
+
+  it('workflow hooks do not infer finish from historical state without an explicit workflow identity', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-hook-unrelated-git-'));
+    const stateRoot = join(wd, '.loopx', 'workflows', 'historical-flow');
+    await mkdir(stateRoot, { recursive: true });
+    await writeFile(join(stateRoot, 'state.json'), `${JSON.stringify({
+      slug: 'historical-flow',
+      current_stage: 'done',
+      stage_status: 'complete',
+      completion_confirmed: true,
+    }, null, 2)}\n`);
+
+    for (const hookScript of [workflowHookScript, claudeWorkflowHookScript]) {
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [hookScript, '--payload', JSON.stringify({ cwd: wd })],
+        { cwd: wd },
+      );
+      assert.doesNotMatch(stdout, /next skill: \$finish/);
+
+      const explicit = await execFileAsync(
+        process.execPath,
+        [hookScript, '--payload', JSON.stringify({ cwd: wd, workflow: 'historical-flow' })],
+        { cwd: wd },
+      );
+      assert.match(explicit.stdout, /next skill: \$finish/);
+    }
+  });
 });

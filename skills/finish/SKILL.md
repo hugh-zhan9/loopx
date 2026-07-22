@@ -1,27 +1,36 @@
 ---
 name: finish
-description: "Handles an explicitly requested Git disposition for completed work: commit or branch placement, merge, pull request, keep, cleanup, or discard. Not for ordinary completion, verification, review, or knowledge capture."
-when_to_use: "user explicitly requests Git disposition, commit current work, create branch, merge locally, create pull request, keep branch, cleanup worktree, discard work"
+description: "Handles Git disposition only when the user explicitly invokes `$finish` or requests disposition for work completed by the active loopx `exec` or `fix` run. Not for standalone Git requests such as creating, switching, renaming, listing, committing, merging, pushing, opening a pull request, or managing worktrees outside that active loopx context."
+when_to_use: "explicit $finish invocation, active loopx exec or fix completion requests Git disposition"
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Finish
 
-Use `finish` only when the user explicitly requests Git disposition after the
-implementation and its fresh verification are complete. Do not infer this
-intent from a completion claim, passing tests, or the end of an execution.
+Use `finish` only when the user explicitly invokes `$finish`, or when the active
+loopx `exec` or `fix` run has completed implementation and fresh verification
+and the user requests disposition of that run's Git result.
+
+A standalone Git request must not trigger `finish`. Handle branch creation or
+switching, commits, merges, pushes, pull requests, and worktree operations as
+ordinary Git work when they are outside an active loopx completion context. Do
+not infer loopx ownership from a `.loopx` directory, historical workflow state,
+the current branch name, worktree shape, changed files, or Git vocabulary.
 
 Announce at start: "I'm using the finish skill for the requested Git disposition."
 
 ## Preconditions
 
+- Establish one valid trigger: explicit `$finish`, or Git disposition for the
+  completed active loopx `exec` or `fix` run.
 - Confirm the requested work is implemented and has fresh verification.
 - Inspect the current branch, HEAD, worktree shape, and tracked/untracked status.
 - Preserve unrelated user changes. Do not stash, stage, commit, move, or delete
   them.
-- Do not require a review report, extraction candidate, audit artifact, or other
-  workflow state. Finish performs Git disposition only.
+- Do not require a review report, extraction candidate, audit artifact, or
+  additional persisted state after the active loopx context is established.
+  Finish performs Git disposition only.
 
 ## Flow
 
@@ -51,6 +60,8 @@ one of these choices.
 
 ## STOP Conditions
 
+- Exit this skill and handle the request as ordinary Git work when neither
+  valid trigger is present.
 - Stop when fresh verification is missing or failing.
 - Stop when unrelated user changes overlap the requested Git operation.
 - Stop before destructive discard, branch deletion, force push, or worktree

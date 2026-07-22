@@ -42,7 +42,7 @@ Apply governance proportionally. Verification remains mandatory, but independent
 26. As a repository owner, I want new specs to require an explicit authority source, so that one implementation inference does not silently become a permanent rule.
 27. As a future coding agent, I want memory to contain only evidence-backed, non-obvious, reusable pitfalls, so that it reduces investigation instead of adding noise.
 28. As a loopx user, I want ordinary changes with no novel knowledge to produce no memory or spec candidates, so that completion stays quiet.
-29. As a loopx user, I want finish to handle only explicit Git disposition, so that commit, merge, PR, keep, cleanup, or discard choices appear only when relevant.
+29. As a loopx user, I want finish to handle only explicit `$finish` invocations or Git disposition for work completed by the active loopx execution context, so that standalone branch, commit, merge, PR, and worktree requests remain ordinary Git operations.
 30. As a loopx user, I want the installed host guidance and skill descriptions to control routing, so that documented behavior matches the product I actually use.
 31. As an existing loopx user, I want old execution and review names to forward temporarily to canonical entries, so that migration does not break explicit invocations immediately.
 32. As a loopx maintainer, I want legacy aliases excluded from automatic discovery, so that compatibility does not preserve the old decision burden.
@@ -76,7 +76,7 @@ Apply governance proportionally. Verification remains mandatory, but independent
 - Existing applicable specs changed by the implementation are synchronized as part of the implementation. New durable rules require an explicit user decision, approved requirement, or existing spec as authority.
 - Local memory may be written automatically only for an actually encountered, evidence-backed, non-obvious, reusable project pitfall. Repo-tracked specs and shared memory require explicit authority or acceptance.
 - Generic path-based extraction candidates, commit summaries, obvious code facts, raw conversations, secrets, and workflow state are not knowledge.
-- Finish is invoked only for explicit Git disposition and has no mandatory final-review or knowledge-extraction precondition.
+- Finish is invoked only by explicit `$finish` or for Git disposition of work completed by the active loopx `exec` or `fix` context. Standalone Git requests do not trigger it, and eligible finish work has no mandatory final-review or knowledge-extraction precondition.
 - No direct skill, direct mode, numeric risk classifier, model router, general-purpose scheduler, lease system, public execution-mode flag, or staged release mechanism is introduced.
 
 ## Testing Decisions
@@ -88,7 +88,7 @@ Apply governance proportionally. Verification remains mandatory, but independent
 - A fake native-agent harness controls duration and output so tests can prove actual overlap, bounded peak workers, deterministic integration order, and safe fallback without paid model calls.
 - Review-selection tests vary only observable risk evidence and assert whether the result requires an integration check or independent review.
 - Completion tests compare accepted intent, final diff, verification evidence, existing specs, and existing memory. They assert required spec synchronization, rejected unsupported rules, qualifying local memory, deduplication, and quiet `none` outcomes.
-- Finish tests cover the valid Git choices for normal repositories and worktrees without requiring review or extraction artifacts.
+- Finish tests cover routing isolation from standalone Git requests and the valid Git choices for active loopx work in normal repositories and worktrees without requiring review or extraction artifacts.
 - Compatibility tests prove old explicit names forward to the correct canonical intent while remaining absent from automatic routing.
 - Paired live evaluation runs bare prompt and the actually installed candidate with the same model, effort, tools, task, timeout, and fresh starting repository.
 - Live direct-work cases measure outcome, verification, changed paths, workflow artifacts, workers, tokens, and latency. Candidate medians should remain within ten percent of bare prompt when metrics are available.

@@ -22,5 +22,6 @@ artifact or ask the user to review generic candidates.
 When neither an applicable spec nor qualifying knowledge changed, make no
 artifact, show no reminder, and continue with the ordinary completion summary.
 Mention a spec or knowledge write only when one actually occurred. This check
-does not invoke Git disposition; use `finish` only when the user explicitly
-requests it.
+does not invoke Git disposition. Use `finish` only for an explicit `$finish`
+invocation or disposition of work completed by the active loopx `exec` or
+`fix` run; standalone Git requests remain ordinary Git work.
