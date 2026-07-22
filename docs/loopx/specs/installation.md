@@ -8,9 +8,11 @@ controller-only: workers dispatched by loopx skills are leaf workers.
 
 The installed prompt-first surface has six canonical workflow intents:
 `clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. The explicit-only
-compatibility aliases `subagent-exec`,
-`parallel-subagent-exec`, `final-review`, and `fix-review` remain installed for
-one release but are excluded from automatic routing.
+names `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review`
+remain installed.
+`subagent-exec` and `parallel-subagent-exec` are explicit execution profiles
+owned by `exec`; `final-review` and `fix-review` are compatibility aliases for
+`review`. None participates in automatic routing.
 
 ## Public CLI Surface
 
@@ -40,9 +42,8 @@ one release but are excluded from automatic routing.
 
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
-Compatibility aliases are installed only so existing explicit invocations can
-forward to canonical intents. Installation does not add them to automatic
-routing.
+Execution profiles and compatibility aliases are explicit-only. Installation
+does not add them to automatic routing.
 
 ```bash
 rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
@@ -55,8 +56,8 @@ rm -rf ~/.loopx/lancet
 
 - The package root `skills/` surface is exactly `skills/RESOLVER.md` plus the directories in `LOOPX_BUNDLED_SKILLS`.
 - Normal installs and plugin installs both consume bundled skills from the package root `skills/` source.
-- Compatibility alias directories contain only their forwarding `SKILL.md` files.
-- Removed lifecycle wrappers, strict scheduler contracts, reviewer templates, and finish gates must not be published.
+- Compatibility alias directories contain only their forwarding `SKILL.md` files. Execution profiles may include bounded prompts, references, and deterministic review helpers.
+- Removed lifecycle wrappers, host-specific scheduler runtimes, legacy reviewer templates, and finish gates must not be published.
 - `lancet` is bundled in the package skill surface. Automatic `lancet` activation is Codex-only in this release.
 - `lancet` user defaults and session state live under `~/.loopx/lancet/`.
 - `LOOPX_LANCET=0` disables automatic `lancet` guidance for the current process; `LOOPX_LANCET=1` enables it.

@@ -1,54 +1,63 @@
-# Execution Selection
+# Execution Profile Selection
 
-Apply these rules in priority order. The decision is qualitative and must name
-the concrete evidence; do not ask the user to select an executor.
+Apply these rules in order. `exec` owns automatic selection; do not ask the user
+to choose a profile.
 
 ## 1. Decision Readiness
 
-Stop before mutation when requirements or safety-critical decisions are still
-unresolved. This is a `clarify` or `spec` reason, not an execution choice.
+Stop before mutation when requirements or safety-critical decisions remain
+unresolved. This is a `clarify` or `spec` reason, not an execution profile.
 
-## 2. Strong Coupling
+## 2. Input Class
 
-Execute serially in the current context when outcomes:
+- A clear, bounded, low-risk prompt with one coherent outcome may select
+  `inline-owned-v1`.
+- A current persistent plan uses its validated `selected_profile`.
+- A legacy lean plan without `loopx.execution-graph.v1` selects
+  `delegated-serial-v1`.
+- Persistent planned work never selects inline execution.
 
-- change the same file or overlapping behavior;
-- define a producer and consumer of the same new API;
-- update or consume one shared generated output;
-- continue the same debugging or hypothesis chain;
-- require intermediate reasoning or state from one another.
+## 3. Planned Default
 
-State the concrete coupling reason. Do not split continuous reasoning merely
-because more than one file or outcome exists.
+`delegated-serial-v1` is the default structural profile. Keep it when the ready
+frontier has fewer than two slices or any independence dimension is uncertain.
+Fresh workers and mandatory independent review remain valuable even when tasks
+must execute serially.
 
-## 3. Independence
+## 4. Parallel Proof
 
-Concurrent work is admissible only when dependencies, write surfaces,
-decisions, verification, baseline inputs, and integration outcomes are all
-independent. If any dimension is uncertain, execute serially.
+`parallel-strict-v1` is admissible only when the current ready frontier contains
+at least two slices and every concurrently ready pair proves all of:
 
-For example, one clear prompt may decompose into two adapters with distinct
-files, no shared contract decision, independent tests, and no integration
-ordering. That graph may run concurrently without first writing a plan.
+- no dependency path in either direction;
+- disjoint normalized write scopes;
+- no conflicting exclusive resource or shared mutable state;
+- no producer-consumer interface between the pair;
+- independent implementation decisions and verification outcomes;
+- `parallel_safe: true` with a concrete rationale;
+- reliable isolated worktree binding and protected integration.
 
-## 4. Runtime Capability
+Shared immutable baseline reads may appear in `relevant_paths`, but runtime must
+protect them from concurrent or user-owned mutation. Worker availability or a
+high task count alone is not parallel proof.
 
-Concurrent mutation requires reliable task-worktree binding and a protected
-integration workspace. Missing capacity or isolation selects serial execution
-inside `exec`; it does not select a legacy executor or fail otherwise valid
-work. Read-only work may overlap only when every outcome is explicitly
-non-mutating and the host proves a reliable read-only binding. A dirty path
-that overlaps a declared write surface or relevant baseline input selects
-current-context serial execution; unrelated dirty paths remain user-owned.
+## 5. Runtime Narrowing
 
-## 5. Shared Budget
+Runtime may narrow `parallel-strict-v1` to `delegated-serial-v1` when isolation
+or an independence claim no longer holds. Temporary capacity one may instead
+retain the profile with effective concurrency one. In both cases record the
+reason. Never silently narrow planned work to `inline-owned-v1`.
+
+Missing implementer or independent-review capability blocks planned execution.
+Do not substitute controller self-implementation or self-review.
+
+## 6. Shared Budget
 
 The default shared worker budget is four. Effective concurrency is the minimum
-of admitted ready work, observed host capacity, and the configured budget.
-Implementers, reviewers, and fixers consume the same budget, and every worker
-remains a leaf owned by the top-level controller.
+of ready admissible leaf work, observed host capacity, and configured budget.
+Implementers, reviewers, fixers, and final reviewers consume the same budget.
 
 ## Decision Report
 
-Report `serial` or `concurrent` plus the concrete reason. Do not expose a user
-mode selector, numeric classifier, or parallelism target.
+Record the selected structural profile, effective profile or concurrency, graph
+or prompt evidence, and any runtime narrowing reason.

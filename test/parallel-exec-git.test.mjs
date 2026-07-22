@@ -7,7 +7,10 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 
-import { resumeAdaptiveExecution, runAdaptiveExecution } from '../skills/exec/scripts/adaptive-exec.mjs';
+import {
+  resumeAdaptiveExecution as resumeAdaptiveExecutionBase,
+  runAdaptiveExecution as runAdaptiveExecutionBase,
+} from '../skills/exec/scripts/adaptive-exec.mjs';
 import {
   cleanupConcurrentWorkspaces,
   commitTaskWorkspace,
@@ -16,6 +19,57 @@ import {
 import { createFakeNativeAgent } from './fixtures/fake-native-agent.mjs';
 
 const execFileAsync = promisify(execFile);
+
+function approvedTaskReview(taskId) {
+  return [
+    '```loopx-review-result',
+    JSON.stringify({
+      schema: 'loopx.task-review-result.v1',
+      task_id: taskId,
+      spec_compliance: 'APPROVED',
+      code_quality: 'APPROVED',
+      cannot_verify: [],
+      findings: [],
+    }),
+    '```',
+  ].join('\n');
+}
+
+async function dispatchReviewer({ taskId, attempt }) {
+  return {
+    reviewer: { id: `${taskId}-reviewer-${attempt}`, model: 'test', platform: 'test' },
+    rawMessage: approvedTaskReview(taskId),
+  };
+}
+
+async function dispatchFinalReviewer({ axis, candidate }) {
+  return {
+    schema: 'loopx.final-review-result.v1',
+    axis,
+    verdict: 'APPROVED',
+    findings: [],
+    candidate,
+    reviewer: { id: `final-${axis}`, model: 'test', platform: 'test' },
+  };
+}
+
+function runAdaptiveExecution(options) {
+  return runAdaptiveExecutionBase({
+    dispatchReviewer,
+    dispatchFinalReviewer,
+    reviewContext: { source: 'test requirements', plan: 'test execution plan' },
+    ...options,
+  });
+}
+
+function resumeAdaptiveExecution(options) {
+  return resumeAdaptiveExecutionBase({
+    dispatchReviewer,
+    dispatchFinalReviewer,
+    reviewContext: { source: 'test requirements', plan: 'test execution plan' },
+    ...options,
+  });
+}
 
 async function git(cwd, args) {
   return (await execFileAsync('git', args, { cwd })).stdout.trim();
@@ -38,8 +92,17 @@ async function createRepo() {
 function outcome(id, path, content) {
   return {
     id,
+    outcome: `Deliver ${id}`,
     depends_on: [],
     write_scope: [path],
+    parallel_safe: true,
+    parallel_rationale: 'Independent task-local change.',
+    interfaces: { consumes: [], produces: [`result:${id}`] },
+    source_anchors: [`AC-${id}`],
+    acceptance: [`${id} is observable.`],
+    verification: [`verify ${id}`],
+    expected_evidence: [`${id} verification passes.`],
+    review_focus: [`Review ${id}.`],
     coupling: {
       decisions: [],
       verification: [],
@@ -151,7 +214,7 @@ test('applies actual worker changes when the declared write scope is wider', asy
   assert.equal(existsSync(join(repo.root, 'src', 'allowed-but-unchanged.mjs')), false);
 });
 
-test('selects current-context serial execution when user changes overlap write or relevant read paths', async () => {
+test('blocks reviewed execution when user changes overlap write or relevant read paths', async () => {
   for (const fixture of [
     { runId: 'dirty-write-run', path: 'src/alpha.mjs', field: 'write_scope' },
     { runId: 'dirty-read-run', path: 'src/context.mjs', field: 'relevant_paths' },
@@ -173,8 +236,9 @@ test('selects current-context serial execution when user changes overlap write o
       verifyCombined: async () => assert.fail('dirty overlap must not verify concurrent work'),
     });
 
-    assert.equal(result.kind, 'serial');
-    assert.match(result.reason, /user changes overlap.*current-context serial/i);
+    assert.equal(result.profile, 'parallel-strict-v1');
+    assert.equal(result.blocked, true);
+    assert.match(result.reason, /user changes overlap.*cannot safely apply/i);
     assert.equal(existsSync(join(repo.root, '.loopx', 'exec', fixture.runId)), false);
     assert.equal((await git(repo.root, ['worktree', 'list', '--porcelain'])).match(/^worktree /gm)?.length, 1);
     assert.equal(await readFile(join(repo.root, fixture.path), 'utf8'), 'user context\n');
@@ -198,7 +262,10 @@ test('retains a verified integration result when a target becomes stale and resu
       dispatchWorker: async ({ outcome: current, workspace }) => {
         await writeFile(join(workspace, current.write_scope[0]), current.content);
         if (current.id === 'alpha') await writeFile(join(repo.root, 'src', 'alpha.mjs'), userBytes);
-        return { verification: { status: 'passed', commands: [`verify ${current.id}`] } };
+        return {
+          worker: { id: `${current.id}-implementer`, model: 'test', platform: 'test' },
+          verification: { status: 'passed', commands: [`verify ${current.id}`] },
+        };
       },
       verifyCombined: async ({ phase }) => ({ status: 'passed', commands: [`verify ${phase}`] }),
     }),
@@ -214,7 +281,7 @@ test('retains a verified integration result when a target becomes stale and resu
   assert.equal(manifest.integration.status, 'verified');
   assert.equal(manifest.integration.commit.length, 40);
   assert.equal(existsSync(manifest.ownership.integration.path), true);
-  assert.equal(manifest.tasks.every((task) => task.status === 'verified' && task.workspace), true);
+  assert.equal(manifest.tasks.every((task) => task.status === 'integrated' && task.workspace && task.review), true);
 
   await assert.rejects(
     resumeAdaptiveExecution({
@@ -249,6 +316,38 @@ test('retains a verified integration result when a target becomes stale and resu
   assert.equal(await readFile(join(repo.root, 'src', 'beta.mjs'), 'utf8'), outcomes[1].content);
   assert.equal(existsSync(manifestPath), false);
   assert.equal((await git(repo.root, ['worktree', 'list', '--porcelain'])).match(/^worktree /gm)?.length, 1);
+});
+
+test('blocks application when a relevant baseline path changes during execution', async () => {
+  const repo = await createRepo();
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'base';\n");
+  await git(repo.root, ['add', 'src/context.mjs']);
+  await git(repo.root, ['commit', '-m', 'add context baseline']);
+  const outcomes = [
+    { ...outcome('alpha', 'src/alpha.mjs', "export const alpha = 'implemented';\n"), relevant_paths: ['src/context.mjs'] },
+    outcome('beta', 'src/beta.mjs', "export const beta = 'implemented';\n"),
+  ];
+
+  await assert.rejects(runAdaptiveExecution({
+    cwd: repo.root,
+    runId: 'stale-relevant-run',
+    outcomes,
+    runtimeCapability: { worker_capacity: 2, task_worktree_binding: true },
+    dispatchWorker: async ({ outcome: current, workspace }) => {
+      await writeFile(join(workspace, current.write_scope[0]), current.content);
+      if (current.id === 'alpha') {
+        await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'user changed';\n");
+      }
+      return {
+        worker: { id: `${current.id}-implementer`, model: 'test', platform: 'test' },
+        verification: { status: 'passed', commands: [`verify ${current.id}`] },
+      };
+    },
+    verifyCombined: async ({ phase }) => ({ status: 'passed', commands: [`verify ${phase}`] }),
+  }), (error) => error.code === 'adaptive_target_snapshot_mismatch');
+
+  assert.equal(await readFile(join(repo.root, 'src', 'context.mjs'), 'utf8'), "export const context = 'user changed';\n");
+  assert.equal(await readFile(join(repo.root, 'src', 'alpha.mjs'), 'utf8'), "export const alpha = 'base';\n");
 });
 
 test('stops recovery on a changed invoking baseline without deleting owned worker results', async () => {
@@ -375,7 +474,10 @@ test('waits for active siblings and persists partial task state before surfacing
         await new Promise((resolve) => setTimeout(resolve, 80));
         await writeFile(join(workspace, current.write_scope[0]), current.content);
         betaFinished = true;
-        return { verification: { status: 'passed', commands: ['verify beta'] } };
+        return {
+          worker: { id: 'beta-implementer', model: 'test', platform: 'test' },
+          verification: { status: 'passed', commands: ['verify beta'] },
+        };
       },
       verifyCombined: async () => ({ status: 'passed', commands: ['not reached'] }),
     }),
@@ -388,12 +490,41 @@ test('waits for active siblings and persists partial task state before surfacing
     'utf8',
   ));
   assert.equal(manifest.tasks[0].status, 'failed');
-  assert.equal(manifest.tasks[1].status, 'verified');
+  assert.equal(manifest.tasks[1].status, 'integrated');
   assert.equal(manifest.tasks[1].commit.length, 40);
   assert.equal(manifest.status, 'interrupted');
   assert.equal(manifest.resume_instruction, '$exec --resume worker-failure-run');
   assert.equal(manifest.ownership.tasks.length, 2);
   assert.equal(manifest.tasks.every((task) => existsSync(task.workspace.path)), true);
+  assert.equal(Object.values(manifest.active_workers).some(({ status }) => status === 'uncertain'), true);
+
+  await assert.rejects(
+    resumeAdaptiveExecution({
+      cwd: repo.root,
+      runId: 'worker-failure-run',
+      verifyCombined: async () => ({ status: 'passed', commands: ['not reached'] }),
+    }),
+    (error) => error.code === 'adaptive_worker_terminal_unproven',
+  );
+
+  let resumedDispatches = 0;
+  const paused = await resumeAdaptiveExecution({
+    cwd: repo.root,
+    runId: 'worker-failure-run',
+    runtimeCapability: { worker_capacity: 0 },
+    confirmWorkerTerminal: async () => ({ terminal: true }),
+    dispatchWorker: async () => {
+      resumedDispatches += 1;
+      throw new Error('capacity-zero resume must not dispatch');
+    },
+    verifyCombined: async () => {
+      throw new Error('capacity-zero resume must not verify');
+    },
+  });
+  assert.equal(paused.backpressure, true);
+  assert.equal(paused.dispatched, 0);
+  assert.equal(resumedDispatches, 0);
+  assert.equal(existsSync(join(repo.root, '.loopx', 'exec', 'worker-failure-run', 'manifest.json')), true);
 
   const resumed = await resumeAdaptiveExecution({
     cwd: repo.root,
@@ -408,8 +539,11 @@ test('waits for active siblings and persists partial task state before surfacing
 
 test('resumes cleanup after applied-result verification is interrupted', async () => {
   const repo = await createRepo();
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'base';\n");
+  await git(repo.root, ['add', 'src/context.mjs']);
+  await git(repo.root, ['commit', '-m', 'add applied context baseline']);
   const outcomes = [
-    outcome('alpha', 'src/alpha.mjs', "export const alpha = 'implemented';\n"),
+    { ...outcome('alpha', 'src/alpha.mjs', "export const alpha = 'implemented';\n"), relevant_paths: ['src'] },
     outcome('beta', 'src/beta.mjs', "export const beta = 'implemented';\n"),
   ];
 
@@ -430,6 +564,45 @@ test('resumes cleanup after applied-result verification is interrupted', async (
   const manifestPath = join(repo.root, '.loopx', 'exec', 'applied-verification-run', 'manifest.json');
   const retained = JSON.parse(await readFile(manifestPath, 'utf8'));
   assert.equal(retained.application.status, 'verification-interrupted');
+
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'changed';\n");
+  await assert.rejects(
+    resumeAdaptiveExecution({
+      cwd: repo.root,
+      runId: 'applied-verification-run',
+      verifyCombined: async () => ({ status: 'passed', commands: ['not reached'] }),
+    }),
+    (error) => error.code === 'adaptive_target_snapshot_mismatch',
+  );
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'base';\n");
+  const pendingApply = JSON.parse(await readFile(manifestPath, 'utf8'));
+  pendingApply.application = { status: 'pending', verification: null, post_apply_snapshot: null };
+  await writeFile(manifestPath, `${JSON.stringify(pendingApply, null, 2)}\n`);
+
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'changed during pending apply';\n");
+  await assert.rejects(
+    resumeAdaptiveExecution({
+      cwd: repo.root,
+      runId: 'applied-verification-run',
+      verifyCombined: async () => ({ status: 'passed', commands: ['not reached'] }),
+    }),
+    (error) => error.code === 'adaptive_target_snapshot_mismatch',
+  );
+  await writeFile(join(repo.root, 'src', 'context.mjs'), "export const context = 'base';\n");
+
+  await writeFile(
+    join(repo.root, 'src', 'alpha.mjs'),
+    "export const alpha = 'implemented';\nexport const unreviewed = true;\n",
+  );
+  await assert.rejects(
+    resumeAdaptiveExecution({
+      cwd: repo.root,
+      runId: 'applied-verification-run',
+      verifyCombined: async () => ({ status: 'passed', commands: ['not reached'] }),
+    }),
+    (error) => error.code === 'adaptive_target_snapshot_mismatch',
+  );
+  await writeFile(join(repo.root, 'src', 'alpha.mjs'), "export const alpha = 'implemented';\n");
 
   const resumed = await resumeAdaptiveExecution({
     cwd: repo.root,
@@ -463,8 +636,10 @@ test('rebuilds integration from retained task commits after verification is inte
   );
   const manifestPath = join(repo.root, '.loopx', 'exec', 'integration-verification-run', 'manifest.json');
   const retained = JSON.parse(await readFile(manifestPath, 'utf8'));
-  assert.equal(retained.tasks.every((task) => task.status === 'verified'), true);
+  assert.equal(retained.tasks.every((task) => task.status === 'integrated' && task.review), true);
   assert.equal(retained.integration.status, 'verification-interrupted');
+  assert.equal(retained.active_workers['controller:integration-commit'].role, 'integration-commit');
+  await git(retained.integration.workspace.path, ['commit', '-m', 'simulate boundary commit before manifest persist']);
 
   const resumed = await resumeAdaptiveExecution({
     cwd: repo.root,

@@ -1,4 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
@@ -12,9 +13,11 @@ import {
   inspectGitTopology,
   inspectInvokingWorktree,
   ownedRefNames,
+  reconcileOwnedWorktree,
   removeOwnedWorktree,
   snapshotWorkspacePaths,
   snapshotIntegrationTree,
+  verifyOwnedWorktree,
 } from './git-isolation.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -120,9 +123,25 @@ export async function createConcurrentWorkspaces({ cwd, runId, outcomes, inspect
   };
 }
 
-export async function commitTaskWorkspace({ topology, task, outcome, verification }) {
+export async function commitTaskWorkspace({
+  topology,
+  task,
+  outcome,
+  verification,
+  reviewedDiffPackage = null,
+}) {
   if (verification?.status !== 'passed' || !Array.isArray(verification.commands) || verification.commands.length === 0) {
     throw new Error(`worker verification is missing or failed for ${outcome.id}`);
+  }
+  if (reviewedDiffPackage !== null) {
+    const verified = await verifyOwnedWorktree({ topology, descriptor: task });
+    await git(verified.path, ['add', '--intent-to-add', '--all']);
+    const currentDiff = (await git(verified.path, ['diff', '--binary', 'HEAD', '--'])).stdout;
+    if (currentDiff !== reviewedDiffPackage) {
+      const error = new Error(`task candidate changed after independent review: ${outcome.id}`);
+      error.code = 'adaptive_reviewed_candidate_changed';
+      throw error;
+    }
   }
   return createEphemeralTaskCommit({
     topology,
@@ -132,9 +151,155 @@ export async function commitTaskWorkspace({ topology, task, outcome, verificatio
   });
 }
 
+export async function reconcileCommittedTaskWorkspace({
+  topology,
+  task,
+  expectedParent,
+  reviewedDiffSha256,
+  changedPaths,
+}) {
+  const observed = await reconcileOwnedWorktree({ topology, descriptor: task });
+  if (observed.head === expectedParent) {
+    return { committed: false, descriptor: observed };
+  }
+  const parent = (await git(observed.path, ['rev-parse', 'HEAD^'])).stdout.trim();
+  if (parent !== expectedParent) {
+    const error = new Error('task worktree advanced by an unexpected commit while recovering');
+    error.code = 'adaptive_task_commit_recovery_mismatch';
+    throw error;
+  }
+  const status = (await git(observed.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout;
+  if (status !== '') {
+    const error = new Error('task worktree is dirty after the recovered commit');
+    error.code = 'adaptive_task_commit_recovery_mismatch';
+    throw error;
+  }
+  const committedDiff = (await git(observed.path, ['diff', '--binary', expectedParent, observed.head, '--'])).stdout;
+  const committedDiffSha256 = createHash('sha256').update(committedDiff).digest('hex');
+  if (committedDiffSha256 !== reviewedDiffSha256) {
+    const error = new Error('recovered task commit differs from the independently reviewed candidate');
+    error.code = 'adaptive_task_commit_recovery_mismatch';
+    throw error;
+  }
+  return {
+    committed: true,
+    commit: observed.head,
+    changed_paths: [...changedPaths],
+    descriptor: observed,
+  };
+}
+
+export async function prepareTaskWorkspace({ topology, task, dependencyCommits = [] }) {
+  let prepared = task;
+  for (const dependencyCommit of dependencyCommits) {
+    const verified = await verifyOwnedWorktree({ topology, descriptor: prepared });
+    const applied = await git(verified.path, ['cherry-pick', dependencyCommit], { allowFailure: true });
+    if (applied.failed) {
+      const error = new Error(`dependency commit conflicts while preparing ${task.qualified_id}: ${dependencyCommit}`);
+      error.code = 'adaptive_dependency_prepare_conflict';
+      error.details = {
+        dependency_commit: dependencyCommit,
+        task: task.qualified_id,
+        stderr: applied.stderr.trim(),
+      };
+      throw error;
+    }
+    const head = (await git(verified.path, ['rev-parse', 'HEAD'])).stdout.trim();
+    prepared = { ...verified, head };
+  }
+  return prepared;
+}
+
+function integrationOrderError(code, message, details = null) {
+  const error = new Error(message);
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function stableTopologicalTaskResults(taskResults) {
+  if (!Array.isArray(taskResults)) {
+    throw integrationOrderError('adaptive_integration_results_invalid', 'task results must be an array');
+  }
+
+  const entries = taskResults.map((result, index) => {
+    const id = result?.outcome?.id;
+    const dependencies = result?.outcome?.depends_on;
+    if (typeof id !== 'string' || id.trim() === '' || !Array.isArray(dependencies)
+        || dependencies.some((dependency) => typeof dependency !== 'string' || dependency.trim() === '')) {
+      throw integrationOrderError(
+        'adaptive_integration_result_invalid',
+        `task result at index ${index} lacks a valid outcome id or dependency list`,
+      );
+    }
+    if (new Set(dependencies).size !== dependencies.length) {
+      throw integrationOrderError(
+        'adaptive_integration_dependencies_invalid',
+        `task result ${id} contains duplicate dependencies`,
+        { task_id: id, dependencies },
+      );
+    }
+    return { id, dependencies: [...dependencies], index, result };
+  });
+
+  const byId = new Map();
+  for (const entry of entries) {
+    if (byId.has(entry.id)) {
+      throw integrationOrderError(
+        'adaptive_integration_result_duplicate',
+        `task integration result is duplicated: ${entry.id}`,
+        { task_id: entry.id },
+      );
+    }
+    byId.set(entry.id, entry);
+  }
+
+  const dependents = new Map(entries.map(({ id }) => [id, []]));
+  const indegree = new Map();
+  for (const entry of entries) {
+    indegree.set(entry.id, entry.dependencies.length);
+    for (const dependency of entry.dependencies) {
+      if (!byId.has(dependency)) {
+        throw integrationOrderError(
+          'adaptive_integration_dependency_result_missing',
+          `${entry.id} depends on missing integration result ${dependency}`,
+          { task_id: entry.id, dependency_id: dependency },
+        );
+      }
+      dependents.get(dependency).push(entry);
+    }
+  }
+
+  const ready = entries.filter(({ id }) => indegree.get(id) === 0);
+  const ordered = [];
+  while (ready.length > 0) {
+    const entry = ready.shift();
+    ordered.push(entry.result);
+    for (const dependent of dependents.get(entry.id)) {
+      const remaining = indegree.get(dependent.id) - 1;
+      indegree.set(dependent.id, remaining);
+      if (remaining !== 0) continue;
+      const insertion = ready.findIndex(({ index }) => index > dependent.index);
+      if (insertion === -1) ready.push(dependent);
+      else ready.splice(insertion, 0, dependent);
+    }
+  }
+
+  if (ordered.length !== entries.length) {
+    const blocked = entries.filter(({ id }) => indegree.get(id) > 0).map(({ id }) => id);
+    throw integrationOrderError(
+      'adaptive_integration_dependency_cycle',
+      `task integration dependencies contain a cycle: ${blocked.join(', ')}`,
+      { task_ids: blocked },
+    );
+  }
+  return ordered;
+}
+
 export async function integrateTaskCommits({ topology, integration, taskResults }) {
+  const orderedResults = stableTopologicalTaskResults(taskResults);
   let snapshot = await snapshotIntegrationTree({ topology, descriptor: integration });
-  for (const result of taskResults) {
+  for (const result of orderedResults) {
     snapshot = await applyEphemeralCommit({
       topology,
       integration,
@@ -142,11 +307,26 @@ export async function integrateTaskCommits({ topology, integration, taskResults 
       snapshot,
     });
   }
-  return snapshot;
+  return {
+    ...snapshot,
+    integration_order: orderedResults.map(({ outcome }) => outcome.id),
+  };
 }
 
 export async function commitIntegratedResult({ topology, integration, message }) {
   return createBoundaryCommit({ topology, integration, message });
+}
+
+export async function commitFinalFixWorkspace({ topology, integration, writeScope, verification, message }) {
+  if (verification?.status !== 'passed' || !Array.isArray(verification.commands) || verification.commands.length === 0) {
+    throw new Error('final fix verification is missing or failed');
+  }
+  return createEphemeralTaskCommit({
+    topology,
+    descriptor: integration,
+    writeScope,
+    message,
+  });
 }
 
 export async function applyIntegratedResult({

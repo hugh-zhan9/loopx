@@ -399,11 +399,10 @@ describe('loopx skill governance', () => {
     assert.match(agentTopology, /Do not create\s+exploratory helpers, duplicate reviewers, speculative parallel workers/is);
     assert.match(agentTopology, /required capabilities.*create.*await/is);
     assert.match(agentTopology, /optional capabilities.*inspect.*message.*release/is);
-    assert.match(reviewContract, /explicit user request.*security-sensitive.*destructive.*public compatibility.*cross-task interaction.*reconciled conflict/is);
-    assert.match(reviewContract, /Multi-agent execution alone is not a trigger/i);
-    assert.match(reviewContract, /Low-risk.*disjoint.*passing combined verification.*do not require per-task/is);
-    assert.match(reviewContract, /active execution context/i);
-    assert.doesNotMatch(reviewContract, /Plan-level final-review|Spec-level final-review/);
+    assert.match(reviewContract, /Inline work requires independent review.*explicit review intent.*security-sensitive or destructive.*public compatibility.*cross-scope interaction.*conflict reconciliation/is);
+    assert.match(reviewContract, /delegated-serial-v1.*parallel-strict-v1.*independent task review.*final Spec and Standards/is);
+    assert.match(reviewContract, /read-only leaf worker/i);
+    assert.match(reviewContract, /separate\s+fixer.*fresh focused and combined verification.*independent re-review/is);
     assert.match(reviewContract, /Critical.*Important.*Minor/is);
     for (const field of ['command', 'cwd', 'timestamp', 'exit_code', 'scope', 'result', 'output_summary', 'skipped_checks', 'environment_constraints']) {
       assert.match(evidenceContract, new RegExp(`\\b${field}\\b`), `evidence contract missing ${field}`);
@@ -432,8 +431,9 @@ describe('loopx skill governance', () => {
     assert.equal(existsSync(join(repoRoot, 'skills', 'plan2exec', 'references', 'plan-schema.md')), true);
     assert.match(planSkill, /plan-schema\.md/);
     assert.match(planSkill, /interruption recovery/i);
-    assert.match(execSkill, /temporary execution graph/i);
-    assert.match(execSkill, /do not write a workflow artifact.*represent|do not create.*workflow artifact/is);
+    assert.match(execSkill, /temporary graph/i);
+    assert.match(execSkill, /implementation seam.*adaptive-exec\.mjs/is);
+    assert.match(execSkill, /manifest\s+state.*resume/is);
     assertExplicitCompatibilityAlias(fixReview, 'fix-review', 'review');
     assert.match(fixReview, /does not require a feedback ledger or report artifact/i);
     assert.match(finishRecording, /prepare -> perform -> record -> reconcile/);
@@ -579,17 +579,17 @@ describe('loopx skill governance', () => {
     const fields = parseFrontmatter(skill);
 
     assert.equal(fields.name, 'plan-reviewer');
-    assert.match(fields.description, /lean implementation plan.*approved source/i);
+    assert.match(fields.description, /implementation plan.*authoritative execution graph.*approved source/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.2.1');
+    assert.equal(fields['metadata.version'], '0.3.0');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
-    assert.match(skill, /support lens.*must not\s+create a workflow state/is);
+    assert.match(skill, /support lens.*does not edit the plan, dispatch implementation, or advance workflow state/is);
     assert.match(skill, /## STOP Conditions/);
     assert.match(skill, /implementation or code review/i);
-    assert.match(skill, /must not\s+create a workflow state.*scheduler manifest.*mandatory\s+review artifact/is);
-    assert.match(skill, /explicit ad-hoc review/i);
-    assert.match(skill, /assessment: ready/);
+    assert.match(skill, /loopx\.execution-graph\.v1/);
+    assert.match(skill, /parallel-strict-v1.*ready frontier.*independence evidence/is);
+    assert.match(skill, /assessment: ready, ready after named fixes, or blocked/i);
   });
 
   it('governs clarify skill as incremental requirements intake', async () => {
@@ -719,7 +719,7 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(fixSkill, /local_review:|whole_diff_review:/i);
     assert.match(fixSkill, /finish/i);
     assert.match(fixSkill, /shared\/completion-check\.md/);
-    assert.match(fixSkill, /finish.*explicit.*Git disposition/is);
+    assert.match(fixSkill, /finish.*Git disposition.*active fix run/is);
     assert.doesNotMatch(fixSkill, /finish_handoff:\s*`?\$finish|hand off to `finish`/i);
     assert.match(fixSkill, /Execution Reports/);
     assert.match(fixSkill, /Reviews/);
@@ -859,6 +859,28 @@ describe('loopx skill governance', () => {
     const removedTwoStagePhrase = ['two', 'stage review'].join('-');
     const removedPromptPattern = new RegExp(`${removedSpecPrompt}|${removedQualityPrompt}|${removedTwoStagePhrase}`, 'i');
     const rootSkill = await readFile(join(rootSkillDir, 'SKILL.md'), 'utf8');
+    if (parseFrontmatter(rootSkill)['metadata.version'] === '0.5.0') {
+      const taskReviewer = await readFile(join(rootSkillDir, 'task-reviewer-prompt.md'), 'utf8');
+      const implementer = await readFile(join(rootSkillDir, 'implementer-prompt.md'), 'utf8');
+      const handoff = await readFile(join(rootSkillDir, 'references', 'task-handoff-and-review.md'), 'utf8');
+      const reviewResultContract = await readFile(join(rootSkillDir, 'references', 'review-result-contract.md'), 'utf8');
+
+      assert.equal(parseFrontmatter(rootSkill)['disable-model-invocation'], 'true');
+      assert.match(rootSkill, /explicit `delegated-serial-v1` profile entry point/i);
+      assert.match(rootSkill, /mandatory independent read-only task review/i);
+      assert.match(rootSkill, /separate leaf fixer.*independently re-review/is);
+      assert.match(rootSkill, /Spec and Standards final reviewers/i);
+      assert.match(taskReviewer, /spec_compliance/);
+      assert.match(taskReviewer, /code_quality/);
+      assert.match(taskReviewer, /read-only work/i);
+      assert.match(taskReviewer, /leaf worker/i);
+      assert.match(implementer, /leaf worker/i);
+      assert.match(handoff, /verification hash/i);
+      assert.match(reviewResultContract, /loopx\.task-review-result\.v1/);
+      assert.match(reviewResultContract, /stale|hash/i);
+      assert.doesNotMatch(rootSkill, /compatibility alias/i);
+      return;
+    }
     if (parseFrontmatter(rootSkill)['disable-model-invocation'] === 'true') {
       assertExplicitCompatibilityAlias(rootSkill, 'subagent-exec', 'exec');
       assert.match(rootSkill, /Not for automatic routing/i);
@@ -994,6 +1016,18 @@ describe('loopx skill governance', () => {
     await writeFile(join(wd, 'app.txt'), 'one\ntwo\n');
 
     const scriptsDir = join(repoRoot, 'skills', 'subagent-exec', 'scripts');
+    if (existsSync(join(scriptsDir, 'review-result')) && !existsSync(join(scriptsDir, 'subagent-workspace'))) {
+      for (const scriptName of ['review-result', 'review-artifact-verify']) {
+        const mode = (await stat(join(scriptsDir, scriptName))).mode;
+        assert.notEqual(mode & 0o111, 0, `${scriptName} should be executable`);
+      }
+      const contract = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'references', 'review-result-contract.md'), 'utf8');
+      assert.match(contract, /canonical artifact/i);
+      assert.match(contract, /diff-package SHA-256/i);
+      assert.match(contract, /verification SHA-256/i);
+      assert.match(contract, /invalid|stale/i);
+      return;
+    }
     if (!existsSync(join(scriptsDir, 'subagent-workspace'))) {
       assert.deepEqual(await relativeFilesUnder(join(repoRoot, 'skills', 'subagent-exec')), ['SKILL.md']);
       return;
@@ -1145,11 +1179,14 @@ describe('loopx skill governance', () => {
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
 
-    if (parseFrontmatter(planSkill).name === 'plan2exec') {
-      assertExplicitCompatibilityAlias(subagentSkill, 'subagent-exec', 'exec');
-      assert.match(execSkill, /fresh task-relevant verification/i);
-      assert.doesNotMatch(execSkill, /per-task staging/i);
-      assert.match(planSkill, /per-slice commit commands/i);
+    if (parseFrontmatter(planSkill)['metadata.version'] === '0.3.0') {
+      assert.match(subagentSkill, /explicit `delegated-serial-v1` profile entry point/i);
+      assert.match(execSkill, /Only a clean candidate may integrate/i);
+      assert.match(execSkill, /separate read-only reviewer/i);
+      assert.match(planSkill, /Do not add.*per-slice commit\s+commands/is);
+      assert.match(implementerPrompt, /Do not stage, commit/i);
+      assert.match(reviewerPrompt, /read-only work/i);
+      assert.doesNotMatch(subagentSkill, /compatibility alias/i);
       return;
     }
 
@@ -1180,13 +1217,17 @@ describe('loopx skill governance', () => {
     const finishSkill = await readSkillSurface('finish');
     if (parseFrontmatter(planSkill).name === 'plan2exec') {
       const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
+      assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
       assert.match(canonicalPlan, /Boundaries And Global Constraints/);
       assert.match(canonicalPlan, /Execution Slices/);
-      assert.match(canonicalPlan, /Interfaces:/);
+      assert.match(canonicalPlan, /Interfaces consumed:/);
+      assert.match(canonicalPlan, /Interfaces produced:/);
       assert.match(canonicalPlan, /Depends on:/);
       assert.match(canonicalPlan, /Expected evidence:/);
-      assert.match(canonicalPlan, /Do not add\s+task microsteps/i);
+      assert.match(canonicalPlan, /Authoritative Execution Graph/);
+      assert.match(canonicalPlan, /selected_profile/);
+      assert.match(canonicalPlan, /parallel_safe/);
+      assert.match(canonicalPlan, /Do not add.*task microsteps/is);
       return;
     }
     assert.match(planSkill, /## Global Constraints/);
@@ -1256,10 +1297,13 @@ describe('loopx skill governance', () => {
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
     if (parseFrontmatter(planSkill).name === 'plan2exec') {
-      assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
-      assert.match(execSkill, /Strongly coupled work remains serial in the current context/i);
-      assert.match(planSkill, /executor choices, concurrency metadata/i);
-      assert.match(resolver, /do not participate in automatic routing/i);
+      const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
+      assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
+      assert.match(execSkill, /delegated-serial-v1.*default for planned work/is);
+      assert.match(canonicalPlan, /one authoritative.*loopx\.execution-graph\.v1/is);
+      assert.match(canonicalPlan, /selected_profile/);
+      assert.match(resolver, /Execution Profiles/);
+      assert.doesNotMatch(canonicalPlan, /multi-plan package|00-overview\.md/i);
       return;
     }
 
@@ -1441,7 +1485,7 @@ describe('loopx skill governance', () => {
     const reviewFields = parseFrontmatter(reviewSkill);
 
     assert.equal(specFields['metadata.version'], '0.3.15');
-    assert.equal(planFields['metadata.version'], '0.2.0');
+    assert.equal(planFields['metadata.version'], '0.3.0');
     assert.equal(reviewFields['metadata.version'], '0.4.0');
 
     assert.match(specSkill, /D-\*/);
@@ -1499,13 +1543,15 @@ describe('loopx skill governance', () => {
 
     if (planFields.name === 'plan2exec') {
       const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
+      assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
       for (const section of ['Source And Goal', 'Boundaries And Global Constraints', 'Execution Slices', 'Integration And Final Verification', 'Handoff And Residual Risks']) {
         assert.match(canonicalPlan, new RegExp(section));
       }
       assert.match(canonicalPlan, /### P-001:/);
-      assert.match(execSkill, /Preserve\s+`P-\*` identifiers/i);
-      assert.match(execSkill, /temporary execution graph/i);
+      assert.match(canonicalPlan, /source_anchors/);
+      assert.match(canonicalPlan, /review_focus/);
+      assert.match(execSkill, /loopx\.execution-graph\.v1/);
+      assert.match(execSkill, /temporary graph/i);
       return;
     }
 
@@ -1571,7 +1617,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
   });
 
-  it('keeps plan2exec source coverage self-contained without mandatory review ceremony', async () => {
+  it('keeps plan2exec source coverage and graph review obligations self-contained', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const resolver = await readFile(resolverPath, 'utf8');
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
@@ -1583,7 +1629,9 @@ describe('loopx skill governance', () => {
       assert.match(canonicalPlan, /Verification/);
       assert.match(canonicalPlan, /Source anchors/);
       assert.match(canonicalPlan, /deferred-with-rationale/);
-      assert.match(canonicalPlan, /Do not add.*reviewer stages/is);
+      assert.match(canonicalPlan, /Review focus/);
+      assert.match(canonicalPlan, /Authoritative Execution Graph/);
+      assert.match(canonicalPlan, /independent reviewer/i);
       assert.doesNotMatch(canonicalPlan, /Internal Plan Review/i);
       return;
     }
@@ -1637,29 +1685,30 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(planReviewerSkill, historicalPlanMigrationPattern);
   });
 
-  it('keeps lean plans free of executor metadata and makes exec choose qualitatively', async () => {
+  it('makes current plans carry an authoritative execution graph for qualitative profile selection', async () => {
     const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const planSchema = await readFile(join(repoRoot, 'skills', 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
     const execSelection = await readFile(join(repoRoot, 'skills', 'exec', 'references', 'execution-selection.md'), 'utf8');
     const matrix = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json'), 'utf8'));
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.2.0');
-    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan2exec').version, '0.2.0');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.0');
+    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan2exec').version, '0.3.0');
     assert.equal(matrix.skills.some(({ skill }) => skill === 'plan'), false);
     assert.equal(matrix.skills.some(({ skill }) => skill === 'plan-to-exec'), false);
 
-    for (const contract of [planSkill, planSchema]) {
-      assert.doesNotMatch(contract, /loopx-parallel-(?:plan|task|package)/);
-      assert.doesNotMatch(contract, /max_parallel|depends_on|write_scope|parallel_safe|can_run_in_parallel/);
-      assert.doesNotMatch(contract, /Execution strategy recommendation/);
+    assert.match(planSkill, /loopx\.execution-graph\.v1/);
+    for (const field of ['selected_profile', 'max_parallel', 'depends_on', 'write_scope', 'relevant_paths', 'parallel_safe']) {
+      assert.match(planSchema, new RegExp(field));
     }
+    assert.match(planSchema, /default selected profile for a persistent plan\s+is `delegated-serial-v1`/i);
+    assert.match(planSchema, /Select parallel only when.*ready.*independent/is);
 
-    assert.match(execSelection, /dependencies/i);
-    assert.match(execSelection, /write surfaces/i);
+    assert.match(execSelection, /dependency/i);
+    assert.match(execSelection, /write scopes/i);
     assert.match(execSelection, /decisions/i);
     assert.match(execSelection, /verification/i);
-    assert.match(execSelection, /baseline inputs/i);
-    assert.match(execSelection, /integration outcomes/i);
+    assert.match(execSelection, /baseline reads/i);
+    assert.match(execSelection, /verification outcomes/i);
     assert.match(execSelection, /default shared worker budget is four/i);
     assert.match(execSelection, /uncertain.*serial/is);
   });
@@ -1677,10 +1726,12 @@ describe('loopx skill governance', () => {
 
     if (parseFrontmatter(planSkill).name === 'plan2exec') {
       const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
+      assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
       assert.match(canonicalPlan, /source `AC-\*`, `D-\*`, and `TC-\*`/);
       assert.match(canonicalPlan, /Execution Slices/);
-      assert.match(execSkill, /clear request or a persistent plan/i);
+      assert.match(execSkill, /clear request or persistent plan/i);
+      assert.match(implementerPrompt, /source anchors/i);
+      assert.match(taskReviewerPrompt, /source anchors/i);
       return;
     }
 
@@ -1783,7 +1834,7 @@ describe('loopx skill governance', () => {
     assert.match(reviewSkill, /Critical and Important findings remain blocking/i);
     assert.match(reviewSkill, /fresh focused verification.*combined verification/is);
     assert.match(reviewSkill, /independent re-review/i);
-    assert.match(reviewContract, /Multi-agent execution alone is not a trigger/i);
+    assert.match(reviewContract, /delegated-serial-v1.*parallel-strict-v1.*independent task review/is);
     assertExplicitCompatibilityAlias(finalReviewSkill, 'final-review', 'review');
     assertExplicitCompatibilityAlias(fixReviewSkill, 'fix-review', 'review');
     assert.match(finalReviewSkill, /whole-feature review intent/i);
@@ -1861,18 +1912,16 @@ describe('loopx skill governance', () => {
     assert.match(resolver, /`lancet` is implementation\/review-only/i);
     assert.doesNotMatch(resolver, /`lancet` add[s]? domain discipline to `spec`/i);
     assert.doesNotMatch(planSkill, /lancet/i);
-    assert.match(execSkill, /smallest coherent change/i);
-    assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
+    assert.match(execSkill, /one coherent prompt\s+outcome/is);
+    assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
     assert.match(reviewSkill, /over-engineering/i);
     assert.match(reviewSkill, /stdlib\/native alternatives/i);
     assertExplicitCompatibilityAlias(finalReviewSkill, 'final-review', 'review');
     assert.match(fixSkill, /smallest root-cause fix/i);
     assert.match(fixSkill, /Use `lancet` discipline/i);
     if (implementerPrompt) {
-      assert.match(implementerPrompt, /LANCET_CONTEXT/);
-      assert.match(implementerPrompt, /smallest correct diff/);
-      assert.match(reviewerPrompt, /over-engineering/);
-      assert.match(reviewerPrompt, /repo reuse, stdlib\/native\s+alternatives/);
+      assert.match(implementerPrompt, /smallest complete vertical slice/);
+      assert.match(reviewerPrompt, /maintainability/);
     }
   });
 
@@ -1943,7 +1992,9 @@ describe('loopx skill governance', () => {
     assert.match(finishSkill, /create a new branch.*commit there/is);
     assert.match(finishSkill, /merge locally.*pull request.*keep as-is.*clean up.*discard/is);
     assert.match(finishSkill, /explicit typed confirmation.*exact branch\/worktree.*target/is);
-    assert.match(finishSkill, /Do not require a review report, extraction candidate, audit artifact, or other\s+workflow state/is);
+    assert.match(finishSkill, /explicit `\$finish`.*active loopx `exec` or `fix` run/is);
+    assert.match(finishSkill, /standalone Git request.*must not trigger `finish`/is);
+    assert.match(finishSkill, /Do not require a review report, extraction candidate, audit artifact, or\s+additional persisted state/is);
     assert.doesNotMatch(finishSkill, /final-review-and-finish-gates|memory-and-spec-candidates/);
   });
 
@@ -1955,9 +2006,9 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(finishSkill, /Final Response Contract/i);
     assert.doesNotMatch(finishSkill, /final response must/i);
     assert.match(finishSkill, /Report the chosen action, resulting branch and HEAD/i);
-    assert.match(execSkill, /Completion Contract/);
+    assert.match(execSkill, /Review And Completion Gates/);
     assert.match(execSkill, /fresh verification/i);
-    assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
+    assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
   });
 
   it('keeps standalone clarify test-cases artifact out of current surfaces', async () => {
@@ -2013,6 +2064,20 @@ describe('loopx skill governance', () => {
 
     assert.equal(LOOPX_BUNDLED_SKILLS.includes('parallel-subagent-exec'), true);
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
+    if (parseFrontmatter(referenceSurface)['metadata.version'] === '0.5.0') {
+      assert.equal(parseFrontmatter(referenceSurface)['disable-model-invocation'], 'true');
+      assert.match(skill, /explicit `parallel-strict-v1` profile entry point/i);
+      assert.match(skill, /ready\s+frontier of at least two/is);
+      assert.match(skill, /disjoint write scopes and exclusive resources/i);
+      assert.match(skill, /shared worker budget.*implementers, reviewers, fixers/is);
+      assert.match(skill, /separate read-only leaf reviewer for every candidate/i);
+      assert.match(skill, /Spec and Standards final reviewers/i);
+      assert.match(skill, /controller alone owns lifecycle, state, Git, integration, resume, and\s+cleanup/is);
+      assert.match(resolver, /Execution Profiles[\s\S]*parallel-subagent-exec/);
+      assert.doesNotMatch(skill, /compatibility alias/i);
+      assert.deepEqual(await relativeFilesUnder(rootDir), ['SKILL.md']);
+      return;
+    }
     if (parseFrontmatter(referenceSurface)['disable-model-invocation'] === 'true') {
       assertExplicitCompatibilityAlias(referenceSurface, 'parallel-subagent-exec', 'exec');
       assert.match(resolver, /do not participate in automatic routing/i);
@@ -2095,7 +2160,7 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(planSkill, /\$parallel-subagent-exec docs\/loopx\/plans/);
   });
 
-  it('documents parallel-subagent-exec as an explicit-only compatibility alias', async () => {
+  it('documents parallel-subagent-exec as an explicit execution profile', async () => {
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
     const skills = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
@@ -2103,19 +2168,20 @@ describe('loopx skill governance', () => {
     const installation = await readFile(join(repoRoot, 'docs', 'loopx', 'specs', 'installation.md'), 'utf8');
 
     for (const text of [readme, skills]) {
-      assert.match(text, /explicit-only compatibility/i);
+      assert.match(text, /Execution Profiles/);
       assert.match(text, /parallel-subagent-exec/);
-      assert.match(text, /parallel-subagent-exec` \| `exec/);
-      assert.doesNotMatch(text, /--max-parallel|strict.*machine-readable.*metadata/is);
+      assert.match(text, /mandatory review.*integration|review clean.*integration/is);
+      assert.match(text, /final-review` \| `review/);
     }
     for (const text of [readmeZh, skillsZh]) {
-      assert.match(text, /显式兼容别名|仅显式兼容别名/);
+      assert.match(text, /Execution Profiles/);
       assert.match(text, /parallel-subagent-exec/);
-      assert.match(text, /parallel-subagent-exec` \| `exec/);
-      assert.doesNotMatch(text, /--max-parallel|严格.*机器可读.*元数据/s);
+      assert.match(text, /review clean.*集成|review clean 后才集成/is);
+      assert.match(text, /final-review` \| `review/);
     }
-    assert.match(installation, /explicit-only\s+compatibility aliases/is);
-    assert.match(installation, /excluded from automatic routing/i);
+    assert.match(installation, /explicit execution profiles/i);
+    assert.match(installation, /owned by `exec`/i);
+    assert.match(installation, /None participates in automatic routing/i);
     assert.match(installation, /~\/\.agents\/skills\/\{[^\n}]*parallel-subagent-exec/);
     assert.match(installation, /~\/\.claude\/skills\/\{[^\n}]*parallel-subagent-exec/);
   });

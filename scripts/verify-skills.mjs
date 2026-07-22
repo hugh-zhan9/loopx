@@ -10,6 +10,7 @@ import {
   LOOPX_BUNDLED_SKILLS,
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
   LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -393,8 +394,9 @@ assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.jso
 assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec', 'exec', 'review', 'finish']);
 assert.deepEqual(
   LOOPX_COMPATIBILITY_ALIAS_SKILLS,
-  ['subagent-exec', 'parallel-subagent-exec', 'final-review', 'fix-review'],
+  ['final-review', 'fix-review'],
 );
+assert.deepEqual(LOOPX_EXECUTION_PROFILE_SKILLS, ['subagent-exec', 'parallel-subagent-exec']);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }
@@ -403,6 +405,12 @@ for (const skillName of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
     .filter((entry) => entry !== '.DS_Store')
     .sort();
   assert.deepEqual(entries, ['SKILL.md'], `${skillName} must contain only its compatibility forwarding skill`);
+}
+for (const skillName of LOOPX_EXECUTION_PROFILE_SKILLS) {
+  const entries = (await readdir(join(repoRoot, 'skills', skillName)))
+    .filter((entry) => entry !== '.DS_Store')
+    .sort();
+  assert.equal(entries.includes('SKILL.md'), true, `${skillName} must contain its profile skill`);
 }
 for (const relativePath of obsoleteImplementationPaths) {
   assert.equal(existsSync(join(repoRoot, relativePath)), false, `${relativePath} must remain removed`);

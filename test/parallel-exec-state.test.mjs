@@ -10,6 +10,7 @@ import * as runManifest from '../skills/exec/scripts/run-manifest.mjs';
 test('retains only a compact owner-only active manifest and removes all success state', async () => {
   assert.deepEqual(Object.keys(runManifest).sort(), [
     'createRunManifest',
+    'deriveRunPhase',
     'loadRunManifest',
     'removeRunManifest',
     'writeRunManifest',
@@ -40,6 +41,7 @@ test('retains only a compact owner-only active manifest and removes all success 
     targetSnapshot: [{ path: 'src/alpha.mjs', kind: 'file', mode: 420, sha256: 'hash' }],
     workerLimit: 2,
     ownership,
+    reviewContext: { source: 'test requirements', plan: 'test execution plan' },
     outcomes: [
       { id: 'alpha', write_scope: ['src/alpha.mjs'] },
       { id: 'beta', write_scope: ['src/beta.mjs'] },
@@ -48,28 +50,51 @@ test('retains only a compact owner-only active manifest and removes all success 
 
   assert.equal((await stat(created.path)).mode & 0o777, 0o600);
   assert.deepEqual(JSON.parse(await readFile(created.path, 'utf8')), {
-    schema: 'loopx.exec-run.v2',
+    schema: 'loopx.exec-run.v3',
     run_id: 'manifest-run',
     status: 'active',
+    profile: 'parallel-strict-v1',
     baseline_head: 'abc123',
     target_snapshot: [{ path: 'src/alpha.mjs', kind: 'file', mode: 420, sha256: 'hash' }],
+    configured_worker_limit: 2,
     worker_limit: 2,
+    review_policy: { task: 'mandatory', final: ['spec', 'standards'] },
+    review_context: {
+      source: 'test requirements',
+      plan: 'test execution plan',
+      acceptance: [{ id: 'alpha', acceptance: [] }, { id: 'beta', acceptance: [] }],
+      scope: [
+        { id: 'alpha', write_scope: ['src/alpha.mjs'], relevant_paths: [] },
+        { id: 'beta', write_scope: ['src/beta.mjs'], relevant_paths: [] },
+      ],
+    },
     resume_instruction: '$exec --resume manifest-run',
     ownership,
+    active_workers: {},
     tasks: [
       {
-        id: 'alpha', outcome: { id: 'alpha', write_scope: ['src/alpha.mjs'] }, write_scope: ['src/alpha.mjs'],
-        changed_paths: [], status: 'pending', verification: null, commit: null,
+        id: 'alpha', outcome: { id: 'alpha', write_scope: ['src/alpha.mjs'] }, depends_on: [], write_scope: ['src/alpha.mjs'],
+        changed_paths: [], status: 'pending', attempts: { implementation: 0, review: 0, fix: 0 },
+        workers: { implementers: [], reviewers: [], fixers: [] },
+        prepared_dependencies: [], implementation: null, verification: null, review: null, commit: null,
         workspace: taskWorkspaces[0].workspace,
       },
       {
-        id: 'beta', outcome: { id: 'beta', write_scope: ['src/beta.mjs'] }, write_scope: ['src/beta.mjs'],
-        changed_paths: [], status: 'pending', verification: null, commit: null,
+        id: 'beta', outcome: { id: 'beta', write_scope: ['src/beta.mjs'] }, depends_on: [], write_scope: ['src/beta.mjs'],
+        changed_paths: [], status: 'pending', attempts: { implementation: 0, review: 0, fix: 0 },
+        workers: { implementers: [], reviewers: [], fixers: [] },
+        prepared_dependencies: [], implementation: null, verification: null, review: null, commit: null,
         workspace: taskWorkspaces[1].workspace,
       },
     ],
-    integration: { status: 'pending', verification: null, commit: null, workspace: integration },
-    application: { status: 'pending', verification: null },
+    integration: {
+      status: 'pending', verification: null, commit: null, changed_paths: [], integration_order: [], workspace: integration,
+    },
+    final_review: {
+      status: 'pending', attempt: 1, fix_attempt: 0, spec: null, standards: null,
+      workers: { reviewers: [], fixers: [] },
+    },
+    application: { status: 'pending', verification: null, post_apply_snapshot: null },
   });
 
   assert.deepEqual((await runManifest.loadRunManifest({ cwd, runId: 'manifest-run' })).runState, created.runState);
@@ -77,6 +102,7 @@ test('retains only a compact owner-only active manifest and removes all success 
   created.runState.tasks[0].status = 'verified';
   await runManifest.writeRunManifest(created);
   assert.equal(JSON.parse(await readFile(created.path, 'utf8')).tasks[0].status, 'verified');
+  assert.equal(runManifest.deriveRunPhase(created.runState), 'tasks');
 
   await runManifest.removeRunManifest(created);
   assert.equal(existsSync(created.path), false);

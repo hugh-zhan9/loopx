@@ -1,52 +1,73 @@
-# Concurrent Execution
+# Parallel Strict Execution
 
-Use this path only after `execution-selection.md` admits independent mutating
-outcomes and the host proves task-worktree binding.
+Use this path only after a validated graph proves a ready frontier of at least
+two independent slices and the host proves isolated mutation.
 
-## Isolated Mutation Lifecycle
+## Ready Frontier
 
-1. Inspect the invoking Git topology, user-owned changes, baseline commit, and
-   target-path content snapshots. Overlapping write or relevant-read paths
-   select serial execution before creating owned state.
-2. Create one owner-only run manifest under `.loopx/exec/<run-id>/` with the
-   invoking identity, exact worktree descriptors, semantic task contracts,
-   task and verification state, integration state, and
-   `$exec --resume <run-id>` instruction.
-3. Create one owned task worktree per outcome and one protected integration
-   workspace from the same baseline.
-4. Dispatch at most the admitted worker limit. Every prompt must state:
-   `You are a leaf worker. Do not spawn, delegate to, or wait for other agents.`
-5. Require fresh worker verification, then compare actual changed paths with
-   the declared write scope before creating the ephemeral task commit.
-6. Apply verified task commits to the integration workspace in dependency and
-   stable input order. Run relevant combined verification there.
-7. Recheck the invoking identity and target snapshots. Apply the one verified
-   integration patch to the working tree without moving the branch or changing
-   the user's index, then run the same relevant verification again.
-8. Remove every owned worktree, branch, and run-manifest directory. The only
-   remaining repository change is the intended unstaged product diff.
+A slice is ready only when every dependency is verified, independently
+reviewed, and integrated. Recompute the frontier after each integration. A
+diamond graph runs its independent branches together, then waits at the fan-in
+barrier before starting the consumer.
 
-The top-level `exec` controller owns this lifecycle and calls the primitives in
-`scripts/adaptive-exec.mjs`. Workers receive only their outcome, owned
-workspace, write scope, and verification obligation.
+Within the shared worker budget, prefer fixer and re-review work, then task
+review, then new implementation. Do not starve review by filling every slot with
+new implementers.
+
+## Isolated Slice Lifecycle
+
+1. Inspect Git topology, user-owned changes, baseline identity, write scope, and relevant-path snapshots.
+2. Persist owner-only run state under `.loopx/exec/<run-id>/` with the graph, selected profile, effective limit, task states, worktree identities, review state, and resume instruction.
+3. Create a fresh owned worktree from the latest reviewed integration boundary for each admitted ready slice.
+4. Dispatch a leaf implementer with only its slice contract, context, write scope, verification obligation, and report destination.
+5. Require fresh verification and reject actual changes outside the declared write scope.
+6. Freeze the candidate and dispatch a separate read-only leaf reviewer for task spec compliance and task quality.
+7. Route Critical or Important findings to a separate fixer; then verify and independently re-review the new candidate.
+8. Integrate only a clean reviewed candidate in deterministic graph order and run relevant combined verification.
+
+Persist every worker reservation before dispatch. A normal result or explicit
+terminal failure clears the reservation. An ambiguous exception retains an
+`uncertain` active-worker record, including adapter-provided native identity
+when available; resume may reset, replace, or clean its worktree only after the
+host proves that worker terminal.
+
+Final reviewers are read-only and the controller compares the integration tree
+before and after both reviews. Any reviewer mutation is rejected and reset.
+Final-fix ownership remains active through identity checks, verification, and
+commit; every terminal noncommitted exit resets to the persisted integration
+HEAD, while an ambiguous exit remains `uncertain` until terminal proof.
+Resume reconciles a persisted `committing` reservation before strict HEAD
+validation. A task commit rolls forward only when its single parent and exact
+reviewed-diff hash match the reservation. Integration commits roll back to the
+last persisted boundary and rebuild from reviewed task commits.
+9. Unlock dependents only after the integration boundary is persisted.
+10. After the complete graph integrates, run independent final Spec and Standards reviews before applying the verified result and completing.
+
+The controller alone owns dispatch, state, Git operations, integration,
+retries, and cleanup. Workers never edit central state, integrate candidates, or
+spawn other workers.
 
 ## Safety Gates
 
-- A worker result without passing verification is not integrable.
+- A result without fresh verification is not reviewable or integrable.
+- A reviewer must be independent, read-only, and bound to the exact candidate.
+- A task cannot integrate before clean review or re-review.
 - An actual changed path outside declared scope blocks integration.
-- An integration verification failure blocks application.
-- An application verification failure cannot be reported as success.
+- A changed relevant baseline invalidates the dispatch evidence.
+- After the verified patch is applied, persist a post-apply fingerprint for
+  the complete target surface: every declared write scope, actual changed path,
+  and relevant path, including overlapping directories. Resume rechecks that
+  fingerprint before accepting interrupted applied verification.
+- If the target patch is already present while application state is still
+  `pending`, resume recognizes the exact applied boundary, records the
+  complete post-apply target snapshot, and continues verification without
+  applying the patch twice.
+- Integration or application verification failure blocks completion.
 - A changed invoking baseline or target surface blocks automatic application.
-- A blocked or interrupted run keeps the single manifest and exact owned
-  worker results. Resume validates repository, baseline, target, branch, path,
-  and commit identities before applying or cleaning anything. It retries only
-  unfinished tasks from the current execution graph, rebuilds interrupted
-  integration from verified task commits, and recognizes an already-applied
-  result before rerunning verification and cleanup.
-- Identity or baseline mismatch never deletes retained worker results.
-- Unrelated tracked or untracked user changes are never stashed, committed,
-  unstaged, overwritten, or included in the integration result.
+- Unrelated user changes are never stashed, committed, unstaged, overwritten,
+  or included.
+- Blocked or interrupted runs retain exact identities and resume only after
+  validating graph, repository, candidate, review, and integration state.
 
-Successful application and verification remove the manifest, owned worktrees,
-and owned branches. Nothing cleans an owned result whose persisted identity no
-longer matches the actual resource.
+Successful application removes owned worktrees, branches, and transient run
+state. Never clean a resource whose persisted identity no longer matches.

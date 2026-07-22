@@ -22,9 +22,11 @@ export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
   'review',
   'finish',
 ]);
-export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
+export const LOOPX_EXECUTION_PROFILE_SKILLS = Object.freeze([
   'subagent-exec',
   'parallel-subagent-exec',
+]);
+export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
   'final-review',
   'fix-review',
 ]);
@@ -97,15 +99,16 @@ const LOOPX_ROUTING_GUIDANCE_CONTENT = [
   '',
   '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
   '- The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
-  '- `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review` are explicit-only compatibility aliases. Never select them automatically.',
+  '- `exec` is the canonical execution entry. It automatically selects inline-owned, delegated-serial, or parallel-strict execution from the request or plan and current runtime evidence.',
+  '- `subagent-exec` and `parallel-subagent-exec` are explicit execution-profile entry points, not compatibility aliases or separate workflow intents. `final-review` and `fix-review` remain explicit-only compatibility aliases.',
   '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
   '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
   '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',
-  '- Use independent review only for explicit review intent, security-sensitive or destructive behavior, public compatibility changes, cross-task interaction, or conflict reconciliation. Multi-agent execution alone is not a review trigger.',
+  '- Delegated-serial and parallel-strict execution require independent task review for every implementation or fix candidate and final Spec plus Standards review. Inline work uses independent review only for explicit review intent or concrete security, destructive, compatibility, interaction, or reconciliation risk.',
   '- Before every completion claim, run a quiet completion check: require fresh task-relevant verification; compare accepted intent and the final diff with applicable specs; and synchronize any applicable spec changed by the implementation. Write a new durable rule only with an explicit user decision, approved requirement, or existing spec authority.',
   '- Preserve local memory automatically only for an encountered, evidence-backed, non-obvious, reusable project pitfall, after deduplication. Shared memory and newly tracked knowledge require explicit acceptance. Never preserve secrets, raw conversation, workflow state, generic path-based candidates, commit summaries, or obvious code facts as knowledge.',
   '- When neither an applicable spec nor qualifying knowledge changed, create no artifact or reminder. Mention spec or knowledge only when it was actually written.',
-  '- Use `finish` only when the user explicitly requests Git disposition such as commit, branch, merge, pull request, keep, cleanup, or discard.',
+  '- Use `finish` only when the user explicitly invokes `$finish` or requests Git disposition for work completed by the active loopx `exec` or `fix` context. A standalone Git request to create or switch a branch, commit, merge, push, open a pull request, or manage a worktree must not select `finish`.',
 ].join('\n');
 const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [

@@ -13,13 +13,23 @@
 |---|---|---|
 | `clarify` | 意图、范围、验收、权限、secret 或 destructive choice 尚未解决。 | 已解决的 intake package 或明确 blocker。 |
 | `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要长期一致。 | 已接受的 design contract。 |
-| `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、持久协调需要计划。 | 包含 outcomes、boundaries、dependencies、acceptance 和 verification 的 lean execution plan；名称与 agent 内建 Plan 模式明确区分。 |
-| `exec` | 清晰请求或 lean plan 需要 adaptive execution。 | 顺序或隔离并发的实现，以及新鲜验证。 |
+| `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、持久协调需要计划。 | 包含 coherent slices、权威 DAG、结构性 profile、acceptance、verification 和 review focus 的 execution plan。 |
+| `exec` | 清晰请求或 plan 需要 adaptive execution。 | Inline、强制评审的 delegated serial，或强制评审的 parallel strict 实现。 |
 | `review` | 用户明确要求评审，或安全、破坏性行为、公共兼容、跨任务交互、冲突合并需要独立性。 | 有证据的 findings，以及 blocking issue 的闭环。 |
-| `finish` | 用户明确要求 commit 或 branch placement、merge、pull request、keep、cleanup 或 discard。 | 用户要求的 Git disposition。 |
+| `finish` | 用户显式调用 `$finish`，或要求处置当前 loopx `exec`/`fix` 上下文已完成工作的 Git 结果。 | 用户要求的 Git disposition。 |
 
 普通工作可以不调用任何 canonical intent。`finish` 不是完成仪式，不负责验证、独立
-评审或知识提取。
+评审或知识提取。独立的 branch、commit、merge、push、pull-request 和 worktree
+请求不会仅因属于 Git 操作而选择 `finish`。
+
+## Execution Profiles
+
+`exec` 自动选择 profile。以下显式 profile skill 进入同一个 exec-owned implementation：
+
+| Profile skill | 行为 |
+|---|---|
+| `subagent-exec` | 每个 slice 使用 fresh implementer，按图顺序执行，强制 task review、独立 fixer 和最终双轴 review。 |
+| `parallel-subagent-exec` | 对 ready frontier 做有界隔离并发；task review clean 后才能集成并解锁下游。 |
 
 ## 显式兼容别名
 
@@ -28,13 +38,10 @@
 
 | 别名 | 转发到 |
 |---|---|
-| `subagent-exec` | `exec` |
-| `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |
 | `fix-review` | `review` |
 
-别名原样保留输入和显式意图，但不会恢复旧的 plan schema、execution-mode 选择、
-scheduler state、强制 review report、feedback ledger 或 finish gate。
+别名原样保留输入和显式意图，但不会恢复旧的 feedback ledger 或 finish gate。
 
 ## Issue Workflows
 

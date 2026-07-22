@@ -172,7 +172,10 @@ export async function inspectInvokingWorktree({ cwd, sourcePaths = [], writeScop
   const writeOverlap = dirtyPaths.filter((dirtyPath) => scope.some((path) => pathsOverlap(dirtyPath, path)));
   const relevantOverlap = dirtyPaths.filter((dirtyPath) => relevant.some((path) => pathsOverlap(dirtyPath, path)));
   const executionOverlap = [...new Set([...writeOverlap, ...relevantOverlap])].sort();
-  const targetSnapshot = await snapshotWorkspacePaths({ cwd: topology.invoking_root, paths: scope });
+  const targetSnapshot = await snapshotWorkspacePaths({
+    cwd: topology.invoking_root,
+    paths: [...new Set([...scope, ...relevant])],
+  });
   return {
     topology,
     source_paths: sources,
@@ -292,6 +295,26 @@ export async function verifyOwnedWorktree({ topology, descriptor }) {
   return { ...descriptor, path: actualPath, common_dir: commonDir, branch, head };
 }
 
+export async function reconcileOwnedWorktree({ topology, descriptor }) {
+  assertDescriptor(topology, descriptor);
+  if (!existsSync(descriptor.path)) fail('parallel_worktree_ownership_mismatch', `owned path is missing: ${descriptor.path}`);
+  const observed = await inspectGitTopology({ cwd: descriptor.path });
+  if (observed.invoking_root !== resolve(descriptor.path)
+      || observed.common_dir !== descriptor.common_dir
+      || observed.branch !== descriptor.branch) {
+    fail('parallel_worktree_ownership_mismatch', 'owned worktree identity differs while reconciling HEAD', {
+      expected: { path: descriptor.path, common_dir: descriptor.common_dir, branch: descriptor.branch },
+      observed: {
+        path: observed.invoking_root,
+        common_dir: observed.common_dir,
+        branch: observed.branch,
+        head: observed.head,
+      },
+    });
+  }
+  return { ...descriptor, path: observed.invoking_root, head: observed.head };
+}
+
 export async function removeOwnedWorktree({ topology, descriptor, removeBranch = false }) {
   const verified = await verifyOwnedWorktree({ topology, descriptor });
   await runGit(topology.primary_root, ['worktree', 'remove', '--force', verified.path]);
@@ -306,6 +329,16 @@ export async function resetOwnedWorktree({ topology, descriptor }) {
   await runGit(verified.path, ['reset', '--hard', verified.head]);
   await runGit(verified.path, ['clean', '-fdx']);
   return verifyOwnedWorktree({ topology, descriptor: verified });
+}
+
+export async function resetOwnedWorktreeToCommit({ topology, descriptor, commit, allowHeadMismatch = false }) {
+  const verified = allowHeadMismatch
+    ? await reconcileOwnedWorktree({ topology, descriptor })
+    : await verifyOwnedWorktree({ topology, descriptor });
+  const resolved = (await runGit(verified.path, ['rev-parse', `${commit}^{commit}`])).stdout.trim();
+  await runGit(verified.path, ['reset', '--hard', resolved]);
+  await runGit(verified.path, ['clean', '-fdx']);
+  return verifyOwnedWorktree({ topology, descriptor: { ...verified, head: resolved } });
 }
 
 export function changedPathsFromStatus(text) {
@@ -333,11 +366,13 @@ export async function createEphemeralTaskCommit({ topology, descriptor, writeSco
   if (!Array.isArray(writeScope) || writeScope.length === 0 || !message) {
     fail('parallel_task_commit_invalid', 'writeScope and message are required');
   }
-  const allowed = new Set(writeScope.map((path) => normalizeRepoPath(path, verified.path, 'task write scope')));
+  const allowed = writeScope.map((path) => normalizeRepoPath(path, verified.path, 'task write scope'));
   const statusText = (await runGit(verified.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])).stdout;
   const changedPaths = changedPathsFromStatus(statusText);
   if (changedPaths.length === 0) fail('parallel_task_commit_invalid', 'task worktree contains no changes');
-  const outside = changedPaths.filter((path) => !allowed.has(path));
+  const outside = changedPaths.filter((path) => !allowed.some((scope) => (
+    path === scope || path.startsWith(`${scope}/`)
+  )));
   if (outside.length > 0) {
     fail('parallel_task_scope_violation', 'task changed files outside declared write scope', {
       changed_paths: changedPaths,

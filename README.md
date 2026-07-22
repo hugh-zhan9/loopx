@@ -19,9 +19,9 @@ The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`,
 - `clarify` resolves material ambiguity before mutation.
 - `spec` fixes durable product, compatibility, data, security, or architecture decisions.
 - `plan2exec` writes a lean execution plan only for explicit planning, approval, recovery, or durable coordination. Its distinct name avoids confusion with an agent's built-in Plan mode.
-- `exec` adaptively keeps coupled work serial and may isolate independent work concurrently.
-- `review` performs proportional independent review when explicitly requested or concretely justified.
-- `finish` handles explicitly requested Git disposition after verified work.
+- `exec` keeps small prompt-first work inline, delegates planned serial work to fresh workers, and schedules proved-independent work in isolated DAG waves.
+- `review` performs proportional standalone review; delegated execution requires task review and final Spec plus Standards review.
+- `finish` handles Git disposition only after explicit `$finish` invocation or for work completed by the active loopx `exec` or `fix` context; standalone Git requests remain ordinary Git work.
 
 Issue-driven workflows remain available: `$issue` diagnoses a bug-class report
 and writes a local ledger; `$fix` executes a ledger marked `ready_for_fix`.
@@ -58,26 +58,34 @@ $review <request-or-git-scope>
 $finish <Git-disposition-request>
 ```
 
-Fresh verification is required for every completion claim. Independent review,
-persistent plans, resumable state, knowledge writes, and Git disposition remain
-conditional. `finish` does not perform verification, review, or knowledge
+Fresh verification is required for every completion claim. Persistent plans,
+resumable state, knowledge writes, and Git disposition remain conditional.
+Independent review is mandatory for delegated execution and proportional for
+inline work. `finish` does not perform verification, review, or knowledge
 extraction and does not write a local audit ledger.
+
+## Execution Profiles
+
+`exec` selects these profiles automatically. The delegated profiles may also be
+invoked explicitly without creating separate execution engines:
+
+| Profile skill | Behavior |
+|---|---|
+| `subagent-exec` | Fresh implementer per slice, serial dependency order, mandatory task and final review. |
+| `parallel-subagent-exec` | Bounded isolated ready-frontier execution, mandatory review before integration. |
 
 ## Compatibility
 
-For one release, four former names remain as explicit-only compatibility
+For one release, two former names remain as explicit-only compatibility
 aliases and are excluded from automatic discovery:
 
 | Alias | Canonical intent |
 |---|---|
-| `subagent-exec` | `exec` |
-| `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |
 | `fix-review` | `review` |
 
-Each alias forwards the same input. It does not restore the old detailed-plan,
-executor-selection, scheduler, mandatory-review, feedback-ledger, or finish-gate
-protocol.
+Each compatibility alias forwards the same input. It does not restore the old
+feedback-ledger or finish-gate protocol.
 
 ## Context Rules
 

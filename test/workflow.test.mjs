@@ -545,7 +545,7 @@ describe('loopx retained workflow shell', () => {
     assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
   });
 
-  it('installs plan2exec with traceable execution slices but without execution transcription', async () => {
+  it('installs plan2exec with traceable execution slices and an authoritative execution graph', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-lean-plan-'));
     const result = await installBundledSkills(loopxEnv(home));
 
@@ -563,6 +563,7 @@ describe('loopx retained workflow shell', () => {
       'Source And Goal',
       'Boundaries And Global Constraints',
       'Execution Slices',
+      'Authoritative Execution Graph',
       'Integration And Final Verification',
       'Handoff And Residual Risks',
     ]) {
@@ -573,12 +574,16 @@ describe('loopx retained workflow shell', () => {
     for (const field of [
       'Outcome',
       'Depends on',
-      'Likely surfaces',
-      'Interfaces',
+      'Write scope',
+      'Relevant paths',
+      'Exclusive resources',
+      'Interfaces consumed',
+      'Interfaces produced',
       'Source anchors',
       'Acceptance',
       'Verification',
       'Expected evidence',
+      'Review focus',
     ]) {
       assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
       assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
@@ -589,12 +594,13 @@ describe('loopx retained workflow shell', () => {
     }
     assert.match(planSkill, /every implementation-relevant.*AC-\*.*D-\*.*TC-\*/is);
     assert.match(planSkill, /deferred-with-rationale/i);
+    assert.match(planSchema, /loopx\.execution-graph\.v1/);
+    assert.match(planSchema, /selected_profile/);
+    assert.match(planSchema, /parallel_safe/);
     for (const forbidden of [
       /Bite-Sized Task Granularity/i,
       /minute-scale/i,
-      /review ceremon/i,
       /loopx-parallel-(?:plan|task|package)/i,
-      /max_parallel/i,
       /implementation code/i,
     ]) {
       assert.doesNotMatch(planSchema, forbidden);
@@ -602,7 +608,7 @@ describe('loopx retained workflow shell', () => {
     }
   });
 
-  it('installs one exec intent for prompt or plan input with explicit-only aliases', async () => {
+  it('installs one exec intent with explicit serial and parallel profile entries', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-unified-exec-'));
     const result = await installBundledSkills(loopxEnv(home));
 
@@ -612,11 +618,11 @@ describe('loopx retained workflow shell', () => {
     const graphFixture = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'prompt-execution-graph.json'), 'utf8'));
 
     assert.match(execSkill, /clear request.*persistent plan/is);
-    assert.match(execSkill, /temporary execution graph/i);
-    assert.match(execSkill, /strongly coupled.*serial.*current context/is);
+    assert.match(execSkill, /temporary graph/i);
+    assert.match(execSkill, /delegated-serial-v1.*default for planned work/is);
     assert.match(execSkill, /fresh verification/i);
-    assert.match(execSkill, /ordinary clear single-outcome work stays prompt-first/i);
-    assert.match(selection, /same file.*producer.*consumer.*generated output.*debugging/is);
+    assert.match(execSkill, /inline-owned-v1.*prompt-first small work/is);
+    assert.match(selection, /producer-consumer interface/i);
     assert.match(selection, /default shared worker budget is four/i);
     assert.match(selection, /uncertain.*serial/is);
     assert.doesNotMatch(execSkill, /requires? a persistent plan/i);
@@ -641,9 +647,9 @@ describe('loopx retained workflow shell', () => {
     ]) {
       const aliasSkill = await readFile(join(home, '.agents', 'skills', alias, 'SKILL.md'), 'utf8');
       assert.match(aliasSkill, /^disable-model-invocation: true$/m, `${alias} must be explicit-only`);
-      assert.match(aliasSkill, new RegExp(`compatibility alias.*${canonical}`, 'is'));
-      assert.match(aliasSkill, /same (?:arguments|input)/i);
-      assert.doesNotMatch(aliasSkill, /choose (?:a |an )?(?:serial|subagent|parallel)/i);
+      assert.match(aliasSkill, /explicit `(?:delegated-serial-v1|parallel-strict-v1)` profile entry point/i);
+      assert.match(aliasSkill, /canonical `exec` controller/i);
+      assert.doesNotMatch(aliasSkill, /compatibility alias/i);
     }
   });
 
@@ -660,26 +666,24 @@ describe('loopx retained workflow shell', () => {
     const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
     const routing = managedBlock(codexGuidance, 'prompt-first-routing');
 
-    assert.match(execSkill, /every (?:dispatched )?worker.*fresh verification/is);
-    assert.match(execSkill, /controller.*scope.*evidence.*combined behavior/is);
+    assert.match(execSkill, /Every implementation or fix candidate must pass fresh\s+verification.*independent read-only task review/is);
+    assert.match(execSkill, /Only a clean candidate may integrate/i);
     assert.match(execSkill, /integration check/i);
-    assert.match(selection, /every completed change.*integration check/is);
-    assert.match(selection, /low-risk, disjoint changes with passing combined verification[^\n]+\| Not required \|/i);
-    assert.match(selection, /multi-agent execution.*not.*trigger/is);
+    assert.match(selection, /Inline work always receives fresh verification.*controller integration\s+check/is);
+    assert.match(selection, /delegated-serial-v1.*parallel-strict-v1.*require independent review/is);
     for (const trigger of [
-      /explicit (?:user )?review request/i,
-      /security-sensitive or destructive behavior/i,
+      /explicit review intent/i,
+      /security or\s+destructive behavior/i,
       /public compatibility change/i,
-      /cross-task interaction/i,
-      /reconciled (?:integration )?conflict/i,
+      /cross-scope interaction/i,
+      /conflict reconciliation/i,
     ]) {
       assert.match(selection, trigger);
     }
-    assert.match(selection, /do not\s+dispatch one reviewer per task/i);
+    assert.match(selection, /separate read-only leaf reviewer/i);
     assert.match(reviewSkill, /Critical and Important.*active\s+execution context.*fix.*verification/is);
-    assert.match(reviewContract, /fresh\s+focused verification.*combined verification.*independent re-review/is);
-    assert.match(routing, /independent review.*explicit.*security.*destructive.*compatibility.*cross-task.*conflict/is);
-    assert.match(routing, /multi-agent execution alone.*not.*review trigger/is);
+    assert.match(reviewContract, /fresh focused and combined verification.*independent re-review/is);
+    assert.match(routing, /independent review.*explicit.*security.*destructive.*compatibility.*interaction.*reconciliation/is);
 
     for (const [alias, intentPattern] of [
       ['final-review', /whole-feature review/i],
@@ -694,7 +698,7 @@ describe('loopx retained workflow shell', () => {
     }
   });
 
-  it('installs one quiet completion check and explicit-only Git finish guidance', async () => {
+  it('installs one quiet completion check and loopx-scoped finish guidance', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-completion-check-'));
     const result = await installBundledSkills(loopxEnv(home));
 
@@ -711,7 +715,8 @@ describe('loopx retained workflow shell', () => {
     const routing = managedBlock(await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8'), 'prompt-first-routing');
 
     assert.match(routing, /every completion claim.*quiet completion check/is);
-    assert.match(routing, /finish.*only.*explicit.*Git disposition/is);
+    assert.match(routing, /finish.*only.*explicit.*\$finish.*active loopx.*(?:exec|fix)/is);
+    assert.match(routing, /standalone Git.*branch.*commit.*merge.*must not.*finish/is);
     assert.match(routing, /fresh task-relevant verification.*accepted intent.*final diff.*applicable specs/is);
     assert.match(routing, /explicit user decision.*approved requirement.*existing spec authority/is);
     assert.match(routing, /encountered.*evidence-backed.*non-obvious.*reusable project pitfall.*deduplication/is);
@@ -719,12 +724,12 @@ describe('loopx retained workflow shell', () => {
     assert.match(routing, /secrets.*raw conversation.*workflow state.*generic path-based.*commit summaries.*obvious code facts/is);
     assert.match(routing, /neither an applicable spec nor qualifying knowledge changed.*no artifact or reminder/is);
     assert.doesNotMatch(routing, /shared\/completion-check\.md/);
-    assert.match(execSkill, /direct, serial, and concurrent.*completion check/is);
+    assert.match(execSkill, /Before any completion claim.*controller integration check.*quiet check/is);
     assert.match(execSkill, /shared\/completion-check\.md/);
     assert.match(fixSkill, /serial and concurrent.*completion check/is);
     assert.match(fixSkill, /shared\/completion-check\.md/);
     assert.match(fixSkill, /git_disposition:\s*requested\s*\|\s*not_requested/i);
-    assert.match(fixSkill, /finish.*only.*explicit.*Git disposition/is);
+    assert.match(fixSkill, /finish.*only.*active fix run.*Git disposition/is);
     assert.doesNotMatch(fixSkill, /finish_handoff:\s*`?\$finish|hand off to `finish`/i);
 
     assert.match(completionCheck, /fresh task-relevant verification/i);
@@ -736,8 +741,10 @@ describe('loopx retained workflow shell', () => {
     assert.match(completionCheck, /generic path-based.*commit summar.*obvious code facts/is);
     assert.match(completionCheck, /when neither.*changed.*no\s+artifact.*no reminder/is);
 
-    assert.match(finishSkill, /only when the user explicitly requests Git disposition/is);
-    assert.match(finishSkill, /do(?:es)? not require.*review report.*extraction candidate.*workflow state/is);
+    assert.match(finishSkill, /explicitly invokes `\$finish`.*active loopx.*(?:exec|fix)/is);
+    assert.match(finishSkill, /standalone Git request.*must not trigger `finish`/is);
+    assert.doesNotMatch(finishSkill, /^when_to_use:.*(?:create branch|commit current work|merge locally)/m);
+    assert.match(finishSkill, /do(?:es)? not require.*review report.*extraction candidate.*artifact/is);
     for (const choice of ['commit', 'branch', 'merge', 'pull request', 'keep', 'cleanup', 'discard']) {
       assert.match(`${finishSkill}\n${finishChoices}`, new RegExp(`\\b${choice}\\b`, 'i'));
     }

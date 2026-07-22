@@ -17,7 +17,10 @@ export function createFakeNativeAgent({ delayMs = 40 } = {}) {
         const target = join(workspace, outcome.write_scope[0]);
         await mkdir(dirname(target), { recursive: true });
         await writeFile(target, outcome.content);
-        return { verification: { status: 'passed', commands: [`verify ${outcome.id}`] } };
+        return {
+          worker: { id: `${outcome.id}-implementer`, model: 'test', platform: 'test' },
+          verification: { status: 'passed', commands: [`verify ${outcome.id}`] },
+        };
       } finally {
         active -= 1;
       }

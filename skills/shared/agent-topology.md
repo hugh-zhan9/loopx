@@ -7,12 +7,16 @@ explicit workflow skills.
 ## Hard Rules
 
 - Every implementer, reviewer, fixer, and final reviewer is a leaf worker.
+- Reviewers and final reviewers are read-only. They report findings and never
+  modify the candidate under review. A separate fixer owns any accepted change.
 - A leaf worker completes its assigned role directly. It must not spawn,
   delegate to, wait for, message, replace, interrupt, or terminate another
   agent.
 - The controller may dispatch only work admitted by the owning execution
   contract. Concurrent workers must have independent assignments and remain
   leaves.
+- The controller alone owns execution state, Git integration, review-gate
+  transitions, and cleanup. Leaf workers never advance shared state.
 - A replacement requires explicit completion, failure, interruption,
   `BLOCKED`, or `NEEDS_CONTEXT`. Never replace a worker that is still running.
 

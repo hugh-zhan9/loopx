@@ -1,138 +1,128 @@
 ---
 name: exec
-description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
-when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
+description: "Canonical execution entry for a clear request or persistent plan. Selects inline, delegated-serial, or parallel-strict execution from plan structure and current runtime evidence, with mandatory independent review for delegated profiles. Not for unresolved decisions, planning-only requests, standalone code review, or Git disposition."
+when_to_use: "explicit exec invocation, run implementation plan, implement clear multi-outcome request, select execution profile, governed delegated execution"
 metadata:
-  version: "0.4.6"
+  version: "0.5.0"
 argument-hint: "<clear request or plan path>"
 ---
 
 # loopx Exec
 
-Use one execution intent for a clear request or a persistent plan. Derive the
-current execution graph from the input and repository; do not ask the user to
-choose a serial, subagent, or parallel executor.
+`exec` is the canonical execution entry. The caller supplies a clear request or
+plan, not an executor choice. `exec` selects one structural profile and owns the
+controller lifecycle through completion.
 
 ## Input Resolution
 
-- Ordinary clear single-outcome work stays prompt-first unless the user
-  explicitly invokes `exec`.
-- If the argument resolves to a readable plan, load its Source And Goal,
-  Boundaries And Global Constraints, Execution Slices, Integration And Final
-  Verification, and Handoff And Residual Risks.
-- Otherwise treat the argument and current user request as the execution input.
-- Do not require or create a persistent plan for clear prompt input.
-- Treat likely surfaces and recorded dependencies as orientation. Preserve
-  `P-*` identifiers in execution evidence, but let current code and observed
-  behavior remain authoritative for local implementation choices.
+- A clear, bounded, low-risk request with one coherent outcome may use
+  `inline-owned-v1` in the current context.
+- A current plan supplies exactly one authoritative
+  `loopx.execution-graph.v1` block and `selected_profile`.
+- A legacy lean plan without that graph is conservatively compiled as
+  `delegated-serial-v1`; it is never admitted to parallel execution.
+- A clear multi-outcome prompt may use a temporary graph, but every dependency,
+  write scope, relevant path, exclusive resource, interface, verification
+  boundary, and review obligation needed for dispatch must be established first.
 
-Stop before mutation when the input leaves a material product, API, data,
-permission, migration, compatibility, security, destructive, or cross-module
-architecture decision unresolved. Route the concrete decision to `clarify` or
-`spec`; do not hide it inside execution.
+Stop before mutation when a material product, API, data, permission, migration,
+compatibility, security, destructive, or cross-module architecture decision is
+unresolved. Route that decision to `clarify` or `spec`.
 
-## Temporary Execution Graph
+## Structural Profile Selection
 
-Inspect the relevant code, specs, tests, and user-owned changes. Derive a
-temporary execution graph from the plan's `P-*` slices or directly from a clear
-prompt. It contains semantic outcomes, known dependencies, likely writes, and
-verification boundaries. Keep it in the current context for ordinary work; do
-not write a workflow artifact merely to represent it.
+Read [references/execution-selection.md](./references/execution-selection.md).
 
-Read [references/execution-selection.md](./references/execution-selection.md)
-before dispatching any worker. Explain each concurrency decision with a
-concrete dependency or capability reason.
+- `inline-owned-v1`: only prompt-first small work selected before execution.
+- `delegated-serial-v1`: the default for planned work, legacy plans, a ready
+  frontier of one, coupling, write/resource conflicts, or uncertain independence.
+- `parallel-strict-v1`: only when the graph proves a ready frontier of at least
+  two independent slices and strict isolated mutation is available.
 
-Strongly coupled work remains serial in the current context. This includes work
-that shares intermediate reasoning or state, changes the same file, defines and
-consumes the same new interface, updates one generated output, or continues an
-active debugging investigation. Uncertain independence also selects serial
-execution.
+For a current plan, validate the graph and selected structural profile before
+dispatch. Reject duplicate or missing ids, unknown dependencies, cycles,
+graph-task/slice mismatches, and unproved parallel safety. Do not ask the user to
+choose a profile during ordinary execution.
 
-## Serial Execution
+`subagent-exec` and `parallel-subagent-exec` are explicit profile entry points
+that forward into this same controller contract. They do not own separate
+schedulers, state, Git integration, or review policy.
 
-For serial work, keep inspection, implementation, and verification in this
-context:
+## Runtime Admission
 
-1. Confirm the accepted outcome and protected boundaries.
-2. Inspect the current implementation and relevant tests.
-3. Make the smallest coherent change, using a failing test first where useful.
-4. Run focused checks as the change develops.
-5. Run fresh task-relevant verification before any completion claim.
-6. Report the result, changed paths, verification evidence, and concrete
-   blockers or residual risks.
+Runtime evidence may keep or safely narrow the selected structural profile; it
+must never silently broaden it or convert planned work to inline execution.
 
-Do not create a run manifest, checkpoint, review report, finish audit, or other
-workflow artifact for an ordinary successful serial run. A source plan remains
-the only persistent planning artifact when one was provided.
+- A parallel graph with lost isolation, write overlap, relevant-path overlap,
+  or another invalidated independence claim narrows to delegated serial and
+  records the reason.
+- Temporary worker capacity below two applies backpressure or effective
+  concurrency one; it does not authorize inline execution.
+- Missing implementer or independent-review capability blocks a planned
+  delegated run. Report the missing capability instead of silently executing it
+  in the controller context.
+- A delegated run must bind complete source and authoritative plan provenance
+  in `reviewContext` before mutation. Acceptance and scope summaries may be
+  derived from the graph, but missing source or plan context blocks execution;
+  resume requires the same proof.
+- User-owned changes remain untouched. Never stash, commit, unstage, overwrite,
+  or include them in an execution result.
 
-## Concurrent Admission Boundary
+## Profile Execution
 
-Concurrency is admissible only when every independence condition in
-`execution-selection.md` is satisfied and the host provides the required
-isolation. Missing or uncertain capability narrows execution to serial work in
-this same intent; it does not fail the request or recommend another executor.
+### Inline Owned
 
-For admitted concurrent mutation, read
-[references/concurrent-execution.md](./references/concurrent-execution.md) and
-use the exec-owned runtime in `scripts/adaptive-exec.mjs`. Workers verify their
-outcome in isolated task worktrees. The controller validates actual changed
-paths, integrates in a protected workspace, verifies the combination, applies
-one complete result to the unchanged invoking workspace, verifies again, and
-removes all successful run state.
+The controller inspects, implements, and freshly verifies one coherent prompt
+outcome. Inline work has no mandatory per-task review ceremony unless an
+independent-review signal from the shared review contract applies.
 
-Unrelated tracked, staged, unstaged, and untracked user changes may remain in
-the invoking workspace. A user change that overlaps an outcome's
-`write_scope` or `relevant_paths` selects current-context serial execution.
-Never stash, commit, unstage, or overwrite pre-existing user work. If the
-baseline identity or a target snapshot changes after dispatch, retain the
-verified integration result and follow the manifest's exact `$exec --resume`
-instruction only after the user-owned target is safe again.
+### Delegated Serial
 
-The top-level controller owns lifecycle and the shared worker budget. Every
-dispatched worker is a leaf. Concurrent mutation must use the exec-owned Git
-isolation boundary; do not let workers write the invoking workspace.
+Follow [../subagent-exec/SKILL.md](../subagent-exec/SKILL.md). Dispatch one fresh
+implementer at a time. Every implementation or fix candidate must pass fresh
+verification and an independent read-only task review before the next dependent
+slice proceeds.
 
-## Integration Check And Review Selection
+### Parallel Strict
 
-Read [references/review-selection.md](./references/review-selection.md) before
-claiming completion. Every dispatched worker must provide fresh verification.
-The controller then performs an integration check that validates accepted
-scope, worker evidence, actual changed paths, and combined behavior.
+Follow [references/concurrent-execution.md](./references/concurrent-execution.md)
+and [../parallel-subagent-exec/SKILL.md](../parallel-subagent-exec/SKILL.md).
+Schedule only the current ready frontier within one shared worker budget.
+Dependencies unlock only after their predecessors are verified, independently
+reviewed, and integrated.
 
-Independent review is additional and proportional. Dispatch it only for an
-explicit review request or concrete security, destructive, public
-compatibility, cross-task interaction, or reconciled-conflict evidence.
-Multi-agent execution alone is not a review trigger. Low-risk disjoint results
-with passing combined verification do not receive one reviewer per task or a
-generic final review ceremony.
+Every dispatched worker is a leaf under
+[../shared/agent-topology.md](../shared/agent-topology.md). The controller alone
+owns state, dispatch, Git, integration, retries, and cleanup.
 
-When independent review returns Critical or Important findings, keep ownership
-in this active execution context. Check each finding against the accepted
-intent and current code, make the focused fix or evidence-backed pushback, run
-fresh focused and combined verification, and obtain independent re-review
-before closing it. Do not route findings through a mandatory fix workflow.
+The implementation seam is [scripts/adaptive-exec.mjs](./scripts/adaptive-exec.mjs).
+It owns profile selection, graph scheduling, reviewed task dispatch, manifest
+state, Git isolation, protected integration, resume, and cleanup. Profile skills
+reuse this implementation instead of duplicating it.
 
-## Completion Contract
+## Review And Completion Gates
 
-Before every completion claim, apply the direct, serial, and concurrent
-completion check in [../shared/completion-check.md](../shared/completion-check.md).
-It confirms fresh verification, synchronizes an applicable spec changed by the
-implementation, and preserves only qualifying reusable knowledge. A quiet
-`none` outcome creates no artifact or reminder.
+Read [references/review-selection.md](./references/review-selection.md). For
+delegated serial and parallel strict:
 
-Then summarize:
+1. The implementer produces a candidate and fresh verification evidence.
+2. A separate read-only reviewer checks task spec compliance and task quality.
+3. Critical or Important findings go to a separate fixer, followed by fresh
+   verification and independent re-review.
+4. Only a clean candidate may integrate.
+5. After all slices integrate, dispatch independent final Spec and Standards
+   reviewers. Keep their findings side by side; either axis may block completion.
 
-- accepted outcome;
-- changed paths;
-- verification commands and results;
-- integration-check evidence and any independent-review trigger or result;
-- whether execution stayed serial and the concrete reason;
-- any unresolved blocker or residual risk.
+Before any completion claim, run the controller integration check from the
+review-selection contract and the quiet check from
+[../shared/completion-check.md](../shared/completion-check.md).
+Report the selected and effective profile, selection or narrowing evidence,
+changed paths, verification, task-review and final-review results, blockers, and
+residual risk.
 
 ## STOP Conditions
 
-Stop and report the concrete blocker when the input is unreadable or
-contradictory, a material decision remains unresolved, user-owned changes make
-the safe write boundary uncertain, required verification cannot run, or the
-implementation cannot satisfy acceptance without expanding scope.
+Stop when the input or graph is invalid, a material decision is unresolved,
+safe ownership cannot be proved, required implementation or reviewer capability
+is unavailable, verification cannot run, a Critical or Important finding lacks
+clean re-review, or satisfying acceptance would expand approved scope.

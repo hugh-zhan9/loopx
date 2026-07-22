@@ -8,11 +8,10 @@ import test from 'node:test';
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(import.meta.dirname, '..');
 const compatibilityAliases = [
-  'subagent-exec',
-  'parallel-subagent-exec',
   'final-review',
   'fix-review',
 ];
+const executionProfiles = ['subagent-exec', 'parallel-subagent-exec'];
 
 async function recursiveFiles(root) {
   const files = [];
@@ -29,7 +28,7 @@ async function recursiveFiles(root) {
   return files.sort();
 }
 
-test('release tarball contains the adaptive runtime and alias-only compatibility skills', async () => {
+test('release tarball contains the reviewed execution kernel, profiles, and compatibility aliases', async () => {
   const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], {
     cwd: repoRoot,
     maxBuffer: 16 * 1024 * 1024,
@@ -41,9 +40,15 @@ test('release tarball contains the adaptive runtime and alias-only compatibility
     'skills/exec/SKILL.md',
     'skills/exec/references/concurrent-execution.md',
     'skills/exec/scripts/adaptive-exec.mjs',
+    'skills/exec/scripts/execution-graph.mjs',
+    'skills/exec/scripts/execution-profiles.mjs',
     'skills/exec/scripts/git-isolation.mjs',
+    'skills/exec/scripts/review-gate.mjs',
+    'skills/exec/scripts/reviewed-task-runner.mjs',
     'skills/exec/scripts/run-manifest.mjs',
+    'skills/exec/scripts/scheduler.mjs',
     'skills/exec/scripts/worktree-integration.mjs',
+    ...executionProfiles.map((profile) => `skills/${profile}/SKILL.md`),
     ...compatibilityAliases.map((alias) => `skills/${alias}/SKILL.md`),
   ]) {
     assert.equal(packaged.has(path), true, `tarball missing ${path}`);
@@ -65,10 +70,16 @@ test('release tarball contains the adaptive runtime and alias-only compatibility
   }
 });
 
-test('source compatibility aliases contain only forwarding skills', async () => {
+test('source compatibility aliases stay forwarding-only while execution profiles own bounded payloads', async () => {
   for (const alias of compatibilityAliases) {
     assert.deepEqual(await recursiveFiles(join(repoRoot, 'skills', alias)), [
       `skills/${alias}/SKILL.md`,
     ]);
   }
+  const subagentPayload = await recursiveFiles(join(repoRoot, 'skills', 'subagent-exec'));
+  assert.equal(subagentPayload.includes('skills/subagent-exec/implementer-prompt.md'), true);
+  assert.equal(subagentPayload.includes('skills/subagent-exec/task-reviewer-prompt.md'), true);
+  assert.deepEqual(await recursiveFiles(join(repoRoot, 'skills', 'parallel-subagent-exec')), [
+    'skills/parallel-subagent-exec/SKILL.md',
+  ]);
 });

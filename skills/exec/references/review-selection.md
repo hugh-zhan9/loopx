@@ -1,58 +1,60 @@
-# Proportional Review Selection
+# Execution Review Gates
 
-Verification and review are different checks. Every worker verifies its own
-outcome, and every completed change receives an integration check. Independent
-review is added only when observable evidence or explicit user intent requires
-reviewer independence.
+Verification, controller integration checks, and independent review are
+different obligations.
+
+## Inline Profile
+
+Inline work always receives fresh verification and a controller integration
+check. Independent review is added for explicit review intent, security or
+destructive behavior, public compatibility change, cross-scope interaction, or
+conflict reconciliation.
+
+## Delegated Profiles
+
+`delegated-serial-v1` and `parallel-strict-v1` require independent review because
+the implementation candidate crosses an agent handoff. For every implementation
+or fix attempt:
+
+1. bind the task contract, candidate, changed paths, and fresh verification;
+2. dispatch a separate read-only leaf reviewer;
+3. require both task spec compliance and task quality approval;
+4. send Critical or Important findings to a separate fixer;
+5. freshly verify and independently re-review the amended candidate;
+6. integrate only after the current candidate is clean.
+
+The reviewer does not modify code. The controller must not reconstruct an
+approval from prose or treat implementer claims as review evidence.
+
+## Final Review
+
+After all planned slices are integrated and combined verification passes,
+dispatch two independent read-only leaf reviewers, concurrently when capacity
+allows:
+
+- **Spec:** complete source, plan, acceptance, and scope compliance.
+- **Standards:** cross-slice code quality, repository rules, tests, maintainability,
+  security, and integration risks.
+
+Report the axes side by side. Do not merge, average, or rerank their findings.
+Either axis blocks completion while a Critical or Important finding remains.
+Fixes require fresh verification and re-review of the affected axis.
+
+The controller gives each final reviewer the accepted review context, complete
+task contracts, changed paths, baseline and boundary commits, fresh combined
+verification, and a candidate binding. A `loopx.final-review-result.v1` verdict
+must echo that candidate binding and identify the reviewer with `id`, `model`,
+and `platform`. Spec and Standards reviewers, task workers, and any final fixer
+must have distinct identities.
+
+The accepted review context must contain the actual source material and the
+authoritative plan. The controller may derive acceptance and scope summaries
+from task contracts, but anchor names, task ids, or schema metadata are not a
+substitute for the source and plan. Missing provenance blocks before delegated
+mutation and remains required on resume.
 
 ## Integration Check
 
-The active controller checks all of the following before completion:
-
-- the accepted outcome and protected boundaries still match the implemented
-  result;
-- actual changed paths remain inside the intended scope;
-- worker verification is fresh, relevant, and attached to the result it
-  claims to prove;
-- combined behavior has fresh verification after integration or, for serial
-  work, after the complete coherent change;
-- no unexplained interaction, conflict resolution, or evidence gap remains.
-
-An integration check is controller work, not an independent review. It does
-not dispatch another agent and does not create a review artifact.
-
-## Independent Review Signals
-
-Use the narrowest scope that covers the signal and the combined result.
-
-| Observable evidence | Independent review decision |
-|---|---|
-| Explicit user review request | Required |
-| Security-sensitive or destructive behavior | Required |
-| Public compatibility change | Required |
-| Cross-task interaction discovered before or during integration | Required |
-| Reconciled integration conflict | Required |
-| Low-risk, disjoint changes with passing combined verification and none of the signals above | Not required |
-| Multi-agent execution with no other signal | Not a trigger |
-
-Multi-agent execution alone is not an independent-review trigger. Do not
-dispatch one reviewer per task merely because workers ran concurrently. Do not
-add a generic final reviewer after a clean integration check. When one signal
-spans multiple results, dispatch one independent reviewer over the relevant
-combined scope rather than duplicating reviews.
-
-If evidence is uncertain about security, destructive impact, compatibility,
-interaction, or conflict reconciliation, resolve the uncertainty before
-completion. Do not silently classify uncertain observable risk as low risk.
-
-## Finding Closure
-
-Critical and Important findings return to the active execution context. For
-each finding, verify its basis against the accepted intent and current code,
-then either implement the smallest correct fix or record evidence-backed
-pushback. Run fresh focused verification and the relevant combined
-verification after changes, then obtain independent re-review. Completion is
-blocked until every Critical and Important finding has closure evidence.
-
-Minor findings may be reported as residual risk when they do not invalidate
-correctness or the accepted contract.
+The controller separately confirms accepted scope, actual changed paths,
+evidence freshness, graph ordering, combined behavior, and unexplained
+interactions. This check does not replace an independent task or final review.

@@ -11,6 +11,7 @@ import {
   LOOPX_BUNDLED_SKILLS,
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
   LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from '../src/workflow.mjs';
 
@@ -35,7 +36,7 @@ async function skillPayloadFiles(skillName) {
   return files.sort();
 }
 
-test('discovery classifies six canonical intents and explicit-only compatibility aliases', async () => {
+test('discovery classifies canonical intents, execution profiles, and compatibility aliases', async () => {
   assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, [
     'clarify',
     'spec',
@@ -45,18 +46,21 @@ test('discovery classifies six canonical intents and explicit-only compatibility
     'finish',
   ]);
   assert.deepEqual(LOOPX_COMPATIBILITY_ALIAS_SKILLS, [
-    'subagent-exec',
-    'parallel-subagent-exec',
     'final-review',
     'fix-review',
   ]);
+  assert.deepEqual(LOOPX_EXECUTION_PROFILE_SKILLS, ['subagent-exec', 'parallel-subagent-exec']);
 
-  for (const skillName of [...LOOPX_CANONICAL_WORKFLOW_SKILLS, ...LOOPX_COMPATIBILITY_ALIAS_SKILLS]) {
+  for (const skillName of [
+    ...LOOPX_CANONICAL_WORKFLOW_SKILLS,
+    ...LOOPX_EXECUTION_PROFILE_SKILLS,
+    ...LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  ]) {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, `${skillName} must remain installed`);
     const skill = await readFile(join(repoRoot, 'skills', skillName, 'SKILL.md'), 'utf8');
     assert.equal(
       /disable-model-invocation:\s*true/.test(skill),
-      LOOPX_COMPATIBILITY_ALIAS_SKILLS.includes(skillName),
+      [...LOOPX_EXECUTION_PROFILE_SKILLS, ...LOOPX_COMPATIBILITY_ALIAS_SKILLS].includes(skillName),
       `${skillName} discovery visibility`,
     );
   }
@@ -109,7 +113,7 @@ test('workspace routing and CLI expose canonical intents without a Golden path l
   }
 });
 
-test('legacy implementation payload is removed while explicit aliases stay installed', async () => {
+test('retired lifecycle payload stays removed while profiles and aliases remain installed', async () => {
   const obsoletePaths = [
     'src/codex-exec-runtime.mjs',
     'src/finish-runtime.mjs',
@@ -136,6 +140,9 @@ test('legacy implementation payload is removed while explicit aliases stay insta
   for (const skillName of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
     assert.deepEqual(await skillPayloadFiles(skillName), ['SKILL.md']);
   }
+  assert.equal((await skillPayloadFiles('subagent-exec')).includes('implementer-prompt.md'), true);
+  assert.equal((await skillPayloadFiles('subagent-exec')).includes('task-reviewer-prompt.md'), true);
+  assert.deepEqual(await skillPayloadFiles('parallel-subagent-exec'), ['SKILL.md']);
 
   for (const retainedSkill of ['issue', 'fix', 'plan-reviewer', 'api-designer', 'architecture-designer']) {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(retainedSkill), true, `${retainedSkill} must remain bundled`);

@@ -18,9 +18,9 @@ guidance 和项目上下文。日常工作保持 prompt-first：清晰且边界�
 - `clarify` 在修改前解决会影响结果的实质歧义。
 - `spec` 固化长期有效的产品、兼容、数据、安全或架构决策。
 - `plan2exec` 只在明确要求实施计划、审批、恢复或持久协调时写 lean execution plan。该名称与 agent 内建 Plan 模式明确区分。
-- `exec` 让强耦合工作保持顺序执行，并可隔离并发执行独立工作。
-- `review` 只在明确要求或存在具体风险证据时进行独立评审。
-- `finish` 在工作验证完成后处理用户明确要求的 Git disposition。
+- `exec` 让小型 prompt-first 工作保持 inline，把计划型顺序工作交给 fresh worker，并按 DAG 波次隔离并发已证明独立的工作。
+- `review` 对独立调用按风险执行；delegated execution 强制 task review 和最终 Spec、Standards 双轴 review。
+- `finish` 仅在用户显式调用 `$finish`，或处置当前 loopx `exec`/`fix` 上下文已完成工作的 Git 结果时使用；独立 Git 请求仍按普通 Git 操作处理。
 
 Issue-driven 工作流继续保留：`$issue` 诊断 bug 类报告并写入本地 ledger；
 `$fix` 执行状态为 `ready_for_fix` 的 ledger。`tdd`、`debug`、`verify`、
@@ -56,24 +56,30 @@ $review <request-or-git-scope>
 $finish <Git-disposition-request>
 ```
 
-每次声称完成都需要新鲜验证。独立评审、持久计划、恢复状态、知识写入和 Git
-disposition 都是条件触发。`finish` 不负责验证、评审或知识提取，也不会写本地
-audit ledger。
+每次声称完成都需要新鲜验证。持久计划、恢复状态、知识写入和 Git disposition
+仍按条件触发；delegated execution 强制独立评审，inline 工作按风险评审。
+`finish` 不负责验证、评审或知识提取，也不会写本地 audit ledger。
+
+## Execution Profiles
+
+`exec` 自动选择 profile；也可以显式调用以下两个 profile，但它们共用同一个执行内核：
+
+| Profile skill | 行为 |
+|---|---|
+| `subagent-exec` | 每个 slice 使用 fresh implementer，按依赖顺序执行，并强制 task/final review。 |
+| `parallel-subagent-exec` | 对 ready frontier 做有界 worktree 隔离并发，review clean 后才集成。 |
 
 ## 显式兼容别名
 
-在一个 release 周期内，四个旧名称作为 explicit-only compatibility aliases
+在一个 release 周期内，两个旧名称作为 explicit-only compatibility aliases
 保留，并从自动发现中排除：
 
 | 别名 | Canonical intent |
 |---|---|
-| `subagent-exec` | `exec` |
-| `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |
 | `fix-review` | `review` |
 
-每个别名原样转发输入，但不会恢复旧的详细计划、executor 选择、scheduler、强制
-评审、feedback ledger 或 finish gate 协议。
+每个兼容别名原样转发输入，但不会恢复旧的 feedback ledger 或 finish gate 协议。
 
 ## 上下文规则
 
