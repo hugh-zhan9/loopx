@@ -1,6 +1,13 @@
 name: Publish to npm
 
 on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Attempt publishing the package version when it is absent from npm'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -8,6 +15,7 @@ on:
       - package.json
       - plugins/loopx/.codex-plugin/plugin.json
       - docs/release-notes/**
+      - .github/workflows/publish.yml
 
 permissions:
   contents: read
@@ -47,12 +55,18 @@ jobs:
           echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           echo "previous=$PREVIOUS_VERSION" >> "$GITHUB_OUTPUT"
 
-          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME@$CURRENT_VERSION" version 2>/dev/null || true)
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "package.json version changed: ${PREVIOUS_VERSION:-<none>} -> $CURRENT_VERSION"
+            echo "manual publish requested for $PACKAGE_NAME@$CURRENT_VERSION"
+          elif [ -z "$PUBLISHED_VERSION" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "$PACKAGE_NAME@$CURRENT_VERSION is absent from npm; publishing it."
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "package.json version did not change: $CURRENT_VERSION"
+            echo "$PACKAGE_NAME@$CURRENT_VERSION is already present on npm."
           fi
 
   publish:
