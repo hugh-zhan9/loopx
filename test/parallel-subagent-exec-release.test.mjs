@@ -8,7 +8,6 @@ import test from 'node:test';
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(import.meta.dirname, '..');
 const compatibilityAliases = [
-  'plan-to-exec',
   'subagent-exec',
   'parallel-subagent-exec',
   'final-review',
@@ -37,6 +36,8 @@ test('release tarball contains the adaptive runtime and alias-only compatibility
   });
   const packaged = new Set(JSON.parse(stdout)[0].files.map(({ path }) => path));
   for (const path of [
+    'skills/plan2exec/SKILL.md',
+    'skills/plan2exec/references/plan-schema.md',
     'skills/exec/SKILL.md',
     'skills/exec/references/concurrent-execution.md',
     'skills/exec/scripts/adaptive-exec.mjs',
@@ -57,6 +58,8 @@ test('release tarball contains the adaptive runtime and alias-only compatibility
     'src/finish-runtime.mjs',
     'skills/shared/parallel-plan-contract.md',
     'skills/shared/scripts/parallel-plan-contract.mjs',
+    'skills/plan/SKILL.md',
+    'skills/plan-to-exec/SKILL.md',
   ]) {
     assert.equal(packaged.has(path), false, `tarball must exclude ${path}`);
   }

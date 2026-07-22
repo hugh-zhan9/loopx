@@ -39,13 +39,12 @@ test('discovery classifies six canonical intents and explicit-only compatibility
   assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, [
     'clarify',
     'spec',
-    'plan',
+    'plan2exec',
     'exec',
     'review',
     'finish',
   ]);
   assert.deepEqual(LOOPX_COMPATIBILITY_ALIAS_SKILLS, [
-    'plan-to-exec',
     'subagent-exec',
     'parallel-subagent-exec',
     'final-review',
@@ -98,7 +97,7 @@ test('workspace routing and CLI expose canonical intents without a Golden path l
     ].join('\n'),
   );
   const status = await statusSummary(cwd, 'canonical-routing');
-  assert.equal(status.next_skill_command, `$plan ${status.intake_package_path}`);
+  assert.equal(status.next_skill_command, `$plan2exec ${status.intake_package_path}`);
 
   const { stdout: help } = await execFileAsync(process.execPath, [cliPath]);
   for (const removedCommand of ['finish-start', 'execution-start', 'finish-audit', 'finish-record']) {
@@ -123,6 +122,9 @@ test('legacy implementation payload is removed while explicit aliases stay insta
     'skills/final-review/references/report-template.zh-CN.md',
     'skills/finish/references/final-review-and-finish-gates.md',
     'skills/finish/references/memory-and-spec-candidates.md',
+    'skills/plan/SKILL.md',
+    'skills/plan/references/plan-schema.md',
+    'skills/plan-to-exec/SKILL.md',
     'skills/plan-to-exec/references/internal-plan-review.md',
     'skills/plan-to-exec/references/plan-schema.md',
     'skills/plan-to-exec/references/surface-change-planning.md',

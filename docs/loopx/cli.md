@@ -54,7 +54,7 @@ loopx repair-install
 
 `loopx init`, `loopx clarify`, `loopx status`, and `loopx next` support local
 intake and handoff state. The installed product otherwise stays prompt-first.
-Its six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`,
+Its six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`,
 `review`, and `finish`; they are optional governance tools, not a fixed path.
 
 New `clarify` workflows write a local intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with canonical `requirements.md` and supporting `clarification.md`. Human output shows concise paths; use `--json` for full state fields.

@@ -174,7 +174,7 @@ Expected:
 
 - Use `exec` for sequential or tightly coupled refactors.
 - Let `exec` decide whether independent tasks admit isolated concurrency.
-- Use `plan` only when this document is intentionally high-level and missing an execution-ready lean plan.
+- Use `plan2exec` only when this document is intentionally high-level and missing an execution-ready plan.
 
 ## Further Notes
 

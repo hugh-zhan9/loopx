@@ -53,9 +53,9 @@ Output:
 - Include the behavioral model as input context for the spec (states, transitions, operations, mutations are defined — implementation approach is not).
 - Route implementation approach gaps to `spec`: persistence shape, state-machine mechanism, sync vs async execution, API contract shape, migration strategy, observability, or rollback implementation.
 
-## Ready For `plan`
+## Ready For `plan2exec`
 
-Recommend `plan` only when the source is ready for a lean implementation plan.
+Recommend `plan2exec` only when the source is ready for an execution plan.
 
 Signals:
 
@@ -99,7 +99,7 @@ Output:
 
 Score ranges do not route work by themselves. The maturity score provides a confidence signal, but specific unresolved issue types decide readiness:
 
-- **Any P0 blocker** -> cannot recommend `plan` regardless of total score
+- **Any P0 blocker** -> cannot recommend `plan2exec` regardless of total score
 - **Score >= 85 but P0 exists** → recommend `clarify` or `blocked`, note that most of the document is ready
 - **Score < 50 but no P0** → recommend `clarify` only when owner decisions are needed; otherwise recommend `spec` or document rework with the dimensions dragging down confidence
 - **Behavioral model incomplete but score >= 70** → inspect the missing element: missing business semantics route to `clarify`; missing implementation approach routes to `spec`

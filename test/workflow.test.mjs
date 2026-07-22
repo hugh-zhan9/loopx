@@ -250,13 +250,13 @@ describe('loopx retained workflow shell', () => {
     assert.equal(existsSync(second.state.requirements_path), true);
   });
 
-  it('status and next recommend canonical plan when clarify is handoff-ready', async () => {
+  it('status and next recommend canonical plan2exec when clarify is handoff-ready', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-next-'));
     const clarified = await clarifyStage(wd, 'ready-flow');
     await writeResolvedClarification(clarified.state.clarification_path, 'ready-flow');
 
     const status = await statusSummary(wd, 'ready-flow');
-    const expectedPlanCommand = `$plan ${status.state.intake_package_path}`;
+    const expectedPlanCommand = `$plan2exec ${status.state.intake_package_path}`;
     assert.equal(status.state.stage_status, 'ready');
     assert.equal(status.state.next_skill_command, expectedPlanCommand);
     assert.equal(status.next_skill_command, expectedPlanCommand);
@@ -269,7 +269,7 @@ describe('loopx retained workflow shell', () => {
     });
 
     const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'ready-flow'], { cwd: wd });
-    assert.match(nextStdout, new RegExp(`^next skill: \\$plan ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
+    assert.match(nextStdout, new RegExp(`^next skill: \\$plan2exec ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
     assert.doesNotMatch(nextStdout, /next cli:/);
 
     const { stdout: statusStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow'], { cwd: wd });
@@ -329,7 +329,7 @@ describe('loopx retained workflow shell', () => {
 
     const status = await statusSummary(wd, 'resume-ready');
     assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.next_skill_command, `$plan ${status.state.intake_package_path}`);
+    assert.equal(status.next_skill_command, `$plan2exec ${status.state.intake_package_path}`);
   });
 
   it('status uses the last Resume State section when clarification has stale earlier state', async () => {
@@ -341,7 +341,7 @@ describe('loopx retained workflow shell', () => {
     assert.equal(status.state.stage_status, 'ready');
     assert.equal(status.state.unresolved_ambiguity_count, 0);
     assert.equal(status.state.clarify_current_round, 2);
-    assert.equal(status.next_skill_command, `$plan ${status.state.intake_package_path}`);
+    assert.equal(status.next_skill_command, `$plan2exec ${status.state.intake_package_path}`);
   });
 
   it('next skill quotes handoff paths that contain spaces', async () => {
@@ -351,11 +351,11 @@ describe('loopx retained workflow shell', () => {
 
     const status = await statusSummary(wd, 'space-flow');
     assert.match(status.state.intake_package_path, /\s/);
-    assert.match(status.next_skill_command, /^\$plan '/);
+    assert.match(status.next_skill_command, /^\$plan2exec '/);
     assert.match(status.next_skill_command, /'\s*$/);
 
     const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'space-flow'], { cwd: wd });
-    assert.match(nextStdout, /^next skill: \$plan '/m);
+    assert.match(nextStdout, /^next skill: \$plan2exec /m);
   });
 
   it('next skill keeps retained review rollback guidance only', () => {
@@ -364,7 +364,7 @@ describe('loopx retained workflow shell', () => {
       current_stage: 'review',
       review_verdict: 'request-changes',
       rollback_target: 'plan',
-    }), '$plan review-plan');
+    }), '$plan2exec review-plan');
     assert.equal(nextSkillCommand({
       slug: 'review-clarify',
       current_stage: 'review',
@@ -454,6 +454,62 @@ describe('loopx retained workflow shell', () => {
     assert.ok(drifted.failures.includes('shared_contracts_drifted'));
   });
 
+  it('removes retired loopx-owned planning skills during installation', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-retired-skills-'));
+    const env = loopxEnv(home);
+    const skillsRoot = join(home, '.agents', 'skills');
+    const retiredSkills = ['plan', 'plan-to-exec'];
+
+    for (const skillName of retiredSkills) {
+      await mkdir(join(skillsRoot, skillName), { recursive: true });
+      await writeFile(join(skillsRoot, skillName, 'SKILL.md'), `# ${skillName}\n`);
+    }
+    await mkdir(join(home, '.agents'), { recursive: true });
+    await writeFile(
+      env.LOOPX_SKILL_LOCK_PATH,
+      `${JSON.stringify({
+        version: 3,
+        skills: Object.fromEntries(retiredSkills.map((skillName) => [
+          skillName,
+          {
+            source: 'loopx',
+            sourceType: 'local',
+            installationIdentity: 'loopx',
+            sourceUrl: repoRoot,
+            skillPath: `skills/${skillName}/SKILL.md`,
+            installedPath: join(skillsRoot, skillName),
+          },
+        ])),
+      }, null, 2)}\n`,
+    );
+
+    const result = await installBundledSkills(env);
+
+    assert.deepEqual(result.removed.map((item) => item.skillName), retiredSkills);
+    for (const skillName of retiredSkills) {
+      assert.equal(existsSync(join(skillsRoot, skillName)), false);
+    }
+    assert.equal(existsSync(join(skillsRoot, 'plan2exec', 'SKILL.md')), true);
+    const lock = JSON.parse(await readFile(env.LOOPX_SKILL_LOCK_PATH, 'utf8'));
+    assert.equal(lock.skills.plan, undefined);
+    assert.equal(lock.skills['plan-to-exec'], undefined);
+    assert.ok(lock.skills.plan2exec);
+  });
+
+  it('preserves retired planning skill names that are not loopx-owned', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-foreign-retired-skill-'));
+    const env = loopxEnv(home);
+    const foreignSkill = join(home, '.agents', 'skills', 'plan', 'SKILL.md');
+    await mkdir(join(home, '.agents', 'skills', 'plan'), { recursive: true });
+    await writeFile(foreignSkill, '# user-owned plan\n');
+
+    const result = await installBundledSkills(env);
+
+    assert.deepEqual(result.removed, []);
+    assert.equal(await readFile(foreignSkill, 'utf8'), '# user-owned plan\n');
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'plan2exec', 'SKILL.md')), true);
+  });
+
   it('installs the same prompt-first routing authority for Codex and Claude', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-routing-'));
     const env = loopxEnv(home);
@@ -489,22 +545,50 @@ describe('loopx retained workflow shell', () => {
     assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
   });
 
-  it('installs an optional lean planning intent without execution transcription', async () => {
+  it('installs plan2exec with traceable execution slices but without execution transcription', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-lean-plan-'));
     const result = await installBundledSkills(loopxEnv(home));
 
     assert.equal(result.ok, true);
-    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan'), true);
-    const planSkill = await readFile(join(home, '.agents', 'skills', 'plan', 'SKILL.md'), 'utf8');
-    const planSchema = await readFile(join(home, '.agents', 'skills', 'plan', 'references', 'plan-schema.md'), 'utf8');
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan2exec'), true);
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan'), false);
+    assert.equal(LOOPX_BUNDLED_SKILLS.includes('plan-to-exec'), false);
+    const planSkill = await readFile(join(home, '.agents', 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
+    const planSchema = await readFile(join(home, '.agents', 'skills', 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
     const fixture = await readFile(join(repoRoot, 'test', 'fixtures', 'lean-plan.md'), 'utf8');
 
     assert.match(planSkill, /explicit planning.*approval boundar.*interruption recovery.*durable coordination/is);
     assert.match(planSkill, /clear, bounded request.*prompt-first/is);
-    for (const heading of ['Outcomes', 'Boundaries', 'Likely Modules', 'Known Dependencies', 'Acceptance', 'Verification']) {
+    for (const heading of [
+      'Source And Goal',
+      'Boundaries And Global Constraints',
+      'Execution Slices',
+      'Integration And Final Verification',
+      'Handoff And Residual Risks',
+    ]) {
       assert.match(planSchema, new RegExp(`^## ${heading}$`, 'm'));
       assert.match(fixture, new RegExp(`^## ${heading}$`, 'm'));
     }
+    assert.match(planSchema, /^### P-001: <coherent outcome>$/m);
+    for (const field of [
+      'Outcome',
+      'Depends on',
+      'Likely surfaces',
+      'Interfaces',
+      'Source anchors',
+      'Acceptance',
+      'Verification',
+      'Expected evidence',
+    ]) {
+      assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
+      assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
+    }
+    for (const field of ['Source', 'Goal', 'Status', 'Blockers', 'Residual risks', 'Resume note']) {
+      assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
+      assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
+    }
+    assert.match(planSkill, /every implementation-relevant.*AC-\*.*D-\*.*TC-\*/is);
+    assert.match(planSkill, /deferred-with-rationale/i);
     for (const forbidden of [
       /Bite-Sized Task Granularity/i,
       /minute-scale/i,
@@ -552,7 +636,6 @@ describe('loopx retained workflow shell', () => {
     );
 
     for (const [alias, canonical] of [
-      ['plan-to-exec', 'plan'],
       ['subagent-exec', 'exec'],
       ['parallel-subagent-exec', 'exec'],
     ]) {

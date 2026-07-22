@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.3.14"
+  version: "0.3.15"
 ---
 
 # loopx Spec
@@ -54,7 +54,7 @@ Before writing, inspect relevant code and docs when the task touches an existing
 
 Write the design as a decision document, not a task list.
 
-The design document should make requirements, non-goals, decision boundaries, intake package source, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan` can preserve coverage without re-interpreting the source.
+The design document should make requirements, non-goals, decision boundaries, intake package source, and planning handoff easy to anchor. Keep those items explicit, stable, and scoped so downstream `plan2exec` can preserve coverage without re-interpreting the source.
 
 Default to producing one detailed design document:
 
@@ -97,7 +97,7 @@ Use these contract block names when the design needs an explicit downstream cont
 
 Include a **Workflow Contract** block whenever the design changes workflow handoffs, artifact fields, stage gates, or downstream skill consumption.
 
-When `plan`, `exec`, or `review` must consume a design decision, place the relevant `D-*` anchor inside contract blocks, not only in surrounding prose. If a downstream skill consumes a decision but no `D-*` anchor can be assigned safely, stop and resolve the design before planning.
+When `plan2exec`, `exec`, or `review` must consume a design decision, place the relevant `D-*` anchor inside contract blocks, not only in surrounding prose. If a downstream skill consumes a decision but no `D-*` anchor can be assigned safely, stop and resolve the design before planning.
 
 For detailed designs with implementation-relevant decisions, assign stable `D-*` anchors such as `D-001`, `D-002`, and `D-003`. A decision is implementation-relevant when it affects behavior, API, data, state, CLI, permissions, compatibility, rollout, operations, downstream planning, or review.
 
@@ -108,7 +108,7 @@ Each design contract entry should name:
 - Contract type, such as behavior, data, state, CLI, compatibility, operations, or workflow contract
 - Decision
 - Boundary or non-goal
-- Downstream expectation for `plan` or `review`
+- Downstream expectation for `plan2exec` or `review`
 
 Place each `D-*` anchor inline beside the relevant decision in the main design body, then include a final complete index table in the detailed design. The inline anchor keeps the design readable in context; the index table gives downstream skills one lookup surface.
 
@@ -129,7 +129,7 @@ Before writing the proposal or detailed design, identify support lenses that app
 
 Record triggered support lenses in the design proposal and detailed design. If no support lens applies, state `Support lenses: none` so downstream planning does not guess.
 
-Support lenses inform the unified design document. They must not create separate authoritative contract files that `plan`, `review`, or implementers need to reconcile. Fold lens-specific conclusions into the proposal, detailed design sections, boundary scenarios, verification strategy, or `D-*` entries.
+Support lenses inform the unified design document. They must not create separate authoritative contract files that `plan2exec`, `review`, or implementers need to reconcile. Fold lens-specific conclusions into the proposal, detailed design sections, boundary scenarios, verification strategy, or `D-*` entries.
 
 Cover:
 
@@ -181,7 +181,7 @@ The detailed Markdown spec must include these sections:
 - `十、排期与规划`
 - `十一、QA`
 
-The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan` may decide without re-opening design and what must return to `clarify` or `spec`.
+The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan2exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
 The detailed design, and the design proposal when produced, must cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
 
@@ -200,10 +200,10 @@ If only the design proposal is complete, ask for review of the proposal before w
 After the detailed spec is complete, recommend:
 
 ```text
-$plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+$plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 ```
 
-Use `plan` only after the design document is internally consistent and all material requirements questions are resolved.
+Use `plan2exec` only after the design document is internally consistent and all material requirements questions are resolved.
 
 ## Failure Handling
 

@@ -3,7 +3,7 @@ name: clarify
 description: "Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records the required handoff. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation."
 when_to_use: "clarify, unresolved intent, unclear scope, non-goals, acceptance criteria, permission decision, secret handling, destructive choice, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.16"
+  version: "0.3.17"
 ---
 
 # loopx Clarify
@@ -16,7 +16,7 @@ First load only relevant repo context, then alternate between evidence gathering
 
 ## STOP Conditions
 
-Stop before handoff when any material scope, non-goal, acceptance criterion, rollout, safety, ownership, or verification question remains unresolved. The only valid unresolved outcome is `blocked`; do not route to `spec` or `plan` with hidden assumptions.
+Stop before handoff when any material scope, non-goal, acceptance criterion, rollout, safety, ownership, or verification question remains unresolved. The only valid unresolved outcome is `blocked`; do not route to `spec` or `plan2exec` with hidden assumptions.
 
 ## Repo Specs And Memory Context
 
@@ -64,9 +64,9 @@ Acceptance scenarios in `requirements.md` must use stable `TC-*` anchors under a
 
 `requirements.md` is the canonical `AC-*` and `TC-*` source. If AC/TC anchors are missing, contradictory, or not testable, keep the package blocked and continue clarification.
 
-Handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for `spec`, `plan`, `exec`, and `review`. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
+Handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for `spec`, `plan2exec`, `exec`, and `review`. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
 
-The completed intake package must preserve the information `spec` or `plan` needs:
+The completed intake package must preserve the information `spec` or `plan2exec` needs:
 
 - intent and desired outcome
 - in-scope work
@@ -146,25 +146,25 @@ Generic: Use the spec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
 Then stop before implementation planning and report:
 
 ```text
-skill: plan
+skill: plan2exec
 args: docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Codex: $plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Claude Code: /plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Cursor Agent Skills: /plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Generic: Use the plan skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
+Codex: $plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Claude Code: /plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Cursor Agent Skills: /plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+Generic: Use the plan2exec skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
 ```
 
-For `direct_to_plan`, hand off to the `plan` skill with the intake package directory as the source:
+For `direct_to_plan`, hand off to the `plan2exec` skill with the intake package directory as the source:
 
 ```text
-skill: plan
+skill: plan2exec
 args: .loopx/intake/YYYY-MM-DD-<slug>/
-Codex: $plan .loopx/intake/YYYY-MM-DD-<slug>/
-Claude Code: /plan .loopx/intake/YYYY-MM-DD-<slug>/
-Cursor Agent Skills: /plan .loopx/intake/YYYY-MM-DD-<slug>/
-Generic: Use the plan skill with .loopx/intake/YYYY-MM-DD-<slug>/.
+Codex: $plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
+Claude Code: /plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
+Cursor Agent Skills: /plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
+Generic: Use the plan2exec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
 ```
 
-`plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`.
+`plan2exec` writes one execution plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`.
 
 Do not write implementation plans or start code changes inside `clarify`.

@@ -251,7 +251,7 @@ This guide extracts and validates the behavioral model that the requirement DEFI
 
 - Design the state machine implementation (that belongs to `spec`).
 - Choose between saga, event sourcing, or direct state mutation (that belongs to `spec`).
-- Write code or propose APIs (that belongs to `plan` or `exec`).
+- Write code or propose APIs (that belongs to `plan2exec` or `exec`).
 - Resolve contradictions between requirement and implementation (that belongs to `clarify`).
 
 When conflicts or gaps are found, report them as P0/P1 issues in the main analysis report. The behavioral model output is evidence that supports the gap assessment.

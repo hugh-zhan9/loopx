@@ -17,13 +17,12 @@ const PROJECT_ROOT = resolve(MODULE_DIR, '..');
 export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
   'clarify',
   'spec',
-  'plan',
+  'plan2exec',
   'exec',
   'review',
   'finish',
 ]);
 export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
-  'plan-to-exec',
   'subagent-exec',
   'parallel-subagent-exec',
   'final-review',
@@ -33,8 +32,7 @@ const LOOPX_SKILLS = [
   'clarify',
   'spec',
   'codebase-spec',
-  'plan',
-  'plan-to-exec',
+  'plan2exec',
   'plan-reviewer',
   'subagent-exec',
   'parallel-subagent-exec',
@@ -60,6 +58,10 @@ const LOOPX_SKILLS = [
   'cli-developer',
   'lancet',
 ];
+const LOOPX_RETIRED_SKILLS = Object.freeze([
+  'plan',
+  'plan-to-exec',
+]);
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
   {
@@ -84,7 +86,7 @@ const LOOPX_AGENT_GUIDANCE_CONTENT = [
   '',
   'When working in a repository that uses loopx:',
   '',
-  '- If `docs/loopx/specs/` exists, inspect relevant specs before clarify, spec, plan, implementation, or review. Use `docs/loopx/specs/index.md` as a map when present, but do not require it.',
+  '- If `docs/loopx/specs/` exists, inspect relevant specs before clarify, spec, plan2exec, implementation, or review. Use `docs/loopx/specs/index.md` as a map when present, but do not require it.',
   '- If `.loopx/memory/MEMORY.md` exists, read it as curated project memory.',
   '- If `.loopx/memory/index.jsonl` exists, use it only to find relevant active memory cards.',
   '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
@@ -94,8 +96,8 @@ const LOOPX_ROUTING_GUIDANCE_CONTENT = [
   '## loopx Prompt-First Routing',
   '',
   '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
-  '- The six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
-  '- `plan-to-exec`, `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review` are explicit-only compatibility aliases. Never select them automatically.',
+  '- The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
+  '- `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review` are explicit-only compatibility aliases. Never select them automatically.',
   '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
   '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
   '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',
@@ -507,6 +509,23 @@ function isLoopxOwnedRow(skillName, row, env = process.env) {
   );
 }
 
+async function removeRetiredOwnedSkills(skillRows, env = process.env) {
+  const removed = [];
+  for (const skillName of LOOPX_RETIRED_SKILLS) {
+    const row = skillRows[skillName];
+    if (!isLoopxOwnedRow(skillName, row, env)) {
+      continue;
+    }
+    await removeInstalledSkill(row.installedPath);
+    delete skillRows[skillName];
+    removed.push({
+      skillName,
+      installedPath: row.installedPath,
+    });
+  }
+  return removed;
+}
+
 async function removeStaleOwnedInstall(currentRow) {
   if (!currentRow?.installedPath || !existsSync(currentRow.installedPath)) {
     return;
@@ -828,6 +847,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const installed = [];
   const conflicts = [];
   const skipped = [];
+  const removed = await removeRetiredOwnedSkills(nextData.skills, env);
   const nextTemplateItems = [];
   const sharedSource = sharedContractsSourceDir(env, installOptions.skillSourceRoot);
   const sharedTarget = installedSharedContractsDir(env);
@@ -938,6 +958,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
     installed,
     conflicts,
     skipped,
+    removed,
     agentGuidance,
     templateGovernance,
     inspection: await inspectInstallState(env),

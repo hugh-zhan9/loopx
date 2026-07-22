@@ -152,7 +152,7 @@ function buildWorkspaceReadme() {
     '',
     '## Workflow Intents',
     '',
-    '`clarify`, `spec`, `plan`, `exec`, `review`, and `finish` are optional governed intents, not a required sequence.',
+    '`clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish` are optional governed intents, not a required sequence.',
     '',
     '## User Commands',
     '',

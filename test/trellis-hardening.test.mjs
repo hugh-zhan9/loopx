@@ -112,7 +112,7 @@ describe('loopx retained hardening', () => {
         { cwd: wd },
       );
       assert.match(stdout, /loopx_advisory/);
-      assert.match(stdout, /next skill: \$plan .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-hook-flow/);
+      assert.match(stdout, /next skill: \$plan2exec .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-hook-flow/);
       assert.match(stdout, /intake package:/);
       assert.match(stdout, /requirements:/);
       assert.doesNotMatch(stdout, removedTestCasesAdvisoryPattern);

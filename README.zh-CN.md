@@ -12,12 +12,12 @@
 guidance 和项目上下文。日常工作保持 prompt-first：清晰且边界明确的请求可以直接
 实现并完成新鲜验证，不必为了经过固定阶段而创建 workflow artifacts。
 
-六个 canonical workflow intents 是 `clarify`、`spec`、`plan`、`exec`、
+六个 canonical workflow intents 是 `clarify`、`spec`、`plan2exec`、`exec`、
 `review` 和 `finish`。它们是按需使用的治理工具，不是固定路径。
 
 - `clarify` 在修改前解决会影响结果的实质歧义。
 - `spec` 固化长期有效的产品、兼容、数据、安全或架构决策。
-- `plan` 只在明确要求计划、审批、恢复或持久协调时写 lean plan。
+- `plan2exec` 只在明确要求实施计划、审批、恢复或持久协调时写 lean execution plan。该名称与 agent 内建 Plan 模式明确区分。
 - `exec` 让强耦合工作保持顺序执行，并可隔离并发执行独立工作。
 - `review` 只在明确要求或存在具体风险证据时进行独立评审。
 - `finish` 在工作验证完成后处理用户明确要求的 Git disposition。
@@ -50,7 +50,7 @@ loopx install-skills --target all --dry-run
 ```text
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
-$plan <approved-source-or-planning-request>
+$plan2exec <approved-source-or-planning-request>
 $exec <clear-request-or-plan>
 $review <request-or-git-scope>
 $finish <Git-disposition-request>
@@ -62,12 +62,11 @@ audit ledger。
 
 ## 显式兼容别名
 
-在一个 release 周期内，五个旧名称作为 explicit-only compatibility aliases
+在一个 release 周期内，四个旧名称作为 explicit-only compatibility aliases
 保留，并从自动发现中排除：
 
 | 别名 | Canonical intent |
 |---|---|
-| `plan-to-exec` | `plan` |
 | `subagent-exec` | `exec` |
 | `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |

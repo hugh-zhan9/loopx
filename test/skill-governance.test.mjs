@@ -425,15 +425,15 @@ describe('loopx skill governance', () => {
   });
 
   it('keeps workflow recovery and planning detail in owned contracts', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readFile(join(repoRoot, 'skills', 'exec', 'SKILL.md'), 'utf8');
     const fixReview = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
     const finishRecording = await readFile(join(repoRoot, 'skills', 'finish', 'references', 'branch-worktree-and-recording.md'), 'utf8');
-    assert.equal(existsSync(join(repoRoot, 'skills', 'plan', 'references', 'plan-schema.md')), true);
+    assert.equal(existsSync(join(repoRoot, 'skills', 'plan2exec', 'references', 'plan-schema.md')), true);
     assert.match(planSkill, /plan-schema\.md/);
     assert.match(planSkill, /interruption recovery/i);
     assert.match(execSkill, /temporary execution graph/i);
-    assert.match(execSkill, /do not write a workflow artifact/i);
+    assert.match(execSkill, /do not write a workflow artifact.*represent|do not create.*workflow artifact/is);
     assertExplicitCompatibilityAlias(fixReview, 'fix-review', 'review');
     assert.match(fixReview, /does not require a feedback ledger or report artifact/i);
     assert.match(finishRecording, /prepare -> perform -> record -> reconcile/);
@@ -582,7 +582,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /lean implementation plan.*approved source/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.2.0');
+    assert.equal(fields['metadata.version'], '0.2.1');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens.*must not\s+create a workflow state/is);
     assert.match(skill, /## STOP Conditions/);
@@ -620,13 +620,13 @@ describe('loopx skill governance', () => {
     assert.match(clarifySkill, /current_round/);
     assert.match(clarifySkill, /unresolved_count/);
     assert.match(clarifySkill, /next_question/);
-    assert.match(clarifySkill, /`spec` or `plan` needs/);
+    assert.match(clarifySkill, /`spec` or `plan2exec` needs/);
     assertSkillHandoffFormat(clarifySkill, 'clarify');
-    assert.match(clarifySkill, /skill: plan/);
-    assert.match(clarifySkill, /Codex: \$plan/);
-    assert.match(clarifySkill, /Claude Code: \/plan/);
-    assert.match(clarifySkill, /Cursor Agent Skills: \/plan/);
-    assert.match(clarifySkill, /Generic: Use the plan skill/);
+    assert.match(clarifySkill, /skill: plan2exec/);
+    assert.match(clarifySkill, /Codex: \$plan2exec/);
+    assert.match(clarifySkill, /Claude Code: \/plan2exec/);
+    assert.match(clarifySkill, /Cursor Agent Skills: \/plan2exec/);
+    assert.match(clarifySkill, /Generic: Use the plan2exec skill/);
     assert.match(clarifySkill, /needs_spec/);
     assert.match(clarifySkill, /direct_to_plan/);
     assert.match(clarifySkill, /blocked/);
@@ -640,7 +640,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /bug-class/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
-    assert.equal(fields['metadata.version'], '0.3.8');
+    assert.equal(fields['metadata.version'], '0.3.9');
     assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-YYYY-MM-DD\.md/);
     assert.match(issueSkill, /phase/);
     assert.match(issueSkill, /status/);
@@ -1133,7 +1133,7 @@ describe('loopx skill governance', () => {
   });
 
   it('governs boundary commit policy and task review worktree evidence', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec');
     const subagentSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
@@ -1145,11 +1145,11 @@ describe('loopx skill governance', () => {
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
 
-    if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (parseFrontmatter(planSkill).name === 'plan2exec') {
       assertExplicitCompatibilityAlias(subagentSkill, 'subagent-exec', 'exec');
       assert.match(execSkill, /fresh task-relevant verification/i);
       assert.doesNotMatch(execSkill, /per-task staging/i);
+      assert.match(planSkill, /per-slice commit commands/i);
       return;
     }
 
@@ -1171,18 +1171,21 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(readmeZh, /具体 git range 需要独立代码评审/);
   });
 
-  it('plan-to-exec requires global constraints and task interfaces for subagent handoff', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+  it('plan2exec requires global constraints and slice interfaces for exec handoff', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const finalReviewSkill = await readFile(join(repoRoot, 'skills', 'final-review', 'SKILL.md'), 'utf8');
     const finishSkill = await readSkillSurface('finish');
-    if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
-      const canonicalPlan = await readSkillSurface('plan', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (parseFrontmatter(planSkill).name === 'plan2exec') {
+      const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
       assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
-      assert.match(canonicalPlan, /Known Dependencies/);
+      assert.match(canonicalPlan, /Boundaries And Global Constraints/);
+      assert.match(canonicalPlan, /Execution Slices/);
+      assert.match(canonicalPlan, /Interfaces:/);
+      assert.match(canonicalPlan, /Depends on:/);
+      assert.match(canonicalPlan, /Expected evidence:/);
       assert.match(canonicalPlan, /Do not add\s+task microsteps/i);
       return;
     }
@@ -1246,16 +1249,16 @@ describe('loopx skill governance', () => {
   });
 
   it('governs multi-plan package execution mode across execution skills', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec');
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const finishSkill = await readSkillSurface('finish');
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
 
-    if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (parseFrontmatter(planSkill).name === 'plan2exec') {
       assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
       assert.match(execSkill, /Strongly coupled work remains serial in the current context/i);
+      assert.match(planSkill, /executor choices, concurrency metadata/i);
       assert.match(resolver, /do not participate in automatic routing/i);
       return;
     }
@@ -1366,7 +1369,7 @@ describe('loopx skill governance', () => {
   it('spec requires boundary scenarios in proposal and detailed design', async () => {
     const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const proposal = await readFile(join(repoRoot, 'skills', 'spec', 'references', 'design-proposal.md'), 'utf8');
     const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
@@ -1385,7 +1388,7 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /intake package/);
     assert.doesNotMatch(planSkill, removedStandaloneArtifactPattern);
     assert.match(specSkill, /Acceptance Scenarios/);
-    assert.match(planSkill, /source `AC-\*`, `TC-\*`, or `D-\*`/);
+    assert.match(planSkill, /source `AC-\*`, `D-\*`, and `TC-\*`/);
     assert.match(specSkill, /Support Lens Activation/);
     assert.match(specSkill, /api-designer/);
     assert.match(specSkill, /architecture-designer/);
@@ -1431,14 +1434,14 @@ describe('loopx skill governance', () => {
   it('governs design contract anchors across spec planning and review', async () => {
     const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
     const template = await readFile(join(repoRoot, 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
     const specFields = parseFrontmatter(specSkill);
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.14');
-    assert.equal(planFields['metadata.version'], '0.1.0');
+    assert.equal(specFields['metadata.version'], '0.3.15');
+    assert.equal(planFields['metadata.version'], '0.2.0');
     assert.equal(reviewFields['metadata.version'], '0.4.0');
 
     assert.match(specSkill, /D-\*/);
@@ -1461,7 +1464,7 @@ describe('loopx skill governance', () => {
     assert.match(template, /Design anchors: not applicable/);
 
     assert.match(planSkill, /D-\*/);
-    assert.match(planSkill, /anchors inline/i);
+    assert.match(planSkill, /Every implementation-relevant source `AC-\*`, `D-\*`, and `TC-\*` anchor must map/i);
     assert.match(planSkill, /route to `clarify` or `spec`/i);
 
     assert.match(reviewSkill, /D-\*/);
@@ -1480,7 +1483,7 @@ describe('loopx skill governance', () => {
   });
 
   it('governs plan task anchors across planning execution and review', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec');
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
@@ -1494,14 +1497,14 @@ describe('loopx skill governance', () => {
     const subagentExecFields = parseFrontmatter(subagentExecSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    if (planFields['disable-model-invocation'] === 'true') {
-      const canonicalPlan = await readSkillSurface('plan', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (planFields.name === 'plan2exec') {
+      const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
       assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
-      for (const section of ['Outcomes', 'Boundaries', 'Likely Modules', 'Known Dependencies', 'Acceptance', 'Verification']) {
+      for (const section of ['Source And Goal', 'Boundaries And Global Constraints', 'Execution Slices', 'Integration And Final Verification', 'Handoff And Residual Risks']) {
         assert.match(canonicalPlan, new RegExp(section));
       }
-      assert.doesNotMatch(canonicalPlan, /### T-001 \/ Task 1:/);
+      assert.match(canonicalPlan, /### P-001:/);
+      assert.match(execSkill, /Preserve\s+`P-\*` identifiers/i);
       assert.match(execSkill, /temporary execution graph/i);
       return;
     }
@@ -1551,7 +1554,7 @@ describe('loopx skill governance', () => {
     assert.match(reviewSkill, /Stage 1 spec compliance/i);
 
     for (const [label, text] of [
-      ['plan-to-exec', planSkill],
+      ['plan2exec', planSkill],
       ['exec', execSkill],
       ['subagent-exec', subagentExecSkill],
       ['review', reviewSkill],
@@ -1568,17 +1571,18 @@ describe('loopx skill governance', () => {
     assert.match(planSkill, /Do not migrate historical `### Task N: \.\.\.` plans|Do not migrate historical/i);
   });
 
-  it('governs plan-to-exec internal source-to-plan review', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+  it('keeps plan2exec source coverage self-contained without mandatory review ceremony', async () => {
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const resolver = await readFile(resolverPath, 'utf8');
     const skillsDoc = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.md'), 'utf8');
     const skillsDocZh = await readFile(join(repoRoot, 'docs', 'loopx', 'skills.zh-CN.md'), 'utf8');
 
-    if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
-      const canonicalPlan = await readSkillSurface('plan', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (parseFrontmatter(planSkill).name === 'plan2exec') {
+      const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
       assert.match(canonicalPlan, /Acceptance/);
       assert.match(canonicalPlan, /Verification/);
+      assert.match(canonicalPlan, /Source anchors/);
+      assert.match(canonicalPlan, /deferred-with-rationale/);
       assert.match(canonicalPlan, /Do not add.*reviewer stages/is);
       assert.doesNotMatch(canonicalPlan, /Internal Plan Review/i);
       return;
@@ -1634,15 +1638,15 @@ describe('loopx skill governance', () => {
   });
 
   it('keeps lean plans free of executor metadata and makes exec choose qualitatively', async () => {
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
-    const planSchema = await readFile(join(repoRoot, 'skills', 'plan', 'references', 'plan-schema.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
+    const planSchema = await readFile(join(repoRoot, 'skills', 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
     const execSelection = await readFile(join(repoRoot, 'skills', 'exec', 'references', 'execution-selection.md'), 'utf8');
-    const legacyPlan = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
     const matrix = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json'), 'utf8'));
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.1.0');
-    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan').version, '0.1.0');
-    assertExplicitCompatibilityAlias(legacyPlan, 'plan-to-exec', 'plan');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.2.0');
+    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan2exec').version, '0.2.0');
+    assert.equal(matrix.skills.some(({ skill }) => skill === 'plan'), false);
+    assert.equal(matrix.skills.some(({ skill }) => skill === 'plan-to-exec'), false);
 
     for (const contract of [planSkill, planSchema]) {
       assert.doesNotMatch(contract, /loopx-parallel-(?:plan|task|package)/);
@@ -1663,7 +1667,7 @@ describe('loopx skill governance', () => {
   it('governs upstream main-chain contract handoff across clarify planning and execution', async () => {
     const clarifySkill = await readFile(join(repoRoot, 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const specSkill = await readFile(join(repoRoot, 'skills', 'spec', 'SKILL.md'), 'utf8');
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec');
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const implementerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'implementer-prompt.md'))
@@ -1671,11 +1675,11 @@ describe('loopx skill governance', () => {
     const taskReviewerPrompt = existsSync(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'))
       ? await readFile(join(repoRoot, 'skills', 'subagent-exec', 'task-reviewer-prompt.md'), 'utf8') : '';
 
-    if (parseFrontmatter(planSkill)['disable-model-invocation'] === 'true') {
-      const canonicalPlan = await readSkillSurface('plan', ['plan-schema.md']);
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
+    if (parseFrontmatter(planSkill).name === 'plan2exec') {
+      const canonicalPlan = await readSkillSurface('plan2exec', ['plan-schema.md']);
       assertExplicitCompatibilityAlias(subagentExecSkill, 'subagent-exec', 'exec');
-      assert.match(canonicalPlan, /source `AC-\*`, `TC-\*`, or `D-\*`/);
+      assert.match(canonicalPlan, /source `AC-\*`, `D-\*`, and `TC-\*`/);
+      assert.match(canonicalPlan, /Execution Slices/);
       assert.match(execSkill, /clear request or a persistent plan/i);
       return;
     }
@@ -1792,7 +1796,7 @@ describe('loopx skill governance', () => {
     const currentContractPaths = [
       join(repoRoot, 'skills', 'clarify', 'SKILL.md'),
       join(repoRoot, 'skills', 'spec', 'SKILL.md'),
-      join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'),
+      join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'),
       join(repoRoot, 'skills', 'exec', 'SKILL.md'),
       join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'),
       join(repoRoot, 'skills', 'review', 'SKILL.md'),
@@ -1843,7 +1847,7 @@ describe('loopx skill governance', () => {
 
   it('threads lancet through implementation and review contracts without collapsing planning freedom', async () => {
     const resolver = await readFile(resolverPath, 'utf8');
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const execSkill = await readSkillSurface('exec', ['execution-selection.md']);
     const subagentExecSkill = await readFile(join(repoRoot, 'skills', 'subagent-exec', 'SKILL.md'), 'utf8');
     const reviewSkill = await readFile(join(repoRoot, 'skills', 'review', 'SKILL.md'), 'utf8');
@@ -2002,7 +2006,7 @@ describe('loopx skill governance', () => {
     const skill = referenceSurface;
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     const resolver = await readFile(join(repoRoot, 'skills', 'RESOLVER.md'), 'utf8');
-    const planSkill = await readFile(join(repoRoot, 'skills', 'plan-to-exec', 'SKILL.md'), 'utf8');
+    const planSkill = await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8');
     const cursorReference = '';
     const claudeReference = '';
     const exactLeaf = 'You are a leaf worker. Do not spawn, delegate to, or wait for other agents.';
@@ -2011,7 +2015,6 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('skills/parallel-subagent-exec/'), true);
     if (parseFrontmatter(referenceSurface)['disable-model-invocation'] === 'true') {
       assertExplicitCompatibilityAlias(referenceSurface, 'parallel-subagent-exec', 'exec');
-      assertExplicitCompatibilityAlias(planSkill, 'plan-to-exec', 'plan');
       assert.match(resolver, /do not participate in automatic routing/i);
       assert.deepEqual(await relativeFilesUnder(rootDir), ['SKILL.md']);
       return;

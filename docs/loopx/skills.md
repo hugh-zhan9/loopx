@@ -15,7 +15,7 @@ sequence.
 |---|---|---|
 | `clarify` | Intent, scope, acceptance, permissions, secrets, or a destructive choice is unresolved. | A resolved intake package or a concrete blocker. |
 | `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement. | An accepted design contract. |
-| `plan` | The user requests a plan, or approval, interruption recovery, or durable coordination requires one. | One lean plan with outcomes, boundaries, dependencies, acceptance, and verification. |
+| `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one. | One lean execution plan with outcomes, boundaries, dependencies, acceptance, and verification. The distinct name avoids confusion with built-in Plan mode. |
 | `exec` | A clear request or lean plan needs adaptive execution. | Serial or isolated concurrent implementation with fresh verification. |
 | `review` | The user requests review, or security, destructive behavior, public compatibility, cross-task interaction, or conflict reconciliation requires independence. | Evidence-backed findings and closure for blocking issues. |
 | `finish` | The user explicitly requests commit or branch placement, merge, pull request, keep, cleanup, or discard. | The requested Git disposition. |
@@ -30,7 +30,6 @@ are excluded from automatic routing:
 
 | Alias | Forwards to |
 |---|---|
-| `plan-to-exec` | `plan` |
 | `subagent-exec` | `exec` |
 | `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |
@@ -72,14 +71,14 @@ Support skills remain directly invocable and composable with canonical intents:
 | `lancet` | Implementation and review simplification. |
 
 Support lenses do not create workflow states or replace `clarify`, `spec`,
-`plan`, `exec`, `review`, or `finish`.
+`plan2exec`, `exec`, `review`, or `finish`.
 
 ## Examples
 
 ```text
 $clarify add team-level usage limits
 $spec billing-state-transitions
-$plan docs/loopx/design/2026-07-20-billing/requirements.md
+$plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
 $exec docs/loopx/plans/2026-07-20-billing.md
 $review HEAD~1
 $finish commit this change

@@ -13,12 +13,12 @@ and Claude-style coding agents. Day-to-day work stays prompt-first: a clear,
 bounded request is implemented and freshly verified without creating workflow
 artifacts merely to move through stages.
 
-The six canonical workflow intents are `clarify`, `spec`, `plan`, `exec`,
+The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`,
 `review`, and `finish`. They are optional governance tools, not a fixed path.
 
 - `clarify` resolves material ambiguity before mutation.
 - `spec` fixes durable product, compatibility, data, security, or architecture decisions.
-- `plan` writes a lean plan only for explicit planning, approval, recovery, or durable coordination.
+- `plan2exec` writes a lean execution plan only for explicit planning, approval, recovery, or durable coordination. Its distinct name avoids confusion with an agent's built-in Plan mode.
 - `exec` adaptively keeps coupled work serial and may isolate independent work concurrently.
 - `review` performs proportional independent review when explicitly requested or concretely justified.
 - `finish` handles explicitly requested Git disposition after verified work.
@@ -52,7 +52,7 @@ Invoke governance only when the request or observed risk calls for it:
 ```text
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
-$plan <approved-source-or-planning-request>
+$plan2exec <approved-source-or-planning-request>
 $exec <clear-request-or-plan>
 $review <request-or-git-scope>
 $finish <Git-disposition-request>
@@ -65,12 +65,11 @@ extraction and does not write a local audit ledger.
 
 ## Compatibility
 
-For one release, five former names remain as explicit-only compatibility
+For one release, four former names remain as explicit-only compatibility
 aliases and are excluded from automatic discovery:
 
 | Alias | Canonical intent |
 |---|---|
-| `plan-to-exec` | `plan` |
 | `subagent-exec` | `exec` |
 | `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |

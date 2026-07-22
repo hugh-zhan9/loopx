@@ -319,13 +319,13 @@
 
 ### 10.5 Planning Handoff
 
-- `plan` 可以决定：
+- `plan2exec` 可以决定：
 - 必须返回 `spec` 的事项：
 - 必须返回 `clarify` 的事项：
 - 推荐下一步：
 
 ```text
-$plan docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+$plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
 ```
 
 ## 十一、QA

@@ -20,7 +20,7 @@ const STAGE_MAP = new Map([
   ['fix', 'implementation'],
   ['review', 'review'],
   ['final-review', 'review'],
-  ['plan-to-exec', 'planning'],
+  ['plan2exec', 'planning'],
 ]);
 
 function cloneJson(value) {

@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
 ---
 
 # Issue
@@ -19,7 +19,7 @@ Issue-driven handles:
 - unexpected behavior
 
 Issue-driven does not handle feature requests or enhancements. Return those to
-prompt-first work or the justified canonical intent: `clarify`, `spec`, `plan`,
+prompt-first work or the justified canonical intent: `clarify`, `spec`, `plan2exec`,
 `exec`, `review`, or `finish`.
 
 ## Contract

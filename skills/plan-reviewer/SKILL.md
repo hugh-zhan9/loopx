@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews a lean implementation plan against its approved source for missing outcomes, scope drift, dependency mistakes, weak acceptance, and unverifiable claims. Not for creating plans, reviewing implemented code, scheduler validation, or advancing workflow state."
 when_to_use: "explicit plan review, lean plan audit, source-to-plan coverage, plan scope drift, plan verification quality"
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 argument-hint: "<lean plan path and approved source>"
 ---
 
@@ -39,7 +39,7 @@ Check:
 
 Treat missing or contradictory accepted outcomes as blocking. Report narrower
 clarity, scope, or verification improvements as non-blocking. The output is
-review advice for the caller; `plan` remains the owner of any plan update.
+review advice for the caller; `plan2exec` remains the owner of any plan update.
 
 ## Output
 

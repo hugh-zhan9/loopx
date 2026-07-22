@@ -7,8 +7,8 @@ Installed skills expose only the v2 current contract. Existing pre-v2 running
 controller-only: workers dispatched by loopx skills are leaf workers.
 
 The installed prompt-first surface has six canonical workflow intents:
-`clarify`, `spec`, `plan`, `exec`, `review`, and `finish`. The explicit-only
-compatibility aliases `plan-to-exec`, `subagent-exec`,
+`clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. The explicit-only
+compatibility aliases `subagent-exec`,
 `parallel-subagent-exec`, `final-review`, and `fix-review` remain installed for
 one release but are excluded from automatic routing.
 
@@ -45,8 +45,8 @@ forward to canonical intents. Installation does not add them to automatic
 routing.
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan-to-exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 rm -rf ~/.loopx/lancet
 ```

@@ -76,21 +76,21 @@ describe('loopx plugin shell', () => {
     }
   });
 
-  it('installs lean plan as canonical and keeps plan-to-exec explicit-only', async () => {
-    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan', 'SKILL.md'), 'utf8');
-    const planAlias = await readFile(join(ROOT_SKILLS_DIR, 'plan-to-exec', 'SKILL.md'), 'utf8');
+  it('installs plan2exec as the only planning skill name', async () => {
+    const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan2exec', 'SKILL.md'), 'utf8');
+    const planSchema = await readFile(join(ROOT_SKILLS_DIR, 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
 
     assert.match(planSkill, /optional lean implementation plan/i);
-    assert.match(planSkill, /Outcomes/);
-    assert.match(planSkill, /Boundaries/);
-    assert.match(planSkill, /Known Dependencies/);
-    assert.match(planSkill, /Acceptance/);
-    assert.match(planSkill, /Verification/);
+    assert.match(planSkill, /traceable handoff/i);
+    assert.match(planSchema, /Source And Goal/);
+    assert.match(planSchema, /Boundaries And Global Constraints/);
+    assert.match(planSchema, /Execution Slices/);
+    assert.match(planSchema, /Acceptance/);
+    assert.match(planSchema, /Verification/);
     assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
     assert.doesNotMatch(planSkill, /Bite-Sized Task Granularity|loopx-parallel-plan|max_parallel/);
-    assert.match(planAlias, /disable-model-invocation: true/);
-    assert.match(planAlias, /canonical `plan` intent/i);
-    assert.match(planAlias, /same (?:input|arguments)/i);
+    assert.equal(existsSync(join(ROOT_SKILLS_DIR, 'plan')), false);
+    assert.equal(existsSync(join(ROOT_SKILLS_DIR, 'plan-to-exec')), false);
   });
 
   it('locks clarify to use the conditional spec or plan handoff gate', async () => {
@@ -100,9 +100,9 @@ describe('loopx plugin shell', () => {
     assert.match(clarifySkill, /direct_to_plan/);
     assert.match(clarifySkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.md/);
     assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
-    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\//);
+    assert.match(clarifySkill, /\.loopx\/intake\/YYYY-MM-DD-<slug>\//);
     assert.doesNotMatch(clarifySkill, /Recommended invocation: `\$spec/);
-    assert.doesNotMatch(clarifySkill, /Default handoff after normal loopx clarify: `\$plan <slug>`/);
+    assert.doesNotMatch(clarifySkill, /Default handoff after normal loopx clarify: `\$plan2exec <slug>`/);
     assert.doesNotMatch(clarifySkill, /hand off to `build` only/i);
     assert.doesNotMatch(clarifySkill, /direct execution/i);
     assert.doesNotMatch(clarifySkill, /direct implementation/i);

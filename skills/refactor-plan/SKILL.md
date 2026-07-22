@@ -3,7 +3,7 @@ name: refactor-plan
 description: "Creates a behavior-preserving refactor plan with user interview, repo evidence, tiny commits, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
 when_to_use: "refactor-plan, refactor request, refactoring RFC, tiny commits, behavior-preserving cleanup, architecture cleanup, 重构计划"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Refactor Plan
@@ -76,4 +76,4 @@ small units as atomic tasks; execution commit boundaries remain owned by
 - Mark the plan ready for `exec` only when every tiny commit has exact files/surfaces, behavior-preservation evidence, verification commands, expected results, and rollback notes.
 - Let `exec` decide whether independent units admit isolated concurrency.
 - Return to `clarify` or `spec` when the refactor plan exposes behavior, API, schema, compatibility, or architecture decisions.
-- Use `plan` only when the refactor document is intentionally high-level and needs a separate lean implementation plan.
+- Use `plan2exec` only when the refactor document is intentionally high-level and needs a separate execution plan.

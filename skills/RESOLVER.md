@@ -14,7 +14,7 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 |---|---|
 | Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
 | Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
-| Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan/SKILL.md` |
+| Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean persistent plan | `skills/plan2exec/SKILL.md` |
 | A clear request or persistent plan should be implemented with adaptive serial-or-concurrent selection | `skills/exec/SKILL.md` |
 | Explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence requires independent review | `skills/review/SKILL.md` |
 | User explicitly requests commit or branch placement, merge, pull request, keep, cleanup, or discard after verified implementation | `skills/finish/SKILL.md` |
@@ -32,7 +32,6 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 
 | Explicit invocation only | Canonical intent |
 |---|---|
-| `skills/plan-to-exec/SKILL.md` | `plan` |
 | `skills/subagent-exec/SKILL.md` | `exec` |
 | `skills/parallel-subagent-exec/SKILL.md` | `exec` |
 | `skills/final-review/SKILL.md` | `review` |
@@ -62,10 +61,10 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 1. Keep clear, bounded requests prompt-first, including local defects and small features. Do not select a skill merely because implementation or verification is required.
 2. Stop before mutation and use `clarify` when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
 3. Use `spec` when an unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision must be fixed before implementation. Local implementation choices do not trigger `spec`.
-4. If the user wants to document what an existing repository currently does, use `codebase-spec`. Use `plan` only for explicit planning, approval boundaries, interruption recovery, or durable coordination.
-5. `plan` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
+4. If the user wants to document what an existing repository currently does, use `codebase-spec`. Use `plan2exec` only for explicit planning, approval boundaries, interruption recovery, or durable coordination. The distinct name avoids confusion with an agent's built-in Plan mode.
+5. `plan2exec` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
 6. `exec` accepts a clear request or a persistent plan and derives the current execution graph. Strongly coupled or uncertain work stays serial in the current context.
-7. `plan-to-exec`, `subagent-exec`, and `parallel-subagent-exec` forward only when explicitly invoked; they do not participate in automatic routing or ask the user to choose an execution mode.
+7. `subagent-exec` and `parallel-subagent-exec` forward only when explicitly invoked; they do not participate in automatic routing or ask the user to choose an execution mode.
 8. Every completed execution receives a controller-owned integration check and the quiet completion check from `skills/shared/completion-check.md`. The latter synchronizes applicable specs changed by the implementation and preserves only qualifying reusable knowledge across direct, serial, and concurrent paths. Use `review` only for explicit review intent or concrete security, destructive, public compatibility, cross-task interaction, or conflict-reconciliation evidence; multi-agent execution alone is not a trigger.
 9. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`. They preserve whole-feature-review or existing-feedback intent without requiring legacy report or ledger artifacts.
 10. Critical and Important review findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
@@ -73,11 +72,11 @@ a leaf worker and must not spawn, delegate to, or wait for other agents.
 12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
 13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
 14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan`.
+15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan2exec`.
 16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
 17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
-18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan` step only when the user asks.
-19. `plan-reviewer` may audit a lean plan against its approved source, but it must not advance loopx workflow state, validate scheduler metadata, or create review artifacts. Use its output as source material for `plan`; direct user invocation is for ad-hoc plan audits only.
+18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan2exec` step only when the user asks.
+19. `plan-reviewer` may audit a lean plan against its approved source, but it must not advance loopx workflow state, validate scheduler metadata, or create review artifacts. Use its output as source material for `plan2exec`; direct user invocation is for ad-hoc plan audits only.
 20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, and `review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard

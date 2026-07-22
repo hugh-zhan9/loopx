@@ -37,7 +37,7 @@ describe('lancet runtime', () => {
     assert.deepEqual(await readLancetConfig(env), defaultLancetConfig());
     assert.equal(resolveLancetStage({ skillName: 'exec' }), 'implementation');
     assert.equal(resolveLancetStage({ skillName: 'parallel-subagent-exec' }), 'implementation');
-    assert.equal(resolveLancetStage({ skillName: 'plan-to-exec' }), 'planning');
+    assert.equal(resolveLancetStage({ skillName: 'plan2exec' }), 'planning');
     assert.match(buildLancetGuidance({ stage: 'implementation' }), /canonical contract is `lancet`/);
     assert.match(buildLancetGuidance({ stage: 'planning' }), /implementation stage/);
   });
@@ -79,7 +79,7 @@ describe('codex lancet advisory hook', () => {
 
     const planningOutput = await runCodexHook({
       env,
-      payload: { cwd: repoRoot, skillName: 'plan-to-exec' },
+      payload: { cwd: repoRoot, skillName: 'plan2exec' },
     });
     assert.match(planningOutput, /planning stays broad/);
     assert.doesNotMatch(planningOutput, /LANCET IMPLEMENTATION ACTIVE/);

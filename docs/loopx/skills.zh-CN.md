@@ -13,7 +13,7 @@
 |---|---|---|
 | `clarify` | 意图、范围、验收、权限、secret 或 destructive choice 尚未解决。 | 已解决的 intake package 或明确 blocker。 |
 | `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要长期一致。 | 已接受的 design contract。 |
-| `plan` | 用户明确要求计划，或审批、中断恢复、持久协调需要计划。 | 包含 outcomes、boundaries、dependencies、acceptance 和 verification 的 lean plan。 |
+| `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、持久协调需要计划。 | 包含 outcomes、boundaries、dependencies、acceptance 和 verification 的 lean execution plan；名称与 agent 内建 Plan 模式明确区分。 |
 | `exec` | 清晰请求或 lean plan 需要 adaptive execution。 | 顺序或隔离并发的实现，以及新鲜验证。 |
 | `review` | 用户明确要求评审，或安全、破坏性行为、公共兼容、跨任务交互、冲突合并需要独立性。 | 有证据的 findings，以及 blocking issue 的闭环。 |
 | `finish` | 用户明确要求 commit 或 branch placement、merge、pull request、keep、cleanup 或 discard。 | 用户要求的 Git disposition。 |
@@ -28,7 +28,6 @@
 
 | 别名 | 转发到 |
 |---|---|
-| `plan-to-exec` | `plan` |
 | `subagent-exec` | `exec` |
 | `parallel-subagent-exec` | `exec` |
 | `final-review` | `review` |
@@ -68,7 +67,7 @@ $fix .loopx/issues/<ready-ledger>.md
 | `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 特定领域的设计和评审 lens。 |
 | `lancet` | 实现和评审阶段的简化。 |
 
-辅助 lens 不创建 workflow state，也不替代 `clarify`、`spec`、`plan`、`exec`、
+辅助 lens 不创建 workflow state，也不替代 `clarify`、`spec`、`plan2exec`、`exec`、
 `review` 或 `finish`。
 
 ## 示例
@@ -76,7 +75,7 @@ $fix .loopx/issues/<ready-ledger>.md
 ```text
 $clarify add team-level usage limits
 $spec billing-state-transitions
-$plan docs/loopx/design/2026-07-20-billing/requirements.md
+$plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
 $exec docs/loopx/plans/2026-07-20-billing.md
 $review HEAD~1
 $finish commit this change

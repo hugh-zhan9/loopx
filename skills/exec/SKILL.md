@@ -3,7 +3,7 @@ name: exec
 description: "Executes an explicitly invoked clear request, a persistent lean plan, or a clear multi-outcome request that needs adaptive execution, keeping strongly coupled work serial and requiring fresh verification. Not for ordinary clear single-outcome work that stays prompt-first, unresolved decisions, planning-only requests, code review, or Git disposition."
 when_to_use: "explicit exec invocation, run lean plan, implement clear multi-outcome request, adaptive execution after prompt-first decomposition, strongly coupled planned work"
 metadata:
-  version: "0.4.5"
+  version: "0.4.6"
 argument-hint: "<clear request or plan path>"
 ---
 
@@ -17,12 +17,14 @@ choose a serial, subagent, or parallel executor.
 
 - Ordinary clear single-outcome work stays prompt-first unless the user
   explicitly invokes `exec`.
-- If the argument resolves to a readable plan, load its Outcomes, Boundaries,
-  Likely Modules, Known Dependencies, Acceptance, and Verification.
+- If the argument resolves to a readable plan, load its Source And Goal,
+  Boundaries And Global Constraints, Execution Slices, Integration And Final
+  Verification, and Handoff And Residual Risks.
 - Otherwise treat the argument and current user request as the execution input.
 - Do not require or create a persistent plan for clear prompt input.
-- Treat likely modules and known dependencies as orientation. Current code and
-  observed behavior remain authoritative.
+- Treat likely surfaces and recorded dependencies as orientation. Preserve
+  `P-*` identifiers in execution evidence, but let current code and observed
+  behavior remain authoritative for local implementation choices.
 
 Stop before mutation when the input leaves a material product, API, data,
 permission, migration, compatibility, security, destructive, or cross-module
@@ -32,9 +34,10 @@ architecture decision unresolved. Route the concrete decision to `clarify` or
 ## Temporary Execution Graph
 
 Inspect the relevant code, specs, tests, and user-owned changes. Derive a
-temporary execution graph containing semantic outcomes, known dependencies,
-likely writes, and verification boundaries. Keep it in the current context for
-ordinary work; do not write a workflow artifact merely to represent it.
+temporary execution graph from the plan's `P-*` slices or directly from a clear
+prompt. It contains semantic outcomes, known dependencies, likely writes, and
+verification boundaries. Keep it in the current context for ordinary work; do
+not write a workflow artifact merely to represent it.
 
 Read [references/execution-selection.md](./references/execution-selection.md)
 before dispatching any worker. Explain each concurrency decision with a

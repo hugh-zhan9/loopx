@@ -51,7 +51,7 @@ loopx repair-install
 
 `loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 支撑本地 intake
 和 handoff state。安装后的产品在其他情况下保持 prompt-first。六个 canonical workflow intents
-是 `clarify`、`spec`、`plan`、`exec`、`review` 和 `finish`；
+是 `clarify`、`spec`、`plan2exec`、`exec`、`review` 和 `finish`；
 它们是可选治理工具，不是固定路径。
 
 新的 `clarify` workflow 会在 `.loopx/intake/YYYY-MM-DD-<slug>/` 下写入本地 intake package，包含 canonical `requirements.md` 和 supporting `clarification.md`。人类输出展示简洁路径；完整 state 字段使用 `--json`。

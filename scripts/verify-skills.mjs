@@ -62,6 +62,9 @@ const obsoleteImplementationPaths = [
   'skills/final-review/references/report-template.zh-CN.md',
   'skills/finish/references/final-review-and-finish-gates.md',
   'skills/finish/references/memory-and-spec-candidates.md',
+  'skills/plan/SKILL.md',
+  'skills/plan/references/plan-schema.md',
+  'skills/plan-to-exec/SKILL.md',
   'skills/plan-to-exec/references/internal-plan-review.md',
   'skills/plan-to-exec/references/plan-schema.md',
   'skills/plan-to-exec/references/surface-change-planning.md',
@@ -387,10 +390,10 @@ assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
 assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
-assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan', 'exec', 'review', 'finish']);
+assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec', 'exec', 'review', 'finish']);
 assert.deepEqual(
   LOOPX_COMPATIBILITY_ALIAS_SKILLS,
-  ['plan-to-exec', 'subagent-exec', 'parallel-subagent-exec', 'final-review', 'fix-review'],
+  ['subagent-exec', 'parallel-subagent-exec', 'final-review', 'fix-review'],
 );
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
