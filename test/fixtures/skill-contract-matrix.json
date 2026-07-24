@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "workflow_root_line_limits": {
-    "clarify": { "max": 220 },
-    "spec": { "max": 240, "reason": "Keeps the proposal and detailed-design handoff contract directly executable." },
-    "codebase-spec": { "max": 220 },
-    "plan2exec": { "max": 180, "reason": "Keeps traceable execution slices and handoff requirements directly actionable without implementation microsteps." },
-    "subagent-exec": { "max": 220 },
-    "parallel-subagent-exec": { "max": 220 },
-    "exec": { "max": 220 },
-    "review": { "max": 280, "reason": "Owns staged spec, quality, impact, and reviewer self-check dispatch contracts." },
-    "final-review": { "max": 80 },
-    "fix-review": { "max": 220 },
-    "finish": { "max": 220 },
-    "issue": { "max": 280, "reason": "Owns issue intake, diagnosis handoff, ledger state, and fix-readiness gates." },
+    "clarify": { "max": 160 },
+    "spec": { "max": 230, "reason": "Keeps the proposal and detailed-design handoff contract directly executable." },
+    "codebase-spec": { "max": 160 },
+    "plan2exec": { "max": 140, "reason": "Keeps traceable execution slices and handoff requirements directly actionable without implementation microsteps." },
+    "subagent-exec": { "max": 90 },
+    "parallel-subagent-exec": { "max": 90 },
+    "exec": { "max": 150 },
+    "review": { "max": 150, "reason": "Owns staged spec, quality, impact, and reviewer self-check dispatch contracts." },
+    "final-review": { "max": 40 },
+    "fix-review": { "max": 40 },
+    "finish": { "max": 90 },
+    "issue": { "max": 270, "reason": "Owns issue intake, diagnosis handoff, ledger state, and fix-readiness gates." },
     "fix": { "max": 260, "reason": "Owns issue-ledger execution, verification, review closure, and finish handoff." },
-    "refactor-plan": { "max": 220 }
+    "refactor-plan": { "max": 100 }
   },
   "skills": [
     { "skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan2exec"], "required_references": ["references/handoff-syntax.md"], "version": "0.3.17" },
