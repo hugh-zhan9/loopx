@@ -1,7 +1,8 @@
 # Four-Arm Benchmark Protocol
 
-- Status: **DRAFT** — this protocol is frozen (git tag) in P-010 before any scored
-  run; until then every field below is provisional and no run may be cited.
+- Status: **FROZEN 2026-07-24** at tag `benchmark-protocol-v1` (maintainer
+  budget approval: 20 tasks x 4 arms x 5 replicates = 400 scored runs).
+  A scored run whose parameters differ from the frozen values is invalid.
 - Design anchor: D-07 in
   `docs/loopx/design/2026-07-24-lightweight-governance-and-eval/需求设计文档.md`.
 
@@ -12,16 +13,16 @@ frozen values is invalid and must be discarded, not reinterpreted.
 
 | Field | Value |
 |---|---|
-| Model (all arms, identical) | _TBD before freeze_ |
-| Reasoning effort | _TBD before freeze_ |
+| Model (all arms, identical) | `gpt-5.6-sol` |
+| Reasoning effort | `high` |
 | Adapter / runtime | codex CLI (`scripts/run-benchmark-evals.mjs`) |
-| Arms | A `bare`, B `docs-only`, C `baseline` (immutable ref: _TBD_), D `candidate` (immutable ref: _TBD_) |
+| Arms | A `bare`, B `docs-only`, C `baseline` (immutable ref: `v0.6.0`), D `candidate` (immutable ref: `benchmark-protocol-v1`, the frozen-protocol commit itself) |
 | docs-only AGENTS.md | `evals/benchmark/docs-only/AGENTS.md`, sha256 recorded in the report; finalized by the maintainer and frozen with this protocol |
-| Replicates per cell | n >= 5 |
+| Replicates per cell | n = 5 |
 | Order | crossover |
-| Task list | every directory under `evals/benchmark/tasks/` at the frozen tag |
+| Task list | the 20 expansion tasks (4 per category): escalation-trap-{assetcache-prune, logpipe-redaction, relflow-approval, userstore-schema}, feature-{batch-partial-failure, emitter-snapshot, inflight-coalescing, sorted-merge}, parallel-trap-{cfgstore-merge, dataport-roundtrip, eventbus-fanout, stepchain-order}, refactor-{csv-serializer, format-duration, rollup-hooks, validate-metric}, seeded-defect-{express-weight-unit, paid-cancel-restock, pricing-cache-tier, reservation-iterator}. The five original seed tasks (escalation-trap-message-format, feature-slugify, parallel-trap-shared-settings, refactor-format-price, seeded-defect-chunk-boundary) were pilot material and stay smoke-only, never scored |
 | Bootstrap | seeded, 10000 iterations, seed 1, 95% percentile CI |
-| Budget cap | _TBD before freeze_ (max total live-model spend; abort and mark the run void when exceeded) |
+| Budget cap | 400 scored runs plus at most 8 smoke runs on seed tasks; abort and mark the run void beyond that |
 
 ## Judging order (fixed)
 
@@ -56,7 +57,7 @@ frozen values is invalid and must be discarded, not reinterpreted.
 
 ## Freeze procedure (P-010)
 
-1. Maintainer finalizes `docs-only/AGENTS.md` and every `_TBD_` above.
+1. Maintainer finalizes `docs-only/AGENTS.md` and every provisional field above. (Done 2026-07-24.)
 2. Commit, then tag the commit (`benchmark-protocol-v1`).
 3. All scored runs reference that tag; any parameter change requires a new
    protocol version and a new tag.
