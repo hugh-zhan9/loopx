@@ -416,3 +416,25 @@ test('benchmark runner is an opt-in packaged diagnostic with a deterministic dry
   assert.ok(evidence.every((request) => request.hidden_paths_during_run.length === 0
     && request.hidden_injection_dir_present === false));
 });
+
+test('classifies gateway stream death as infrastructure failure, not agent failure', async () => {
+  const { isGatewayDeath, benchmarkEffectSize } = await import('../src/benchmark-eval.mjs');
+  const dead = [
+    '{"type":"thread.started","thread_id":"t1"}',
+    '{"type":"turn.started"}',
+    '{"type":"error","message":"Reconnecting... 2/5 (stream disconnected before completion: websocket closed by server before response.completed)"}',
+  ].join('\n');
+  assert.equal(isGatewayDeath(dead), true);
+  const healthy = `${dead}\n{"type":"turn.completed"}\n{"payload":{"type":"task_complete"}}`;
+  assert.equal(isGatewayDeath(healthy), false);
+  assert.equal(isGatewayDeath('{"type":"error","message":"tool failed"}\n{"type":"turn.completed"}'), false);
+
+  const run = (arm, replicate, outcome, passed) => ({ arm, case_id: 't', replicate, outcome, benchmark_passed: passed });
+  const effect = benchmarkEffectSize([
+    run('bare', 1, 'passed', false), run('bare', 2, 'passed', false),
+    run('candidate', 1, 'passed', true), run('candidate', 2, 'blocked', false),
+  ], { iterations: 100, seed: 1 });
+  const pair = effect.pairs.find((entry) => entry.name === 'candidate_vs_bare');
+  assert.equal(pair.samples.candidate, 1, 'blocked runs never count toward n');
+  assert.equal(pair.candidate_rate, 1);
+});

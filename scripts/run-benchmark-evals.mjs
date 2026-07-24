@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import { summarizeAgentEvalRun } from '../src/agent-eval.mjs';
-import { BENCHMARK_ARMS, renderBenchmarkMarkdown, runBenchmarkEvaluation } from '../src/benchmark-eval.mjs';
+import { BENCHMARK_ARMS, isGatewayDeath, renderBenchmarkMarkdown, runBenchmarkEvaluation } from '../src/benchmark-eval.mjs';
 import { deriveExecutionSelection, deriveIntegrationOrder, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -104,9 +104,19 @@ function workerIntervals(events, workspaces = new Map()) {
   return intervals;
 }
 
-function createCodexAdapter(outDir) {
+function createCodexAdapter(outDir, { attemptsPerRun = 2 } = {}) {
   let sequence = 0;
   return async function runAgent(request) {
+    for (let attempt = 1; ; attempt += 1) {
+      const result = await runCodexAttempt(request);
+      if (result.outcome !== 'blocked' || attempt >= attemptsPerRun) {
+        return result;
+      }
+      console.error(`gateway death on ${request.case.id}/${request.variant}; retrying (${attempt}/${attemptsPerRun})`);
+    }
+  };
+
+  async function runCodexAttempt(request) {
     sequence += 1;
     const runDir = join(outDir, 'raw', `${String(sequence).padStart(3, '0')}-${request.case.id}-${request.variant}`);
     await mkdir(runDir, { recursive: true });
@@ -173,9 +183,10 @@ function createCodexAdapter(outDir) {
       total_tokens: null,
     };
     const response = await readFile(messagePath, 'utf8').catch(() => '');
+    const gatewayDeath = isGatewayDeath(result.stdout);
     return {
-      outcome: result.code === 0 && !result.aborted ? 'passed' : 'failed',
-      verification: { passed: result.code === 0 && !result.aborted, commands: ['codex exec completed'] },
+      outcome: gatewayDeath ? 'blocked' : result.code === 0 && !result.aborted ? 'passed' : 'failed',
+      verification: { passed: !gatewayDeath && result.code === 0 && !result.aborted, commands: ['codex exec completed'] },
       response,
       workers: workerIntervals(events, workerWorkspaces),
       integration_order: deriveIntegrationOrder(events, workerWorkspaces),
