@@ -438,3 +438,34 @@ test('classifies gateway stream death as infrastructure failure, not agent failu
   assert.equal(pair.samples.candidate, 1, 'blocked runs never count toward n');
   assert.equal(pair.candidate_rate, 1);
 });
+
+test('merges campaign reports with per-category effect sizes and duplicate-cell rejection', async () => {
+  const { mergeBenchmarkReports, benchmarkCategory } = await import('../src/benchmark-eval.mjs');
+  assert.equal(benchmarkCategory('seeded-defect-pricing-cache-tier'), 'seeded-defect');
+  assert.equal(benchmarkCategory('escalation-trap-relflow-approval'), 'escalation-trap');
+
+  const run = (caseId, arm, replicate, passed, tokens = 1000, outcome = 'passed') => ({
+    case_id: caseId, arm, replicate, outcome, benchmark_passed: passed, total_tokens: tokens,
+  });
+  const reportA = { schema: 'loopx.benchmark-report.v1', runs: [
+    run('escalation-trap-x', 'bare', 1, false, 900),
+    run('escalation-trap-x', 'candidate', 1, true, 1200),
+  ] };
+  const reportB = { schema: 'loopx.benchmark-report.v1', runs: [
+    run('refactor-y', 'bare', 1, false, 800),
+    run('refactor-y', 'candidate', 1, true, 1500),
+    run('refactor-y', 'candidate', 2, false, 0, 'blocked'),
+  ] };
+  const merged = mergeBenchmarkReports([reportA, reportB], { iterations: 50, seed: 7 });
+  assert.equal(merged.schema, 'loopx.benchmark-merged-report.v1');
+  assert.equal(merged.scored_run_count, 4);
+  assert.equal(merged.arm_summary.candidate.blocked, 1);
+  assert.deepEqual(Object.keys(merged.categories).sort(), ['escalation-trap', 'refactor']);
+  const refactorPair = merged.categories.refactor.effect_size.pairs.find((pair) => pair.name === 'candidate_vs_bare');
+  assert.equal(refactorPair.samples.candidate, 1, 'blocked run excluded from category n');
+
+  assert.throws(
+    () => mergeBenchmarkReports([reportA, reportA]),
+    /benchmark_merge_duplicate_cell/,
+  );
+});

@@ -35,6 +35,8 @@
     "scripts/run-darwin-simple-evals.mjs",
     "scripts/run-req-demo-evals.mjs",
     "scripts/run-benchmark-evals.mjs",
+    "scripts/aggregate-benchmark-reports.mjs",
+    "scripts/reclassify-benchmark-gateway-deaths.mjs",
     "scripts/run-drills.mjs",
     "scripts/aggregate-agent-evals.mjs",
     "scripts/claude-workflow-hook.mjs",
@@ -101,6 +103,7 @@
     "eval:darwin-simple": "node scripts/run-darwin-simple-evals.mjs",
     "eval:req-demo": "node scripts/run-req-demo-evals.mjs",
     "eval:benchmark": "node scripts/run-benchmark-evals.mjs",
+    "eval:benchmark:aggregate": "node scripts/aggregate-benchmark-reports.mjs",
     "eval:drills": "node scripts/run-drills.mjs",
     "eval:aggregate": "node scripts/aggregate-agent-evals.mjs",
     "test": "node scripts/verify-skills.mjs && node --test test/*.test.mjs"

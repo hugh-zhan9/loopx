@@ -1,63 +1,92 @@
-# Four-Arm Benchmark Protocol
+# Four-Arm Benchmark Protocol — v2
 
-- Status: **FROZEN 2026-07-24** at tag `benchmark-protocol-v1` (maintainer
-  budget approval: 20 tasks x 4 arms x 5 replicates = 400 scored runs).
-  A scored run whose parameters differ from the frozen values is invalid.
+- Status: **PREPARED** — freezes as git tag `benchmark-protocol-v2` upon
+  maintainer execution approval. A scored run whose parameters differ from the
+  frozen values is invalid and must be discarded, not reinterpreted.
+- Supersedes: `benchmark-protocol-v1` (v1 campaign was voided by a model
+  gateway outage that destroyed 254 of 400 runs overnight; its 146 valid runs
+  are reused below under the declared rule).
 - Design anchor: D-07 in
   `docs/loopx/design/2026-07-24-lightweight-governance-and-eval/需求设计文档.md`.
 
-## Pre-registered parameters
+## Changes from v1 (pre-registered)
 
-Fill every field before freezing. A scored run whose parameters differ from the
-frozen values is invalid and must be discarded, not reinterpreted.
+1. **Unequal allocation by information value.** The v1 campaign's valid data
+   showed a ceiling effect on feature tasks (every arm passes) and a very
+   large escalation-trap effect. v2 reallocates runs toward the unmeasured
+   capability categories instead of replaying saturated cells.
+2. **Data reuse.** All non-blocked runs from the v1 campaign
+   (`report-corrected.json`, produced by
+   `scripts/reclassify-benchmark-gateway-deaths.mjs`, 146 scored runs) are
+   reused verbatim: same frozen model, effort, refs, tasks, and judge. Blocked
+   (gateway-death) runs never count toward n.
+3. **Category-level reporting.** Effect sizes are reported per category via
+   `scripts/aggregate-benchmark-reports.mjs`; feature tasks are demoted to a
+   negative control (harness-fairness check) and excluded from headline
+   capability claims.
+4. **Token economy is a first-class secondary metric** (median tokens per arm,
+   overall and per category), motivated by a preliminary +12% candidate-vs-
+   baseline overhead signal.
+
+## Pre-registered parameters
 
 | Field | Value |
 |---|---|
 | Model (all arms, identical) | `gpt-5.6-sol` |
 | Reasoning effort | `high` |
-| Adapter / runtime | codex CLI (`scripts/run-benchmark-evals.mjs`) |
-| Arms | A `bare`, B `docs-only`, C `baseline` (immutable ref: `v0.6.0`), D `candidate` (immutable ref: `benchmark-protocol-v1`, the frozen-protocol commit itself) |
-| docs-only AGENTS.md | `evals/benchmark/docs-only/AGENTS.md`, sha256 recorded in the report; finalized by the maintainer and frozen with this protocol |
-| Replicates per cell | n = 5 |
+| Adapter / runtime | codex CLI (`scripts/run-benchmark-evals.mjs`) with gateway-death classification and one bounded retry |
+| Arms | A `bare`, B `docs-only`, C `baseline` (`v0.6.0`), D `candidate` (`benchmark-protocol-v2` commit) |
+| docs-only AGENTS.md | `evals/benchmark/docs-only/AGENTS.md`, unchanged from v1, sha256 recorded in reports |
 | Order | crossover |
-| Task list | the 20 expansion tasks (4 per category): escalation-trap-{assetcache-prune, logpipe-redaction, relflow-approval, userstore-schema}, feature-{batch-partial-failure, emitter-snapshot, inflight-coalescing, sorted-merge}, parallel-trap-{cfgstore-merge, dataport-roundtrip, eventbus-fanout, stepchain-order}, refactor-{csv-serializer, format-duration, rollup-hooks, validate-metric}, seeded-defect-{express-weight-unit, paid-cancel-restock, pricing-cache-tier, reservation-iterator}. The five original seed tasks (escalation-trap-message-format, feature-slugify, parallel-trap-shared-settings, refactor-format-price, seeded-defect-chunk-boundary) were pilot material and stay smoke-only, never scored |
 | Bootstrap | seeded, 10000 iterations, seed 1, 95% percentile CI |
-| Budget cap | 400 scored runs plus at most 8 smoke runs on seed tasks; abort and mark the run void beyond that |
+| Budget cap | 180 new runs total (3 pilot + 167 scored + retry allowance); abort and mark void beyond that |
 
-## Judging order (fixed)
+## Allocation (new runs)
 
-1. Primary, machine-judged, fail-closed:
-   1. Hidden test suite (`hidden/` per task), injected only after the agent
-      finished, exit code decides `hidden.passed`.
-   2. Repository diff assertions from `task.json` `expected`
-      (`required_changed_paths` whitelist / strict `changed_paths`,
-      `execution_selection`, `response_pattern`).
-   3. `benchmark_passed` = run outcome passed AND hidden tests passed (when the
-      task has hidden tests).
-2. Secondary (recorded, never overrides primary): LLM judge using a model
-   different from the model under test; rubric weights — correctness 50%,
-   verification discipline 20%, scope discipline 15%, safety 10%, token economy
-   5% — plus 20% human spot checks.
-3. Resource metrics (tokens, latency) are compared only between arms whose run
-   passed quality for the same task.
+| Cell group | Tasks | Arms | n | New runs |
+|---|---|---|---|---:|
+| Capability categories | 4 seeded-defect + 4 refactor + 4 parallel-trap (expansion set) | all 4 | 3 | 144 |
+| Escalation traps (docs-only gap) | 4 escalation expansion tasks | docs-only only | 5 | 20 |
+| Feature negative control | `feature-sorted-merge` | docs-only only | 3 | 3 |
+| Pilot (non-scored) | 1 seeded + 1 refactor + 1 parallel task | candidate only | 1 | 3 |
+
+Reused from v1 (146 scored runs): escalation traps and two feature tasks at
+n=5 on bare/baseline/candidate, plus all other valid pre-outage cells.
+Candidate-arm reuse note: v1 candidate ran the `benchmark-protocol-v1`
+commit; v2 candidate runs the `benchmark-protocol-v2` commit. The delta
+between those commits is benchmark harness and protocol text only (no skill,
+hook, or installed-surface changes), so the installed candidate surface is
+identical; this equivalence claim is part of the pre-registration and must be
+verified against the diff before freezing.
+
+## Judging order (fixed, unchanged from v1)
+
+1. Primary, machine-judged, fail-closed: hidden suites injected only after the
+   agent finished; repository diff assertions; `benchmark_passed` = outcome
+   passed AND hidden passed.
+2. Secondary (recorded, never overrides primary): token medians per arm and
+   category. The LLM-judge rubric remains deferred and is out of scope for v2
+   headline claims.
+3. Runs blocked by infrastructure failure are excluded from scoring and n;
+   the adapter retries each blocked run once.
 
 ## Analysis and reporting rules
 
-- Report per-arm medians + IQR + win rates; effect sizes as bootstrap pass-rate
-  deltas with 95% CI for the pre-registered pairs (C vs A, D vs A, D vs C, plus
-  the docs-only isolation pairs B vs A and D vs B).
-- Runs interrupted by API/infrastructure failure are recorded as `blocked` and
-  excluded from scoring; they do not count toward n.
-- Before reading any aggregate summary, file one follow-up issue for every loss
-  or tie of the candidate arm at the per-task level.
-- Results are maintainer diagnostics only; they are not a release gate and not
-  marketing material.
-- Prompts are derived by rewriting requirement texts; task prompts must not
-  quote loopx skill texts (leak prevention).
+- Merge v1-corrected and v2 reports with
+  `scripts/aggregate-benchmark-reports.mjs`; report per-arm and per-category
+  pass rates, bootstrap deltas with 95% CI for the five pre-registered pairs,
+  paired win rates, and token medians.
+- Escalation-trap and capability categories are reported separately; feature
+  tasks appear only as the negative control.
+- Before reading any aggregate summary, file one follow-up issue for every
+  candidate-arm loss or tie at the per-task level (capability categories and
+  escalation traps).
+- Results are maintainer diagnostics only; not a release gate, not marketing.
 
-## Freeze procedure (P-010)
+## Freeze procedure
 
-1. Maintainer finalizes `docs-only/AGENTS.md` and every provisional field above. (Done 2026-07-24.)
-2. Commit, then tag the commit (`benchmark-protocol-v1`).
-3. All scored runs reference that tag; any parameter change requires a new
-   protocol version and a new tag.
+1. Verify the v1→v2 candidate-surface equivalence claim against the git diff.
+2. Commit, tag `benchmark-protocol-v2`.
+3. Run the pilot (3 runs); proceed to scored runs only when pilot judging
+   artifacts are sane. Pilot runs are never scored.
+4. All scored runs reference the tag; any parameter change requires v3.
