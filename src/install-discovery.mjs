@@ -26,7 +26,7 @@ export const LOOPX_EXECUTION_PROFILE_SKILLS = Object.freeze([
   'subagent-exec',
   'parallel-subagent-exec',
 ]);
-export const LOOPX_COMPATIBILITY_ALIAS_SKILLS = Object.freeze([
+export const LOOPX_REVIEW_INTENT_ENTRY_SKILLS = Object.freeze([
   'final-review',
   'fix-review',
 ]);
@@ -124,7 +124,7 @@ const LOOPX_ROUTING_GUIDANCE_CONTENT = [
   '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
   '- The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
   '- `exec` is the canonical execution entry. It automatically selects inline-owned, delegated-serial, or parallel-strict execution from the request or plan and current runtime evidence.',
-  '- `subagent-exec` and `parallel-subagent-exec` are explicit execution-profile entry points, not compatibility aliases or separate workflow intents. `final-review` and `fix-review` remain explicit-only compatibility aliases.',
+  '- `subagent-exec` and `parallel-subagent-exec` are explicit execution-profile entry points, not separate workflow intents. `final-review` (whole-feature review after all tasks complete) and `fix-review` (actively resolve existing findings) are permanent explicit review intent entries into `review`.',
   '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
   '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
   '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',

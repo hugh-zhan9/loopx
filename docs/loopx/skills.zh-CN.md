@@ -31,17 +31,17 @@
 | `subagent-exec` | 每个 slice 使用 fresh implementer，按图顺序执行，强制 task review、独立 fixer 和最终双轴 review。 |
 | `parallel-subagent-exec` | 对 ready frontier 做有界隔离并发；task review clean 后才能集成并解锁下游。 |
 
-## 显式兼容别名
+## 显式评审意图入口
 
-在一个 release 周期内，以下 explicit-only compatibility aliases 继续安装，但不参与
-自动路由：
+以下永久的 explicit-only review intent entries 继续安装，但不参与自动路由：
 
-| 别名 | 转发到 |
+| 入口 | 意图 |
 |---|---|
-| `final-review` | `review` |
-| `fix-review` | `review` |
+| `final-review` | 全部任务完成后，经 `review` 做整体终审。 |
+| `fix-review` | 经 `review` 主动修复既有评审发现，可派一波独立 fixer。 |
 
-别名原样保留输入和显式意图，但不会恢复旧的 feedback ledger 或 finish gate。
+入口转发进 canonical `review` workflow 并保留显式意图，但不会恢复旧的
+feedback ledger 或 finish gate。
 
 ## Issue Workflows
 

@@ -113,9 +113,10 @@ function assertExplicitCompatibilityAlias(text, alias, canonical) {
   const fields = parseFrontmatter(text);
   assert.equal(fields.name, alias);
   assert.equal(fields['disable-model-invocation'], 'true');
-  assert.match(fields.description, /compatibility alias/i);
-  assert.match(text, new RegExp(`canonical ${escapeRegex(`\`${canonical}\``)} intent`, 'i'));
-  assert.match(text, /same (?:arguments|input)/i);
+  assert.match(fields.description, /permanent explicit entry/i);
+  assert.match(text, new RegExp(`(?:to|by) ${escapeRegex(`\`${canonical}\``)}`, 'i'));
+  assert.match(text, /Forward the (?:same arguments|findings)/i);
+  assert.doesNotMatch(text, /compatibility alias/i);
 }
 
 function escapeRegex(text) {
@@ -750,15 +751,16 @@ describe('loopx skill governance', () => {
     assert.doesNotMatch(fixSkill, /subagent-exec|parallel-subagent-exec|final-review|fix-review|gh issue close|gh pr merge/);
   });
 
-  it('governs fix-review as an explicit compatibility alias', async () => {
+  it('governs fix-review as a permanent review intent entry', async () => {
     const fixReviewSkill = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
     const fields = parseFrontmatter(fixReviewSkill);
 
     assertExplicitCompatibilityAlias(fixReviewSkill, 'fix-review', 'review');
-    assert.match(fields.description, /existing review feedback/i);
+    assert.match(fields.description, /existing review (?:feedback|findings)/i);
     assert.match(fields.when_to_use, /existing review feedback/i);
-    assert.equal(fields['metadata.version'], '0.4.0');
-    assert.match(fixReviewSkill, /active context.*focused fixes.*fresh\s+verification.*independent re-review/is);
+    assert.equal(fields['metadata.version'], '0.5.0');
+    assert.match(fixReviewSkill, /focused fixes.*fresh\s+verification.*independent re-review/is);
+    assert.match(fixReviewSkill, /single fix wave/i);
     assert.match(fixReviewSkill, /does not require a feedback ledger or report artifact/i);
     assert.doesNotMatch(fixReviewSkill, /Feedback Ledger|FR-001|Closure Gate/);
   });
@@ -855,14 +857,14 @@ describe('loopx skill governance', () => {
     }
     assert.match(readme, /six canonical workflow intents/i);
     assert.match(readme, /prompt-first/i);
-    assert.match(readme, /explicit-only compatibility/i);
+    assert.match(readme, /explicit-only review intent entries/i);
     assert.doesNotMatch(readme, /Golden path/i);
     assert.match(readme, /\$clarify/);
     assert.match(readme, /\$finish/);
     assert.match(readme, /\.\/docs\/loopx\/cli\.md/);
     assert.match(readmeZh, /六个 canonical workflow intents/);
     assert.match(readmeZh, /prompt-first/i);
-    assert.match(readmeZh, /仅显式兼容别名|显式兼容别名/);
+    assert.match(readmeZh, /显式评审意图入口/);
     assert.doesNotMatch(readmeZh, /Golden path/i);
     assert.match(readmeZh, /\$clarify/);
     assert.match(readmeZh, /\$finish/);
@@ -1505,7 +1507,7 @@ describe('loopx skill governance', () => {
 
     assert.equal(specFields['metadata.version'], '0.4.0');
     assert.equal(planFields['metadata.version'], '0.4.0');
-    assert.equal(reviewFields['metadata.version'], '0.4.0');
+    assert.equal(reviewFields['metadata.version'], '0.5.0');
 
     assert.match(specSkill, /D-\*/);
     assert.match(specSkill, /implementation-relevant/i);
@@ -1826,9 +1828,9 @@ describe('loopx skill governance', () => {
     const fixReviewSkill = await readFile(join(repoRoot, 'skills', 'fix-review', 'SKILL.md'), 'utf8');
     const reviewContract = await readFile(join(repoRoot, 'skills', 'shared', 'review-contract.md'), 'utf8');
 
-    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.4.0');
-    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.4.0');
-    assert.equal(parseFrontmatter(fixReviewSkill)['metadata.version'], '0.4.0');
+    assert.equal(parseFrontmatter(reviewSkill)['metadata.version'], '0.5.0');
+    assert.equal(parseFrontmatter(finalReviewSkill)['metadata.version'], '0.5.0');
+    assert.equal(parseFrontmatter(fixReviewSkill)['metadata.version'], '0.5.0');
 
     assert.match(reviewSkill, /Check spec compliance first, then code quality/);
     assert.match(reviewSkill, /execution evidence.*first-class Stage 1\s+input/is);
@@ -1857,7 +1859,7 @@ describe('loopx skill governance', () => {
     assertExplicitCompatibilityAlias(finalReviewSkill, 'final-review', 'review');
     assertExplicitCompatibilityAlias(fixReviewSkill, 'fix-review', 'review');
     assert.match(finalReviewSkill, /whole-feature review intent/i);
-    assert.match(fixReviewSkill, /existing review feedback intent/i);
+    assert.match(fixReviewSkill, /existing-feedback\s+resolution mode/i);
     assert.match(finalReviewSkill, /does not require a final-review report artifact/i);
     assert.match(fixReviewSkill, /does not require a feedback ledger or report artifact/i);
   });
@@ -2190,13 +2192,13 @@ describe('loopx skill governance', () => {
       assert.match(text, /Execution Profiles/);
       assert.match(text, /parallel-subagent-exec/);
       assert.match(text, /mandatory review.*integration|review clean.*integration/is);
-      assert.match(text, /final-review` \| `review/);
+      assert.match(text, /final-review` \| Whole-feature review/);
     }
     for (const text of [readmeZh, skillsZh]) {
       assert.match(text, /Execution Profiles/);
       assert.match(text, /parallel-subagent-exec/);
       assert.match(text, /review clean.*集成|review clean 后才集成/is);
-      assert.match(text, /final-review` \| `review/);
+      assert.match(text, /final-review` \| 全部任务完成后/);
     }
     assert.match(installation, /explicit execution profiles/i);
     assert.match(installation, /owned by `exec`/i);

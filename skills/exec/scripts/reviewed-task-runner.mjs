@@ -19,6 +19,17 @@ import { changedPathsFromStatus, resetOwnedWorktree } from './git-isolation.mjs'
 const execFileAsync = promisify(execFile);
 const LEAF_INSTRUCTION = 'You are a leaf worker. Do not spawn, delegate to, or wait for other agents.';
 
+// Controller prompts must not pre-judge what the reviewer may report; a primed
+// reviewer is not independent. Fail closed before dispatch.
+const REVIEWER_PRIMING_PATTERN = /do not flag|at most minor|treat [^"\n]{0,40} as minor|downgrade [^"\n]{0,40}(?:severity|finding)|no need to (?:flag|report)/i;
+
+export function assertNoReviewerPriming(dispatchArgs) {
+  const match = JSON.stringify(dispatchArgs).match(REVIEWER_PRIMING_PATTERN);
+  if (match) {
+    fail('adaptive_reviewer_priming_detected', `reviewer dispatch contains priming: ${match[0]}`);
+  }
+}
+
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -198,21 +209,23 @@ async function dispatchAndCaptureReview({
   runState,
   persist,
 }) {
+  const reviewerArgs = {
+    taskId: task.id,
+    outcome: task.outcome,
+    workspace,
+    attempt: reviewAttempt,
+    inputs: candidate.inputs,
+    paths: candidate.paths,
+    readOnly: true,
+    leafInstruction: LEAF_INSTRUCTION,
+  };
+  assertNoReviewerPriming(reviewerArgs);
   const response = await dispatchTracked({
     runState,
     persist,
     key: `${task.id}:review:${reviewAttempt}`,
     record: { task_id: task.id, role: 'review', attempt: reviewAttempt, status: 'active' },
-    operation: () => dispatchReviewer({
-      taskId: task.id,
-      outcome: task.outcome,
-      workspace,
-      attempt: reviewAttempt,
-      inputs: candidate.inputs,
-      paths: candidate.paths,
-      readOnly: true,
-      leafInstruction: LEAF_INSTRUCTION,
-    }),
+    operation: () => dispatchReviewer(reviewerArgs),
   });
   if (!response?.reviewer || typeof response.rawMessage !== 'string') {
     fail('adaptive_review_response_invalid', `reviewer response is invalid for ${task.id}`);

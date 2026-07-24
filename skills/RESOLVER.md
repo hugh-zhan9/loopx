@@ -39,12 +39,12 @@ contracts rather than forming separate workflow intents.
 | Issue-driven bug fix execution from `.loopx/issues/*.md` ledgers with `ready_for_fix` status | `skills/fix/SKILL.md` |
 | Refactor request needs interview, tiny commits, behavior-preserving scope, and RFC/issue output | `skills/refactor-plan/SKILL.md` |
 
-## Explicit Compatibility Aliases
+## Explicit Review Intent Entries
 
-| Explicit invocation only | Canonical intent |
+| Explicit invocation only | Intent |
 |---|---|
-| `skills/final-review/SKILL.md` | `review` |
-| `skills/fix-review/SKILL.md` | `review` |
+| `skills/final-review/SKILL.md` | Whole-feature review through `review` after all planned tasks complete |
+| `skills/fix-review/SKILL.md` | Actively resolve existing findings through `review`, optionally with one independent fixer wave |
 
 ## Support Skills
 
@@ -86,7 +86,7 @@ or verification being required never selects a workflow skill by itself.
 2. Documenting what an existing repository currently does is `codebase-spec`, not `spec` or `plan2exec`. `plan2exec` (named to avoid confusion with an agent's built-in Plan mode) writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` only for its heavy-tier triggers; clear work without a persistence trigger stays prompt-first.
 3. `exec` accepts a clear request or persistent plan and owns automatic profile selection: prompt-first work may stay inline, planned work defaults to delegated serial, and parallel strict requires a proved ready frontier of at least two. `subagent-exec` and `parallel-subagent-exec` are explicit entry points into the same exec controller; runtime may safely narrow parallel to delegated serial, but planned work never silently narrows to inline.
 4. Every completed execution receives a controller-owned integration check and the quiet completion check from `skills/shared/completion-check.md`. Review selection, severity, and closure follow `skills/shared/review-contract.md`: delegated profiles require independent task review for every implementation or fix candidate plus final Spec and Standards review; inline execution uses `review` only for explicit review intent or concrete security, destructive, public compatibility, interaction, or reconciliation evidence; Critical and Important findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
-5. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`, preserving whole-feature-review or existing-feedback intent without legacy report or ledger artifacts.
+5. `final-review` and `fix-review` are permanent explicit-only review intent entries into `review`: `final-review` reviews the integrated whole feature after all planned tasks complete; `fix-review` actively resolves existing findings and may dispatch one independent fixer wave. Neither creates legacy report or ledger artifacts.
 6. `finish` requires an explicit `$finish` invocation or Git disposition for work completed by the active loopx `exec` or `fix` run. Standalone Git requests remain ordinary Git work, and finish carries no review-report, extraction-candidate, audit-artifact, or additional persisted-state precondition.
 7. `issue` owns issue-driven bug-class intake and diagnosis; feature requests route back to the feature-driven flow. `fix` executes only `.loopx/issues/` ledgers marked `ready_for_fix`.
 8. `refactor-plan` plans behavior-preserving refactors only; a refactor that changes external behavior or contracts routes to `clarify` or `spec`.

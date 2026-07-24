@@ -69,17 +69,16 @@ $finish <Git-disposition-request>
 | `subagent-exec` | 每个 slice 使用 fresh implementer，按依赖顺序执行，并强制 task/final review。 |
 | `parallel-subagent-exec` | 对 ready frontier 做有界 worktree 隔离并发，review clean 后才集成。 |
 
-## 显式兼容别名
+## 显式评审意图入口
 
-在一个 release 周期内，两个旧名称作为 explicit-only compatibility aliases
-保留，并从自动发现中排除：
+两个永久的 explicit-only review intent entries 随套件安装，并从自动发现中排除：
 
-| 别名 | Canonical intent |
+| 入口 | 意图 |
 |---|---|
-| `final-review` | `review` |
-| `fix-review` | `review` |
+| `final-review` | 全部任务完成后，经 `review` 做整体（whole-feature）终审 |
+| `fix-review` | 经 `review` 主动修复既有评审发现，可派一波独立 fixer |
 
-每个兼容别名原样转发输入，但不会恢复旧的 feedback ledger 或 finish gate 协议。
+每个入口都转发进 canonical `review` workflow，不会恢复旧的 feedback ledger 或 finish gate 协议。
 
 ## 上下文规则
 

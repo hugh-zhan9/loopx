@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 import {
   LOOPX_BUNDLED_SKILLS,
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
-  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
   LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from '../src/workflow.mjs';
@@ -45,7 +45,7 @@ test('discovery classifies canonical intents, execution profiles, and compatibil
     'review',
     'finish',
   ]);
-  assert.deepEqual(LOOPX_COMPATIBILITY_ALIAS_SKILLS, [
+  assert.deepEqual(LOOPX_REVIEW_INTENT_ENTRY_SKILLS, [
     'final-review',
     'fix-review',
   ]);
@@ -54,13 +54,13 @@ test('discovery classifies canonical intents, execution profiles, and compatibil
   for (const skillName of [
     ...LOOPX_CANONICAL_WORKFLOW_SKILLS,
     ...LOOPX_EXECUTION_PROFILE_SKILLS,
-    ...LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+    ...LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
   ]) {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, `${skillName} must remain installed`);
     const skill = await readFile(join(repoRoot, 'skills', skillName, 'SKILL.md'), 'utf8');
     assert.equal(
       /disable-model-invocation:\s*true/.test(skill),
-      [...LOOPX_EXECUTION_PROFILE_SKILLS, ...LOOPX_COMPATIBILITY_ALIAS_SKILLS].includes(skillName),
+      [...LOOPX_EXECUTION_PROFILE_SKILLS, ...LOOPX_REVIEW_INTENT_ENTRY_SKILLS].includes(skillName),
       `${skillName} discovery visibility`,
     );
   }
@@ -137,7 +137,7 @@ test('retired lifecycle payload stays removed while profiles and aliases remain 
     assert.equal(existsSync(join(repoRoot, path)), false, `${path} must be removed`);
   }
 
-  for (const skillName of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
+  for (const skillName of LOOPX_REVIEW_INTENT_ENTRY_SKILLS) {
     assert.deepEqual(await skillPayloadFiles(skillName), ['SKILL.md']);
   }
   assert.equal((await skillPayloadFiles('subagent-exec')).includes('implementer-prompt.md'), true);
@@ -171,9 +171,9 @@ test('English and Chinese product docs describe one six-intent prompt-first surf
 
   for (const path of ['README.md', 'README.zh-CN.md', 'docs/loopx/skills.md', 'docs/loopx/skills.zh-CN.md']) {
     const text = await readFile(join(repoRoot, path), 'utf8');
-    assert.match(text, /explicit-only compatibility|仅显式调用.*兼容|显式兼容/i, path);
-    for (const alias of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
-      assert.match(text, new RegExp(`\\b${alias}\\b`), `${path} missing compatibility alias ${alias}`);
+    assert.match(text, /explicit-only review intent entr|显式评审意图入口/i, path);
+    for (const alias of LOOPX_REVIEW_INTENT_ENTRY_SKILLS) {
+      assert.match(text, new RegExp(`\\b${alias}\\b`), `${path} missing review intent entry ${alias}`);
     }
   }
 });

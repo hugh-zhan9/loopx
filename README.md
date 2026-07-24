@@ -74,18 +74,18 @@ invoked explicitly without creating separate execution engines:
 | `subagent-exec` | Fresh implementer per slice, serial dependency order, mandatory task and final review. |
 | `parallel-subagent-exec` | Bounded isolated ready-frontier execution, mandatory review before integration. |
 
-## Compatibility
+## Review Intent Entries
 
-For one release, two former names remain as explicit-only compatibility
-aliases and are excluded from automatic discovery:
+Two permanent explicit-only review intent entries are installed and excluded
+from automatic discovery:
 
-| Alias | Canonical intent |
+| Entry | Intent |
 |---|---|
-| `final-review` | `review` |
-| `fix-review` | `review` |
+| `final-review` | Whole-feature review through `review` after all planned tasks complete |
+| `fix-review` | Actively resolve existing review findings through `review`, optionally with one independent fixer wave |
 
-Each compatibility alias forwards the same input. It does not restore the old
-feedback-ledger or finish-gate protocol.
+Each entry forwards into the canonical `review` workflow. Neither restores the
+old feedback-ledger or finish-gate protocol.
 
 ## Context Rules
 

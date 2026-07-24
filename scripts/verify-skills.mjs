@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   LOOPX_BUNDLED_SKILLS,
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
-  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
   LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
 import { TRIAGE_TIERS } from '../src/workflow-state.mjs';
@@ -228,7 +228,7 @@ async function assertPublicDocsAligned() {
   assertContains(readme, './docs/loopx/cli.md', 'README.md');
   assertContains(readme, '$clarify', 'README.md');
   assertContains(readme, '$finish', 'README.md');
-  assertContains(readme, 'explicit-only compatibility', 'README.md');
+  assertContains(readme, 'explicit-only review intent entries', 'README.md');
   assert.match(readme, /does not write a local audit ledger/i, 'README.md must contract finish audit state');
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
   assertContains(cliDoc, 'remove loopx-managed user-level artifacts', 'docs/loopx/cli.md');
@@ -242,7 +242,7 @@ async function assertPublicDocsAligned() {
   assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
   assertContains(readmeZh, '$clarify', 'README.zh-CN.md');
   assertContains(readmeZh, '$finish', 'README.zh-CN.md');
-  assertContains(readmeZh, 'explicit-only compatibility aliases', 'README.zh-CN.md');
+  assertContains(readmeZh, 'explicit-only review intent entries', 'README.zh-CN.md');
   assertContains(readmeZh, '不会写本地', 'README.zh-CN.md');
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
   assertContains(cliDocZh, '移除 loopx 管理的用户级 artifacts', 'docs/loopx/cli.zh-CN.md');
@@ -423,14 +423,14 @@ assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package mu
 assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
 assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec', 'exec', 'review', 'finish']);
 assert.deepEqual(
-  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
   ['final-review', 'fix-review'],
 );
 assert.deepEqual(LOOPX_EXECUTION_PROFILE_SKILLS, ['subagent-exec', 'parallel-subagent-exec']);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }
-for (const skillName of LOOPX_COMPATIBILITY_ALIAS_SKILLS) {
+for (const skillName of LOOPX_REVIEW_INTENT_ENTRY_SKILLS) {
   const entries = (await readdir(join(repoRoot, 'skills', skillName)))
     .filter((entry) => entry !== '.DS_Store')
     .sort();

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
-  LOOPX_COMPATIBILITY_ALIAS_SKILLS,
+  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
   LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
 
@@ -29,7 +29,7 @@ test('keeps exec canonical and classifies delegated execution profiles separatel
     'subagent-exec',
     'parallel-subagent-exec',
   ]);
-  assert.deepEqual(LOOPX_COMPATIBILITY_ALIAS_SKILLS, [
+  assert.deepEqual(LOOPX_REVIEW_INTENT_ENTRY_SKILLS, [
     'final-review',
     'fix-review',
   ]);
@@ -101,7 +101,7 @@ test('makes delegated task and final review mandatory with separated roles', asy
 test('documents execution profiles outside compatibility aliases', async () => {
   const resolver = await source('skills/RESOLVER.md');
   const profileSection = resolver.match(/## Execution Profiles[\s\S]*?## Retained Specialized Workflows/)?.[0] || '';
-  const aliasSection = resolver.match(/## Explicit Compatibility Aliases[\s\S]*?## Support Skills/)?.[0] || '';
+  const aliasSection = resolver.match(/## Explicit Review Intent Entries[\s\S]*?## Support Skills/)?.[0] || '';
 
   assert.match(profileSection, /subagent-exec/);
   assert.match(profileSection, /parallel-subagent-exec/);

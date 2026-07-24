@@ -699,9 +699,11 @@ describe('loopx retained workflow shell', () => {
     ]) {
       const aliasSkill = await readFile(join(installedRoot, alias, 'SKILL.md'), 'utf8');
       assert.equal(aliasSkill.match(/^disable-model-invocation: true$/gm)?.length, 1);
-      assert.match(aliasSkill, /compatibility alias.*canonical `review` intent/is);
+      assert.match(aliasSkill, /permanent explicit (?:review intent )?entry/i);
+      assert.match(aliasSkill, /to `review`/i);
+      assert.doesNotMatch(aliasSkill, /compatibility alias/i);
       assert.match(aliasSkill, intentPattern);
-      assert.match(aliasSkill, /same (?:arguments|input)/i);
+      assert.match(aliasSkill, /Forward the (?:same arguments|findings)/i);
       assert.match(aliasSkill, /does not require.*(?:report|ledger) artifact/is);
     }
   });

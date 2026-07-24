@@ -35,18 +35,18 @@ the same exec-owned implementation:
 | `subagent-exec` | Fresh implementer per slice in graph order, mandatory task review, separate fixes, and final dual review. |
 | `parallel-subagent-exec` | Bounded isolated ready-frontier execution; a task must review clean before integration unlocks dependants. |
 
-## Compatibility Aliases
+## Review Intent Entries
 
-For one release, these explicit-only compatibility aliases remain installed but
-are excluded from automatic routing:
+These permanent explicit-only review intent entries remain installed and
+excluded from automatic routing:
 
-| Alias | Forwards to |
+| Entry | Intent |
 |---|---|
-| `final-review` | `review` |
-| `fix-review` | `review` |
+| `final-review` | Whole-feature review through `review` after all planned tasks complete. |
+| `fix-review` | Actively resolve existing findings through `review`, optionally with one independent fixer wave. |
 
-Aliases preserve the same input and explicit intent. They do not restore legacy
-feedback ledgers or finish gates.
+Entries forward into the canonical `review` workflow and preserve the explicit
+intent. They do not restore legacy feedback ledgers or finish gates.
 
 ## Issue Workflows
 

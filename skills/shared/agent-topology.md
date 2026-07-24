@@ -44,6 +44,22 @@ admitted ready work or a terminal replacement condition from the hard rules.
 When sufficient evidence exists for the required output, record the result and
 stop dispatching.
 
+## Dispatch Economy
+
+- When the host supports per-worker model selection, declare a model tier per
+  dispatched role: mechanical implementation of a fully specified slice may use
+  a low tier, task review a middle tier, and final Spec and Standards review
+  the strongest available tier. An undeclared tier is reported as "inherits the
+  session model", never left implicit.
+- Final-review findings close in one fix wave: a single fixer receives the
+  complete accepted finding list. Never dispatch one fixer per finding.
+- Workers receive file paths and task contracts, not pasted session history;
+  large artifacts travel as files, bound by hash where the owning profile
+  requires provenance.
+- Reviewer prompts are never primed: no pre-judged severities, no "do not
+  flag" or "at most Minor" instructions, no restrictions on what may be
+  reported.
+
 ## Dispatch Clause
 
 Every worker-visible prompt must say:
