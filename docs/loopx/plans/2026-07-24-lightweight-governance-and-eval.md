@@ -103,7 +103,7 @@
       "id": "P-002",
       "outcome": "drills 框架与四条核心保证场景，v0.6 基线落盘",
       "depends_on": [],
-      "write_scope": ["evals/drills/", "scripts/", "package.json", "test/"],
+      "write_scope": ["evals/drills/", "scripts/", "src/drill-eval.mjs", "package.json", "test/"],
       "relevant_paths": ["skills/shared/", "evals/gpt-5.6/reviewer-live-cases.json"],
       "exclusive_resources": [],
       "interfaces": { "consumes": ["宿主 CLI 派发", "shared 契约保证清单"], "produces": ["drills 场景契约", "基线报告"] },

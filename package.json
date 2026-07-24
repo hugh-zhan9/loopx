@@ -34,6 +34,7 @@
     "scripts/run-codex-live-agent-evals.mjs",
     "scripts/run-darwin-simple-evals.mjs",
     "scripts/run-req-demo-evals.mjs",
+    "scripts/run-drills.mjs",
     "scripts/aggregate-agent-evals.mjs",
     "scripts/claude-workflow-hook.mjs",
     "scripts/codex-workflow-hook.mjs",
@@ -41,6 +42,7 @@
     "evals/gpt-5.6/",
     "evals/darwin-simple/",
     "evals/req-demo/",
+    "evals/drills/",
     "test/fixtures/darwin-simple/repository/",
     "test/fixtures/darwin-simple/spec-repository/",
     "test/fixtures/darwin-simple/memory-repository/",
@@ -95,6 +97,7 @@
     "eval:claude-live": "node scripts/run-claude-live-agent-evals.mjs",
     "eval:darwin-simple": "node scripts/run-darwin-simple-evals.mjs",
     "eval:req-demo": "node scripts/run-req-demo-evals.mjs",
+    "eval:drills": "node scripts/run-drills.mjs",
     "eval:aggregate": "node scripts/aggregate-agent-evals.mjs",
     "test": "node scripts/verify-skills.mjs && node --test test/*.test.mjs"
   }
