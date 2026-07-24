@@ -1,4 +1,4 @@
-<!-- PLACEHOLDER: 待维护者定稿后随 PROTOCOL 冻结 -->
+<!-- Finalized 2026-07-24 by maintainer approval; frozen with PROTOCOL at P-010. -->
 # Engineering Working Agreement
 
 You are working in an unfamiliar repository. Follow this discipline for every task.
