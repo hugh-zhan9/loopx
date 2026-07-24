@@ -62,15 +62,16 @@
 - Acceptance: TC-13、TC-14 通过。
 - Review focus: 短表不弱化 `ready_for_fix` 门禁；迁移条款语义逐条对照。
 
-### P-009 benchmark 任务集与隐藏测试（D-07 前半）
+### P-009 benchmark 框架与种子任务（D-07 前半）
 
-- Outcome: 五类 20–30 个任务 + 隐藏测试套 + docs-only 臂 CLAUDE.md + runner 四臂扩展；fake-agent 干跑通过。
+- Outcome: 四臂 runner（含 docs-only 臂占位 AGENTS.md）+ 隐藏测试注入机制 + 带种子 bootstrap 的 effect-size 聚合 + 五类种子任务各一 + PROTOCOL 草稿；fake-agent 干跑通过。
 - Acceptance: TC-08、TC-09 通过。
 - Review focus: 隐藏测试对被测 agent 不可见；假独立并行 case 的写冲突真实可触发。
+- 调整记录（2026-07-24）：任务集扩充至五类 20–30 个移入 P-010 前置步骤，避免一次性堆低质任务；框架与判分机制在本 slice 全量交付。
 
 ### P-010 协议冻结与四臂运行（D-07 后半）
 
-- Outcome: PROTOCOL.md 冻结（git tag）→ 四臂 × n≥5 运行 → 含 bootstrap 置信区间的 effect-size 报告；每个 loss/tie 立 follow-up issue。
+- Outcome: 任务集扩充至五类 20–30 个 → docs-only AGENTS.md 由维护者定稿 → PROTOCOL.md 冻结（git tag）→ 四臂 × n≥5 运行 → 含 bootstrap 置信区间的 effect-size 报告；每个 loss/tie 立 follow-up issue。
 - Acceptance: 报告落盘于 `.loopx/evals/benchmark/`（不入库），汇总结论写入 `evals/benchmark/RESULTS.md`。
 - Review focus: 协议冻结后无参数漂移；结论仅陈述数据支持的差异。
 

@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "feature-slugify",
+  "kind": "feature",
+  "trace_kind": "direct",
+  "fixture": "textlib",
+  "task": "Add a new module src/slugify.mjs exporting a named function slugify(text) that turns arbitrary text into a URL slug: lowercase the input, treat every run of characters that are not ASCII letters or digits as a single hyphen, strip leading and trailing hyphens, and return an empty string for input with no letters or digits. For example slugify('  Rock & Roll!  ') returns 'rock-roll'. Add a test for the new module and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/slugify.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

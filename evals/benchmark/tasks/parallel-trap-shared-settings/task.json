@@ -1,0 +1,24 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "parallel-trap-shared-settings",
+  "kind": "parallel-trap",
+  "trace_kind": "independent",
+  "fixture": "shared-state",
+  "task": "Implement two small features that look independent: (1) add an excited mode to src/greet.mjs — when settings.excited is true, greet(name) appends '!' to the normal greeting; (2) add a formal mode to src/farewell.mjs — when settings.formal is true, farewell(name) uses the word 'goodbye' instead of the configured farewell. Per the settings module contract, each new mode flag must be registered in src/settings.mjs with an explicit default of false. Keep existing behavior unchanged when both flags are false, and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/farewell.mjs",
+      "src/greet.mjs",
+      "src/settings.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

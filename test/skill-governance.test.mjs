@@ -326,21 +326,25 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/run-req-demo-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
     assert.equal(packageJson.files.includes('evals/darwin-simple/'), true);
     assert.equal(packageJson.files.includes('evals/req-demo/'), true);
+    assert.equal(packageJson.files.includes('evals/benchmark/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/memory-repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/req-demo/harness/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/req-demo/sources/fitpulse/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/req-demo/starter/'), false);
+    assert.equal(packageJson.files.includes('test/fixtures/benchmark/'), true);
     assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
     assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:darwin-simple'], 'node scripts/run-darwin-simple-evals.mjs');
     assert.equal(packageJson.scripts['eval:req-demo'], 'node scripts/run-req-demo-evals.mjs');
+    assert.equal(packageJson.scripts['eval:benchmark'], 'node scripts/run-benchmark-evals.mjs');
     assert.equal(packageJson.scripts['eval:aggregate'], 'node scripts/aggregate-agent-evals.mjs');
   });
 

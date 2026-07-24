@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "refactor-format-price",
+  "kind": "refactor",
+  "trace_kind": "direct",
+  "fixture": "legacy-format",
+  "task": "Refactor src/format.mjs for readability and modern style (const/let, template literals or a clearer padding approach, no repeated string concatenation) while preserving the exported formatPrice API and its observable behavior for every non-negative integer cents input exactly as-is. Do not add new features. Verify with the repository test suite that behavior is unchanged.",
+  "expected": {
+    "required_changed_paths": [
+      "src/format.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

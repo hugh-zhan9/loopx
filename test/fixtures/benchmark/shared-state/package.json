@@ -1,0 +1,8 @@
+{
+  "name": "benchmark-shared-state-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

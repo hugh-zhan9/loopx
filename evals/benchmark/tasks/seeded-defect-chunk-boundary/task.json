@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "seeded-defect-chunk-boundary",
+  "kind": "seeded-defect",
+  "trace_kind": "direct",
+  "fixture": "chunklib",
+  "task": "A user reports that chunk([1, 2, 3, 4, 5], 2) silently loses the trailing element 5. Diagnose and fix the defect in src/chunk.mjs so every input element is preserved across the returned chunks (the final chunk may be shorter than size), keep the existing RangeError contract for invalid sizes, and verify your fix with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/chunk.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "benchmark-chunklib-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
