@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "seeded-defect-paid-cancel-restock",
+  "kind": "seeded-defect",
+  "trace_kind": "direct",
+  "fixture": "ordersys",
+  "task": "Support escalation: when a customer cancels an order after paying, the refund is issued correctly but the reserved units are never returned to stock, so popular items drift permanently out of stock; cancelling before payment restocks correctly. Diagnose the root cause and fix it in src/orders.mjs, preserving the rest of the order lifecycle contract exactly: a refund is issued for paid cancellations and only for paid cancellations, invalid transitions (for example cancelling a shipped order, cancelling twice, or paying a cancelled order) keep throwing, and the happy path to delivered is unaffected. Verify your fix with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/orders.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

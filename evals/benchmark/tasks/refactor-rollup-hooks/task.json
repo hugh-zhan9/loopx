@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "refactor-rollup-hooks",
+  "kind": "refactor",
+  "trace_kind": "direct",
+  "fixture": "metricore",
+  "task": "Refactor src/rollup.mjs for readability and modern style: replace the var declarations, function expressions, and index loops with const/let, concise methods or arrow functions, and clearer iteration. You must preserve the exported createRollup API and every behavior a caller can observe exactly as-is — what add() accepts and rejects, everything flush() returns and in what structure and ordering, how and when hooks are notified (including their relative ordering and what happens when a hook throws), and the accumulator lifecycle across flushes. Do not add features and do not change other modules (src/stats.mjs stays as it is). Verify with the repository test suite that behavior is unchanged.",
+  "expected": {
+    "required_changed_paths": [
+      "src/rollup.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

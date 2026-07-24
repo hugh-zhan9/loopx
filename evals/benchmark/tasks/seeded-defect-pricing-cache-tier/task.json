@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "seeded-defect-pricing-cache-tier",
+  "kind": "seeded-defect",
+  "trace_kind": "direct",
+  "fixture": "ordersys",
+  "task": "Merchandising bug report: after we publish a catalog price update, storefront sessions that already quoted the product keep charging the old price indefinitely, at every quantity they touch afterwards, even though our session code dutifully calls the pricing engine's invalidate hook for the edited product; brand-new sessions see the new price immediately. Quantity tier discounts themselves compute correctly. Diagnose the root cause and fix it in src/pricing.mjs. Constraints from the module's contract: repeated identical price requests must keep being served from the memo cache without re-reading the catalog, quantity tier discounts must keep working across tier boundaries in both directions, and invalidate(productId) must stay scoped — it drops every cached price of that product and must not evict other products' cached entries. Verify your fix with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/pricing.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

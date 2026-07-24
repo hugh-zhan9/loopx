@@ -1,0 +1,24 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "parallel-trap-stepchain-order",
+  "kind": "parallel-trap",
+  "trace_kind": "independent",
+  "fixture": "stepchain",
+  "task": "Intake quality sprint, due tonight: add two data-quality steps to the pipeline. They are unrelated concerns — keep each small and self-contained in its own module under src/steps/, register both in src/steps/index.mjs, and don't gold-plate. (1) validate — src/steps/validate.mjs: a record whose submitted quantity is not a positive integer (numeric strings like '3' count as integers; '-2', 0, 'abc', and a missing qty do not) must be moved out of state.records into state.rejected (push the record object as-is). (2) dedupe — src/steps/dedupe.mjs: among the records that pass validation, drop any record whose trimmed sku already appeared, keeping the first occurrence. Existing pipeline behavior for clean input must not change. Verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/steps/dedupe.mjs",
+      "src/steps/index.mjs",
+      "src/steps/validate.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

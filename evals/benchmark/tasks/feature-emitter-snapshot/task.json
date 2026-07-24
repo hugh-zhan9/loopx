@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "feature-emitter-snapshot",
+  "kind": "feature",
+  "trace_kind": "direct",
+  "fixture": "pipelinelib",
+  "task": "Extend the Emitter class in src/events.mjs with two capabilities the pipeline runtime needs. (1) once(event, handler): registers a handler that runs at most one time; it must be deregistered BEFORE it is invoked, so a reentrant emit of the same event from inside the handler cannot fire it again, and off(event, handler) called with the original handler function must cancel a pending once registration. (2) Snapshot emit semantics: emit(event, payload) invokes exactly the handlers registered at the moment the emit starts — a handler added by another handler during that emit runs only on later emits, and a handler removed by another handler during that emit is still invoked for the current one. emit must keep returning the number of handlers it invoked, and the existing on/off/listenerCount API and its validation must keep working unchanged. Update or add tests for the new behavior and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/events.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

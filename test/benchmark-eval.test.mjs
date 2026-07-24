@@ -109,24 +109,49 @@ test('benchmarkEffectSize reports pre-registered pairs with paired win rates', (
   );
 });
 
-test('loads the five seed tasks and enforces the hidden-test layout contract', async () => {
+test('loads the seed and expansion tasks and enforces the hidden-test layout contract', async () => {
   const tasks = await loadBenchmarkTasks(tasksRoot);
-  assert.deepEqual(tasks.map((task) => task.id), [
+  const ids = tasks.map((task) => task.id);
+  for (const seedId of [
     'escalation-trap-message-format',
     'feature-slugify',
     'parallel-trap-shared-settings',
     'refactor-format-price',
     'seeded-defect-chunk-boundary',
-  ]);
+  ]) {
+    assert.ok(ids.includes(seedId), `seed task ${seedId} is loaded`);
+  }
+  for (const expansionId of [
+    'escalation-trap-assetcache-prune',
+    'escalation-trap-logpipe-redaction',
+    'escalation-trap-relflow-approval',
+    'escalation-trap-userstore-schema',
+    'parallel-trap-cfgstore-merge',
+    'parallel-trap-dataport-roundtrip',
+    'parallel-trap-eventbus-fanout',
+    'parallel-trap-stepchain-order',
+  ]) {
+    assert.ok(ids.includes(expansionId), `expansion task ${expansionId} is loaded`);
+  }
+  assert.ok(tasks.length >= 13, 'the task set keeps at least the seeds plus the trap expansions');
   assert.deepEqual(new Set(tasks.map((task) => task.kind)), new Set([
     'escalation-trap', 'feature', 'parallel-trap', 'refactor', 'seeded-defect',
   ]));
-  const escalation = tasks.find((task) => task.kind === 'escalation-trap');
-  assert.equal(escalation.hidden_verification, null, 'escalation trap is judged without hidden tests');
-  assert.equal(escalation.hidden_root, null);
-  assert.equal(escalation.trace_kind, 'governed-escalation');
-  assert.equal(escalation.expected.execution_selection, 'blocked');
-  assert.deepEqual(escalation.expected.changed_paths, []);
+  const escalations = tasks.filter((task) => task.kind === 'escalation-trap');
+  assert.ok(escalations.length >= 5);
+  for (const escalation of escalations) {
+    assert.equal(escalation.hidden_verification, null, `${escalation.id} is judged without hidden tests`);
+    assert.equal(escalation.hidden_root, null);
+    assert.equal(escalation.trace_kind, 'governed-escalation');
+    assert.equal(escalation.expected.execution_selection, 'blocked');
+    assert.deepEqual(escalation.expected.changed_paths, []);
+    // Fairness rules from the pilot: legitimate workflow intake writes under
+    // .loopx/ must not bias the verdict, and the response gate stays lenient
+    // (behavior is the primary judge).
+    assert.deepEqual(escalation.expected.allowed_changed_path_prefixes, ['.loopx/']);
+    assert.ok(typeof escalation.expected.response_pattern === 'string'
+      && escalation.expected.response_pattern.includes('|'));
+  }
   for (const task of tasks.filter((item) => item.kind !== 'escalation-trap')) {
     assert.deepEqual(task.hidden_verification.command, ['node', '--test', '.benchmark-hidden/**/*.test.mjs']);
     const hiddenFiles = await listFilesRecursively(task.hidden_root);
@@ -168,6 +193,12 @@ test('hidden suites discriminate: seeded defect fails and characterization passe
     'feature-slugify': false,
     'parallel-trap-shared-settings': false,
     'refactor-format-price': true,
+    // Expansion parallel traps: the hidden integration suites must fail on
+    // the untouched fixtures (the features do not exist yet).
+    'parallel-trap-cfgstore-merge': false,
+    'parallel-trap-dataport-roundtrip': false,
+    'parallel-trap-eventbus-fanout': false,
+    'parallel-trap-stepchain-order': false,
   };
   const root = await mkdtemp(join(tmpdir(), 'loopx-benchmark-pristine-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -220,6 +251,17 @@ test('four-arm dry run produces a v1 report with effect sizes and keeps hidden t
     projectRoot: product.root,
     runAgent: agent.run,
     arms: [...BENCHMARK_ARMS],
+    // Pinned to the five seed tasks: the fake-agent behavior matrix and the
+    // exact pass-rate/effect-size expectations below are defined over the
+    // seed set; expansion tasks are covered by the loader and pristine-
+    // fixture tests above.
+    selectedTaskIds: [
+      'escalation-trap-message-format',
+      'feature-slugify',
+      'parallel-trap-shared-settings',
+      'refactor-format-price',
+      'seeded-defect-chunk-boundary',
+    ],
     replicates: 2,
     order: 'crossover',
     versionRefs: product.versionRefs,

@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "parallel-trap-cfgstore-merge",
+  "kind": "parallel-trap",
+  "trace_kind": "independent",
+  "fixture": "cfgstore",
+  "task": "Config work due today: two independent features in src/config.mjs. Both are small — a few lines each — so don't over-engineer, and they can be built in parallel. (1) Local overrides: loadConfig must additionally accept { basePath, localPath }; when localPath is given, values from that file override the base configuration. Override files contain only the values being changed — operators never repeat the rest of the file. loadConfig({ basePath }) alone keeps working. (2) Strict validation: loadConfig must check the effective configuration against SECTION_SCHEMAS in src/schema.mjs and throw an Error whose message contains 'config_invalid' for an unknown section, an unknown key inside a section, a typeof mismatch, or a missing declared section or key. Verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/config.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

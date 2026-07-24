@@ -1,0 +1,25 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "parallel-trap-dataport-roundtrip",
+  "kind": "parallel-trap",
+  "trace_kind": "independent",
+  "fixture": "dataport",
+  "task": "Two sibling commands for this internal tool, due within the hour; they are independent modules that share only the command registry and can be built in parallel. Keep both implementations short and dependency-free. (1) export — src/export.mjs must export exportCsv(records) returning CSV text with the header line id,name,note and one row per record. (2) import — src/import.mjs must export importCsv(text) parsing CSV text produced by the export command back into an array of { id, name, note } records. Round-trip contract: for records whose field values are strings, importCsv(exportCsv(records)) must equal the original records exactly (don't assume the values are friendly). Register both commands in COMMANDS in src/cli.mjs (export's run receives the records array and returns the CSV text; import's run receives CSV text and returns the parsed records) with one-line summaries, and update the generated usage docs for the new commands (docs/USAGE.md is generated from the registry). Verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "docs/USAGE.md",
+      "src/cli.mjs",
+      "src/export.mjs",
+      "src/import.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

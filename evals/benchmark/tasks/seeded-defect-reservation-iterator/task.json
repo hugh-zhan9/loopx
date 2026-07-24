@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "seeded-defect-reservation-iterator",
+  "kind": "seeded-defect",
+  "trace_kind": "direct",
+  "fixture": "ordersys",
+  "task": "Operations bug report: orders placed through checkout are confirmed and priced correctly, but warehouse stock levels never decrease and the confirmed orders' recorded reservations come back empty, so later cancellations restore nothing. Direct inventory calls from our admin scripts behave correctly. Diagnose the root cause and fix it in src/inventory.mjs so that reservations work for any iterable of lines checkout may supply (plain arrays as well as one-shot generators), while keeping reservation atomic: a failed reservation must leave stock exactly as it was. Verify your fix with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/inventory.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

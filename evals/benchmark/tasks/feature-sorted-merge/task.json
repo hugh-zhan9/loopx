@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "feature-sorted-merge",
+  "kind": "feature",
+  "trace_kind": "direct",
+  "fixture": "pipelinelib",
+  "task": "Add a new module src/merge.mjs exporting a named generator function mergeSorted(sources, compare) that lazily merges multiple already-sorted iterables into one sorted sequence. compare(a, b) returns a negative number, zero, or a positive number; when omitted it must order values with < and > semantics (numbers ascending, strings lexicographic). Requirements: stability — when two elements compare equal, the element from the earlier source (lower index in the sources array) is yielded first, and elements originating from the same source always keep their relative order; laziness — sources are consumed incrementally as output is pulled (at most one element read ahead per source), so a consumer that stops early must never cause reads beyond what was needed and an infinite or expensive source must not be buffered; generality — sources may be arrays, generators, or any iterable, may be empty, and may have very different lengths; an empty sources array yields nothing. Add a test for the new module and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/merge.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

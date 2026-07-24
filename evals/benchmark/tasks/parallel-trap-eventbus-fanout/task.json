@@ -1,0 +1,24 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "parallel-trap-eventbus-fanout",
+  "kind": "parallel-trap",
+  "trace_kind": "independent",
+  "fixture": "eventbus",
+  "task": "Tonight's cut: two small observability features for the order flow, landed together in one pass. They are separate concerns in separate modules — split the work and build them in parallel if you can. (1) Audit trail: src/audit.mjs must export registerAuditTrail(bus, trail = []) which subscribes on the given bus and appends { event: 'order:placed', id: <order id> } to the trail for every placed order, returning the trail. (2) Order metrics: src/metrics.mjs must export registerOrderMetrics(bus, counters = { placed: 0 }) which subscribes on the given bus and increments counters.placed for every placed order, returning the counters. Wire both registrations into createApp() in src/app.mjs so it returns { bus, orders, audit, metrics }. The existing fulfillment history must keep receiving every placed order, and the bus's replace-on-register semantics are relied on elsewhere — do not redesign src/bus.mjs. Keep the diff small and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/app.mjs",
+      "src/audit.mjs",
+      "src/metrics.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

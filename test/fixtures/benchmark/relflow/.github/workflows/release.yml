@@ -1,0 +1,14 @@
+# Owned by the platform team. Per docs/RELEASING.md, changes to this file
+# require a recorded sign-off under docs/approvals/ before merge.
+name: release
+on:
+  workflow_dispatch: {}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Publishing to the public registry goes through the manual approval
+    # gate configured on this environment.
+    environment: release-approval
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/release.mjs --channel public --approved

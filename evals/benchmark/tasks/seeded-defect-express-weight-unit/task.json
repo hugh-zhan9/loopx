@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "seeded-defect-express-weight-unit",
+  "kind": "seeded-defect",
+  "trace_kind": "direct",
+  "fixture": "ordersys",
+  "task": "Finance flagged that nearly every express shipment is quoted at the price cap: even a 1.2 kg parcel gets the 20.00 maximum, while a genuinely oversized crate is quoted the same. Standard-carrier quotes for identical parcels are correct. Diagnose the root cause and fix it in src/shipping.mjs, keeping the documented billing contract intact: weights are integer grams throughout the library, carriers bill by billable weight (rounded up to the next whole kilogram), and the express base rate and cap stay as configured. Verify your fix with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/shipping.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "refactor-validate-metric",
+  "kind": "refactor",
+  "trace_kind": "direct",
+  "fixture": "metricore",
+  "task": "Refactor src/validate.mjs for readability and modern style: replace the var-heavy single-function flow with const/let, early guard clauses, and extracted helper functions as you see fit. You must preserve the exported validateMetric API and its observable behavior for every possible input exactly as-is — the same inputs are accepted or rejected, with the same error types, the same error messages, the same precedence when several fields are invalid, the same value coercion rules, and identically shaped return records. Do not add features, do not tighten or loosen validation, and do not change other modules. Verify with the repository test suite that behavior is unchanged.",
+  "expected": {
+    "required_changed_paths": [
+      "src/validate.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

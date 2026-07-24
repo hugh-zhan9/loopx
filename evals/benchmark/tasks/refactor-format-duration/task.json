@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "refactor-format-duration",
+  "kind": "refactor",
+  "trace_kind": "direct",
+  "fixture": "metricore",
+  "task": "Refactor src/units.mjs for readability and modern style: replace the var declarations and string concatenation with const/let and template literals, and restructure the branch ladder if a clearer decomposition exists. You must preserve the exported formatDuration API and its observable output for every possible input exactly as-is — the same strings byte for byte, including all rounding and boundary behavior across the millisecond, second, minute, and hour ranges, negative durations, and the existing error contract for non-finite input. Do not add features and do not change other modules. Verify with the repository test suite that behavior is unchanged.",
+  "expected": {
+    "required_changed_paths": [
+      "src/units.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "feature-inflight-coalescing",
+  "kind": "feature",
+  "trace_kind": "direct",
+  "fixture": "pipelinelib",
+  "task": "Add a new module src/coalesce.mjs exporting a named function coalesce(fn, keyOf) that returns an async function with in-flight request deduplication. Semantics: while a call for key K is pending, further calls that map to the same key join the pending flight and settle with its result without invoking fn again; the moment a flight settles (fulfilled OR rejected) it is forgotten, so the next call for that key invokes fn again — results are never cached beyond the in-flight window; a rejection propagates to every caller that joined that flight and must not poison later calls; calls whose keys differ run as independent concurrent flights; fn is invoked with the original arguments of the call that started the flight. keyOf defaults to using String() of the first argument. Add a test for the new module and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/coalesce.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

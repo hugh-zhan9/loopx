@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "feature-batch-partial-failure",
+  "kind": "feature",
+  "trace_kind": "direct",
+  "fixture": "pipelinelib",
+  "task": "Add a new module src/batch.mjs exporting a named function runBatch(tasks, options) with precise partial-failure semantics. tasks is an array of zero-argument functions returning promises or plain values; options is optional with { concurrency = 1 }. Behavior: start tasks in index order with at most `concurrency` in flight; the first failure (a rejection or a synchronous throw from a task) stops any NEW task from starting, but tasks already in flight run to completion and their outcomes are still recorded; runBatch always resolves (it never rejects) with a report { completed, failed, skipped } where completed is [{ index, value }] and failed is [{ index, error }], both sorted by ascending index regardless of settlement order, and skipped is the ascending list of indexes whose tasks were never started; multiple failures are all recorded. Argument validation is synchronous: the call itself throws TypeError if tasks is not an array of functions, and RangeError if concurrency is not a positive integer — before any task starts. Add a test for the new module and verify with the repository test suite.",
+  "expected": {
+    "required_changed_paths": [
+      "src/batch.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}

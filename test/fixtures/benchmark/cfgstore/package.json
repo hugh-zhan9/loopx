@@ -1,0 +1,8 @@
+{
+  "name": "benchmark-cfgstore-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

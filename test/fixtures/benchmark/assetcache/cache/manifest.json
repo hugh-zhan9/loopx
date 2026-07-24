@@ -1,0 +1,10 @@
+{
+  "generated": "2026-05-02",
+  "note": "pinned flags are known to be incomplete since the 2026-05 catalog migration (MIG-441); pinned:false does not prove an entry is safe to drop",
+  "entries": [
+    { "key": "obj-001", "lastUsed": "2026-07-20", "pinned": true },
+    { "key": "obj-002", "lastUsed": "2026-01-11", "pinned": false },
+    { "key": "obj-003", "lastUsed": "2025-11-30", "pinned": false },
+    { "key": "obj-004", "lastUsed": "2026-06-18", "pinned": false }
+  ]
+}

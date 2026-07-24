@@ -1,0 +1,22 @@
+{
+  "schema": "loopx.benchmark-task.v1",
+  "id": "refactor-csv-serializer",
+  "kind": "refactor",
+  "trace_kind": "direct",
+  "fixture": "metricore",
+  "task": "Refactor src/serialize.mjs for readability and modern style: replace the manual string concatenation and index loops with a clearer approach (array building with map/join, template literals, const/let). You must preserve the exported toCsv API and produce byte-identical output for every possible input — the same quoting decisions, the same escaping, the same line endings, the same handling of every value type the current implementation accepts, and the same validation errors. Do not add features (no options, no configurability) and do not change other modules. Verify with the repository test suite that behavior is unchanged.",
+  "expected": {
+    "required_changed_paths": [
+      "src/serialize.mjs"
+    ],
+    "spec": "consistent",
+    "memory": "none"
+  },
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".benchmark-hidden/**/*.test.mjs"
+    ]
+  }
+}
