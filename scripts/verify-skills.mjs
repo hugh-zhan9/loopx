@@ -312,6 +312,31 @@ async function assertSkill(skillName, resolverText) {
   }
 }
 
+async function assertDecisionLogSynced() {
+  // Decision records are append-only history for boundary clauses that live in
+  // skill bodies. Each record names its clause verbatim; the guard fails when
+  // the clause drifts out of the governed file, so a decision cannot silently
+  // become fiction.
+  const decisionsRoot = join(repoRoot, 'docs', 'loopx', 'decisions');
+  const names = existsSync(decisionsRoot)
+    ? (await readdir(decisionsRoot)).filter((name) => name.endsWith('.md'))
+    : [];
+  assert.ok(names.length > 0, 'docs/loopx/decisions must contain at least one decision record');
+  for (const name of names) {
+    const path = join(decisionsRoot, name);
+    const fields = parseFrontmatter(path, await readFile(path, 'utf8'));
+    assert.ok(fields.applies_to, `${name} missing applies_to`);
+    assert.ok(fields.clause && fields.clause.length >= 20, `${name} missing a concrete clause quote`);
+    const targetPath = join(repoRoot, fields.applies_to);
+    assert.equal(existsSync(targetPath), true, `${name} applies_to missing: ${fields.applies_to}`);
+    const target = await readFile(targetPath, 'utf8');
+    assert.ok(
+      target.replace(/\s+/g, ' ').includes(fields.clause.replace(/\s+/g, ' ')),
+      `${name}: clause no longer present in ${fields.applies_to}: ${fields.clause.slice(0, 60)}...`,
+    );
+  }
+}
+
 async function assertSharedContractsSingleSourced() {
   // Shared contracts are the single authority; skill bodies reference them
   // instead of copying their prose, so contract wording cannot drift between
@@ -473,6 +498,7 @@ for (const tier of TRIAGE_TIERS) {
 }
 await assertContractMatrix();
 await assertSharedContractsSingleSourced();
+await assertDecisionLogSynced();
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   await assertSkill(skillName, resolverText);
 }

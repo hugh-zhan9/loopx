@@ -658,7 +658,11 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /bug-class/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /bug|regression|failing test|build failure|unexpected behavior/i);
-    assert.equal(fields['metadata.version'], '0.3.9');
+    assert.equal(fields['metadata.version'], '0.4.0');
+    assert.match(issueSkill, /## Short-Form Ledger/);
+    assert.match(issueSkill, /form: full \| short/);
+    assert.match(issueSkill, /`ready_for_fix` gate bar\s+is unchanged/i);
+    assert.match(issueSkill, /needs_scope_change` is a fix-owned status/);
     assert.match(issueSkill, /\.loopx\/issues\/issue-<slug>-YYYY-MM-DD\.md/);
     assert.match(issueSkill, /phase/);
     assert.match(issueSkill, /status/);
@@ -730,6 +734,10 @@ describe('loopx skill governance', () => {
     assert.match(fixSkill, /defensive_fix/);
     assert.match(fixSkill, /status: needs_scope_change/);
     assert.match(fixSkill, /metadata `status: blocked`/);
+    assert.match(fixSkill, /form: short/);
+    assert.match(fixSkill, /binding without restatement/i);
+    assert.match(fixSkill, /backfill the full ledger/i);
+    assert.match(fixSkill, /metadata `status: needs_scope_change`/);
     assert.match(fixSkill, /controller-owned scope and\s+integration check/i);
     assert.match(fixSkill, /independent reviewer only for an explicit review request/i);
     assert.match(fixSkill, /routine low-risk fix does\s+not require a local reviewer and whole-diff reviewer ceremony/i);

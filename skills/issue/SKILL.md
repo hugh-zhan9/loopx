@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.3.9"
+  version: "0.4.0"
 ---
 
 # Issue
@@ -91,7 +91,8 @@ Write this structure:
 
 metadata:
   phase: intake | triage | diagnosis | fix_brief | closeout
-  status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | blocked
+  status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | blocked | needs_scope_change
+  form: full | short
   source: pasted | local_file | failing_test | build_failure | reproduction_notes | existing_ledger
   created_at: YYYY-MM-DD
   updated_at: YYYY-MM-DD
@@ -175,6 +176,30 @@ diagnosis:
 
 - YYYY-MM-DD <command/file/observation> -> <result>
 ```
+
+## Short-Form Ledger
+
+A bug qualifies for `form: short` only when all are true: the expected change
+fits one file plus its paired test, a command or failing test reproduces the
+failure directly right now, and `risk_triggers` is empty. The short form keeps
+the metadata block and collapses the body to four required sections:
+
+- `reproduction`: the exact command(s) and observed failure
+- `root_cause`: specific cause and mechanism, `root_cause_status: confirmed`
+- `change_scope`: `expected_touched_files` (one file plus paired test); the
+  default forbidden scope applies unchanged
+- `verification_commands`
+
+Short-form defaults are binding without restating them: `parallel_safe: false`,
+regression test required, empty `risk_triggers`. The `ready_for_fix` gate bar
+is unchanged — direct reproduction stands in for the evidence list and the
+confirmed root cause stands in for the full diagnosis summary. The moment a
+high-risk trigger appears, reproduction stops being direct, or the fix
+outgrows one file, upgrade to the full ledger before continuing.
+
+`needs_scope_change` is a fix-owned status: `fix` sets it when execution needs
+files outside the approved scope, and the ledger returns here for a scope
+decision.
 
 ## Process
 

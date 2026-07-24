@@ -3,7 +3,7 @@ name: fix
 description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.1.6"
+  version: "0.2.0"
 ---
 
 # Fix
@@ -51,7 +51,7 @@ Ignored local data is non-blocking. Files excluded by `.gitignore`, `.git/info/e
 
 1. Read every requested ledger.
 2. Confirm each ledger contains `status: ready_for_fix`.
-3. Confirm every ready ledger has `expected_touched_files`, `parallel_safe`, regression test plan or exception, risk triggers, and verification commands.
+3. Confirm every ready ledger has `expected_touched_files`, `parallel_safe`, regression test plan or exception, risk triggers, and verification commands. A `form: short` ledger satisfies this with its four sections; its documented defaults (`parallel_safe: false`, regression test required, empty risk triggers) are binding without restatement.
 4. Inspect `git status --porcelain --untracked-files=all`.
 5. Require a clean tracked baseline except changes to the target `.loopx/issues/` ledgers.
 6. Record baseline with `git diff --name-only` and `git ls-files --others --exclude-standard`.
@@ -65,7 +65,8 @@ Before changing code, perform scope validation:
 - Confirm each `expected_touched_files` entry exists or is a clearly named new test/source file.
 - Confirm `expected_touched_files` and expected surfaces do not overlap across ledgers before parallel execution.
 - Treat public CLI/API/schema/config/lockfile/generated artifact changes as high risk unless explicitly listed in the Fix Brief.
-- If a necessary file is outside the expected scope, stop, write `status: needs_scope_change` under `## Execution Reports`, set ledger metadata status to `blocked`, and do not silently expand scope.
+- If a necessary file is outside the expected scope, stop, write `status: needs_scope_change` under `## Execution Reports`, set ledger metadata `status: needs_scope_change`, and do not silently expand scope. The ledger returns to `issue` for a scope decision.
+- If a high-risk trigger appears mid-fix on a `form: short` ledger, or the fix outgrows one file, stop and backfill the full ledger (metadata `status: blocked` until backfilled) before continuing.
 
 ## Scheduling
 
