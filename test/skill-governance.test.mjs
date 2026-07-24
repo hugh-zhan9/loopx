@@ -636,11 +636,14 @@ describe('loopx skill governance', () => {
     assert.match(clarifySkill, /next_question/);
     assert.match(clarifySkill, /`spec` or `plan2exec` needs/);
     assertSkillHandoffFormat(clarifySkill, 'clarify');
-    assert.match(clarifySkill, /skill: plan2exec/);
-    assert.match(clarifySkill, /Codex: \$plan2exec/);
-    assert.match(clarifySkill, /Claude Code: \/plan2exec/);
-    assert.match(clarifySkill, /Cursor Agent Skills: \/plan2exec/);
-    assert.match(clarifySkill, /Generic: Use the plan2exec skill/);
+    const handoffSyntax = await readFile(join(repoRoot, 'skills', 'clarify', 'references', 'handoff-syntax.md'), 'utf8');
+    assert.match(clarifySkill, /references\/handoff-syntax\.md/);
+    assert.match(handoffSyntax, /skill: plan2exec/);
+    assert.match(handoffSyntax, /skill: spec/);
+    assert.match(handoffSyntax, /Codex: `\$<skill> <args>`/);
+    assert.match(handoffSyntax, /Claude Code: `\/<skill> <args>`/);
+    assert.match(handoffSyntax, /Cursor Agent Skills: `\/<skill> <args>`/);
+    assert.match(handoffSyntax, /Generic: `Use the <skill> skill with <args>`/);
     assert.match(clarifySkill, /needs_spec/);
     assert.match(clarifySkill, /direct_to_plan/);
     assert.match(clarifySkill, /blocked/);
@@ -1195,7 +1198,7 @@ describe('loopx skill governance', () => {
 
     if (parseFrontmatter(planSkill)['metadata.version'] === '0.3.0') {
       assert.match(subagentSkill, /explicit `delegated-serial-v1` profile entry point/i);
-      assert.match(execSkill, /Only a clean candidate may integrate/i);
+      assert.match(execSkill, /Only a clean reviewed candidate may integrate/i);
       assert.match(execSkill, /separate read-only reviewer/i);
       assert.match(planSkill, /Do not add.*per-slice commit\s+commands/is);
       assert.match(implementerPrompt, /Do not stage, commit/i);

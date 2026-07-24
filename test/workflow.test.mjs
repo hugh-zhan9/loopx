@@ -667,20 +667,21 @@ describe('loopx retained workflow shell', () => {
     const routing = managedBlock(codexGuidance, 'prompt-first-routing');
 
     assert.match(execSkill, /Every implementation or fix candidate must pass fresh\s+verification.*independent read-only task review/is);
-    assert.match(execSkill, /Only a clean candidate may integrate/i);
+    assert.match(execSkill, /Only a clean reviewed candidate may integrate/i);
     assert.match(execSkill, /integration check/i);
     assert.match(selection, /Inline work always receives fresh verification.*controller integration\s+check/is);
-    assert.match(selection, /delegated-serial-v1.*parallel-strict-v1.*require independent review/is);
+    assert.match(selection, /follow the canonical contract/i);
+    assert.match(reviewContract, /delegated-serial-v1.*parallel-strict-v1.*require independent task review/is);
     for (const trigger of [
       /explicit review intent/i,
-      /security or\s+destructive behavior/i,
+      /security-sensitive or\s+destructive behavior/i,
       /public compatibility change/i,
       /cross-scope interaction/i,
       /conflict reconciliation/i,
     ]) {
-      assert.match(selection, trigger);
+      assert.match(reviewContract, trigger);
     }
-    assert.match(selection, /separate read-only leaf reviewer/i);
+    assert.match(reviewContract, /read-only leaf worker/i);
     assert.match(reviewSkill, /Critical and Important.*active\s+execution context.*fix.*verification/is);
     assert.match(reviewContract, /fresh focused and combined verification.*independent re-review/is);
     assert.match(routing, /independent review.*explicit.*security.*destructive.*compatibility.*interaction.*reconciliation/is);

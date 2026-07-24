@@ -31,12 +31,11 @@ For each ready slice in stable graph order:
 1. Give one fresh leaf implementer the slice outcome, dependencies, write scope,
    relevant context, interfaces, acceptance, verification, expected evidence,
    and review focus.
-2. Require a candidate and fresh verification evidence.
-3. Bind the exact candidate and evidence to a separate read-only leaf reviewer.
-4. Require both task spec compliance and task quality approval.
-5. Send Critical or Important findings to a separate leaf fixer. Freshly verify
-   and independently re-review the amended candidate.
-6. Integrate only the clean reviewed candidate, then unlock dependents.
+2. Gate the candidate through `../shared/review-contract.md`: bind the exact
+   candidate and evidence to a separate read-only leaf reviewer; send blocking
+   findings to a separate leaf fixer, then freshly verify and
+   independently re-review the amended candidate.
+3. Integrate only the clean reviewed candidate, then unlock dependents.
 
 The controller alone owns dispatch, state, Git, integration, and cleanup. Every
 worker prompt must use the leaf clause from `../shared/agent-topology.md`.
@@ -44,8 +43,8 @@ worker prompt must use the leaf clause from `../shared/agent-topology.md`.
 ## Final Gate
 
 After all slices integrate and combined verification passes, dispatch separate
-read-only Spec and Standards final reviewers. Keep their findings side by side.
-Completion remains blocked until both axes have no unresolved Critical or
+read-only Spec and Standards final reviewers per `../shared/review-contract.md`;
+completion remains blocked while either axis has an unresolved Critical or
 Important finding.
 
 ## Resources

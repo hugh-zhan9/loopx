@@ -107,64 +107,33 @@ migrated or normalized; restart it as a new current-contract workflow.
 
 ## Skill Handoff Format
 
-When recommending the next skill, name the canonical skill and arguments first. Render the invocation using the current agent's native format:
+After every material question is answered, choose one handoff:
+
+- `needs_spec`: any product behavior, API, data model, state machine,
+  permission, security, migration, compatibility, rollout, or cross-module
+  architecture decision still needs to be fixed before implementation planning.
+- `direct_to_plan`: goals, non-goals, constraints, affected scope, and
+  verification are clear, and all remaining choices are local implementation
+  details.
+- `blocked`: any material requirement or decision boundary is still unclear.
+
+Render the handoff with
+[references/handoff-syntax.md](./references/handoff-syntax.md): name the
+canonical skill and arguments first, in the current agent's native invocation
+format:
 
 - Codex: `$<skill> <args>`
 - Claude Code: `/<skill> <args>`
 - Cursor Agent Skills: `/<skill> <args>`
-- Generic: `Use the <skill> skill with <args>`.
+- Generic: `Use the <skill> skill with <args>`
 
-Do not present Codex `$...` syntax as the only handoff unless the current agent is Codex.
+Do not present Codex `$...` syntax as the only handoff unless the current
+agent is Codex.
 
-After every material question is answered, choose one handoff:
-
-- `needs_spec`
-- `direct_to_plan`
-- `blocked`
-
-Use `needs_spec` when any product behavior, API, data model, state machine, permission, security, migration, compatibility, rollout, or cross-module architecture decision still needs to be fixed before implementation planning.
-
-Use `direct_to_plan` when goals, non-goals, constraints, affected scope, and verification are clear, and all remaining choices are local implementation details.
-
-Use `blocked` when any material requirement or decision boundary is still unclear.
-
-For `needs_spec`, hand off to the `spec` skill with the intake package directory as the source:
-
-```text
-skill: spec
-args: .loopx/intake/YYYY-MM-DD-<slug>/
-Codex: $spec .loopx/intake/YYYY-MM-DD-<slug>/
-Claude Code: /spec .loopx/intake/YYYY-MM-DD-<slug>/
-Cursor Agent Skills: /spec .loopx/intake/YYYY-MM-DD-<slug>/
-Generic: Use the spec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
-```
-
-`spec` writes a dated design package under `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`, including:
-
-- `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`
-
-Then stop before implementation planning and report:
-
-```text
-skill: plan2exec
-args: docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Codex: $plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Claude Code: /plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Cursor Agent Skills: /plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
-Generic: Use the plan2exec skill with docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md.
-```
-
-For `direct_to_plan`, hand off to the `plan2exec` skill with the intake package directory as the source:
-
-```text
-skill: plan2exec
-args: .loopx/intake/YYYY-MM-DD-<slug>/
-Codex: $plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
-Claude Code: /plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
-Cursor Agent Skills: /plan2exec .loopx/intake/YYYY-MM-DD-<slug>/
-Generic: Use the plan2exec skill with .loopx/intake/YYYY-MM-DD-<slug>/.
-```
-
-`plan2exec` writes one execution plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`.
+For `needs_spec`, the source argument is the intake package directory; `spec`
+writes `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md`, and the
+follow-up handoff is `plan2exec` with that document. For `direct_to_plan`, hand
+`plan2exec` the intake package directory; it writes one plan to
+`docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`.
 
 Do not write implementation plans or start code changes inside `clarify`.

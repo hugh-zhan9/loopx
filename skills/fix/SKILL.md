@@ -75,14 +75,12 @@ Before changing code, perform scope validation:
 - If parallel safety cannot be proven and no high-risk trigger blocks execution, downgrade to serial direct execution.
 - Never let multiple subagents directly edit the main worktree at the same time.
 
-Each subagent receives only:
+Each subagent prompt carries the leaf clause:
 
 > You are a leaf worker. Do not spawn, delegate to, or wait for other agents.
 > Complete this assignment directly and report blockers to the controller.
 
-The top-level controller is the only orchestration owner. It creates exactly
-one active worker per ledger stage and never replaces a worker that is still
-running.
+Each subagent receives only:
 
 - its ledger
 - allowed files and surfaces
@@ -90,6 +88,10 @@ running.
 - verification commands
 - report path under `.loopx/issues/reports/`
 - worktree path when using isolated parallel direct execution
+
+The top-level controller is the only orchestration owner. It creates exactly
+one active worker per ledger stage and never replaces a worker that is still
+running.
 
 Subagents must stop with `needs_scope_change` if the fix requires files outside the allowed set.
 
@@ -218,9 +220,10 @@ When executing a ready ledger, append or update these sections:
 Every code modification through `fix` receives a controller-owned scope and
 integration check against the ledger's Diagnosis Summary, Fix Brief, actual
 diff, and verification evidence. Use the canonical independent-review
-contract: dispatch an independent reviewer only for an explicit review request,
-security-sensitive or destructive behavior, public compatibility changes,
-cross-task interaction, or a reconciled conflict. A routine low-risk fix does
+contract in `../shared/review-contract.md`: dispatch an
+independent reviewer only for an explicit review request, security-sensitive
+or destructive behavior, public compatibility changes, cross-task interaction,
+or a reconciled conflict. A routine low-risk fix does
 not require a local reviewer and whole-diff reviewer ceremony.
 
 When an independent review is triggered, Critical and Important findings must be

@@ -312,6 +312,35 @@ async function assertSkill(skillName, resolverText) {
   }
 }
 
+async function assertSharedContractsSingleSourced() {
+  // Shared contracts are the single authority; skill bodies reference them
+  // instead of copying their prose, so contract wording cannot drift between
+  // the canonical file and a stale duplicate.
+  const sharedRoot = join(repoRoot, 'skills', 'shared');
+  const sharedLines = new Map();
+  for (const name of (await readdir(sharedRoot)).filter((entry) => entry.endsWith('.md'))) {
+    const text = await readFile(join(sharedRoot, name), 'utf8');
+    for (const line of text.split('\n').map((value) => value.trim())) {
+      // Blockquoted lines are quotable templates (for example the leaf
+      // clause) whose verbatim copying into dispatch surfaces is itself the
+      // contract; only unquoted contract prose must stay single-sourced.
+      if (line.length >= 50 && !line.startsWith('#') && !line.startsWith('>')) {
+        sharedLines.set(line, name);
+      }
+    }
+  }
+  for (const skillName of LOOPX_BUNDLED_SKILLS) {
+    const text = await readFile(join(repoRoot, 'skills', skillName, 'SKILL.md'), 'utf8');
+    for (const line of text.split('\n').map((value) => value.trim())) {
+      assert.equal(
+        sharedLines.has(line),
+        false,
+        `skills/${skillName}/SKILL.md duplicates a shared contract line from ${sharedLines.get(line)}: ${line.slice(0, 60)}...`,
+      );
+    }
+  }
+}
+
 async function assertContractMatrix() {
   assert.equal(existsSync(contractMatrixPath), true, 'skill contract matrix missing');
   const matrix = JSON.parse(await readFile(contractMatrixPath, 'utf8'));
@@ -443,6 +472,7 @@ for (const tier of TRIAGE_TIERS) {
   );
 }
 await assertContractMatrix();
+await assertSharedContractsSingleSourced();
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   await assertSkill(skillName, resolverText);
 }

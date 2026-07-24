@@ -38,11 +38,10 @@ blocks the run.
 - Use one shared worker budget for implementers, reviewers, fixers, and final
   reviewers; prefer fix and review work before new implementation.
 - Give each implementer a fresh isolated worktree from the latest reviewed
-  integration boundary.
-- Require fresh verification and reject writes outside declared scope.
-- Dispatch a separate read-only leaf reviewer for every candidate.
-- Send Critical or Important findings to a separate fixer, then freshly verify
-  and independently re-review.
+  integration boundary, and reject writes outside declared scope.
+- Dispatch a separate read-only leaf reviewer for every candidate per
+  `../shared/review-contract.md`; send blocking findings to a separate fixer,
+  then freshly verify and independently re-review.
 - Integrate only a clean candidate in deterministic graph order; persist the new
   integration boundary before unlocking dependents.
 
@@ -51,9 +50,10 @@ cleanup. All dispatched roles are leaves and may not delegate.
 
 ## Final Gate
 
-After complete graph integration and combined verification, dispatch independent
-read-only Spec and Standards final reviewers, concurrently when capacity allows.
-Keep both verdicts side by side; either axis may block completion.
+After complete graph integration and combined verification, dispatch
+independent read-only Spec and Standards final reviewers per
+`../shared/review-contract.md`, concurrently when capacity allows; either axis
+may block completion.
 
 ## STOP Conditions
 

@@ -78,10 +78,11 @@ independent-review signal from the shared review contract applies.
 
 ### Delegated Serial
 
-Follow [../subagent-exec/SKILL.md](../subagent-exec/SKILL.md). Dispatch one fresh
-implementer at a time. Every implementation or fix candidate must pass fresh
-verification and an independent read-only task review before the next dependent
-slice proceeds.
+Follow [../subagent-exec/SKILL.md](../subagent-exec/SKILL.md). Dispatch one
+fresh implementer at a time.
+Every implementation or fix candidate must pass fresh
+verification and an independent read-only task review before the next
+dependent slice proceeds.
 
 ### Parallel Strict
 
@@ -102,23 +103,21 @@ reuse this implementation instead of duplicating it.
 
 ## Review And Completion Gates
 
-Read [references/review-selection.md](./references/review-selection.md). For
-delegated serial and parallel strict:
-
-1. The implementer produces a candidate and fresh verification evidence.
-2. A separate read-only reviewer checks task spec compliance and task quality.
-3. Critical or Important findings go to a separate fixer, followed by fresh
-   verification and independent re-review.
-4. Only a clean candidate may integrate.
-5. After all slices integrate, dispatch independent final Spec and Standards
-   reviewers. Keep their findings side by side; either axis may block completion.
+Review selection, reviewer independence, finding closure, and the final Spec
+plus Standards axes follow
+[../shared/review-contract.md](../shared/review-contract.md). The controller
+obligations, final-review dispatch bindings, and integration check follow
+[references/review-selection.md](./references/review-selection.md).
+Exec-specific rule: every delegated candidate passes a
+separate read-only reviewer; only a clean reviewed candidate may integrate,
+and dependents unlock only after integration.
 
 Before any completion claim, run the controller integration check from the
 review-selection contract and the quiet check from
 [../shared/completion-check.md](../shared/completion-check.md).
 Report the selected and effective profile, selection or narrowing evidence,
-changed paths, verification, task-review and final-review results, blockers, and
-residual risk.
+changed paths, fresh verification, task-review and final-review results,
+blockers, and residual risk.
 
 ## STOP Conditions
 

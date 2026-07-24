@@ -17,7 +17,7 @@
     "refactor-plan": { "max": 220 }
   },
   "skills": [
-    { "skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan2exec"], "required_references": [], "version": "0.3.17" },
+    { "skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan2exec"], "required_references": ["references/handoff-syntax.md"], "version": "0.3.17" },
     { "skill": "spec", "role": "workflow", "boundary": "Do not write an implementation plan", "required_outputs": ["Accepted proposal"], "safety_invariants": ["STOP Conditions"], "integrations": ["plan2exec"], "required_references": [], "version": "0.3.15" },
     { "skill": "codebase-spec", "role": "workflow", "boundary": "Do not:", "required_outputs": ["Evidence Standard"], "safety_invariants": ["Never print secret values"], "integrations": ["spec"], "required_references": ["references/output-template.md"], "version": "0.1.2" },
     { "skill": "plan2exec", "role": "workflow", "boundary": "Do not add task microsteps", "required_outputs": ["Execution Slices", "Integration And Final Verification", "Handoff And Residual Risks"], "safety_invariants": ["STOP Conditions"], "integrations": ["exec"], "required_references": ["references/plan-schema.md"], "version": "0.3.0" },
