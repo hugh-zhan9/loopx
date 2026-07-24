@@ -300,6 +300,7 @@ test('compares no-loopx, baseline, and candidate arms from immutable Git refs in
     .every((run) => run.installation.requested === false), true);
   assert.deepEqual(result.runs.find((run) => run.variant === 'version-a').installation.surfaces, {
     codex_agents: false,
+    claude_agents: false,
     exec_skill: true,
   });
   const requests = agent.requests();

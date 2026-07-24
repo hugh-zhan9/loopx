@@ -1,0 +1,8 @@
+{
+  "name": "fitpulse-req-demo-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/verify-artifacts.mjs"
+  }
+}

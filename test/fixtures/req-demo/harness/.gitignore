@@ -1,0 +1,8 @@
+.loopx/runs/
+.loopx/evals/
+.loopx/exec/
+.worktrees/
+.DS_Store
+node_modules/
+src-tauri/target/
+dist/

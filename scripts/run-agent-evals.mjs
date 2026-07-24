@@ -66,6 +66,16 @@ if (!traceArg || process.argv.includes('--help')) {
     throw new Error(`agent_eval_no_matched_cases:${baselineVariant}:${candidateVariant}`);
   }
 
+  const pendingMachineChecks = (manifest.cases ?? [])
+    .filter((item) => item.machine_check === 'pending-live-harness')
+    .map((item) => item.id);
+  if (comparison.overall.unknown_correctness_cases > 0) {
+    console.error(`warning: ${comparison.overall.unknown_correctness_cases}/${comparison.overall.compared_cases} compared cases have unknown correctness; they never count as passed or improved.`);
+  }
+  if (pendingMachineChecks.length > 0) {
+    console.error(`warning: manifest cases without machine-checkable correctness: ${pendingMachineChecks.join(', ')}`);
+  }
+
   await mkdir(outDir, { recursive: true });
   const summaryPath = resolve(outDir, 'run-summaries.json');
   const comparisonPath = resolve(outDir, 'comparison.json');

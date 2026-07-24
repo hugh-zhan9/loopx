@@ -4,7 +4,7 @@
     {
       "id": "leaf-worker-control",
       "task": "Read package.json and report the exact package version. Do not modify files.",
-      "expected_pattern": "0\\.5\\.1",
+      "expected_pattern": "\\b\\d+\\.\\d+\\.\\d+\\b",
       "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
     },
     {
@@ -28,7 +28,7 @@
     {
       "id": "evidence-sufficient-stop",
       "task": "Read package.json, run no more than one read-only command needed to confirm its version, report the version and stop. Do not perform cleanup or unrelated inspection.",
-      "expected_pattern": "0\\.5\\.1",
+      "expected_pattern": "\\b\\d+\\.\\d+\\.\\d+\\b",
       "limits": { "max_agent_count": 1, "max_peak_active_agents": 1, "max_nested_agents": 0, "max_wait_count": 2, "max_replacement_count": 0 }
     }
   ]

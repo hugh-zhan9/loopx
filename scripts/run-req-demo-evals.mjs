@@ -6,11 +6,17 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
-import { renderCrossVersionProductMarkdown, renderInstalledProductMarkdown, renderThreeWayProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
-import { deriveExecutionSelection, deriveIntegrationOrder, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
+import {
+  renderCrossVersionProductMarkdown,
+  renderInstalledProductMarkdown,
+  renderThreeWayProductMarkdown,
+  summarizeAgentEvalRun,
+} from '../src/agent-eval.mjs';
+import { findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 import { runInstalledProductEvaluation } from '../src/installed-product-eval.mjs';
 
 const execFileAsync = promisify(execFile);
+const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 
 function option(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -24,29 +30,36 @@ function pathSegment(value) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/run-darwin-simple-evals.mjs --live --model <id> [options]',
+    '  node scripts/run-req-demo-evals.mjs --live --model <id> [options]',
     '',
-    'Opt-in installed-product diagnostic. This command can invoke paid live model runs.',
+    'Opt-in FitPulse requirements-driven workflow demo.',
+    '  sources live under test/fixtures/req-demo/sources/fitpulse/',
+    '  agent cwd is harness/ with overlays (not sources/ as root)',
+    '  bare / no-loopx: docs/product/REQUIREMENTS.md → PLAN.md → implement',
+    '  installed loopx: fitpulse intake → spec → plan2exec → exec → final-review',
     '',
     'Options:',
+    '  --runtime <codex|claude>     Local agent runtime (default: codex)',
     '  --model <id>                 Exact model ID used by every variant',
     '  --baseline-ref <git-ref>     Immutable loopx baseline ref (requires candidate ref)',
     '  --candidate-ref <git-ref>    Immutable loopx candidate ref (requires baseline ref)',
-    '  --effort <level>             Reasoning effort (default: high)',
-    '  --case <id>                  Run one case (repeatable selection is not supported)',
+    '  --effort <level>             Reasoning effort for Codex (default: high)',
+    '  --case <id>                  Run one case',
     '  --replicates <count>         Replicates per variant (default: 2)',
     '  --order <crossover|baseline-first|candidate-first>',
     '  --timeout-ms <milliseconds>  Shared timeout for every variant',
     '  --out <directory>            Ignored report directory under .loopx/evals',
     '',
-    'With both ref options, every case runs three isolated arms: no-loopx, the baseline',
-    'ref, and the candidate ref. Every arm receives the exact task with no prompt injection.',
+    'With both ref options, every case runs three isolated arms: no-loopx, the',
+    'baseline ref, and the candidate ref.',
+    '',
+    'Cursor manual runs are documented in evals/req-demo/MANUAL.md.',
   ].join('\n');
 }
 
-function runCodex(args, prompt, options) {
+function runProcess(command, args, prompt, options) {
   return new Promise((resolveRun) => {
-    const child = spawn('codex', args, {
+    const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -97,7 +110,6 @@ function workerIntervals(events, workspaces = new Map()) {
   return intervals;
 }
 
-
 function createCodexAdapter(outDir) {
   let sequence = 0;
   return async function runAgent(request) {
@@ -116,7 +128,7 @@ function createCodexAdapter(outDir) {
       args.push('--disable', 'multi_agent');
     }
     const startedAt = Date.now();
-    const result = await runCodex(args, request.prompt, {
+    const result = await runProcess('codex', args, request.prompt, {
       cwd: request.repo,
       env: {
         ...request.env,
@@ -172,8 +184,8 @@ function createCodexAdapter(outDir) {
       verification: { passed: result.code === 0 && !result.aborted, commands: ['codex exec completed'] },
       response,
       workers: workerIntervals(events, workerWorkspaces),
-      integration_order: deriveIntegrationOrder(events, workerWorkspaces),
-      execution_selection: deriveExecutionSelection(request.case.kind, summary, events),
+      integration_order: [],
+      execution_selection: summary.peak_active_agents >= 2 ? 'concurrent' : 'serial',
       tokens: {
         input: summary.input_tokens,
         cached_input: summary.cached_input_tokens,
@@ -185,7 +197,66 @@ function createCodexAdapter(outDir) {
   };
 }
 
-if (process.argv.includes('--help')) {
+function createClaudeAdapter(outDir) {
+  let sequence = 0;
+  return async function runAgent(request) {
+    sequence += 1;
+    const runDir = join(outDir, 'raw', `${String(sequence).padStart(3, '0')}-${request.case.id}`);
+    await mkdir(runDir, { recursive: true });
+    const args = [
+      '-p',
+      '--output-format', 'json',
+      '--permission-mode', 'acceptEdits',
+    ];
+    if (request.configuration.model) {
+      args.push('--model', request.configuration.model);
+    }
+    const startedAt = Date.now();
+    const result = await runProcess('claude', args, request.prompt, {
+      cwd: request.repo,
+      env: {
+        ...request.env,
+        HOME: request.home,
+      },
+      signal: request.signal,
+    });
+    const latencyMs = Date.now() - startedAt;
+    await Promise.all([
+      writeFile(join(runDir, 'claude-stdout.json'), result.stdout),
+      writeFile(join(runDir, 'stderr.txt'), result.stderr),
+    ]);
+    let response = result.stdout;
+    let tokens = { input: null, cached_input: null, output: null, total: null };
+    try {
+      const parsed = JSON.parse(result.stdout);
+      response = parsed.result ?? parsed.output ?? result.stdout;
+      const usage = parsed.usage ?? parsed.token_usage ?? null;
+      if (usage) {
+        tokens = {
+          input: usage.input_tokens ?? usage.input ?? null,
+          cached_input: usage.cache_read_input_tokens ?? usage.cached_input ?? null,
+          output: usage.output_tokens ?? usage.output ?? null,
+          total: usage.total_tokens
+            ?? ((usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) || null),
+        };
+      }
+    } catch {
+      // keep raw stdout
+    }
+    return {
+      outcome: result.code === 0 && !result.aborted ? 'passed' : 'failed',
+      verification: { passed: result.code === 0 && !result.aborted, commands: ['claude -p completed'] },
+      response: typeof response === 'string' ? response : JSON.stringify(response),
+      workers: [],
+      integration_order: [],
+      execution_selection: 'serial',
+      tokens,
+      latency_ms: latencyMs,
+    };
+  };
+}
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(usage());
 } else if (!process.argv.includes('--live')) {
   console.error(usage());
@@ -193,38 +264,44 @@ if (process.argv.includes('--help')) {
   process.exitCode = 2;
 } else {
   const model = option('--model');
+  const runtime = option('--runtime', 'codex');
   const baselineRef = option('--baseline-ref');
   const candidateRef = option('--candidate-ref');
   if (!model) {
     console.error(usage());
     console.error('\n--model is required.');
     process.exitCode = 2;
+  } else if (!['codex', 'claude'].includes(runtime)) {
+    console.error(usage());
+    console.error('\n--runtime must be codex or claude.');
+    process.exitCode = 2;
   } else if (Boolean(baselineRef) !== Boolean(candidateRef)) {
     console.error(usage());
     console.error('\n--baseline-ref and --candidate-ref must be provided together.');
     process.exitCode = 2;
   } else {
-    const repoRoot = resolve(new URL('..', import.meta.url).pathname);
     const defaultOut = baselineRef
       ? `.loopx/evals/version-compare/${pathSegment(baselineRef)}-vs-${pathSegment(candidateRef)}/${Date.now()}`
-      : `.loopx/evals/darwin-simple/${Date.now()}`;
+      : `.loopx/evals/req-demo/${runtime}/${Date.now()}`;
     const outDir = resolve(option('--out', defaultOut));
-    const manifestPath = resolve(option('--manifest', join(repoRoot, 'evals', 'darwin-simple', 'cases.json')));
-    const fixtureRoot = resolve(option('--fixtures', join(repoRoot, 'test', 'fixtures', 'darwin-simple')));
-    const codeyHome = resolve(process.env.CODEY_HOME || join(homedir(), '.codey'));
+    const manifestPath = resolve(option('--manifest', join(repoRoot, 'evals', 'req-demo', 'cases.json')));
+    const fixtureRoot = resolve(option('--fixtures', join(repoRoot, 'test', 'fixtures', 'req-demo')));
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     const selectedCase = option('--case');
     const replicates = Number.parseInt(option('--replicates', '2'), 10);
     const timeoutMs = Number.parseInt(option('--timeout-ms', String(manifest.configuration.timeout_ms)), 10);
-    const adapterVersion = await execFileAsync('codex', ['--version'])
-      .then(({ stdout }) => stdout.trim(), () => null);
+    const adapterVersion = runtime === 'codex'
+      ? await execFileAsync('codex', ['--version']).then(({ stdout }) => stdout.trim(), () => null)
+      : await execFileAsync('claude', ['--version']).then(({ stdout }) => stdout.trim(), () => null);
+    const codeyHome = resolve(process.env.CODEY_HOME || join(homedir(), '.codey'));
     await mkdir(outDir, { recursive: true });
     const result = await runInstalledProductEvaluation({
       manifest,
       projectRoot: repoRoot,
       fixtureRoot,
-      runAgent: createCodexAdapter(outDir),
-      codexConfigRoot: codeyHome,
+      runAgent: runtime === 'claude' ? createClaudeAdapter(outDir) : createCodexAdapter(outDir),
+      codexConfigRoot: runtime === 'codex' ? codeyHome : null,
+      installTargets: [runtime],
       selectedCaseIds: selectedCase ? [selectedCase] : null,
       replicates,
       order: option('--order', 'crossover'),
@@ -232,7 +309,7 @@ if (process.argv.includes('--help')) {
         model,
         effort: option('--effort', 'high'),
         timeout_ms: timeoutMs,
-        adapter: { name: 'codex', version: adapterVersion },
+        adapter: { name: runtime, version: adapterVersion },
       },
       versionRefs: baselineRef ? { baseline: baselineRef, candidate: candidateRef } : null,
     });
@@ -246,6 +323,7 @@ if (process.argv.includes('--help')) {
             ? renderCrossVersionProductMarkdown(result)
             : renderInstalledProductMarkdown(result.comparison),
       ),
+      writeFile(join(outDir, 'runtime.json'), `${JSON.stringify({ runtime, model }, null, 2)}\n`),
     ];
     if (result.provenance) {
       reportWrites.push(writeFile(join(outDir, 'matrix.json'), `${JSON.stringify(result.provenance, null, 2)}\n`));
@@ -260,6 +338,7 @@ if (process.argv.includes('--help')) {
     console.log(JSON.stringify({
       ok,
       diagnostic_only: true,
+      runtime,
       out: outDir,
       overall: result.comparison.overall,
       comparisons: comparisonOveralls,

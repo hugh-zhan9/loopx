@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
 import { aggregateAgentEvalReplicates, applyAgentEvalPolicies, compareAgentEvalRuns, compareInstalledProductRuns, evaluateControllerIntegration, evaluateLeafReviewResult, parseReviewResult, renderAgentEvalMarkdown, renderCrossVersionProductMarkdown, renderInstalledProductMarkdown, summarizeAgentEvalRun } from '../src/agent-eval.mjs';
-import { extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
+import { deriveExecutionSelection, deriveIntegrationOrder, extractCodexLeafFinalMessage, findCodexRollouts, normalizeCodexRollouts } from '../src/codex-agent-trace.mjs';
 import { findClaudeSession, normalizeClaudeSession, extractClaudeLeafFinalMessage } from '../src/claude-agent-trace.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -100,6 +100,80 @@ describe('agent eval metrics', () => {
     });
     assert.equal(failed.policy_passed, false);
     assert.match(failed.policy_violations[0], /agent_count/);
+  });
+
+  it('scores runs without correctness evidence as unknown and never as improvements', () => {
+    const run = (variant, end) => summarizeAgentEvalRun([
+      { event: 'run_start', run_id: `tri-${variant}`, case_id: 'case-1', variant, at_ms: 0 },
+      { event: 'run_end', outcome: 'passed', tests_passed: null, input_tokens: 100, output_tokens: 10, latency_ms: 50, at_ms: 50, ...end },
+    ]);
+
+    const unverified = run('v2', {});
+    assert.equal(unverified.correctness, 'unknown');
+    assert.equal(unverified.quality_passed, false);
+
+    // Normalized rollout shape: completion exists, correctness never evaluated.
+    const unverifiedBaseline = run('baseline', { input_tokens: 500, output_tokens: 100, latency_ms: 400 });
+    const verifiedCandidate = run('v2', { tests_passed: true });
+    assert.equal(unverifiedBaseline.correctness, 'unknown');
+    assert.equal(verifiedCandidate.correctness, 'passed');
+    assert.equal(verifiedCandidate.quality_passed, true);
+
+    const comparison = compareAgentEvalRuns([unverifiedBaseline, verifiedCandidate]);
+    assert.equal(comparison.schema, 'loopx.agent-eval-comparison.v2');
+    assert.equal(comparison.cases[0].baseline_correctness, 'unknown');
+    assert.equal(comparison.cases[0].improved, false);
+    assert.equal(comparison.overall.unknown_correctness_cases, 1);
+    assert.equal(comparison.overall.improved_cases, 0);
+
+    const failed = run('v2', { tests_passed: false });
+    assert.equal(failed.correctness, 'failed');
+    assert.equal(failed.quality_passed, false);
+  });
+
+  it('derives governed-escalation selection and integration order from trace evidence', () => {
+    assert.equal(deriveExecutionSelection('governed-escalation', {}, []), 'unknown');
+
+    const readOnlyEvents = [
+      { event: 'tool_call', actor_id: 'controller', tool: 'shell', at_ms: 10 },
+    ];
+    assert.equal(deriveExecutionSelection('governed-escalation', { agent_count: 0 }, readOnlyEvents), 'blocked');
+    assert.equal(deriveExecutionSelection('governed-escalation', { agent_count: 1 }, readOnlyEvents), 'proceeded');
+    assert.equal(deriveExecutionSelection('governed-escalation', { agent_count: 0 }, [
+      { event: 'tool_call', actor_id: 'controller', tool: 'apply_patch', at_ms: 10 },
+    ]), 'proceeded');
+
+    const releases = [
+      { event: 'agent_release', actor_id: 'w-alpha', at_ms: 100 },
+      { event: 'agent_release', actor_id: 'w-beta', at_ms: 200 },
+      { event: 'agent_release', actor_id: 'w-unknown', at_ms: 300 },
+    ];
+    const workspaces = new Map([
+      ['w-alpha', '/tmp/worktrees/alpha'],
+      ['w-beta', '/tmp/worktrees/beta'],
+    ]);
+    assert.deepEqual(deriveIntegrationOrder(releases, workspaces), ['alpha', 'beta']);
+    assert.deepEqual(deriveIntegrationOrder(releases, new Map()), []);
+  });
+
+  it('fails a finding whose summary omits the required evidence fragments', () => {
+    const result = {
+      schema: 'loopx.review-result.v1', status: 'ISSUES_FOUND', task_quality: 'Needs fixes', task_anchor: 'T-002', cannot_verify: [],
+      findings: [{ id: 'F-001', severity: 'Critical', anchor_ids: ['T-002'], summary: 'add(2,3) returned 6 instead of 5' }],
+    };
+    const expected = {
+      status: 'ISSUES_FOUND', task_quality: 'Needs fixes', task_anchor: 'T-002',
+      findings: [{ severity: 'Critical', anchor_ids: ['T-002'], summary_must_contain: ['ADD', '6'] }],
+    };
+    assert.deepEqual(evaluateLeafReviewResult(result, expected), { passed: true, violations: [] });
+
+    const wrongDefect = {
+      ...result,
+      findings: [{ ...result.findings[0], summary: 'Formatting style violates the repository guide' }],
+    };
+    const evaluation = evaluateLeafReviewResult(wrongDefect, expected);
+    assert.equal(evaluation.passed, false);
+    assert.deepEqual(evaluation.violations, ['finding_1_summary_missing_evidence']);
   });
 
   it('does not treat missing usage or latency as zero-cost improvement evidence', () => {

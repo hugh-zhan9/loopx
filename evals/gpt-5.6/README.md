@@ -5,6 +5,27 @@ loopx tasks. It is deliberately trace-first: platform adapters capture native
 Codex, Claude, or API runs, while the repository owns deterministic scoring and
 reports.
 
+## Scoring Positioning
+
+Correctness is tri-state: `passed`, `failed`, or `unknown`. A run whose trace
+carries no machine-checkable correctness evidence (`tests_passed` and
+`integration_passed` both unevaluated) scores `unknown`; unknown never counts
+as quality-passed and never contributes an "improved" verdict.
+
+Offline trace scoring (`run-agent-evals.mjs` over normalized rollouts) verifies
+the normalization pipeline, topology invariants, and resource accounting. The
+normalizer emits no correctness evidence, so offline runs score correctness
+`unknown` by design. Offline reports are pipeline regression evidence, not
+agent capability evidence. Correctness verdicts come from live runs
+(`eval:codex-live`), which re-derive `tests_passed` from `expected_pattern`,
+`expected_review_result` (including `summary_must_contain` content evidence),
+and controller integration. Cases marked `machine_check: pending-live-harness`
+in `cases.json` have no live task yet and stay `unknown` until one exists.
+
+The committed `test/*-eval.test.mjs` suites drive the scorer with fake agents:
+a green `npm test` validates the scoring pipeline and proves nothing about
+agent capability.
+
 ## Run
 
 ```bash

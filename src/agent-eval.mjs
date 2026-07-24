@@ -17,8 +17,24 @@ function percentDelta(baseline, candidate) {
   return ((candidate - baseline) / baseline) * 100;
 }
 
+function configurationParityPayload(configuration) {
+  if (!configuration || typeof configuration !== 'object') return configuration ?? null;
+  // Variant-specific prompts (for example bare vs installed product demos) are
+  // intentional. Per-run fixture tree hashes are identity evidence, not shared
+  // matrix config. Parity keeps model/effort/tools/timeout/adapter/constraints.
+  const { task, fixture_tree, ...shared } = configuration;
+  return shared;
+}
+
+function configurationsHaveParity(left, right) {
+  return stableJson(configurationParityPayload(left)) === stableJson(configurationParityPayload(right));
+}
+
 function ratio(numerator, denominator) {
-  return denominator === 0 ? 1 : numerator / denominator;
+  // An empty denominator means the metric was never exercised. Report null
+  // (not measured) instead of a vacuous 1 so no-finding runs cannot look like
+  // perfect-recall evidence in aggregates.
+  return denominator === 0 ? null : numerator / denominator;
 }
 
 function stringSet(values) {
@@ -59,6 +75,9 @@ export function evaluateControllerIntegration(leaf, controller) {
     [...cannotVerify].filter((item) => controllerCannotVerify.has(item)).length,
     cannotVerify.size,
   );
+  // With no cannot-verify items there is nothing to lose; the preservation
+  // obligation is satisfied by absence, while the recall metric stays null.
+  const cannotVerifyPreserved = cannotVerify.size === 0 || cannotVerifyRecall === 1;
   return {
     controller_result_present: controllerValid,
     status_preserved: statusPreserved,
@@ -79,7 +98,7 @@ export function evaluateControllerIntegration(leaf, controller) {
       && !unsafeContextPromotion
       && !blockingFindingLoss
       && inventedBlocking === 0
-      && cannotVerifyRecall === 1,
+      && cannotVerifyPreserved,
   };
 }
 
@@ -112,6 +131,16 @@ export function evaluateLeafReviewResult(result, expected) {
       if (Array.isArray(finding.anchor_ids)
           && JSON.stringify(actual.anchor_ids) !== JSON.stringify(finding.anchor_ids)) {
         violations.push(`finding_${index + 1}_anchors_mismatch`);
+      }
+      if (Array.isArray(finding.summary_must_contain)) {
+        // Severity and anchors alone accept findings whose prose describes a
+        // different defect; require the key evidence fragments in the summary.
+        const summaryText = String(actual.summary ?? '').toLowerCase();
+        const missing = finding.summary_must_contain
+          .filter((fragment) => !summaryText.includes(String(fragment).toLowerCase()));
+        if (missing.length > 0) {
+          violations.push(`finding_${index + 1}_summary_missing_evidence`);
+        }
       }
     });
   }
@@ -159,15 +188,25 @@ export function summarizeAgentEvalRun(events) {
   const totalTokens = inputTokens === null || outputTokens === null ? null : inputTokens + outputTokens;
   const hardInvariantsPassed = nestedAgentCount === 0;
   const integrationPassed = end.integration_passed ?? null;
-  const outcomePassed = end.outcome === 'passed' && end.tests_passed !== false && integrationPassed !== false;
+  const testsPassed = end.tests_passed ?? null;
+  // Correctness is tri-state. Completion alone is never correctness evidence:
+  // a run whose tests_passed and integration_passed are both unevaluated is
+  // unknown, and unknown never counts as quality-passed or improved.
+  let correctness = 'unknown';
+  if (end.outcome !== 'passed' || testsPassed === false || integrationPassed === false) {
+    correctness = 'failed';
+  } else if (testsPassed === true || integrationPassed === true) {
+    correctness = 'passed';
+  }
 
   return {
     run_id: start.run_id ?? null,
     case_id: start.case_id ?? null,
     variant: start.variant ?? null,
     outcome: end.outcome ?? 'unknown',
-    tests_passed: end.tests_passed ?? null,
-    quality_passed: outcomePassed && hardInvariantsPassed,
+    tests_passed: testsPassed,
+    correctness,
+    quality_passed: correctness === 'passed' && hardInvariantsPassed,
     hard_invariants_passed: hardInvariantsPassed,
     integration_passed: integrationPassed,
     leaf_review_result_valid: end.leaf_review_result_valid ?? null,
@@ -229,6 +268,17 @@ export function applyAgentEvalPolicies(summaries, manifest) {
       quality_passed: summary.quality_passed && violations.length === 0,
     };
   });
+}
+
+function triState(values) {
+  if (values.some((value) => value === false)) return false;
+  return values.every((value) => value === true) ? true : null;
+}
+
+function summaryCorrectness(summary) {
+  // Summaries written before the tri-state schema carry no correctness field;
+  // treat them as unverified instead of trusting their fail-open quality flag.
+  return summary.correctness ?? 'unknown';
 }
 
 function median(values) {
@@ -312,10 +362,13 @@ export function aggregateAgentEvalReplicates(summaries) {
       case_id: first.case_id,
       variant: first.variant,
       outcome: runs.every((run) => run.outcome === 'passed') ? 'passed' : 'failed',
-      tests_passed: runs.every((run) => run.tests_passed !== false),
+      tests_passed: triState(runs.map((run) => run.tests_passed)),
+      correctness: runs.some((run) => summaryCorrectness(run) === 'failed')
+        ? 'failed'
+        : runs.every((run) => summaryCorrectness(run) === 'passed') ? 'passed' : 'unknown',
       quality_passed: runs.every((run) => run.quality_passed === true),
       hard_invariants_passed: runs.every((run) => run.hard_invariants_passed === true),
-      integration_passed: runs.every((run) => run.integration_passed !== false),
+      integration_passed: triState(runs.map((run) => run.integration_passed)),
       status_preserved: runs.every((run) => run.status_preserved !== false),
       task_quality_preserved: runs.every((run) => run.task_quality_preserved !== false),
       task_anchor_preserved: runs.every((run) => run.task_anchor_preserved !== false),
@@ -355,12 +408,16 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       && comparableTokens && candidate.total_tokens <= baseline.total_tokens
       && comparableLatency && candidate.latency_ms <= baseline.latency_ms;
     const candidateQualityPassed = candidate.quality_passed === true;
+    const baselineCorrectness = summaryCorrectness(baseline);
+    const candidateCorrectness = summaryCorrectness(candidate);
     cases.push({
       case_id: caseId,
       baseline_variant: baselineVariant,
       candidate_variant: candidateVariant,
       baseline_quality_passed: baseline.quality_passed,
       candidate_quality_passed: candidateQualityPassed,
+      baseline_correctness: baselineCorrectness,
+      candidate_correctness: candidateCorrectness,
       candidate_integration_passed: candidate.integration_passed,
       status_preserved: candidate.status_preserved,
       finding_recall: candidate.finding_recall,
@@ -378,11 +435,14 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       uncached_input_tokens_percent_delta: percentDelta(baseline.uncached_input_tokens, candidate.uncached_input_tokens),
       latency_ms_delta: comparableLatency ? candidate.latency_ms - baseline.latency_ms : null,
       latency_percent_delta: percentDelta(baseline.latency_ms, candidate.latency_ms),
-      improved: candidateQualityPassed && resourceImproved,
+      // A resource win only counts as improvement when correctness was
+      // actually verified on both sides; unknown correctness never improves.
+      improved: candidateQualityPassed && baselineCorrectness === 'passed' && resourceImproved,
     });
   }
 
   return {
+    schema: 'loopx.agent-eval-comparison.v2',
     baseline_variant: baselineVariant,
     candidate_variant: candidateVariant,
     cases,
@@ -390,6 +450,7 @@ export function compareAgentEvalRuns(summaries, options = {}) {
       compared_cases: cases.length,
       improved_cases: cases.filter((item) => item.improved).length,
       candidate_quality_passed_cases: cases.filter((item) => item.candidate_quality_passed).length,
+      unknown_correctness_cases: cases.filter((item) => item.baseline_correctness === 'unknown' || item.candidate_correctness === 'unknown').length,
       nested_agent_free_cases: cases.filter((item) => item.nested_agent_count_delta <= 0).length,
       controller_integration_evaluated_cases: cases.filter((item) => item.candidate_integration_passed !== null && item.candidate_integration_passed !== undefined).length,
       controller_integration_passed_cases: cases.filter((item) => item.candidate_integration_passed === true).length,
@@ -466,7 +527,7 @@ function pairedInstalledProductRuns(runs, baselineVariant, candidateVariant) {
     const candidateMetrics = installedMetricDistributions([candidate]);
     const baselineQuality = installedProductQuality(baseline).failed.length === 0;
     const candidateQuality = installedProductQuality(candidate).failed.length === 0;
-    const configurationParity = stableJson(baseline.configuration) === stableJson(candidate.configuration);
+    const configurationParity = configurationsHaveParity(baseline.configuration, candidate.configuration);
     return [{
       replicate,
       baseline_run_id: baseline.run_id ?? null,
@@ -554,7 +615,7 @@ export function compareInstalledProductRuns(runs, options = {}) {
     const configurationParity = baseline.configuration_consistent
       && candidate.configuration_consistent
       && (!forcedSerial || forcedSerial.configuration_consistent)
-      && stableJson(baseline.configuration) === stableJson(candidate.configuration);
+      && configurationsHaveParity(baseline.configuration, candidate.configuration);
     const baselineQuality = installedProductQuality(baseline);
     const candidateQuality = installedProductQuality(candidate);
     const forcedSerialQuality = forcedSerial ? installedProductQuality(forcedSerial) : null;
@@ -979,14 +1040,15 @@ export function renderAgentEvalMarkdown(comparison) {
     `- Compared cases: ${comparison.overall.compared_cases}`,
     `- Improved cases: ${comparison.overall.improved_cases}`,
     `- Candidate quality passed: ${comparison.overall.candidate_quality_passed_cases}`,
+    `- Unknown correctness: ${comparison.overall.unknown_correctness_cases ?? 'n/a'}`,
     `- Controller integration passed: ${comparison.overall.controller_integration_passed_cases}/${comparison.overall.controller_integration_evaluated_cases}`,
     '',
-    '| Case | Quality | Integration | Finding recall | Severity fidelity | Agent delta | Nested agent delta | Token delta | Latency delta | Improved |',
-    '|---|---|---|---:|---:|---:|---:|---:|---:|---|',
+    '| Case | Quality | Correctness | Integration | Finding recall | Severity fidelity | Agent delta | Nested agent delta | Token delta | Latency delta | Improved |',
+    '|---|---|---|---|---:|---:|---:|---:|---:|---:|---|',
   ];
 
   for (const item of comparison.cases) {
-    lines.push(`| ${item.case_id} | ${item.candidate_quality_passed ? 'pass' : 'fail'} | ${item.candidate_integration_passed === null || item.candidate_integration_passed === undefined ? 'n/a' : item.candidate_integration_passed ? 'pass' : 'fail'} | ${formatPercent(item.finding_recall === null ? null : item.finding_recall * 100)} | ${formatPercent(item.severity_fidelity === null ? null : item.severity_fidelity * 100)} | ${item.agent_count_delta} | ${item.nested_agent_count_delta} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.improved ? 'yes' : 'no'} |`);
+    lines.push(`| ${item.case_id} | ${item.candidate_quality_passed ? 'pass' : item.candidate_correctness === 'unknown' ? 'unknown' : 'fail'} | ${item.candidate_correctness ?? 'unknown'} | ${item.candidate_integration_passed === null || item.candidate_integration_passed === undefined ? 'n/a' : item.candidate_integration_passed ? 'pass' : 'fail'} | ${formatPercent(item.finding_recall === null ? null : item.finding_recall * 100)} | ${formatPercent(item.severity_fidelity === null ? null : item.severity_fidelity * 100)} | ${item.agent_count_delta} | ${item.nested_agent_count_delta} | ${formatDelta(item.total_tokens_delta)} (${formatPercent(item.total_tokens_percent_delta)}) | ${formatDelta(item.latency_ms_delta, ' ms')} (${formatPercent(item.latency_percent_delta)}) | ${item.improved ? 'yes' : 'no'} |`);
   }
 
   lines.push(
@@ -994,6 +1056,7 @@ export function renderAgentEvalMarkdown(comparison) {
     '## Interpretation',
     '',
     '- Lower agent, tool, token, or latency counts are improvements only when candidate quality and hard invariants pass.',
+    '- Unknown correctness means the run finished without machine-checkable correctness evidence; it is never a pass and never an improvement.',
     '- Any nested agent created by a non-controller actor fails the hard topology invariant.',
     '- A structured reviewer run fails quality when the controller loses status, task quality, task anchor, blocking severity, cannot-verify context, or invents a blocking finding.',
     '- Investigate per-case traces before changing another prompt group.',

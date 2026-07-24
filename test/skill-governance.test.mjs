@@ -307,8 +307,16 @@ describe('loopx skill governance', () => {
     const schema = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'TRACE_SCHEMA.md'), 'utf8');
     const guide = await readFile(join(repoRoot, 'evals', 'gpt-5.6', 'README.md'), 'utf8');
 
-    assert.equal(cases.cases.length, 12);
-    assert.equal(new Set(cases.cases.map((item) => item.id)).size, 12);
+    assert.equal(cases.cases.length, 14);
+    assert.equal(new Set(cases.cases.map((item) => item.id)).size, 14);
+    for (const item of cases.cases) {
+      const machineCheckable = typeof item.expected_pattern === 'string' || item.expected_review_result;
+      assert.equal(
+        machineCheckable || item.machine_check === 'pending-live-harness',
+        true,
+        `${item.id} needs expected_pattern/expected_review_result or an explicit pending machine_check marker`,
+      );
+    }
     assert.match(schema, /parent_actor_id.*controller/is);
     assert.match(guide, /Change one prompt group at a time/);
     assert.match(guide, /Synthetic traces.*not for claiming GPT-5\.6 performance/is);
@@ -316,16 +324,22 @@ describe('loopx skill governance', () => {
     assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true);
+    assert.equal(packageJson.files.includes('scripts/run-req-demo-evals.mjs'), true);
     assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true);
     assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true);
     assert.equal(packageJson.files.includes('evals/darwin-simple/'), true);
+    assert.equal(packageJson.files.includes('evals/req-demo/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true);
     assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/memory-repository/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/req-demo/harness/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/req-demo/sources/fitpulse/'), true);
+    assert.equal(packageJson.files.includes('test/fixtures/req-demo/starter/'), false);
     assert.equal(packageJson.scripts['eval:agent'], 'node scripts/run-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:codex-normalize'], 'node scripts/normalize-codex-agent-trace.mjs');
     assert.equal(packageJson.scripts['eval:codex-live'], 'node scripts/run-codex-live-agent-evals.mjs');
     assert.equal(packageJson.scripts['eval:darwin-simple'], 'node scripts/run-darwin-simple-evals.mjs');
+    assert.equal(packageJson.scripts['eval:req-demo'], 'node scripts/run-req-demo-evals.mjs');
     assert.equal(packageJson.scripts['eval:aggregate'], 'node scripts/aggregate-agent-evals.mjs');
   });
 

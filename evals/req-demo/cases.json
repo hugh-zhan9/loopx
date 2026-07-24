@@ -1,0 +1,60 @@
+{
+  "schema": "loopx.installed-product-eval.v1",
+  "baseline_variant": "bare",
+  "candidate_variant": "installed",
+  "forced_serial_variant": "forced-serial",
+  "configuration": {
+    "model": "configured-by-runner",
+    "effort": "high",
+    "tools": ["shell", "filesystem", "git"],
+    "permissions": { "sandbox": "workspace-write" },
+    "timeout_ms": 1200000,
+    "worker_limit": 4,
+    "verification_command": ["npm", "test"]
+  },
+  "variants": {
+    "bare": { "install_candidate": false, "force_serial": false },
+    "installed": { "install_candidate": true, "force_serial": false },
+    "forced-serial": { "install_candidate": true, "force_serial": true }
+  },
+  "cases": [
+    {
+      "id": "workflow-from-clarify-intake",
+      "kind": "direct",
+      "fixture": "harness",
+      "source_overlays": [
+        {
+          "from": "sources/fitpulse/REQUIREMENTS.md",
+          "to": "docs/product/REQUIREMENTS.md"
+        },
+        {
+          "from": "sources/fitpulse/intake/2026-07-22-fitpulse-v1",
+          "to": ".loopx/intake/2026-07-22-fitpulse-v1"
+        }
+      ],
+      "bare_task": "You do not have loopx skills. The product contract is FitPulse from `docs/product/REQUIREMENTS.md` and the approved intake at `.loopx/intake/2026-07-22-fitpulse-v1/`. Do not modify either. Ignore harness packaging as product scope. First write an implementation plan to `PLAN.md`, then implement FitPulse according to that plan. Do not invent loopx workflow stages.",
+      "task": "Clarify is already complete. Use the approved intake at `.loopx/intake/2026-07-22-fitpulse-v1/` and do not modify it. Do not re-run clarify. The product contract is FitPulse from that intake and `docs/product/REQUIREMENTS.md`. Run loopx skills in this exact order: (1) `spec`, (2) `plan2exec`, (3) `exec`, (4) `final-review`. Use slug `fitpulse-v1` and date `2026-07-22` so artifacts land at `docs/loopx/design/2026-07-22-fitpulse-v1/需求设计文档.md` and `docs/loopx/plans/2026-07-22-fitpulse-v1.md`.",
+      "variants": ["bare", "installed"],
+      "bare_expected": {
+        "required_changed_paths": ["PLAN.md"],
+        "file_contains": {
+          "PLAN.md": "FitPulse"
+        },
+        "spec": "consistent",
+        "memory": "none"
+      },
+      "expected": {
+        "required_changed_paths": [
+          "docs/loopx/design/2026-07-22-fitpulse-v1/需求设计文档.md",
+          "docs/loopx/plans/2026-07-22-fitpulse-v1.md"
+        ],
+        "file_contains": {
+          "docs/loopx/design/2026-07-22-fitpulse-v1/需求设计文档.md": "AC-01",
+          "docs/loopx/plans/2026-07-22-fitpulse-v1.md": "loopx.execution-graph.v1"
+        },
+        "spec": "consistent",
+        "memory": "none"
+      }
+    }
+  ]
+}

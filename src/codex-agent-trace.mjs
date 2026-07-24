@@ -1,5 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 async function walkJsonl(root) {
   const results = [];
@@ -101,6 +101,35 @@ export function extractCodexLeafFinalMessage(rollouts, rootThreadId) {
   ];
   completed.sort((left, right) => right.completedAt - left.completedAt);
   return completed[0] ?? { threadId: null, message: '' };
+}
+
+const mutatingToolPattern = /apply_patch|write|edit|create/i;
+
+export function deriveExecutionSelection(kind, summary, events) {
+  if (kind === 'governed-escalation') {
+    // Derive blocked from trace evidence instead of asserting it: a run with
+    // no trace is unknown (fail-closed), and dispatching workers or applying
+    // patches means the agent proceeded past the escalation point. Actual
+    // repository writes are caught separately by the changed_paths gate.
+    if (events.length === 0) return 'unknown';
+    const dispatched = (summary.agent_count ?? 0) > 0;
+    const mutated = events.some((event) => event.event === 'tool_call' && mutatingToolPattern.test(event.tool ?? ''));
+    return dispatched || mutated ? 'proceeded' : 'blocked';
+  }
+  if (kind === 'strongly-coupled') return summary.peak_active_agents <= 1 ? 'serial' : 'concurrent';
+  if (kind === 'independent') return summary.peak_active_agents >= 2 ? 'concurrent' : 'serial';
+  return 'direct';
+}
+
+export function deriveIntegrationOrder(events, workerWorkspaces) {
+  // Completion order of dispatched workers, labeled by workspace basename.
+  // Workers without workspace evidence contribute nothing: an empty order is
+  // reported as underived rather than invented.
+  return events
+    .filter((event) => event.event === 'agent_release')
+    .map((event) => workerWorkspaces.get(event.actor_id))
+    .filter(Boolean)
+    .map((workspace) => basename(workspace));
 }
 
 export function normalizeCodexRollouts(rollouts, options) {

@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 import { compareInstalledProductRuns } from './agent-eval.mjs';
@@ -57,12 +57,34 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-async function createFixture(source, tempRoot, registerParent) {
+async function applySourceOverlays(repo, fixtureRoot, overlays = []) {
+  for (const overlay of overlays) {
+    if (!overlay?.from || !overlay?.to) {
+      throw new Error('installed_product_eval_overlay_invalid');
+    }
+    const from = resolve(fixtureRoot, overlay.from);
+    const to = join(repo, overlay.to);
+    if (!await exists(from)) {
+      throw new Error(`installed_product_eval_overlay_missing:${overlay.from}`);
+    }
+    await mkdir(dirname(to), { recursive: true });
+    await cp(from, to, { recursive: true });
+  }
+}
+
+async function createFixture(source, tempRoot, registerParent, {
+  fixtureRoot = null,
+  overlays = [],
+} = {}) {
   const parent = await mkdtemp(join(tempRoot, 'loopx-product-fixture-'));
   registerParent(parent);
   const repo = join(parent, 'repo');
   const sourceHash = await directoryHash(source);
   await cp(source, repo, { recursive: true });
+  if (overlays.length > 0) {
+    if (!fixtureRoot) throw new Error('installed_product_eval_overlay_root_missing');
+    await applySourceOverlays(repo, fixtureRoot, overlays);
+  }
   if (!await exists(join(repo, '.gitignore'))) {
     await writeFile(join(repo, '.gitignore'), '.loopx/runs/\n.loopx/evals/\n.worktrees/\n');
   }
@@ -232,10 +254,50 @@ function sameStrings(left, right) {
   return JSON.stringify([...(left ?? [])].sort()) === JSON.stringify([...(right ?? [])].sort());
 }
 
+function isBareProductVariant(variant) {
+  return variant === 'bare' || variant === 'no-loopx';
+}
+
+function resolveCaseTask(testCase, variant) {
+  if (testCase.task_by_variant?.[variant]) return testCase.task_by_variant[variant];
+  if (isBareProductVariant(variant) && typeof testCase.bare_task === 'string') return testCase.bare_task;
+  return testCase.task;
+}
+
+function resolveCaseExpected(testCase, variant) {
+  if (testCase.expected_by_variant?.[variant]) return testCase.expected_by_variant[variant];
+  if (isBareProductVariant(variant) && testCase.bare_expected) return testCase.bare_expected;
+  return testCase.expected ?? {};
+}
+
+function withResolvedCaseContract(testCase, variant) {
+  return {
+    ...testCase,
+    task: resolveCaseTask(testCase, variant),
+    expected: resolveCaseExpected(testCase, variant),
+  };
+}
+
+function containsInOrder(entries, tokens) {
+  // Derived integration order carries adapter labels (workspace basenames or
+  // worker ids); expected tokens must each appear, in order, as substrings.
+  let cursor = 0;
+  for (const token of tokens) {
+    const index = entries.findIndex((entry, position) => position >= cursor && String(entry).includes(token));
+    if (index === -1) return false;
+    cursor = index + 1;
+  }
+  return true;
+}
+
 function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, retainedWorktrees) {
   const expected = testCase.expected ?? {};
   const violations = [];
-  if (!sameStrings(paths, expected.changed_paths ?? [])) {
+  if (Array.isArray(expected.required_changed_paths)) {
+    for (const path of expected.required_changed_paths) {
+      if (!paths.includes(path)) violations.push(`required_changed_path_missing:${path}`);
+    }
+  } else if (!sameStrings(paths, expected.changed_paths ?? [])) {
     violations.push('changed_paths_mismatch');
   }
   if (expected.workflow_artifacts === 'none' && artifacts.length > 0) {
@@ -253,9 +315,8 @@ function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, re
   if (!activity.isolated) {
     violations.push('worker_isolation_failed');
   }
-  if (expected.integration_order
-      && activity.integration_order.length > 0
-      && JSON.stringify(activity.integration_order) !== JSON.stringify(expected.integration_order)) {
+  if (expected.integration_order && activity.integration_order.length > 0
+      && !containsInOrder(activity.integration_order, expected.integration_order)) {
     violations.push('integration_order_mismatch');
   }
   if (expected.response_pattern && !new RegExp(expected.response_pattern, 'i').test(raw.response ?? '')) {
@@ -405,13 +466,17 @@ async function runExternalVerification(repo, command, timeoutMs) {
   }
 }
 
-async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product, codexConfigRoot }, registerResources) {
+async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtureRoot, tempRoot, runAgent, replicate, configurationOverrides, product, codexConfigRoot, installTargets }, registerResources) {
   const variantConfig = manifest.variants[variant];
   if (!variantConfig) throw new Error(`installed_product_eval_unknown_variant:${variant}`);
   const fixture = await createFixture(
     join(fixtureRoot, testCase.fixture),
     tempRoot,
     (workspace) => registerResources({ workspace }),
+    {
+      fixtureRoot,
+      overlays: testCase.source_overlays ?? [],
+    },
   );
   const hostParent = await mkdtemp(join(tempRoot, 'loopx-product-home-'));
   registerResources({ host: hostParent });
@@ -425,6 +490,7 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
       if (await exists(source)) await cp(source, join(targetCodexHome, name));
     }
   }
+  const resolvedCase = withResolvedCaseContract(testCase, variant);
   const shared = { ...manifest.configuration, ...configurationOverrides };
   const configuration = {
     model: shared.model,
@@ -438,7 +504,8 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
       isolated_cache: true,
       worker_limit: shared.worker_limit,
     },
-    task: testCase.task,
+    case_id: testCase.id,
+    task: resolvedCase.task,
     timeout_ms: shared.timeout_ms,
     fixture_tree: fixture.tree,
   };
@@ -473,24 +540,30 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
   const memoryBefore = await collectMemoryState(fixture.repo);
   try {
     if (installRequested) {
+      const targets = Array.isArray(installTargets) && installTargets.length > 0
+        ? installTargets
+        : ['codex'];
       const installed = product
         ? await installVersionProduct(product, installEnv)
-        : await installSkillsForTargets(installEnv, { targets: ['codex'] });
+        : await installSkillsForTargets(installEnv, { targets });
       installation = {
         ...installation,
         ok: installed.ok,
+        targets,
         surfaces: {
           codex_agents: await exists(join(home, '.codex', 'AGENTS.md')),
-          exec_skill: await exists(join(home, '.agents', 'skills', 'exec', 'SKILL.md')),
+          claude_agents: await exists(join(home, '.claude', 'CLAUDE.md')),
+          exec_skill: await exists(join(home, '.agents', 'skills', 'exec', 'SKILL.md'))
+            || await exists(join(home, '.claude', 'skills', 'exec', 'SKILL.md')),
         },
       };
       installation.actual_installed_surface = installed.ok
         && Object.values(installation.surfaces).some(Boolean);
     }
     raw = await runWithTimeout(runAgent, {
-      case: testCase,
+      case: resolvedCase,
       variant,
-      prompt: testCase.task,
+      prompt: resolvedCase.task,
       configuration,
       execution_policy: { force_serial: variantConfig.force_serial === true, worker_limit: shared.worker_limit },
       repo: fixture.repo,
@@ -515,7 +588,7 @@ async function runOneUnmanaged({ testCase, variant, manifest, projectRoot, fixtu
   );
 
   const evidence = await evaluateRepositoryEvidence({
-    testCase,
+    testCase: resolvedCase,
     raw,
     repo: fixture.repo,
     memoryBefore,
@@ -608,6 +681,7 @@ export async function runInstalledProductEvaluation(options) {
     configuration = {},
     versionRefs = null,
     codexConfigRoot = null,
+    installTargets = ['codex'],
   } = options;
   if (manifest?.schema !== 'loopx.installed-product-eval.v1') {
     throw new Error('installed_product_eval_manifest_invalid');
@@ -663,6 +737,7 @@ export async function runInstalledProductEvaluation(options) {
             configurationOverrides: configuration,
             product,
             codexConfigRoot: codexConfigRoot ? resolve(codexConfigRoot) : null,
+            installTargets,
           }));
         }
       }
