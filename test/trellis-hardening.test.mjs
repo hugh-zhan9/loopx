@@ -111,7 +111,7 @@ describe('loopx retained hardening', () => {
         [hookScript, '--payload', JSON.stringify({ cwd: wd, workflow: 'hook-flow' })],
         { cwd: wd },
       );
-      assert.match(stdout, /loopx_advisory/);
+      assert.match(stdout, /<loopx-workflow-state>/);
       assert.match(stdout, /next skill: \$plan2exec .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-hook-flow/);
       assert.match(stdout, /intake package:/);
       assert.match(stdout, /requirements:/);

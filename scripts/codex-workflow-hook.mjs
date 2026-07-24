@@ -1,16 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-
-import { checkForUpdates, updateNotification } from '../src/version-check.mjs';
-import {
-  buildLancetGuidance,
-  readLancetConfig,
-  readLancetSession,
-  resolveLancetStage,
-} from '../src/lancet-runtime.mjs';
 
 function readStdin() {
   return new Promise((resolveValue) => {
@@ -41,11 +32,11 @@ function argvPayload() {
   return process.argv[index + 1] || '';
 }
 
-function findNearestLoopxRuntimeRoot(startCwd) {
+function findNearestLoopxRoot(startCwd) {
   let current = resolve(startCwd);
   while (true) {
     const candidate = join(current, '.loopx');
-    if (existsSync(join(candidate, 'workflows')) || existsSync(join(candidate, 'intake'))) {
+    if (existsSync(candidate)) {
       return candidate;
     }
     const parent = dirname(current);
@@ -56,63 +47,41 @@ function findNearestLoopxRuntimeRoot(startCwd) {
   }
 }
 
-function clarifyReady(state) {
-  return state?.current_stage === 'clarify'
-    && Number(state.clarify_current_round || 0) > 0
-    && Number(state.unresolved_ambiguity_count || 0) === 0
-    && state.clarify_non_goals_resolved === true
-    && state.clarify_decision_boundaries_resolved === true
-    && state.clarify_pressure_pass_complete === true;
-}
-
-function shellQuoteArg(value) {
-  const text = String(value ?? '');
-  return /^[A-Za-z0-9_./:@%+=,-]+$/.test(text) ? text : `'${text.replaceAll("'", "'\\''")}'`;
-}
-
-function clarifyHandoffArg(state) {
-  return shellQuoteArg(state.intake_package_path || state.requirements_path || state.spec_artifact_path || state.slug);
-}
-
-function nextSkill(state) {
-  if (!state?.slug) {
-    return null;
-  }
-  if (state.completion_confirmed === true || state.current_stage === 'done') {
-    return '$finish';
-  }
-  if (clarifyReady(state)) {
-    return `$plan2exec ${clarifyHandoffArg(state)}`;
-  }
-  if (state.current_stage === 'clarify') {
-    return `$clarify ${state.slug}`;
+// Static relative imports crash at module load when the hook file is copied
+// into an installed hooks directory, killing the whole hook before any
+// try/catch runs. Every dependency loads dynamically from candidate layouts
+// (installed sibling first, repository second) and degrades silently.
+async function loadModule(candidates) {
+  for (const candidate of candidates) {
+    try {
+      return await import(new URL(candidate, import.meta.url).href);
+    } catch {
+      // try the next layout
+    }
   }
   return null;
 }
 
-function stateLine(key, value) {
-  return `${key}: ${value ?? 'unknown'}`;
-}
-
 async function lancetAdvisory(input) {
   // Best-effort, Codex-only support lens. Never throws; returns null on any
-  // degrade condition so the existing advisory output stays intact.
+  // degrade condition so the workflow-state output stays intact.
   try {
-    const stage = resolveLancetStage({ skillName: input.skillName });
+    const lancet = await loadModule(['./lancet-runtime.mjs', '../src/lancet-runtime.mjs']);
+    if (!lancet) {
+      return null;
+    }
+    const stage = lancet.resolveLancetStage({ skillName: input.skillName });
     if (!stage) {
       return null;
     }
-
     const [config, session] = await Promise.all([
-      readLancetConfig(process.env),
-      readLancetSession(process.env),
+      lancet.readLancetConfig(process.env),
+      lancet.readLancetSession(process.env),
     ]);
-
     if (config.enabled !== true || config.codexAutoEnable !== true || session.mode === 'off') {
       return null;
     }
-
-    return buildLancetGuidance({ stage });
+    return lancet.buildLancetGuidance({ stage });
   } catch {
     return null;
   }
@@ -125,38 +94,16 @@ try {
   const inputText = argvPayload() ?? await readStdin();
   const input = inputText.trim() ? JSON.parse(inputText) : {};
   const cwd = resolve(input.cwd || process.cwd());
-  const runtimeRoot = findNearestLoopxRuntimeRoot(cwd);
-  if (runtimeRoot) {
-    const workflow = input.workflow || input.slug || null;
-    const statePath = workflow ? join(runtimeRoot, 'workflows', workflow, 'state.json') : null;
-    if (!statePath || !existsSync(statePath)) {
-      process.stdout.write([
-        '<loopx_advisory>',
-        'loopx advisory state found. Use docs/loopx/design, docs/loopx/plans, docs/loopx/reviews, docs/loopx/refactors, and .loopx/memory as durable context.',
-        '</loopx_advisory>',
-      ].join('\n'));
-    } else {
-      const state = JSON.parse(await readFile(statePath, 'utf8'));
-      const lines = [
-        '<loopx_advisory>',
-        'Advisory only. Treat saved loopx state as context, not authority.',
-        stateLine('workflow', state.slug || workflow),
-        stateLine('stage', state.current_stage),
-        stateLine('status', state.stage_status),
-        stateLine('next skill', nextSkill(state) || 'none'),
-        stateLine('intake package', state.intake_package_path || 'none'),
-        stateLine('requirements', state.requirements_path || state.spec_artifact_path || join(runtimeRoot, 'workflows', workflow, 'spec.md')),
-        'repo specs/memory context: docs/loopx/specs and .loopx/memory when present',
-        '</loopx_advisory>',
-      ];
-      process.stdout.write(`${lines.join('\n').slice(0, 4000)}\n`);
+  const loopxRoot = findNearestLoopxRoot(cwd);
+
+  if (loopxRoot) {
+    const workflowState = await loadModule(['./workflow-state.mjs', '../src/workflow-state.mjs']);
+    if (workflowState) {
+      const state = await workflowState.detectWorkflowState(loopxRoot, {
+        workflow: input.workflow || input.slug || null,
+      });
+      process.stdout.write(`${workflowState.renderWorkflowStateBlock(state).slice(0, 4000)}\n`);
     }
-  } else {
-    process.stdout.write([
-      '<loopx_advisory>',
-      'loopx advisory state found. Use docs/loopx/design, docs/loopx/plans, docs/loopx/reviews, docs/loopx/refactors, and .loopx/memory as durable context.',
-      '</loopx_advisory>',
-    ].join('\n'));
   }
 
   // Best-effort Codex-only lancet support lens — additive, silent degrade.
@@ -169,18 +116,23 @@ try {
     ].join('\n').concat('\n'));
   }
 
-  // Best-effort version check — non-blocking with short timeout
-  try {
-    const result = await checkForUpdates({
-      cachePath: join(runtimeRoot, '.version-check'),
-      timeout: 3000,
-    });
-    const notification = updateNotification(result);
-    if (notification) {
-      process.stdout.write(`${notification}\n`);
+  // Best-effort version check — repository layout only, non-blocking.
+  if (loopxRoot) {
+    const versionCheck = await loadModule(['../src/version-check.mjs']);
+    if (versionCheck) {
+      try {
+        const result = await versionCheck.checkForUpdates({
+          cachePath: join(loopxRoot, '.version-check'),
+          timeout: 3000,
+        });
+        const notification = versionCheck.updateNotification(result);
+        if (notification) {
+          process.stdout.write(`${notification}\n`);
+        }
+      } catch {
+        // silently ignore version check failures
+      }
     }
-  } catch {
-    // silently ignore version check failures
   }
 } catch {
   process.exit(0);

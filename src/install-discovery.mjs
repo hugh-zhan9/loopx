@@ -80,6 +80,30 @@ const LOOPX_MANAGED_SCRIPT_ITEMS = [
     sourceRelativePath: 'scripts/claude-workflow-hook.mjs',
     targetRelativePath: '.claude/hooks/loopx-workflow-hook.mjs',
   },
+  // Hooks are copied verbatim, so every module they load must be installed as
+  // a sibling; hooks resolve these dynamically and degrade silently when a
+  // sibling is missing.
+  {
+    name: 'codex-workflow-state',
+    kind: 'hook-module',
+    targets: ['codex'],
+    sourceRelativePath: 'src/workflow-state.mjs',
+    targetRelativePath: '.codex/hooks/workflow-state.mjs',
+  },
+  {
+    name: 'claude-workflow-state',
+    kind: 'hook-module',
+    targets: ['claude'],
+    sourceRelativePath: 'src/workflow-state.mjs',
+    targetRelativePath: '.claude/hooks/workflow-state.mjs',
+  },
+  {
+    name: 'codex-lancet-runtime',
+    kind: 'hook-module',
+    targets: ['codex'],
+    sourceRelativePath: 'src/lancet-runtime.mjs',
+    targetRelativePath: '.codex/hooks/lancet-runtime.mjs',
+  },
 ];
 const LOOPX_AGENT_GUIDANCE_BLOCK_ID = 'specs-and-memory-context';
 const LOOPX_AGENT_GUIDANCE_HEADING = '## loopx Specs And Memory';
