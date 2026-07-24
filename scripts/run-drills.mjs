@@ -57,12 +57,17 @@ function runCodex(args, prompt, options = {}) {
 }
 
 async function runModel({ model, prompt, cwd, messagePath }) {
+  // The scratch cwd is intentionally not a git repository, so the repo trust
+  // check must be skipped explicitly.
   const result = await runCodex(
-    ['exec', '-', '--json', '--ignore-rules', '-s', 'read-only', '-C', cwd, '-m', model, '-o', messagePath],
+    ['exec', '-', '--json', '--ignore-rules', '--skip-git-repo-check', '-s', 'read-only', '-C', cwd, '-m', model, '-o', messagePath],
     prompt,
     { cwd },
   );
   const message = await readFile(messagePath, 'utf8').catch(() => '');
+  if (result.code !== 0 || result.timedOut) {
+    await writeFile(`${messagePath}.stderr.txt`, result.stderr).catch(() => {});
+  }
   return { failed: result.code !== 0 || result.timedOut, message, stderr: result.stderr };
 }
 
