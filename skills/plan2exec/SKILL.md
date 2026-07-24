@@ -3,7 +3,7 @@ name: plan2exec
 description: "Creates an optional lean implementation plan for explicit planning, approval boundaries, interruption recovery, or durable coordination, then hands it to exec. Use plan2exec when a persistent execution plan is needed; it is distinct from an agent's built-in Plan mode. Not for clear bounded work, unresolved product or architecture decisions, or code changes."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
@@ -45,12 +45,12 @@ to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`. The plan must contain:
 
 - `Source And Goal` with the approved source and observable goal;
 - `Boundaries And Global Constraints` with protected behavior and constraints;
-- `Execution Slices` with stable `P-*` identifiers, dependencies, likely surfaces,
-  write scope, relevant paths, exclusive resources, interfaces, source anchors,
-  acceptance, verification, expected evidence, and review focus;
+- `Execution Slices` with stable `P-*` identifiers carrying the reading
+  summary: outcome, dependencies, source anchors, acceptance, and review focus;
 - one authoritative `loopx.execution-graph.v1` block whose `tasks` correspond
-  one-to-one with the human-readable slices and include a selected structural
-  profile;
+  one-to-one with the human-readable slices, include a selected structural
+  profile, and are the single field-level authority for write scope, relevant
+  paths, exclusive resources, interfaces, verification, and expected evidence;
 - `Integration And Final Verification` requirements;
 - `Handoff And Residual Risks` with status, blockers, resume context, and
   concrete remaining risk.
@@ -93,7 +93,8 @@ belongs only in the authoritative graph.
 4. Decompose the goal into the fewest coherent, independently verifiable
    execution slices.
 5. Record evidenced dependencies, write scope, relevant paths, exclusive
-   resources, interfaces, verification, expected evidence, and review focus.
+   resources, interfaces, verification, expected evidence, and review focus in
+   the graph entries.
 6. Map every source requirement and anchor to a slice, integration check, or
    explicit `deferred-with-rationale` entry.
 7. Bind acceptance, verification, and expected evidence to every slice.

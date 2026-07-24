@@ -1,10 +1,10 @@
 # Plan2Exec Schema
 
-Use the sections and slice fields below. Keep the plan semantic and concise,
-but detailed enough that another execution context can preserve scope,
-dependencies, traceability, review obligations, and verification. The graph is
-authoritative for structural profile selection and scheduling claims; the
-current repository remains authoritative for local implementation choices.
+Use the sections below. The `loopx-execution-graph` block is the single
+field-level authority for scheduling, dependencies, write scopes, resources,
+interfaces, verification, evidence, and review focus; the human-readable
+slices carry only the reading summary and must stay consistent with the graph.
+The current repository remains authoritative for local implementation choices.
 
 # <Feature Name>
 
@@ -23,16 +23,14 @@ current repository remains authoritative for local implementation choices.
 
 - Outcome: `<observable result delivered by this slice>`
 - Depends on: `<P-* identifiers or none>`
-- Write scope: `<normalized repository-relative paths this slice may modify>`
-- Relevant paths: `<read or baseline paths that affect implementation or safe dispatch>`
-- Exclusive resources: `<kind/key/reason records for generated outputs, migrations, ports, services, or none>`
-- Interfaces consumed: `<existing or planned inputs and contracts>`
-- Interfaces produced: `<outputs or contracts later slices or callers rely on>`
 - Source anchors: `<AC-*, D-*, TC-*, summarized requirement, or deferred-with-rationale>`
 - Acceptance: `<observable conditions for this slice>`
-- Verification: `<exact known commands or required checks>`
-- Expected evidence: `<passing output, artifact, state, or negative assertion>`
 - Review focus: `<task contract, regression risk, and interfaces the independent reviewer must check>`
+
+Field-level dispatch data (write scope, relevant paths, exclusive resources,
+interfaces, verification, expected evidence) lives only in the graph entry with
+the same `P-*` id. Do not duplicate those fields into the prose slice; a reader
+needing them follows the id into the graph.
 
 Repeat `P-*` slices only for coherent outcomes with distinct dependency,
 interface, or acceptance boundaries. Preserve existing identifiers during plan
@@ -74,14 +72,15 @@ is `delegated-serial-v1`.
 ```
 
 Each graph `tasks` entry corresponds one-to-one with a human-readable
-`Execution Slices` entry and keeps its `P-*` id. Allowed structural profiles are
+`Execution Slices` entry and keeps its `P-*` id. The graph entry is the
+field-level authority; the prose slice's outcome, dependencies, anchors,
+acceptance, and review focus must agree with it. Allowed structural profiles are
 `delegated-serial-v1` and
 `parallel-strict-v1`. Select parallel only when at least two slices are ready at
 the same time and every concurrently ready pair is independent across DAG
 edges, write scope, exclusive resources, interfaces, mutable state, and
-verification outcomes. Every graph field must agree with its human-readable
-slice. Missing fields, unknown dependencies, cycles, duplicate ids, conflicts,
-or mismatches block `ready_for_exec`.
+verification outcomes. Missing fields, unknown dependencies, cycles, duplicate
+ids, conflicts, or prose/graph mismatches block `ready_for_exec`.
 
 ## Integration And Final Verification
 

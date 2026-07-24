@@ -571,6 +571,14 @@ describe('loopx retained workflow shell', () => {
       assert.match(fixture, new RegExp(`^## ${heading}$`, 'm'));
     }
     assert.match(planSchema, /^### P-001: <coherent outcome>$/m);
+    // The prose slice carries only the reading summary; field-level dispatch
+    // data is graph-only. The legacy fixture keeps the full field set.
+    for (const field of ['Outcome', 'Depends on', 'Source anchors', 'Acceptance', 'Review focus']) {
+      assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
+    }
+    for (const field of ['Write scope', 'Relevant paths', 'Exclusive resources', 'Interfaces consumed', 'Interfaces produced', 'Verification', 'Expected evidence']) {
+      assert.doesNotMatch(planSchema, new RegExp(`^- ${field}:`, 'm'));
+    }
     for (const field of [
       'Outcome',
       'Depends on',
@@ -585,7 +593,6 @@ describe('loopx retained workflow shell', () => {
       'Expected evidence',
       'Review focus',
     ]) {
-      assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
       assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
     }
     for (const field of ['Source', 'Goal', 'Status', 'Blockers', 'Residual risks', 'Resume note']) {

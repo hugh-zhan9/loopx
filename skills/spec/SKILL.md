@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.3.15"
+  version: "0.4.0"
 ---
 
 # loopx Spec
@@ -79,7 +79,7 @@ Only produce proposal-only output when the user explicitly asks for proposal-onl
 
 When producing a design proposal, read `references/design-proposal.md` and use it as the required structure. The proposal answers why this approach, which alternatives were rejected, and what compatibility or migration costs are accepted.
 
-For the detailed design, use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) as the required output structure. Keep the section order. If a section does not apply, write `无` or `不涉及` with a short reason instead of deleting it.
+For the detailed design, use [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md) as the required output structure. Core sections are mandatory; triggered sections are kept only when the design actually involves them and are deleted entirely otherwise — never filled with `无` or `不涉及` placeholders. Retained sections keep the template numbering.
 
 When a proposal is produced, the detailed design must reference it and treat accepted proposal decisions as constraints. Do not re-litigate the direction in the detailed design; put unresolved direction questions back in the proposal and stop before planning if they block implementation.
 
@@ -166,22 +166,18 @@ If the user asks for a presentable document or visual review artifact, also writ
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/设计提案.html`
 - `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.html`
 
-The detailed Markdown spec must include these sections:
+The detailed Markdown spec must include the template's core sections:
 
 - `# <项目/功能>设计文档`
-- `一、修订历史`
-- `二、需求信息`
-- `三、概要设计`
-- `四、详细设计`
-- `五、存储类设计`
-- `六、其他组件设计`
-- `七、接口设计`
-- `八、系统发布`
-- `九、系统监控与维护`
-- `十、排期与规划`
-- `十一、QA`
+- `二、需求信息`（2.1 背景、2.2 范围）
+- `三、概要设计`（3.1 方案总述、3.6 专项设计检查）
+- `四、详细设计`（每个涉及模块含 4.x.4 边界条件与 4.x.5 不变行为）
+- `Planning Handoff`
+- `十一、QA`（待确认问题、Verification Strategy / TC 覆盖映射、Design Contract Index）
 
-The `十、排期与规划` section must include a `Planning Handoff` subsection stating what `plan2exec` may decide without re-opening design and what must return to `clarify` or `spec`.
+Triggered sections（修订历史、可行性分析、架构与流程、存储、其他组件、接口、发布、监控、排期）appear only when the design involves them, per the template's trigger table.
+
+The `Planning Handoff` subsection states what `plan2exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
 The detailed design, and the design proposal when produced, must cover boundary scenarios. Include normal boundaries, invalid inputs, permission failures, duplicate or repeated actions, concurrency races, partial failures, dependency timeouts, legacy data, migration overlap, rollback, and unchanged behavior where relevant. If a category does not apply, say why instead of omitting it.
 

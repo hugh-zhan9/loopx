@@ -596,7 +596,7 @@ describe('loopx skill governance', () => {
     assert.match(fields.description, /implementation plan.*authoritative execution graph.*approved source/i);
     assert.match(fields.description, /not for/i);
     assert.match(fields.when_to_use, /plan review|source-to-plan|plan audit|coverage/i);
-    assert.equal(fields['metadata.version'], '0.3.0');
+    assert.equal(fields['metadata.version'], '0.4.0');
     assert.match(resolver, /skills\/plan-reviewer\/SKILL\.md/);
     assert.match(skill, /support lens.*does not edit the plan, dispatch implementation, or advance workflow state/is);
     assert.match(skill, /## STOP Conditions/);
@@ -1196,7 +1196,7 @@ describe('loopx skill governance', () => {
     const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
     const readmeZh = await readFile(join(repoRoot, 'README.zh-CN.md'), 'utf8');
 
-    if (parseFrontmatter(planSkill)['metadata.version'] === '0.3.0') {
+    if (parseFrontmatter(planSkill)['metadata.version'] === '0.4.0') {
       assert.match(subagentSkill, /explicit `delegated-serial-v1` profile entry point/i);
       assert.match(execSkill, /Only a clean reviewed candidate may integrate/i);
       assert.match(execSkill, /separate read-only reviewer/i);
@@ -1237,10 +1237,12 @@ describe('loopx skill governance', () => {
       assert.match(subagentExecSkill, /explicit `delegated-serial-v1` profile entry point/i);
       assert.match(canonicalPlan, /Boundaries And Global Constraints/);
       assert.match(canonicalPlan, /Execution Slices/);
-      assert.match(canonicalPlan, /Interfaces consumed:/);
-      assert.match(canonicalPlan, /Interfaces produced:/);
       assert.match(canonicalPlan, /Depends on:/);
-      assert.match(canonicalPlan, /Expected evidence:/);
+      // Field-level dispatch data is graph-only under the single-authority
+      // schema; interfaces and evidence live in the graph entries.
+      assert.match(canonicalPlan, /"interfaces": \{/);
+      assert.match(canonicalPlan, /"expected_evidence"/);
+      assert.match(canonicalPlan, /single\s+field-level authority|field-level dispatch data/i);
       assert.match(canonicalPlan, /Authoritative Execution Graph/);
       assert.match(canonicalPlan, /selected_profile/);
       assert.match(canonicalPlan, /parallel_safe/);
@@ -1501,8 +1503,8 @@ describe('loopx skill governance', () => {
     const planFields = parseFrontmatter(planSkill);
     const reviewFields = parseFrontmatter(reviewSkill);
 
-    assert.equal(specFields['metadata.version'], '0.3.15');
-    assert.equal(planFields['metadata.version'], '0.3.0');
+    assert.equal(specFields['metadata.version'], '0.4.0');
+    assert.equal(planFields['metadata.version'], '0.4.0');
     assert.equal(reviewFields['metadata.version'], '0.4.0');
 
     assert.match(specSkill, /D-\*/);
@@ -1708,8 +1710,8 @@ describe('loopx skill governance', () => {
     const execSelection = await readFile(join(repoRoot, 'skills', 'exec', 'references', 'execution-selection.md'), 'utf8');
     const matrix = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'skill-contract-matrix.json'), 'utf8'));
 
-    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.3.0');
-    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan2exec').version, '0.3.0');
+    assert.equal(parseFrontmatter(planSkill)['metadata.version'], '0.4.0');
+    assert.equal(matrix.skills.find(({ skill }) => skill === 'plan2exec').version, '0.4.0');
     assert.equal(matrix.skills.some(({ skill }) => skill === 'plan'), false);
     assert.equal(matrix.skills.some(({ skill }) => skill === 'plan-to-exec'), false);
 

@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews a persistent implementation plan and its authoritative execution graph against the approved source, including coverage, dependencies, isolation claims, structural profile, review focus, and verification. Not for creating plans, reviewing implemented code, dispatching execution, or advancing workflow state."
 when_to_use: "explicit plan review, execution graph audit, source-to-plan coverage, dependency and parallel-safety review, plan verification quality"
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 argument-hint: "<plan path and approved source>"
 ---
 
@@ -33,7 +33,7 @@ Check:
 
 1. Every accepted outcome and applicable `AC-*`, `TC-*`, or `D-*` anchor appears in a slice, acceptance item, or explicit deferred rationale.
 2. Boundaries preserve explicit non-goals and protected behavior.
-3. Human-readable slice prose and graph `tasks` agree one-to-one on ids, dependencies, paths, resources, interfaces, evidence, and review focus.
+3. Human-readable slice prose and graph `tasks` agree one-to-one on ids, and the prose summary (outcome, dependencies, source anchors, acceptance, review focus) matches its graph entry; the graph alone carries field-level dispatch data, and prose slices that duplicate graph-only fields are a defect.
 4. Slice ids are unique; dependencies exist, are non-self-referential, and form an acyclic graph.
 5. Producer-consumer interfaces and shared mutable or generated resources have the required dependency or exclusive-resource constraint.
 6. Write scopes are normalized and pairwise disjoint for unordered concurrent slices; relevant paths identify baseline inputs runtime must protect.
