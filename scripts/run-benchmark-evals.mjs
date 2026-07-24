@@ -35,7 +35,7 @@ function usage() {
     '  --candidate-ref <git-ref>    Immutable loopx candidate ref (arm D)',
     '  --arms <list>                Comma-separated arms (default: bare,docs-only,baseline,candidate);',
     '                               requesting baseline or candidate always runs the bare control too',
-    '  --task <id>                  Run one task',
+    '  --task <id[,id...]>          Run selected tasks (comma-separated)',
     '  --replicates <count>         Replicates per arm (default: 2; protocol requires >= 5)',
     '  --order <crossover|baseline-first|candidate-first>',
     '  --effort <level>             Reasoning effort (default: high)',
@@ -287,7 +287,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
         order: option('--order', 'crossover'),
         versionRefs,
         docsOnlyAgentsPath,
-        selectedTaskIds: selectedTask ? [selectedTask] : null,
+        selectedTaskIds: selectedTask ? selectedTask.split(',').map((id) => id.trim()).filter(Boolean) : null,
         codexConfigRoot,
         configuration: {
           model: model ?? 'dry-run-fake-agent',
