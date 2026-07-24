@@ -12,6 +12,7 @@ import {
   LOOPX_COMPATIBILITY_ALIAS_SKILLS,
   LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
+import { TRIAGE_TIERS } from '../src/workflow-state.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -431,6 +432,16 @@ for (const relativePath of activeMaintenanceDocs) {
 await assertPublicDocsAligned();
 
 const resolverText = await readFile(resolverPath, 'utf8');
+// The injected triage tiers and the resolver's triage section are the same
+// contract; they must stay line-identical so routing guidance cannot drift
+// between the per-turn injection channel and the governance index.
+assert.match(resolverText, /## Triage\n/, 'skills/RESOLVER.md missing Triage section');
+for (const tier of TRIAGE_TIERS) {
+  assert.ok(
+    resolverText.includes(`- ${tier}`),
+    `skills/RESOLVER.md triage tier drifted from src/workflow-state.mjs TRIAGE_TIERS: ${tier.slice(0, 60)}...`,
+  );
+}
 await assertContractMatrix();
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   await assertSkill(skillName, resolverText);

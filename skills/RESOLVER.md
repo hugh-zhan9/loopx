@@ -65,28 +65,34 @@ contracts rather than forming separate workflow intents.
 | CLI command design, flags, human/JSON output, interactive vs non-interactive behavior, help text, or CLI UX discipline | `skills/cli-developer/SKILL.md` |
 | Over-engineering, unnecessary dependency, simplest working diff, YAGNI at implementation time, or Codex implementation-layer minimization discipline | `skills/lancet/SKILL.md` |
 
+## Triage
+
+The workflow hooks inject these tiers every turn. This list and
+`TRIAGE_TIERS` in `src/workflow-state.mjs` must stay line-identical; the
+deterministic guard fails on drift. Every criterion is an observable
+condition, never a complexity feeling.
+
+- light: one clear bounded outcome -> stay prompt-first (implement, fresh verification, quiet completion check; no workflow artifacts).
+- medium: clear multi-outcome request -> $exec with a temporary graph; no persistent plan without an explicit trigger.
+- heavy: unresolved intent/scope/acceptance -> $clarify; unresolved public behavior, compatibility, data, security, or cross-module decision -> $spec; explicit plan request, approval boundary, recovery, or durable coordination -> $plan2exec.
+- when triage is uncertain, that uncertainty is itself a clarify trigger; conflicting signals pick the heavier tier.
+
+Local defects and small features are light-tier by default: implementation
+or verification being required never selects a workflow skill by itself.
+
 ## Disambiguation
 
-1. Keep clear, bounded requests prompt-first, including local defects and small features. Do not select a skill merely because implementation or verification is required.
-2. Stop before mutation and use `clarify` when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result. New `clarify` handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories.
-3. Use `spec` when an unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision must be fixed before implementation. Local implementation choices do not trigger `spec`.
-4. If the user wants to document what an existing repository currently does, use `codebase-spec`. Use `plan2exec` only for explicit planning, approval boundaries, interruption recovery, or durable coordination. The distinct name avoids confusion with an agent's built-in Plan mode.
-5. `plan2exec` writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`; clear work without a persistence trigger stays prompt-first.
-6. `exec` accepts a clear request or persistent plan and owns automatic profile selection. Small prompt-first work may stay inline; planned work defaults to delegated serial; parallel strict requires a proved ready frontier of at least two.
-7. `subagent-exec` and `parallel-subagent-exec` are explicit profile entry points into the same exec controller. Runtime may safely narrow parallel to delegated serial, but planned work never silently narrows to inline.
-8. Every completed execution receives a controller-owned integration check and the quiet completion check from `skills/shared/completion-check.md`. Delegated serial and parallel strict require independent task review for every implementation or fix candidate and final Spec plus Standards review. Inline execution uses `review` only for explicit review intent or concrete security, destructive, public compatibility, interaction, or reconciliation evidence.
-9. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`. They preserve whole-feature-review or existing-feedback intent without requiring legacy report or ledger artifacts.
-10. Critical and Important review findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
-11. Use `finish` only after an explicit `$finish` invocation or for Git disposition of work completed by the active loopx `exec` or `fix` run. Standalone Git requests remain ordinary Git work. Finish requires that routing context but no review-report, extraction-candidate, audit-artifact, or additional persisted-state precondition.
-12. Use `issue` for issue-driven bug-class intake and diagnosis. Route feature requests back to the feature-driven flow.
-13. Use `fix` only after an issue-driven ledger under `.loopx/issues/` is `ready_for_fix`.
-14. Use `refactor-plan` for behavior-preserving refactor planning. If the refactor changes external behavior or contracts, route to `clarify` or `spec`.
-15. Use `doc-readability` for document assessment or rewriting, especially PRDs, requirements docs, specs, meeting notes, and AI-like prose. If the document is a source artifact for implementation, assess or rewrite it first, then route clarified implementation work back through `clarify`, `spec`, or `plan2exec`.
-16. Use `using-git-worktrees` before implementation when the current checkout should be protected, but do not use it for `fix` parallel subagent worktrees or `finish` branch placement.
-17. Treat `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` as support lenses unless the user explicitly invokes them directly.
-18. `requirement-analyzer` may produce a requirements gap report, but it must not advance loopx workflow state. Use its output as source material for a later `clarify`, `spec`, or `plan2exec` step only when the user asks.
-19. `plan-reviewer` audits source coverage, the authoritative execution graph, dependency and isolation claims, structural profile, evidence, and review focus. It must not edit the plan, dispatch execution, or advance workflow state.
-20. `api-designer`, `architecture-designer`, `sql-style`, and `cli-developer` add domain discipline to `spec`, `exec`, and `review`; they do not replace workflow skills or create workflow states. `lancet` is implementation/review-only: it activates in `exec`, `review`, and `fix`, while planning stages may only note downstream activation.
+1. `clarify` stops before mutation when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result; new handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories. Local implementation choices never trigger `spec`.
+2. Documenting what an existing repository currently does is `codebase-spec`, not `spec` or `plan2exec`. `plan2exec` (named to avoid confusion with an agent's built-in Plan mode) writes one lean plan to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` only for its heavy-tier triggers; clear work without a persistence trigger stays prompt-first.
+3. `exec` accepts a clear request or persistent plan and owns automatic profile selection: prompt-first work may stay inline, planned work defaults to delegated serial, and parallel strict requires a proved ready frontier of at least two. `subagent-exec` and `parallel-subagent-exec` are explicit entry points into the same exec controller; runtime may safely narrow parallel to delegated serial, but planned work never silently narrows to inline.
+4. Every completed execution receives a controller-owned integration check and the quiet completion check from `skills/shared/completion-check.md`. Review selection, severity, and closure follow `skills/shared/review-contract.md`: delegated profiles require independent task review for every implementation or fix candidate plus final Spec and Standards review; inline execution uses `review` only for explicit review intent or concrete security, destructive, public compatibility, interaction, or reconciliation evidence; Critical and Important findings are fixed or answered with evidence, freshly verified, and independently re-reviewed in the active execution context.
+5. `final-review` and `fix-review` are explicit-only compatibility aliases for `review`, preserving whole-feature-review or existing-feedback intent without legacy report or ledger artifacts.
+6. `finish` requires an explicit `$finish` invocation or Git disposition for work completed by the active loopx `exec` or `fix` run. Standalone Git requests remain ordinary Git work, and finish carries no review-report, extraction-candidate, audit-artifact, or additional persisted-state precondition.
+7. `issue` owns issue-driven bug-class intake and diagnosis; feature requests route back to the feature-driven flow. `fix` executes only `.loopx/issues/` ledgers marked `ready_for_fix`.
+8. `refactor-plan` plans behavior-preserving refactors only; a refactor that changes external behavior or contracts routes to `clarify` or `spec`.
+9. `doc-readability` assesses or rewrites documents (PRDs, requirements, specs, meeting notes, AI-like prose) first; clarified implementation work then routes back through `clarify`, `spec`, or `plan2exec`.
+10. `using-git-worktrees` prepares workspace isolation before implementation, but never owns `fix` parallel subagent worktrees or `finish` branch placement.
+11. `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` are support lenses unless explicitly invoked: `requirement-analyzer` reports requirement gaps without advancing workflow state; `plan-reviewer` audits source coverage, the authoritative execution graph, dependency and isolation claims, structural profile, evidence, and review focus without editing the plan, dispatching execution, or advancing state; the domain lenses add discipline to `spec`, `exec`, and `review` without replacing workflow skills or creating workflow states; `lancet` is implementation/review-only, activating in `exec`, `review`, and `fix`, while planning stages may only note downstream activation.
 
 ## Deterministic Guard
 
