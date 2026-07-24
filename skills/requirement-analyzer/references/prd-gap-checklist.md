@@ -27,9 +27,11 @@ Common blockers:
 - It names a system integration but not the source of truth or ownership.
 - It requires approval but does not identify who approves or what happens on rejection.
 
+For each missing closure point, state who must decide it and what downstream work is blocked.
+
 ## Ambiguity
 
-Turn vague terms into answerable questions.
+Turn vague terms into answerable questions. Convert each ambiguity into a concrete question with two or three plausible interpretations when possible.
 
 | Vague wording | Ask |
 | --- | --- |

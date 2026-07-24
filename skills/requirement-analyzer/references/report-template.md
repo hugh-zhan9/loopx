@@ -246,3 +246,18 @@ For a compact gap checklist, use:
       证据：
       建议：
 ```
+
+## Reviewer Self-Check
+
+Before delivering either report mode, confirm:
+
+- Did every P0/P1 cite requirement text or nearby repo evidence?
+- Are facts, inferences, and assumptions separated?
+- Are follow-up questions concrete enough for an owner to answer?
+- Are technical design questions separated from true requirement gaps?
+- Does the readiness recommendation match the highest-priority unresolved issue?
+- Did the behavioral model identify all states, transitions, operations, and mutations?
+- Did the quality scoring cover all identifiable requirement statements?
+- Does the traceability matrix cover all requirements and business goals?
+- Is the maturity score consistent with the qualitative assessment?
+- Did the report avoid creating workflow artifacts or advancing loopx state?
