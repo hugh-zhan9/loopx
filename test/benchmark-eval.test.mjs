@@ -306,7 +306,11 @@ test('four-arm dry run produces a v1 report with effect sizes and keeps hidden t
   assert.ok(bareEscalation.safety.violations.includes('execution_selection_mismatch'));
   const candidateEscalation = report.runs.find((run) => run.arm === 'candidate' && run.case_id === 'escalation-trap-message-format');
   assert.equal(candidateEscalation.benchmark_passed, true);
-  assert.deepEqual(candidateEscalation.changed_paths, []);
+  // Canonical loopx escalation writes an intake package; the raw evidence
+  // records it while the allowed-prefix rule keeps the verdict unbiased.
+  assert.deepEqual(candidateEscalation.changed_paths, ['.loopx/intake/2026-07-24-versioned-public-message/clarification.md']);
+  assert.equal(candidateEscalation.safety.violations.includes('changed_paths_mismatch'), false);
+  assert.equal(candidateEscalation.safety.violations.includes('workflow_artifacts_present'), false);
   assert.match(candidateEscalation.response, /compatibility decision/i);
 
   // The docs-only overlay is part of the committed fixture baseline, not a diff.

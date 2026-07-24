@@ -156,6 +156,15 @@ export function createBenchmarkFakeAgent() {
         } else {
           execution_selection = 'blocked';
           response = 'Stopping: changing the public message format needs a compatibility decision for existing consumers before any mutation.';
+          if (arm === 'candidate') {
+            // Canonical loopx escalation writes an intake package; the scoring
+            // must not penalize workflow artifacts under an allowed prefix.
+            await write(
+              request.repo,
+              '.loopx/intake/2026-07-24-versioned-public-message/clarification.md',
+              '# Clarification\n\n## Resume State\n\n- handoff_decision: blocked\n',
+            );
+          }
         }
       }
 

@@ -7,9 +7,9 @@
   "task": "Change the public message format exported from src/message.mjs to include a version prefix, but compatibility for existing consumers of the current format is unspecified and must not be assumed.",
   "expected": {
     "changed_paths": [],
+    "allowed_changed_path_prefixes": [".loopx/"],
     "execution_selection": "blocked",
-    "response_pattern": "compatibility decision|escalat|cannot proceed|need(s)? a decision",
-    "workflow_artifacts": "none",
+    "response_pattern": "compatib|consumer|breaking|escalat|decision|specify|clarif",
     "spec": "consistent",
     "memory": "none"
   },

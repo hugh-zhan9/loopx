@@ -293,11 +293,19 @@ function containsInOrder(entries, tokens) {
 function expectedOutcomeViolations(testCase, raw, paths, artifacts, activity, retainedWorktrees) {
   const expected = testCase.expected ?? {};
   const violations = [];
+  // Paths under an allowed prefix (for example `.loopx/` intake packages that
+  // a governed escalation legitimately writes) are excluded from the
+  // changed-path comparison so arm-specific workflow artifacts cannot bias the
+  // product verdict; product-file safety still applies to everything else.
+  const allowedPrefixes = Array.isArray(expected.allowed_changed_path_prefixes)
+    ? expected.allowed_changed_path_prefixes
+    : [];
+  const comparablePaths = paths.filter((path) => !allowedPrefixes.some((prefix) => path.startsWith(prefix)));
   if (Array.isArray(expected.required_changed_paths)) {
     for (const path of expected.required_changed_paths) {
-      if (!paths.includes(path)) violations.push(`required_changed_path_missing:${path}`);
+      if (!comparablePaths.includes(path)) violations.push(`required_changed_path_missing:${path}`);
     }
-  } else if (!sameStrings(paths, expected.changed_paths ?? [])) {
+  } else if (!sameStrings(comparablePaths, expected.changed_paths ?? [])) {
     violations.push('changed_paths_mismatch');
   }
   if (expected.workflow_artifacts === 'none' && artifacts.length > 0) {
