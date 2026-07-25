@@ -1,8 +1,17 @@
-# Four-Arm Benchmark Protocol — v2
+# Four-Arm Benchmark Protocol — v3
 
-- Status: **PREPARED** — freezes as git tag `benchmark-protocol-v2` upon
-  maintainer execution approval. A scored run whose parameters differ from the
-  frozen values is invalid and must be discarded, not reinterpreted.
+- Status: **FROZEN 2026-07-25** at tag `benchmark-protocol-v3`. A scored run
+  whose parameters differ from the frozen values is invalid and must be
+  discarded, not reinterpreted.
+- v3 amendment (before any scored run): the pilot consumed 18 runs instead of
+  3 because requesting a ref arm always pulls the bare control and its
+  baseline pair through the crossover infrastructure. Pilot runs stay
+  non-scored (their outcomes were inspected for judging sanity, so scoring
+  them afterwards would be selection bias). To stay inside the approved cap,
+  the escalation docs-only cells drop from n=5 to n=3 and the feature
+  negative control is cut; every other v2 parameter is unchanged. The
+  candidate ref remains the v2 tag commit (`benchmark-protocol-v2`), whose
+  installed surface is the one under test.
 - Supersedes: `benchmark-protocol-v1` (v1 campaign was voided by a model
   gateway outage that destroyed 254 of 400 runs overnight; its 146 valid runs
   are reused below under the declared rule).
@@ -35,20 +44,19 @@
 | Model (all arms, identical) | `gpt-5.6-sol` |
 | Reasoning effort | `high` |
 | Adapter / runtime | codex CLI (`scripts/run-benchmark-evals.mjs`) with gateway-death classification and one bounded retry |
-| Arms | A `bare`, B `docs-only`, C `baseline` (`v0.6.0`), D `candidate` (`benchmark-protocol-v2` commit) |
+| Arms | A `bare`, B `docs-only`, C `baseline` (`v0.6.0`), D `candidate` (`benchmark-protocol-v2` tag commit) |
 | docs-only AGENTS.md | `evals/benchmark/docs-only/AGENTS.md`, unchanged from v1, sha256 recorded in reports |
 | Order | crossover |
 | Bootstrap | seeded, 10000 iterations, seed 1, 95% percentile CI |
-| Budget cap | 180 new runs total (3 pilot + 167 scored + retry allowance); abort and mark void beyond that |
+| Budget cap | 180 new runs total (18 pilot as executed + 156 scored + 6 retry allowance); abort and mark void beyond that |
 
 ## Allocation (new runs)
 
 | Cell group | Tasks | Arms | n | New runs |
 |---|---|---|---|---:|
 | Capability categories | 4 seeded-defect + 4 refactor + 4 parallel-trap (expansion set) | all 4 | 3 | 144 |
-| Escalation traps (docs-only gap) | 4 escalation expansion tasks | docs-only only | 5 | 20 |
-| Feature negative control | `feature-sorted-merge` | docs-only only | 3 | 3 |
-| Pilot (non-scored) | 1 seeded + 1 refactor + 1 parallel task | candidate only | 1 | 3 |
+| Escalation traps (docs-only gap) | 4 escalation expansion tasks | docs-only only | 3 | 12 |
+| Pilot (non-scored, executed) | 3 capability tasks | bare+baseline+candidate | 2 | 18 |
 
 Reused from v1 (146 scored runs): escalation traps and two feature tasks at
 n=5 on bare/baseline/candidate, plus all other valid pre-outage cells.
