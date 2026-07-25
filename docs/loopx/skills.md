@@ -2,51 +2,26 @@
 
 [中文文档](./skills.zh-CN.md)
 
-The installed product is prompt-first. Clear bounded work is implemented and
-freshly verified directly. Workflow skills add governance only when ambiguity,
-risk, recovery, coordination, or explicit user intent justifies it.
+The installed product is docs-first. The primary deliverable is the working
+agreement installed into host guidance; execution belongs to the model and its
+host runtime. Clear bounded work is implemented and freshly verified directly
+under that agreement. The document-producing skills below add governance only
+when ambiguity, durable decisions, or coordination justify it.
 
 ## Canonical Workflow Intents
 
-The six canonical workflow intents are optional and do not form a required
-sequence.
+The three canonical workflow intents are optional, produce documents, and do
+not form a required sequence.
 
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | Intent, scope, acceptance, permissions, secrets, or a destructive choice is unresolved. | A resolved intake package or a concrete blocker. |
-| `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement. | An accepted design contract. |
-| `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one. | One execution plan with coherent slices, an authoritative DAG, selected structural profile, acceptance, verification, and review focus. |
-| `exec` | A clear request or plan needs adaptive execution. | Inline, reviewed delegated-serial, or reviewed parallel-strict implementation with fresh verification. |
-| `review` | The user requests review, or security, destructive behavior, public compatibility, cross-task interaction, or conflict reconciliation requires independence. | Evidence-backed findings and closure for blocking issues. |
-| `finish` | The user explicitly invokes `$finish`, or requests Git disposition for work completed by the active loopx `exec` or `fix` context. | The requested Git disposition. |
+| `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement. | An accepted design document with `D-*` anchors. |
+| `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one. | One plan document with coherent slices, dependencies, acceptance, and verification, executed by the agent itself. |
 
-Ordinary work can use none of these. `finish` is not a completion ceremony and
-does not perform verification, independent review, or knowledge extraction.
-Standalone branch, commit, merge, push, pull-request, and worktree requests do
-not select `finish` merely because they are Git operations.
-
-## Execution Profiles
-
-`exec` automatically selects the profile. These explicit profile skills enter
-the same exec-owned implementation:
-
-| Profile skill | Behavior |
-|---|---|
-| `subagent-exec` | Fresh implementer per slice in graph order, mandatory task review, separate fixes, and final dual review. |
-| `parallel-subagent-exec` | Bounded isolated ready-frontier execution; a task must review clean before integration unlocks dependants. |
-
-## Review Intent Entries
-
-These permanent explicit-only review intent entries remain installed and
-excluded from automatic routing:
-
-| Entry | Intent |
-|---|---|
-| `final-review` | Whole-feature review through `review` after all planned tasks complete. |
-| `fix-review` | Actively resolve existing findings through `review`, optionally with one independent fixer wave. |
-
-Entries forward into the canonical `review` workflow and preserve the explicit
-intent. They do not restore legacy feedback ledgers or finish gates.
+Ordinary work can use none of these. Execution, independent review of
+high-risk diffs, verification, and Git discipline are working-agreement
+clauses, not skills.
 
 ## Issue Workflows
 
@@ -74,13 +49,13 @@ Support skills remain directly invocable and composable with canonical intents:
 | `using-git-worktrees` | Explicit workspace isolation. |
 | `doc-readability` | Document clarity and rewriting. |
 | `requirement-analyzer` | Requirement gaps and readiness. |
-| `plan-reviewer` | Ad-hoc review of a lean plan against its source. |
+| `plan-reviewer` | Ad-hoc review of a plan document against its source. |
 | `go-style`, `kratos` | Go and Go-Kratos discipline. |
 | `api-designer`, `architecture-designer`, `sql-style`, `cli-developer` | Domain-specific design and review lenses. |
 | `lancet` | Implementation and review simplification. |
 
-Support lenses do not create workflow states or replace `clarify`, `spec`,
-`plan2exec`, `exec`, `review`, or `finish`.
+Support lenses do not create workflow states or replace `clarify`, `spec`, or
+`plan2exec`.
 
 ## Examples
 
@@ -88,12 +63,8 @@ Support lenses do not create workflow states or replace `clarify`, `spec`,
 $clarify add team-level usage limits
 $spec billing-state-transitions
 $plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
-$exec docs/loopx/plans/2026-07-20-billing.md
-$review HEAD~1
-$finish commit this change
 ```
 
-Every completion path requires fresh task-relevant verification. Only the
-top-level controller owns agent lifecycle; implementers, reviewers, and fixers
-are leaf workers. Prompt-first work creates no plan, review report, finish
-record, or other workflow artifact unless a concrete trigger requires it.
+Every completion path requires fresh task-relevant verification under the
+installed working agreement. Prompt-first work creates no plan, review report,
+or other workflow artifact unless a concrete trigger requires it.

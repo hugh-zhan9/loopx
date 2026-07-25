@@ -1,5 +1,6 @@
 ---
 name: no-loopx-ownership-inference
+superseded_by: docs-first-pivot
 applies_to: skills/finish/SKILL.md
 clause: "infer loopx ownership from a `.loopx` directory, historical workflow state"
 ---

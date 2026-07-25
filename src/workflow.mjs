@@ -342,7 +342,7 @@ function recommendedAction(state) {
     return `Run $clarify ${state.slug} until the spec is handoff-ready.`;
   }
   if (state?.current_stage === STAGES.DONE || state?.completion_confirmed === true) {
-    return 'Follow $finish.';
+    return 'Work complete. Git disposition follows the working agreement: only on an explicit user request.';
   }
   return 'Run loopx status for the next step.';
 }

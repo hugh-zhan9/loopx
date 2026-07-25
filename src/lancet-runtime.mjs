@@ -13,13 +13,10 @@ const DEFAULT_SESSION = {
   persistent: true,
 };
 
+// v0.8 docs-first: execution and review are working-agreement activities, not
+// skills. Only the remaining skill names map to lancet stages.
 const STAGE_MAP = new Map([
-  ['exec', 'implementation'],
-  ['subagent-exec', 'implementation'],
-  ['parallel-subagent-exec', 'implementation'],
   ['fix', 'implementation'],
-  ['review', 'review'],
-  ['final-review', 'review'],
   ['plan2exec', 'planning'],
 ]);
 

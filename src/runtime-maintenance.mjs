@@ -47,14 +47,14 @@ export async function doctorRuntime(cwd, env = process.env) {
   const templateGovernance = await inspectTemplateGovernance(
     existsSync(installTemplateBaselinePath) ? installTemplateBaselinePath : workspaceTemplateBaselinePath,
   );
-  const workflowHookPath = join(resolve(cwd), 'scripts', 'codex-workflow-hook.mjs');
-  const installedWorkflowHookPath = installState.managedArtifacts?.['codex-workflow-hook']?.targetPath
+  // v0.8 docs-first ships no per-turn workflow hooks; report legacy installs
+  // so doctor can suggest cleanup.
+  const legacyInstalledWorkflowHookPath = installState.managedArtifacts?.['codex-workflow-hook']?.targetPath
     || join(resolve(env.LOOPX_HOME || env.HOME || process.cwd()), '.codex', 'hooks', 'codex-workflow-hook.mjs');
   const hook = {
-    enabled: env.LOOPX_HOOKS !== '0',
-    workflowHookPath,
-    installedWorkflowHookPath,
-    installed: existsSync(installedWorkflowHookPath),
+    enabled: false,
+    legacyInstalledWorkflowHookPath,
+    legacyInstalled: existsSync(legacyInstalledWorkflowHookPath),
   };
 
   return {

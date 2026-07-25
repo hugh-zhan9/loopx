@@ -3,7 +3,7 @@ name: clarify
 description: "Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records the required handoff. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation."
 when_to_use: "clarify, unresolved intent, unclear scope, non-goals, acceptance criteria, permission decision, secret handling, destructive choice, 需求澄清, 范围不清"
 metadata:
-  version: "0.3.17"
+  version: "0.3.18"
 ---
 
 # loopx Clarify
@@ -64,7 +64,7 @@ Acceptance scenarios in `requirements.md` must use stable `TC-*` anchors under a
 
 `requirements.md` is the canonical `AC-*` and `TC-*` source. If AC/TC anchors are missing, contradictory, or not testable, keep the package blocked and continue clarification.
 
-Handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for `spec`, `plan2exec`, `exec`, and `review`. Downstream skills must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
+Handoff rule: `requirements.md` is the canonical `AC-*`/`TC-*` source for `spec`, `plan2exec`, and any downstream execution or review. Downstream consumers must not invent replacement `AC-*` or `TC-*` identifiers; if the intake anchors are missing, contradictory, or not testable, route back to `clarify` instead of renaming or substituting them.
 
 The completed intake package must preserve the information `spec` or `plan2exec` needs:
 

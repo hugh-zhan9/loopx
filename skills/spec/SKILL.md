@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # loopx Spec
@@ -97,7 +97,7 @@ Use these contract block names when the design needs an explicit downstream cont
 
 Include a **Workflow Contract** block whenever the design changes workflow handoffs, artifact fields, stage gates, or downstream skill consumption.
 
-When `plan2exec`, `exec`, or `review` must consume a design decision, place the relevant `D-*` anchor inside contract blocks, not only in surrounding prose. If a downstream skill consumes a decision but no `D-*` anchor can be assigned safely, stop and resolve the design before planning.
+When planning, execution, or review must consume a design decision, place the relevant `D-*` anchor inside contract blocks, not only in surrounding prose. If a downstream skill consumes a decision but no `D-*` anchor can be assigned safely, stop and resolve the design before planning.
 
 For detailed designs with implementation-relevant decisions, assign stable `D-*` anchors such as `D-001`, `D-002`, and `D-003`. A decision is implementation-relevant when it affects behavior, API, data, state, CLI, permissions, compatibility, rollout, operations, downstream planning, or review.
 
@@ -108,7 +108,7 @@ Each design contract entry should name:
 - Contract type, such as behavior, data, state, CLI, compatibility, operations, or workflow contract
 - Decision
 - Boundary or non-goal
-- Downstream expectation for `plan2exec` or `review`
+- Downstream expectation for planning or review
 
 Place each `D-*` anchor inline beside the relevant decision in the main design body, then include a final complete index table in the detailed design. The inline anchor keeps the design readable in context; the index table gives downstream skills one lookup surface.
 

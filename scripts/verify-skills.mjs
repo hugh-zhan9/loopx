@@ -9,10 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   LOOPX_BUNDLED_SKILLS,
   LOOPX_CANONICAL_WORKFLOW_SKILLS,
-  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
-  LOOPX_EXECUTION_PROFILE_SKILLS,
 } from '../src/install-discovery.mjs';
-import { TRIAGE_TIERS } from '../src/workflow-state.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
@@ -70,6 +67,18 @@ const obsoleteImplementationPaths = [
   'skills/plan-to-exec/references/internal-plan-review.md',
   'skills/plan-to-exec/references/plan-schema.md',
   'skills/plan-to-exec/references/surface-change-planning.md',
+  'skills/exec/SKILL.md',
+  'skills/subagent-exec/SKILL.md',
+  'skills/parallel-subagent-exec/SKILL.md',
+  'skills/review/SKILL.md',
+  'skills/final-review/SKILL.md',
+  'skills/fix-review/SKILL.md',
+  'skills/finish/SKILL.md',
+  'skills/shared/agent-topology.md',
+  'skills/shared/review-contract.md',
+  'scripts/claude-workflow-hook.mjs',
+  'scripts/codex-workflow-hook.mjs',
+  'src/workflow-state.mjs',
 ];
 
 function parseFrontmatter(path, text) {
@@ -223,31 +232,31 @@ async function assertPublicDocsAligned() {
   assertNoRemovedRuntimeCommandExposure(cliDoc, 'docs/loopx/cli.md');
   assertNoRemovedRuntimeCommandExposure(cliDocZh, 'docs/loopx/cli.zh-CN.md');
   assertContains(readme, 'Skill-first workflow suite', 'README.md');
-  assertContains(readme, 'six canonical workflow intents', 'README.md');
+  assertContains(readme, 'three canonical workflow intents', 'README.md');
   assertContains(readme, 'prompt-first', 'README.md');
   assertContains(readme, './docs/loopx/cli.md', 'README.md');
   assertContains(readme, '$clarify', 'README.md');
-  assertContains(readme, '$finish', 'README.md');
-  assertContains(readme, 'explicit-only review intent entries', 'README.md');
-  assert.match(readme, /does not write a local audit ledger/i, 'README.md must contract finish audit state');
+  
+  assertContains(readme, 'working agreement', 'README.md');
+  
   assertContains(readme, 'docs/loopx/specs/', 'README.md');
   assertContains(cliDoc, 'remove loopx-managed user-level artifacts', 'docs/loopx/cli.md');
   assertContains(installationSpec, 'Undo installed files', 'docs/loopx/specs/installation.md');
-  assertContains(readme, 'pre-v2', 'README.md');
-  assertContains(readme, 'leaf worker', 'README.md');
+  
+  
   assert.doesNotMatch(readme, /Golden path|finish-audit|finish-start|finish-record|execution-start/i);
 
-  assertContains(readmeZh, '六个 canonical workflow intents', 'README.zh-CN.md');
+  assertContains(readmeZh, '三个 canonical workflow intents', 'README.zh-CN.md');
   assertContains(readmeZh, 'prompt-first', 'README.zh-CN.md');
   assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
   assertContains(readmeZh, '$clarify', 'README.zh-CN.md');
-  assertContains(readmeZh, '$finish', 'README.zh-CN.md');
-  assertContains(readmeZh, 'explicit-only review intent entries', 'README.zh-CN.md');
-  assertContains(readmeZh, '不会写本地', 'README.zh-CN.md');
+  
+  assertContains(readmeZh, 'working agreement', 'README.zh-CN.md');
+  
   assertContains(readmeZh, 'docs/loopx/specs/', 'README.zh-CN.md');
   assertContains(cliDocZh, '移除 loopx 管理的用户级 artifacts', 'docs/loopx/cli.zh-CN.md');
-  assertContains(readmeZh, 'pre-v2', 'README.zh-CN.md');
-  assertContains(readmeZh, 'leaf worker', 'README.zh-CN.md');
+  
+  
   assert.doesNotMatch(readmeZh, /黄金路径|finish-audit|finish-start|finish-record|execution-start/i);
   assertContains(cliDoc, 'top-level controller', 'docs/loopx/cli.md');
   assertContains(cliDocZh, '顶层 controller', 'docs/loopx/cli.zh-CN.md');
@@ -327,6 +336,9 @@ async function assertDecisionLogSynced() {
     const fields = parseFrontmatter(path, await readFile(path, 'utf8'));
     assert.ok(fields.applies_to, `${name} missing applies_to`);
     assert.ok(fields.clause && fields.clause.length >= 20, `${name} missing a concrete clause quote`);
+    if (fields.superseded_by) {
+      continue; // historical record; its governed file may no longer exist
+    }
     const targetPath = join(repoRoot, fields.applies_to);
     assert.equal(existsSync(targetPath), true, `${name} applies_to missing: ${fields.applies_to}`);
     const target = await readFile(targetPath, 'utf8');
@@ -421,7 +433,7 @@ async function assertContractMatrix() {
 
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
-assert.equal(packageJson.files.includes('scripts/claude-workflow-hook.mjs'), true, 'npm package must include claude-workflow-hook.mjs');
+
 assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true, 'npm package must include agent eval runner');
 assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true, 'npm package must include Codex trace normalizer');
 assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true, 'npm package must include Codex live eval runner');
@@ -446,26 +458,9 @@ assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
 assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
-assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec', 'exec', 'review', 'finish']);
-assert.deepEqual(
-  LOOPX_REVIEW_INTENT_ENTRY_SKILLS,
-  ['final-review', 'fix-review'],
-);
-assert.deepEqual(LOOPX_EXECUTION_PROFILE_SKILLS, ['subagent-exec', 'parallel-subagent-exec']);
+assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec']);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
-}
-for (const skillName of LOOPX_REVIEW_INTENT_ENTRY_SKILLS) {
-  const entries = (await readdir(join(repoRoot, 'skills', skillName)))
-    .filter((entry) => entry !== '.DS_Store')
-    .sort();
-  assert.deepEqual(entries, ['SKILL.md'], `${skillName} must contain only its compatibility forwarding skill`);
-}
-for (const skillName of LOOPX_EXECUTION_PROFILE_SKILLS) {
-  const entries = (await readdir(join(repoRoot, 'skills', skillName)))
-    .filter((entry) => entry !== '.DS_Store')
-    .sort();
-  assert.equal(entries.includes('SKILL.md'), true, `${skillName} must contain its profile skill`);
 }
 for (const relativePath of obsoleteImplementationPaths) {
   assert.equal(existsSync(join(repoRoot, relativePath)), false, `${relativePath} must remain removed`);
@@ -486,16 +481,6 @@ for (const relativePath of activeMaintenanceDocs) {
 await assertPublicDocsAligned();
 
 const resolverText = await readFile(resolverPath, 'utf8');
-// The injected triage tiers and the resolver's triage section are the same
-// contract; they must stay line-identical so routing guidance cannot drift
-// between the per-turn injection channel and the governance index.
-assert.match(resolverText, /## Triage\n/, 'skills/RESOLVER.md missing Triage section');
-for (const tier of TRIAGE_TIERS) {
-  assert.ok(
-    resolverText.includes(`- ${tier}`),
-    `skills/RESOLVER.md triage tier drifted from src/workflow-state.mjs TRIAGE_TIERS: ${tier.slice(0, 60)}...`,
-  );
-}
 await assertContractMatrix();
 await assertSharedContractsSingleSourced();
 await assertDecisionLogSynced();

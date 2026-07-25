@@ -3,7 +3,7 @@ name: fix
 description: "Issue-driven bug fix execution for .loopx/issues ledgers with status ready_for_fix, verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, non-ready ledgers, issue intake, tracker automation, commits, pushes, or closing issues."
 when_to_use: "fix, bug fix, ready_for_fix, .loopx/issues, issue ledger, issue-driven execution, 修复bug, 工单修复"
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Fix
@@ -25,8 +25,8 @@ Do not invoke a separate `exec` workflow from inside this issue-owned fix contex
 Use `git worktree` only when parallel subagents will directly modify code. Serial execution may edit the main worktree. Parallel subagents that do not use isolated worktrees must produce patches or reports only; they must not directly modify the main worktree.
 
 Controllers and subagents must not commit, must not push, and must not close
-issues. Use `finish` afterward only for Git disposition of work completed by
-the active fix run, or when the user explicitly invokes `$finish`.
+issues. Git disposition follows the installed working agreement: only on an
+explicit user request, with the exact target confirmed.
 
 ## Inputs
 
@@ -220,8 +220,7 @@ When executing a ready ledger, append or update these sections:
 
 Every code modification through `fix` receives a controller-owned scope and
 integration check against the ledger's Diagnosis Summary, Fix Brief, actual
-diff, and verification evidence. Use the canonical independent-review
-contract in `../shared/review-contract.md`: dispatch an
+diff, and verification evidence. Follow the installed working agreement's review clause: dispatch an
 independent reviewer only for an explicit review request, security-sensitive
 or destructive behavior, public compatibility changes, cross-task interaction,
 or a reconciled conflict. A routine low-risk fix does

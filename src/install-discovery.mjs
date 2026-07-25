@@ -1,5 +1,5 @@
 import { cp, lstat, mkdir, readFile, readdir, readlink, rm, symlink, unlink, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,17 +18,6 @@ export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
   'clarify',
   'spec',
   'plan2exec',
-  'exec',
-  'review',
-  'finish',
-]);
-export const LOOPX_EXECUTION_PROFILE_SKILLS = Object.freeze([
-  'subagent-exec',
-  'parallel-subagent-exec',
-]);
-export const LOOPX_REVIEW_INTENT_ENTRY_SKILLS = Object.freeze([
-  'final-review',
-  'fix-review',
 ]);
 const LOOPX_SKILLS = [
   'clarify',
@@ -36,13 +25,6 @@ const LOOPX_SKILLS = [
   'codebase-spec',
   'plan2exec',
   'plan-reviewer',
-  'subagent-exec',
-  'parallel-subagent-exec',
-  'exec',
-  'review',
-  'final-review',
-  'fix-review',
-  'finish',
   'issue',
   'fix',
   'refactor-plan',
@@ -66,44 +48,8 @@ const LOOPX_RETIRED_SKILLS = Object.freeze([
 ]);
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
-  {
-    name: 'codex-workflow-hook',
-    kind: 'hook',
-    targets: ['codex'],
-    sourceRelativePath: 'scripts/codex-workflow-hook.mjs',
-    targetRelativePath: '.codex/hooks/codex-workflow-hook.mjs',
-  },
-  {
-    name: 'claude-workflow-hook',
-    kind: 'hook',
-    targets: ['claude'],
-    sourceRelativePath: 'scripts/claude-workflow-hook.mjs',
-    targetRelativePath: '.claude/hooks/loopx-workflow-hook.mjs',
-  },
-  // Hooks are copied verbatim, so every module they load must be installed as
-  // a sibling; hooks resolve these dynamically and degrade silently when a
-  // sibling is missing.
-  {
-    name: 'codex-workflow-state',
-    kind: 'hook-module',
-    targets: ['codex'],
-    sourceRelativePath: 'src/workflow-state.mjs',
-    targetRelativePath: '.codex/hooks/workflow-state.mjs',
-  },
-  {
-    name: 'claude-workflow-state',
-    kind: 'hook-module',
-    targets: ['claude'],
-    sourceRelativePath: 'src/workflow-state.mjs',
-    targetRelativePath: '.claude/hooks/workflow-state.mjs',
-  },
-  {
-    name: 'codex-lancet-runtime',
-    kind: 'hook-module',
-    targets: ['codex'],
-    sourceRelativePath: 'src/lancet-runtime.mjs',
-    targetRelativePath: '.codex/hooks/lancet-runtime.mjs',
-  },
+  // v0.8 docs-first: no per-turn workflow hooks. The working agreement is the
+  // discipline channel and travels in the managed guidance block below.
 ];
 const LOOPX_AGENT_GUIDANCE_BLOCK_ID = 'specs-and-memory-context';
 const LOOPX_AGENT_GUIDANCE_HEADING = '## loopx Specs And Memory';
@@ -118,22 +64,10 @@ const LOOPX_AGENT_GUIDANCE_CONTENT = [
   '- Treat current user instructions and named source documents as highest priority, repo specs as binding long-lived rules, and memory as advisory context.',
 ].join('\n');
 const LOOPX_ROUTING_GUIDANCE_BLOCK_ID = 'prompt-first-routing';
-const LOOPX_ROUTING_GUIDANCE_CONTENT = [
-  '## loopx Prompt-First Routing',
-  '',
-  '- Treat a clear, bounded request as ordinary model work: inspect, implement, gather fresh verification, and report. A clear local defect or small feature does not select a loopx workflow skill or create workflow artifacts; the default is no workflow artifacts.',
-  '- The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. Select one only when its concrete trigger or explicit user invocation is present; they are not a required sequence.',
-  '- `exec` is the canonical execution entry. It automatically selects inline-owned, delegated-serial, or parallel-strict execution from the request or plan and current runtime evidence.',
-  '- `subagent-exec` and `parallel-subagent-exec` are explicit execution-profile entry points, not separate workflow intents. `final-review` (whole-feature review after all tasks complete) and `fix-review` (actively resolve existing findings) are permanent explicit review intent entries into `review`.',
-  '- Escalate only for a concrete ambiguity, risk, recovery, coordination, or explicit user intent reason.',
-  '- Before mutation, use `clarify` or `spec` when an unresolved compatibility, permission, secret, destructive migration, or cross-module architecture decision could change the safe result. State the concrete reason.',
-  '- Use persistent planning, governed execution, or recovery state only when its concrete trigger is present.',
-  '- Delegated-serial and parallel-strict execution require independent task review for every implementation or fix candidate and final Spec plus Standards review. Inline work uses independent review only for explicit review intent or concrete security, destructive, compatibility, interaction, or reconciliation risk.',
-  '- Before every completion claim, run a quiet completion check: require fresh task-relevant verification; compare accepted intent and the final diff with applicable specs; and synchronize any applicable spec changed by the implementation. Write a new durable rule only with an explicit user decision, approved requirement, or existing spec authority.',
-  '- Preserve local memory automatically only for an encountered, evidence-backed, non-obvious, reusable project pitfall, after deduplication. Shared memory and newly tracked knowledge require explicit acceptance. Never preserve secrets, raw conversation, workflow state, generic path-based candidates, commit summaries, or obvious code facts as knowledge.',
-  '- When neither an applicable spec nor qualifying knowledge changed, create no artifact or reminder. Mention spec or knowledge only when it was actually written.',
-  '- Use `finish` only when the user explicitly invokes `$finish` or requests Git disposition for work completed by the active loopx `exec` or `fix` context. A standalone Git request to create or switch a branch, commit, merge, push, open a pull request, or manage a worktree must not select `finish`.',
-].join('\n');
+const LOOPX_ROUTING_GUIDANCE_CONTENT = readFileSync(
+  join(PROJECT_ROOT, 'templates', 'working-agreement.md'),
+  'utf8',
+).trim();
 const TEMPLATE_BASELINE_SCHEMA_VERSION = Number.parseInt('1', 10);
 const LOOPX_GOVERNED_SOURCE_ITEMS = [
   {
@@ -1027,50 +961,8 @@ function claudeInstallEnv(env = process.env, options = {}) {
   };
 }
 
-async function mergeClaudeHookSettings(env = process.env, options = {}) {
-  const settingsPath = options.project === true
-    ? join(resolve(env.LOOPX_INSTALL_CWD || process.cwd()), '.claude', 'settings.json')
-    : getClaudeSettingsPath(env);
-  const hookPath = join(dirname(settingsPath), 'hooks', 'loopx-workflow-hook.mjs');
-  const settings = await readJsonFile(settingsPath, {});
-  const hooks = settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks)
-    ? settings.hooks
-    : {};
-  const promptHooks = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-  const command = `node ${JSON.stringify(hookPath)}`;
-  const hasCommand = promptHooks.some((entry) => {
-    if (typeof entry === 'string') {
-      return entry === command;
-    }
-    return Array.isArray(entry?.hooks)
-      && entry.hooks.some((hook) => hook?.command === command);
-  });
-  const nextPromptHooks = hasCommand
-    ? promptHooks
-    : [
-        ...promptHooks,
-        {
-          matcher: '',
-          hooks: [
-            {
-              type: 'command',
-              command,
-            },
-          ],
-        },
-      ];
-  const nextSettings = {
-    ...settings,
-    hooks: {
-      ...hooks,
-      UserPromptSubmit: nextPromptHooks,
-    },
-  };
-  await ensureDir(dirname(settingsPath));
-  await writeFile(settingsPath, `${JSON.stringify(nextSettings, null, 2)}\n`);
-  return { settingsPath, hookPath, command };
-}
-
+// v0.8 docs-first: no per-turn Claude hook is registered; the working
+// agreement travels in the managed guidance block instead.
 function assertInstallTargetOptions(requestedTargets, options = {}) {
   const targets = new Set(requestedTargets);
   if (options.dir && targets.has('codex') && targets.has('claude')) {
@@ -1133,7 +1025,6 @@ export async function installSkillsForTargets(env = process.env, options = {}) {
         target: 'claude',
         distributionChannel: options.distributionChannel || 'claude',
       });
-      results.claudeHook = await mergeClaudeHookSettings(env, options);
       continue;
     }
     throw new Error(`unknown_install_target:${target}`);

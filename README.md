@@ -4,30 +4,47 @@
 
 <h1 align="center">loopx</h1>
 
-<p align="center">Skill-first workflow suite for agentic coding assistants.</p>
+<p align="center">Docs-first engineering discipline for agentic coding assistants.</p>
 
 [中文文档](./README.zh-CN.md)
 
-`loopx` installs governed skills, host guidance, and project context for Codex
-and Claude-style coding agents. Day-to-day work stays prompt-first: a clear,
-bounded request is implemented and freshly verified without creating workflow
-artifacts merely to move through stages.
+`loopx` compiles engineering discipline into documents and proves they work.
+Its primary deliverable is a short working agreement installed into host
+guidance (`AGENTS.md` / `CLAUDE.md`), plus three document-producing skills.
+Execution belongs to the model and its host runtime: loopx ships no execution
+orchestrator, no review pipeline, and no per-turn hook.
 
-The six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`,
-`review`, and `finish`. They are optional governance tools, not a fixed path.
+Day-to-day work stays prompt-first under the working agreement: read first,
+smallest correct change, boundary conditions, fresh verification, stop and ask
+when a material decision is unspecified, no Git disposition without an
+explicit request.
 
-- `clarify` resolves material ambiguity before mutation.
-- `spec` fixes durable product, compatibility, data, security, or architecture decisions.
-- `plan2exec` writes a lean execution plan only for explicit planning, approval, recovery, or durable coordination. Its distinct name avoids confusion with an agent's built-in Plan mode.
-- `exec` keeps small prompt-first work inline, delegates planned serial work to fresh workers, and schedules proved-independent work in isolated DAG waves.
-- `review` performs proportional standalone review; delegated execution requires task review and final Spec plus Standards review.
-- `finish` handles Git disposition only after explicit `$finish` invocation or for work completed by the active loopx `exec` or `fix` context; standalone Git requests remain ordinary Git work.
+The three canonical workflow intents produce documents:
+
+- `clarify` interviews one question at a time and produces a requirements
+  contract with testable `AC-*` / `TC-*` anchors.
+- `spec` fixes durable product, compatibility, data, security, or architecture
+  decisions as a design document with `D-*` anchors.
+- `plan2exec` writes one lean plan document for explicit planning, approval
+  boundaries, interruption recovery, or durable coordination. The executing
+  agent follows the plan itself.
 
 Issue-driven workflows remain available: `$issue` diagnoses a bug-class report
 and writes a local ledger; `$fix` executes a ledger marked `ready_for_fix`.
-Support skills such as `tdd`, `debug`, `verify`, `plan-reviewer`, `api-designer`,
-`architecture-designer`, `sql-style`, `cli-developer`, and `lancet` remain lenses,
-not workflow states.
+Support skills such as `tdd`, `debug`, `verify`, `plan-reviewer`,
+`api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and
+`lancet` remain lenses, not workflow states.
+
+## Why docs-first
+
+The four-arm benchmark behind this design (`evals/benchmark/RESULTS.md`)
+showed that for a frontier model the working agreement alone matched the full
+v0.7 governance runtime on stop-discipline (+65pp over bare) at one third of
+the token cost, while the runtime added no capability uplift. loopx therefore
+delivers the document and the evidence pipeline that keeps it honest:
+`evals/drills/` pressure-tests every discipline clause, and
+`evals/benchmark/` measures pass rates and token economy against bare and
+docs-only controls.
 
 ## Install
 
@@ -47,45 +64,16 @@ Full CLI and installation details live in [CLI Reference](./docs/loopx/cli.md).
 
 ## Use In An Agent
 
-Invoke governance only when the request or observed risk calls for it:
-
 ```text
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
 $plan2exec <approved-source-or-planning-request>
-$exec <clear-request-or-plan>
-$review <request-or-git-scope>
-$finish <Git-disposition-request>
 ```
 
-Fresh verification is required for every completion claim. Persistent plans,
-resumable state, knowledge writes, and Git disposition remain conditional.
-Independent review is mandatory for delegated execution and proportional for
-inline work. `finish` does not perform verification, review, or knowledge
-extraction and does not write a local audit ledger.
-
-## Execution Profiles
-
-`exec` selects these profiles automatically. The delegated profiles may also be
-invoked explicitly without creating separate execution engines:
-
-| Profile skill | Behavior |
-|---|---|
-| `subagent-exec` | Fresh implementer per slice, serial dependency order, mandatory task and final review. |
-| `parallel-subagent-exec` | Bounded isolated ready-frontier execution, mandatory review before integration. |
-
-## Review Intent Entries
-
-Two permanent explicit-only review intent entries are installed and excluded
-from automatic discovery:
-
-| Entry | Intent |
-|---|---|
-| `final-review` | Whole-feature review through `review` after all planned tasks complete |
-| `fix-review` | Actively resolve existing review findings through `review`, optionally with one independent fixer wave |
-
-Each entry forwards into the canonical `review` workflow. Neither restores the
-old feedback-ledger or finish-gate protocol.
+Everything else is ordinary model work under the installed working agreement.
+Fresh verification is required for every completion claim. Independent review
+is a working-agreement clause for high-risk diffs, dispatched through the
+host's native subagents.
 
 ## Context Rules
 
@@ -93,16 +81,9 @@ old feedback-ledger or finish-gate protocol.
 `.loopx/memory/MEMORY.md` is advisory curated memory. Current user instructions
 and approved source documents take priority over both.
 
-Only the top-level controller owns agent lifecycle. Every dispatched worker is
-a leaf worker and must not spawn, delegate to, or wait for other agents.
-pre-v2 running workflow state is unsupported and must restart.
-
-See [loopx Skills Guide](./docs/loopx/skills.md) for the complete bundled surface.
-
 ## Maintainers
 
-Normal and plugin installs consume the same canonical package-root `skills/`
-source. Run the deterministic governance gate before release:
+Run the deterministic governance gate before release:
 
 ```bash
 node scripts/verify-skills.mjs

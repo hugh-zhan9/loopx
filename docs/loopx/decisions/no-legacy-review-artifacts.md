@@ -1,5 +1,6 @@
 ---
 name: no-legacy-review-artifacts
+superseded_by: docs-first-pivot
 applies_to: skills/review/SKILL.md
 clause: "Do not require or create a task-review report, feedback ledger, final-review"
 ---

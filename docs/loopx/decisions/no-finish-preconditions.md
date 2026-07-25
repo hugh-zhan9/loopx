@@ -1,5 +1,6 @@
 ---
 name: no-finish-preconditions
+superseded_by: docs-first-pivot
 applies_to: skills/finish/SKILL.md
 clause: "Never invent a review, verification, or knowledge-extraction precondition"
 ---

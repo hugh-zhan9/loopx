@@ -28,7 +28,9 @@ export function nextSkillCommand(state) {
   }
   if (state.current_stage === 'done'
     && state.completion_confirmed === true) {
-    return '$finish';
+    // v0.8 docs-first: Git disposition follows the working agreement (explicit
+    // user request only); no finish skill exists to recommend.
+    return null;
   }
   if (state.current_stage === 'review'
     && state.review_verdict === 'request-changes'

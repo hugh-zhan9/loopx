@@ -1,0 +1,26 @@
+---
+name: docs-first-pivot
+applies_to: templates/working-agreement.md
+clause: "Never commit, push, merge, or discard work unless the user explicitly asks."
+---
+
+# v0.8：产物是文档，执行归模型
+
+**决定了什么**：loopx 的核心交付物改为 working agreement 文档 + 三个产出文档的
+skills（clarify / spec / plan2exec-as-schema）。溶解 exec、subagent-exec、
+parallel-subagent-exec、review、final-review、fix-review、finish、每轮
+workflow hook 及其运行时（adaptive-exec 等约九个脚本）。执行、评审、验证与
+Git 纪律成为 working agreement 的条款，由模型和宿主原生能力履行。
+
+**依据**：benchmark-protocol-v3（`evals/benchmark/RESULTS.md`，2026-07-25）。
+升级陷阱上 loopx +65pp [40,85] vs 裸模型，但 docs-only 一份文档同样达成且
+token 仅 1/3（candidate vs docs-only -5.3pp [-10.5,-1.3]，配对零胜）；能力
+三类对前沿模型全天花板；v0.7 运行时引入真实回归（eventbus 1/3、csv 2/3）且
+整体更贵。宿主原生 subagent/worktree/resume 已覆盖执行原语。
+
+**取代**：no-finish-preconditions、no-legacy-review-artifacts、
+no-loopx-ownership-inference 三条记录的管辖对象随 v0.8 删除，其精神由
+working agreement 的 Git 与评审条款延续。
+
+**保留的可证伪假设**：clarify/spec 产物对"需求半模糊任务"的增益尚未测量；
+弱模型可能从编排获益。两者列为 v0.8 的判决性实验。

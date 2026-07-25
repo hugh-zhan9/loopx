@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews a persistent implementation plan and its authoritative execution graph against the approved source, including coverage, dependencies, isolation claims, structural profile, review focus, and verification. Not for creating plans, reviewing implemented code, dispatching execution, or advancing workflow state."
 when_to_use: "explicit plan review, execution graph audit, source-to-plan coverage, dependency and parallel-safety review, plan verification quality"
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 argument-hint: "<plan path and approved source>"
 ---
 
@@ -17,11 +17,10 @@ does not edit the plan, dispatch implementation, or advance workflow state.
 Read the plan and its named approved source. A current plan contains:
 
 - outcomes and boundaries;
-- exactly one authoritative `loopx.execution-graph.v1` block;
-- dependencies, write scope, relevant paths, and exclusive resources;
-- consumed and produced interfaces;
-- acceptance, verification, expected evidence, and review focus;
-- a selected structural profile.
+- execution slices with stable `P-*` identifiers and explicit dependencies;
+- write scope, source anchors, acceptance, verification, and review focus per
+  slice;
+- integration verification and handoff status.
 
 If the approved source is missing or materially ambiguous, stop and identify
 the exact source needed. Do not infer product or architecture decisions during
@@ -33,14 +32,12 @@ Check:
 
 1. Every accepted outcome and applicable `AC-*`, `TC-*`, or `D-*` anchor appears in a slice, acceptance item, or explicit deferred rationale.
 2. Boundaries preserve explicit non-goals and protected behavior.
-3. Human-readable slice prose and graph `tasks` agree one-to-one on ids, and the prose summary (outcome, dependencies, source anchors, acceptance, review focus) matches its graph entry; the graph alone carries field-level dispatch data, and prose slices that duplicate graph-only fields are a defect.
+3. Every slice carries outcome, dependencies, write scope, source anchors, acceptance, verification, and review focus, and no two slices claim overlapping write scopes without a dependency between them.
 4. Slice ids are unique; dependencies exist, are non-self-referential, and form an acyclic graph.
 5. Producer-consumer interfaces and shared mutable or generated resources have the required dependency or exclusive-resource constraint.
-6. Write scopes are normalized and pairwise disjoint for unordered concurrent slices; relevant paths identify baseline inputs runtime must protect.
-7. `parallel-strict-v1` is selected only when the graph proves a ready frontier of at least two and every concurrently ready pair has complete independence evidence.
-8. `delegated-serial-v1` is selected for a width-one graph, coupling, conflicts, or uncertain independence. A persistent plan never selects inline execution.
-9. Acceptance is observable; verification is feasible; expected evidence can prove the result; review focus names contract and integration risks.
-10. The plan avoids implementation transcripts, code snippets, task microsteps, fixed launch schedules, and per-slice commits.
+6. Write scopes are normalized and pairwise disjoint for slices that could run concurrently; the schema's execution rules make any parallelism safe.
+7. Acceptance is observable; verification is feasible; expected evidence can prove the result; review focus names contract and integration risks.
+8. The plan avoids implementation transcripts, code snippets, task microsteps, fixed launch schedules, and per-slice commits.
 
 Treat missing or contradictory outcomes, invalid graph structure, graph/prose
 mismatch, unproved parallel safety, write/resource conflict, missing evidence,

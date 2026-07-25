@@ -36,7 +36,7 @@ function usage() {
     '  sources live under test/fixtures/req-demo/sources/fitpulse/',
     '  agent cwd is harness/ with overlays (not sources/ as root)',
     '  bare / no-loopx: docs/product/REQUIREMENTS.md → PLAN.md → implement',
-    '  installed loopx: fitpulse intake → spec → plan2exec → exec → final-review',
+    '  installed loopx: fitpulse intake → spec → plan2exec → model-executed plan',
     '',
     'Options:',
     '  --runtime <codex|claude>     Local agent runtime (default: codex)',
