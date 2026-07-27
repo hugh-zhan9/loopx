@@ -51,7 +51,6 @@ AND the evidence target remains explicit for downstream execution
 
 - [PENDING] What concrete task should loopx execute in this workflow?
 
-## Handoff Recommendation
+## Evidence Plan
 
-- handoff: blocked
-- reason: material requirements remain unresolved
+- [PENDING] Name the command output, observable behavior, review result, or other evidence required for each acceptance criterion.

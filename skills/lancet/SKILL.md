@@ -3,14 +3,12 @@ name: lancet
 description: "Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state."
 when_to_use: "lancet, over-engineering, YAGNI, unnecessary dependency, simplest diff, implementation minimization, review minimization, Codex implementation discipline"
 metadata:
-  version: "0.1.3"
+  version: "0.1.4"
 ---
 
 # Lancet
 
 `lancet` is a support lens, not a workflow state. Use it when implementation or review work risks unnecessary code, avoidable dependencies, extra files, or abstractions that should be deleted instead of expanded.
-
-Codex-only automatic activation applies in this release. Manual use remains explicit elsewhere.
 
 ## loopx Boundary
 
@@ -77,19 +75,10 @@ When `lancet` applies during review, explicitly inspect:
 
 If a smaller correct alternative exists, call it out directly.
 
-## Runtime Surface
-
-User-level default and session state live under `~/.loopx/lancet/`.
-
-- `config.json` stores default enablement behavior
-- `session.json` stores current on/off session mode
-
-Hook failures must silently degrade. Missing or corrupt state must fall back to safe defaults instead of blocking the session.
-
 ## Activation Notes
 
-- Planning stages may mention that `lancet` activates at implementation time, but they must keep full planning freedom.
-- Implementation and review stages may use the full `lancet` contract.
+- Use `lancet` when the user invokes it or when its frontmatter description matches the implementation or review task.
+- Keep planning freedom; apply the minimization lens only when choosing or reviewing implementation details.
 - `fix` uses the same `lancet` discipline as feature-driven implementation and review.
 
 ## Handoff Reminder

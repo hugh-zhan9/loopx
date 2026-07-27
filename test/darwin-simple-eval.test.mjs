@@ -197,12 +197,12 @@ test('removes a temporary fixture when fixture initialization fails', async (t) 
   assert.deepEqual(await readdir(tempRoot), []);
 });
 
-test('exposes the live evaluator as an opt-in packaged diagnostic outside npm test', async () => {
+test('keeps the live evaluator as a repository-only diagnostic outside npm test', async () => {
   const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 
   assert.equal(packageJson.scripts['eval:darwin-simple'], 'node scripts/run-darwin-simple-evals.mjs');
-  assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true);
-  assert.equal(packageJson.files.includes('evals/darwin-simple/'), true);
+  assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), false);
+  assert.equal(packageJson.files.includes('evals/darwin-simple/'), false);
   assert.doesNotMatch(packageJson.scripts.test, /darwin-simple|eval:darwin-simple/);
 
   const { stdout } = await execFileAsync(process.execPath, ['scripts/run-darwin-simple-evals.mjs', '--help'], { cwd: repoRoot });

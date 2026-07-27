@@ -175,14 +175,14 @@ test('compares no-loopx, baseline, and candidate req-demo arms from immutable re
   await assert.rejects(access(leakedSkillsRoot));
 });
 
-test('exposes the req-demo evaluator as an opt-in packaged diagnostic outside npm test', async () => {
+test('keeps the req-demo evaluator as a repository-only diagnostic outside npm test', async () => {
   const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
 
   assert.equal(packageJson.scripts['eval:req-demo'], 'node scripts/run-req-demo-evals.mjs');
-  assert.equal(packageJson.files.includes('scripts/run-req-demo-evals.mjs'), true);
-  assert.equal(packageJson.files.includes('evals/req-demo/'), true);
-  assert.equal(packageJson.files.includes('test/fixtures/req-demo/harness/'), true);
-  assert.equal(packageJson.files.includes('test/fixtures/req-demo/sources/fitpulse/'), true);
+  assert.equal(packageJson.files.includes('scripts/run-req-demo-evals.mjs'), false);
+  assert.equal(packageJson.files.includes('evals/req-demo/'), false);
+  assert.equal(packageJson.files.includes('test/fixtures/req-demo/harness/'), false);
+  assert.equal(packageJson.files.includes('test/fixtures/req-demo/sources/fitpulse/'), false);
   assert.equal(packageJson.files.includes('test/fixtures/req-demo/starter/'), false);
   assert.doesNotMatch(packageJson.scripts.test, /req-demo|eval:req-demo/);
 

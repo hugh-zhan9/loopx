@@ -1,70 +1,27 @@
 ---
-schema_version: 2
+schema_version: 3
 workflow_id: <workflow id>
-stage: clarify
-profile: <profile>
-target_ambiguity_threshold: <target ambiguity threshold>
-max_rounds: <max rounds>
-current_round: 0
-ambiguity_score: 1
-non_goals_resolved: false
-decision_boundaries_resolved: false
-pressure_pass_complete: false
-handoff_decision: blocked
-approval_status: requested
-unresolved_ambiguity_count: 1
+document_type: working-copy
 ---
 
-# loopx Spec: <task name>
+# Document Contract: <task name>
 
-## Intent
+## Goal
 
-- TODO: capture why this work matters.
+- [PENDING] Describe the observable end state.
 
-## Desired Outcome
+## Decisions
 
-- TODO: describe the end state the user actually wants.
+- [PENDING] Record confirmed product, behavior, data, API, compatibility, security, or architecture decisions.
 
-## Ambiguity List
+## Boundaries
 
-- A-1 | open | Clarify the concrete task, acceptance criteria, and constraints.
+- [PENDING] Record scope, non-goals, constraints, and decisions that remain with the user.
 
-## Clarified Answers
+## Evidence
 
-- TODO: record the accepted clarification answers.
+- [PENDING] Name the evidence that will demonstrate correctness.
 
-## In Scope
+## Open Questions
 
-- TODO: record the work that belongs in this loopx run.
-
-## Non-Goals
-
-- TODO: record what must stay out of scope.
-
-## Decision Boundaries
-
-- Human approval is required before `clarify -> plan`.
-
-## Constraints
-
-- TODO: record technical, business, or sequencing constraints.
-
-## Success Criteria
-
-- TODO: record what makes the run plan-ready.
-
-## Assumptions Exposed
-
-- TODO: list assumptions that were surfaced and how they were resolved.
-
-## Brownfield Evidence vs Inference
-
-- TODO: separate what was observed in code/docs from what is still inferred.
-
-## Design Direction
-
-- TODO: record the preferred shape or option if the task needed design guidance.
-
-## Next Handoff Recommendation
-
-- default: `plan`
+- [PENDING] Record unresolved material ambiguity without prescribing execution.

@@ -362,12 +362,12 @@ test('four-arm dry run produces a v1 report with effect sizes and keeps hidden t
   assert.ok(docsOnlyRuns.every((run) => !run.changed_paths.includes('AGENTS.md')));
 });
 
-test('benchmark runner is an opt-in packaged diagnostic with a deterministic dry run', async (t) => {
+test('benchmark runner is a repository-only diagnostic with a deterministic dry run', async (t) => {
   const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
   assert.equal(packageJson.scripts['eval:benchmark'], 'node scripts/run-benchmark-evals.mjs');
-  assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), true);
-  assert.equal(packageJson.files.includes('evals/benchmark/'), true);
-  assert.equal(packageJson.files.includes('test/fixtures/benchmark/'), true);
+  assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), false);
+  assert.equal(packageJson.files.includes('evals/benchmark/'), false);
+  assert.equal(packageJson.files.includes('test/fixtures/benchmark/'), false);
   assert.doesNotMatch(packageJson.scripts.test, /benchmark/);
 
   const { stdout } = await execFileAsync(process.execPath, ['scripts/run-benchmark-evals.mjs', '--help'], { cwd: repoRoot });

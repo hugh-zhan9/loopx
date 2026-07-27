@@ -10,7 +10,7 @@
     "refactor-plan": { "max": 100 }
   },
   "skills": [
-    {"skill": "clarify", "role": "workflow", "boundary": "Do not write implementation plans", "required_outputs": ["handoff_decision"], "safety_invariants": ["blocked"], "integrations": ["plan2exec"], "required_references": ["references/handoff-syntax.md"], "version": "0.3.18"},
+    {"skill": "clarify", "role": "workflow", "boundary": "Do not choose or invoke a next skill", "required_outputs": ["goals", "decisions", "boundaries", "evidence"], "safety_invariants": ["pending"], "integrations": ["documents"], "required_references": [], "version": "0.4.0"},
     {"skill": "spec", "role": "workflow", "boundary": "Do not write an implementation plan", "required_outputs": ["Accepted proposal"], "safety_invariants": ["STOP Conditions"], "integrations": ["plan2exec"], "required_references": [], "version": "0.4.1"},
     {"skill": "codebase-spec", "role": "workflow", "boundary": "Do not:", "required_outputs": ["Evidence Standard"], "safety_invariants": ["Never print secret values"], "integrations": ["spec"], "required_references": ["references/output-template.md"], "version": "0.1.2"},
     {"skill": "plan2exec", "role": "workflow", "boundary": "Do not add task microsteps", "required_outputs": ["Execution Slices", "Integration And Final Verification", "Handoff And Residual Risks"], "safety_invariants": ["STOP Conditions"], "integrations": ["exec"], "required_references": ["references/plan-schema.md"], "version": "0.5.0"},
@@ -30,6 +30,6 @@
     {"skill": "architecture-designer", "role": "support", "boundary": "support lens", "required_outputs": ["failure-mode table"], "safety_invariants": ["STOP Conditions"], "integrations": ["spec"], "required_references": ["references/nfr-checklist.md"], "version": "0.3.7"},
     {"skill": "sql-style", "role": "support", "boundary": "support lens", "required_outputs": ["EXPLAIN"], "safety_invariants": ["expand/contract"], "integrations": ["spec"], "required_references": [], "version": "0.3.6"},
     {"skill": "cli-developer", "role": "support", "boundary": "support lens", "required_outputs": ["Output contract"], "safety_invariants": ["non-interactive"], "integrations": ["spec"], "required_references": ["references/design-patterns.md"], "version": "0.3.8"},
-    {"skill": "lancet", "role": "support", "boundary": "support lens, not a workflow state", "required_outputs": ["smallest correct diff"], "safety_invariants": ["AC-*"], "integrations": ["exec"], "required_references": [], "version": "0.1.3"}
+    {"skill": "lancet", "role": "support", "boundary": "support lens, not a workflow state", "required_outputs": ["smallest correct diff"], "safety_invariants": ["AC-*"], "integrations": ["exec"], "required_references": [], "version": "0.1.4"}
   ]
 }

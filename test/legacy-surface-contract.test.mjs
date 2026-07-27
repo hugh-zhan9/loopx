@@ -39,6 +39,9 @@ test('removed orchestration and hook payloads stay absent', () => {
     'skills/shared/review-contract.md',
     'scripts/codex-workflow-hook.mjs',
     'scripts/claude-workflow-hook.mjs',
+    'src/lancet-runtime.mjs',
+    'src/next-skill.mjs',
+    'src/workspace-memory.mjs',
     'src/workflow-state.mjs',
   ]) {
     assert.equal(existsSync(join(repoRoot, path)), false, `${path} must remain removed`);

@@ -1,53 +1,31 @@
 ---
-schema_version: 2
+schema_version: 3
 workflow_id: <workflow id>
-stage: clarify
-profile: <profile>
-target_ambiguity_threshold: <target ambiguity threshold>
-max_rounds: <max rounds>
-current_round: 0
-ambiguity_score: 1
-non_goals_resolved: false
-decision_boundaries_resolved: false
-pressure_pass_complete: false
-handoff_decision: blocked
-approval_status: requested
-unresolved_ambiguity_count: 1
+document_type: clarification
 ---
 
-# Clarification Log: <task name>
+# Clarification: <task name>
 
 ## Source Inputs
 
-- [PENDING] Record the user's original request, PRD, issue, or external source document.
+- [PENDING] Record the user's request, PRD, issue, or external source document.
 
-## Q&A Rounds
+## Questions And Answers
 
-- A-1 | open | What specific task should loopx execute in this workflow?
+- [PENDING] Record only questions whose answers materially change the outcome.
 
-## User Wording
+## Confirmed Decisions
 
-- [PENDING] Quote exact user wording when it captures a decision.
+- [PENDING] Record decisions in the user's wording where possible.
 
-## Assumptions Challenged
+## Boundaries
 
-- [PENDING] Record assumptions surfaced during clarification and how each was resolved.
+- [PENDING] Record scope, non-goals, constraints, and decisions reserved for the user.
 
-## Rejected Alternatives
+## Evidence
 
-- [PENDING] Record alternatives explicitly rejected by the user.
+- [PENDING] Separate observed repository evidence from inference.
 
-## Brownfield Evidence
+## Open Questions
 
-- [PENDING] Separate observed repo evidence from inference.
-
-## Resume State
-
-- current_round: 0
-- ambiguity_score: 1
-- unresolved_count: 1
-- non_goals_resolved: false
-- decision_boundaries_resolved: false
-- pressure_pass_complete: false
-- handoff_decision: blocked
-- next_question: What specific task should loopx execute in this workflow?
+- [PENDING] Record unresolved questions without inventing answers.

@@ -8,8 +8,6 @@ import { checkForUpdates, updateNotification } from './version-check.mjs';
 import { clarifyStage, initWorkspace, statusSummary } from './workflow.mjs';
 import { renderHtmlViews } from './html-views.mjs';
 import { inspectInstallTargets, installSkillsForTargets, LOOPX_BUNDLED_SKILLS } from './install-discovery.mjs';
-import { readLancetConfig, readLancetSession, writeLancetSession } from './lancet-runtime.mjs';
-import { nextSkillCommand, withNextSkill } from './next-skill.mjs';
 import { doctorRuntime } from './runtime-maintenance.mjs';
 import { setupWorkspaceContext } from './workspace-context.mjs';
 
@@ -27,13 +25,11 @@ function usage() {
     '  loopx --version',
     '  loopx version [--check] [--json]',
     '  loopx init [--slug <slug>] [--json]',
-    '  loopx clarify <slug> [--standard|--deep] [--json]',
+    '  loopx clarify <slug> [--json]',
     '  loopx render [slug|--all]',
     '  loopx status [slug] [--json]',
-    '  loopx next <slug> [--json]',
     '  loopx setup-context',
     '  loopx install-skills [--target <codex|claude|all>] [--project] [--mode <copy|symlink>] [--dir <path>] [--add-agent-guidance] [--yes] [--dry-run] [--json]',
-    '  loopx lancet <on|off|status> [--json]',
     '  loopx doctor [--json]',
     '  loopx repair-install',
   ].join('\n');
@@ -105,160 +101,34 @@ function parseArgs(argv) {
   return { command, positionals, options };
 }
 
-function blockersForStatus(state) {
-  if (!state) {
-    return [];
-  }
-  const blockers = [];
-  if (state.current_stage === 'clarify' && state.unresolved_ambiguity_count > 0) {
-    blockers.push('unresolved_ambiguity');
-  }
-  if (state.current_stage === 'clarify' && state.clarify_current_round <= 0) {
-    blockers.push('clarify_current_round_required');
-  }
-  if (state.current_stage === 'review' && state.review_verdict === 'request-changes') {
-    blockers.push('review_request_changes');
-  }
-  if (state.stage_status === 'blocked' && blockers.length === 0) {
-    blockers.push('stage_status_blocked');
-  }
-  return [...new Set(blockers)];
-}
-
-const HUMAN_BLOCKER_MESSAGES = new Map([
-  ['unresolved_ambiguity', 'Resolve open clarification questions'],
-  ['clarify_current_round_required', 'Run clarify at least once'],
-  ['clarify_max_rounds_exceeded', 'Clarify round limit exceeded'],
-  ['clarify_non_goals_unresolved', 'Define non-goals'],
-  ['clarify_decision_boundaries_unresolved', 'Define decision boundaries'],
-  ['clarify_pressure_pass_incomplete', 'Complete clarify pressure pass'],
-  ['review_request_changes', 'Address requested review changes'],
-  ['clarify_rework_required', 'Address clarify rework'],
-  ['stage_status_blocked', 'Resolve the current stage blocker'],
-]);
-
-function humanizeStatusValue(value) {
-  return String(value || 'unknown').replaceAll('_', ' ');
-}
-
-function humanBlockerMessage(code) {
-  if (HUMAN_BLOCKER_MESSAGES.has(code)) {
-    return HUMAN_BLOCKER_MESSAGES.get(code);
-  }
-  const patterns = [
-    [/^critic_verdict_(.+)$/, (value) => `Planner critic verdict is ${humanizeStatusValue(value)}`],
-    [/^review_verdict_(.+)$/, (value) => `Review verdict is ${humanizeStatusValue(value)}`],
-    [/^review_status_(.+)$/, (value) => `Review status is ${humanizeStatusValue(value)}`],
-    [/^expansion_(.+)$/, (value) => `Expansion is ${humanizeStatusValue(value)}`],
-    [/^planning_(.+)$/, (value) => `Planning is ${humanizeStatusValue(value)}`],
-    [/^execution_(.+)$/, (value) => `Execution is ${humanizeStatusValue(value)}`],
-    [/^qa_(.+)$/, (value) => `QA is ${humanizeStatusValue(value)}`],
-    [/^validation_(.+)$/, (value) => `Validation is ${humanizeStatusValue(value)}`],
-    [/^review_(.+)$/, (value) => `Review is ${humanizeStatusValue(value)}`],
-  ];
-  for (const [pattern, format] of patterns) {
-    const match = pattern.exec(code);
-    if (match) {
-      return format(match[1]);
-    }
-  }
-  return humanizeStatusValue(code);
-}
-
-function humanBlockersForStatus(state) {
-  return [...new Set(blockersForStatus(state).map(humanBlockerMessage))];
-}
-
-function nextPayloadFromStatus(status, { human = false } = {}) {
-  const state = status.state || null;
-  let nextSkill = nextSkillCommand(state);
-  if (!nextSkill && state?.current_stage === 'clarify' && blockersForStatus(state).length > 0) {
-    nextSkill = `$clarify ${state.slug}`;
-  }
-  return {
-    next_skill_command: nextSkill,
-    next_action: status.next_action,
-  };
-}
-
-function printNext(status, { fallback = true } = {}) {
-  const payload = nextPayloadFromStatus(status, { human: true });
-  if (payload.next_skill_command) {
-    console.log(`next skill: ${payload.next_skill_command}`);
-  }
-  if (fallback && !payload.next_skill_command) {
-    console.log(`next: ${payload.next_action}`);
-  }
-  const detailsSlug = status.slug ? ` ${status.slug}` : '';
-  console.log(`details: loopx status${detailsSlug} --json`);
-}
-
-function humanMissingArtifacts(status) {
-  return Array.isArray(status.missing_artifacts) ? status.missing_artifacts : [];
-}
-
 function humanMissingArtifactsText(status) {
-  const missing = humanMissingArtifacts(status);
-  if (missing.length > 0) {
-    return missing.join(', ');
-  }
-  if (status.state?.current_stage === 'clarify' && Array.isArray(status.missing_artifacts) && status.missing_artifacts.length > 0) {
-    return '(none for current stage)';
-  }
-  return '(none)';
-}
-
-function humanNextAction(status) {
-  const state = status.state || null;
-  if (state?.current_stage === 'clarify') {
-    const nextCommand = nextSkillCommand(state);
-    if (nextCommand) {
-      return `Follow ${nextCommand}.`;
-    }
-    return 'Finish clarification and record a handoff decision before continuing.';
-  }
-  const payload = nextPayloadFromStatus(status, { human: true });
-  if (payload.next_skill_command) {
-    return `Follow ${payload.next_skill_command}.`;
-  }
-  return status.next_action;
+  return status.missing_artifacts?.length > 0 ? status.missing_artifacts.join(', ') : '(none)';
 }
 
 function printHumanStatus(status) {
   if (!status.initialized) {
     console.log('loopx workspace is not initialized.');
-    console.log(status.next_action);
+    console.log('Run loopx init to create the local document workspace.');
     return;
   }
   if (!status.slug) {
     console.log(`workspace: ${status.workspaceRoot}`);
-    console.log(`workflows: ${status.workflow_count}`);
+    console.log(`document sets: ${status.workflow_count}`);
     for (const workflow of status.workflows) {
-      console.log(`- ${workflow.slug}: stage=${workflow.current_stage ?? '(none)'} contract=${workflow.contract}`);
+      console.log(`- ${workflow.slug}: documents=${workflow.document_count}`);
     }
-    console.log(`next: ${status.next_action}`);
     return;
   }
 
-  console.log(`workflow: ${status.slug}`);
+  console.log(`document set: ${status.slug}`);
   console.log(`contract: ${status.contract}`);
-  console.log(`stage: ${status.state?.current_stage ?? '(none)'}`);
-  const blockers = blockersForStatus(status.state);
-  const humanBlockers = humanBlockersForStatus(status.state);
-  console.log(`blocked: ${blockers.length > 0 ? 'yes' : 'no'}`);
-  console.log(`blockers: ${humanBlockers.length > 0 ? humanBlockers.join(', ') : '(none)'}`);
-  if (status.hook) {
-    console.log(`hook_enabled: ${status.hook.enabled}`);
-  }
   console.log(`missing artifacts: ${humanMissingArtifactsText(status)}`);
-  if (status.state?.intake_package_path || status.state?.spec_artifact_path) {
-    console.log(`intake: ${displayPathFromCwd(status.state.intake_package_path || status.state.spec_artifact_path)}`);
+  if (status.documents?.intake_package_path) {
+    console.log(`intake: ${displayPathFromCwd(status.documents.intake_package_path)}`);
   }
-  if (status.state?.requirements_path) {
-    console.log(`requirements: ${displayPathFromCwd(status.state.requirements_path)}`);
+  if (status.documents?.requirements_path) {
+    console.log(`requirements: ${displayPathFromCwd(status.documents.requirements_path)}`);
   }
-  printNext(status, { fallback: false });
-  console.log(`next: ${humanNextAction(status)}`);
 }
 
 function displayPathFromCwd(path) {
@@ -273,57 +143,26 @@ function displayPathFromCwd(path) {
 }
 
 function printHumanClarify(result) {
-  const state = result.state || {};
-  const status = {
-    slug: state.slug,
-    state,
-    next_action: state.recommended_next_action || 'Run loopx status for the next step.',
-  };
-  const blockers = blockersForStatus(state);
-  const humanBlockers = humanBlockersForStatus(state);
-  const payload = nextPayloadFromStatus(status, { human: true });
-  const slug = state.slug || '(none)';
-  console.log(`workflow: ${slug}`);
-  console.log(`stage: ${state.current_stage || 'clarify'}`);
-  console.log(`profile: ${state.clarify_profile || 'standard'}`);
-  console.log(`blocked: ${blockers.length > 0 ? 'yes' : 'no'}`);
-  console.log(`blockers: ${humanBlockers.length > 0 ? humanBlockers.join(', ') : '(none)'}`);
-  console.log(`open questions: ${state.unresolved_ambiguity_count ?? 0}`);
-  const firstQuestion = Array.isArray(state.ambiguity_items)
-    ? state.ambiguity_items.find((item) => item?.status !== 'resolved' && item?.question)?.question
-    : null;
-  if (firstQuestion) {
-    console.log(`first question: ${firstQuestion}`);
-  }
-  console.log(`round: ${state.clarify_current_round ?? 0}/${state.clarify_max_rounds ?? '?'}`);
-  console.log(`intake: ${displayPathFromCwd(state.intake_package_path || state.spec_artifact_path)}`);
-  if (state.requirements_path) {
-    console.log(`requirements: ${displayPathFromCwd(state.requirements_path)}`);
-  }
-  if (payload.next_skill_command) {
-    console.log(`next skill: ${payload.next_skill_command}`);
-  }
-  if (!payload.next_skill_command) {
-    console.log(`next: ${payload.next_action}`);
-  }
+  const documents = result.documents || {};
+  const slug = documents.slug || '(none)';
+  console.log(`document set: ${slug}`);
+  console.log(`intake: ${displayPathFromCwd(documents.intake_package_path)}`);
+  console.log(`clarification: ${displayPathFromCwd(documents.clarification_path)}`);
+  console.log(`requirements: ${displayPathFromCwd(documents.requirements_path)}`);
   console.log(`details: loopx clarify ${slug} --json`);
-  console.log(`status: loopx status ${slug}`);
 }
 
 function printHumanInit(result, options = new Map()) {
-  const workflow = result.workflow?.state ?? null;
+  const documents = result.workflow?.documents ?? null;
   console.log('loopx workspace initialized');
   console.log(`workspace: ${result.workspaceRoot}`);
-  if (!workflow) {
-    console.log('workflow: (none)');
-    console.log('next: loopx clarify <slug>');
+  if (!documents) {
+    console.log('document set: (none)');
     console.log('details: loopx init --json');
     return;
   }
-  console.log(`workflow: ${workflow.slug}`);
-  console.log(`stage: ${workflow.current_stage ?? '(none)'}`);
-  console.log(`next: loopx clarify ${workflow.slug}`);
-  const slug = options.get('--slug') || workflow.slug;
+  console.log(`document set: ${documents.slug}`);
+  const slug = options.get('--slug') || documents.slug;
   console.log(`details: loopx init --slug ${slug} --json`);
 }
 
@@ -346,13 +185,12 @@ function printHumanDoctor(result) {
   if (conflicts > 0) {
     console.log(`conflicts: ${conflicts}`);
   }
-  if (result.hook) {
-    console.log(`hooks: ${result.hook.enabled ? 'enabled' : 'disabled'}`);
+  if (result.hook?.legacyInstalled) {
+    console.log(`legacy workflow hook: ${result.hook.legacyInstalledWorkflowHookPath}`);
   }
   if (!ok) {
     console.log('fix:');
     console.log('  loopx repair-install');
-    console.log('  LOOPX_HOOKS=0 disables loopx hooks for the current process');
   }
   console.log('details: loopx doctor --json');
 }
@@ -405,35 +243,7 @@ function printHumanInstall(result, { dryRun = false } = {}) {
     }
   }
   console.log('repair: loopx repair-install');
-  console.log('disable hooks for one process: LOOPX_HOOKS=0');
   console.log('details: loopx install-skills --json');
-}
-
-async function lancetPayload(action, env = process.env) {
-  if (action === 'on' || action === 'off') {
-    await writeLancetSession({ env, mode: action, persistent: true });
-  } else if (action !== 'status') {
-    throw new Error('lancet_requires_on_off_status');
-  }
-  const [config, session] = await Promise.all([
-    readLancetConfig(env),
-    readLancetSession(env),
-  ]);
-  return {
-    ok: true,
-    command: 'lancet',
-    action,
-    config,
-    session,
-    automatic_activation: 'codex-only',
-  };
-}
-
-function printHumanLancet(payload) {
-  console.log(`lancet: ${payload.session.mode}`);
-  console.log(`default enabled: ${payload.config.enabled === true ? 'yes' : 'no'}`);
-  console.log('automatic activation: Codex-only implementation/review stages');
-  console.log('state: ~/.loopx/lancet/session.json');
 }
 
 async function main() {
@@ -485,7 +295,7 @@ async function main() {
           slug: options.get('--slug') || positionals[0],
         });
         if (options.get('--json')) {
-          console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, workflow: result.workflow?.state ?? null }, null, 2));
+          console.log(JSON.stringify({ ok: true, command, workspaceRoot: result.workspaceRoot, documents: result.workflow?.documents ?? null }, null, 2));
         } else {
           printHumanInit(result, options);
         }
@@ -529,20 +339,10 @@ async function main() {
         }
         return;
       }
-      case 'lancet': {
-        const payload = await lancetPayload(positionals[0] || 'status', process.env);
-        if (options.get('--json')) {
-          console.log(JSON.stringify(payload, null, 2));
-        } else {
-          printHumanLancet(payload);
-        }
-        return;
-      }
       case 'clarify': {
-        const profile = options.get('--deep') ? 'deep' : 'standard';
-        const result = await clarifyStage(process.cwd(), positionals[0], { profile });
+        const result = await clarifyStage(process.cwd(), positionals[0]);
         if (options.get('--json')) {
-          console.log(JSON.stringify(withNextSkill({ ok: true, command, root: result.root, state: result.state }, result.state), null, 2));
+          console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
         } else {
           printHumanClarify(result);
         }
@@ -562,16 +362,6 @@ async function main() {
           console.log(JSON.stringify({ ok: true, command, ...result }, null, 2));
         } else {
           printHumanStatus(result);
-        }
-        return;
-      }
-      case 'next': {
-        const result = await statusSummary(process.cwd(), positionals[0]);
-        const payload = { ok: true, command, slug: result.slug ?? null, ...nextPayloadFromStatus(result) };
-        if (options.get('--json')) {
-          console.log(JSON.stringify(payload, null, 2));
-        } else {
-          printNext(result);
         }
         return;
       }

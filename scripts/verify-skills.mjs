@@ -78,6 +78,9 @@ const obsoleteImplementationPaths = [
   'skills/shared/review-contract.md',
   'scripts/claude-workflow-hook.mjs',
   'scripts/codex-workflow-hook.mjs',
+  'src/lancet-runtime.mjs',
+  'src/next-skill.mjs',
+  'src/workspace-memory.mjs',
   'src/workflow-state.mjs',
 ];
 
@@ -195,7 +198,7 @@ function assertContains(text, value, label) {
   assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} missing ${value}`);
 }
 
-const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot)\b/;
+const removedRuntimeCommandPattern = /\bloopx\s+(?:approve|plan|build|review|archive|autopilot|next|lancet)\b/;
 
 function assertNoRemovedRuntimeCommandExposure(text, label) {
   assert.doesNotMatch(text, removedRuntimeCommandPattern, `${label} should not expose removed runtime commands`);
@@ -217,7 +220,6 @@ async function assertPublicDocsAligned() {
     'loopx clarify',
     'loopx render',
     'loopx status',
-    'loopx next',
     'loopx setup-context',
     'loopx doctor',
     'loopx repair-install',
@@ -430,16 +432,14 @@ async function assertContractMatrix() {
 assert.equal(pluginManifest.version, packageJson.version, 'plugin manifest version must match package.json');
 assert.equal(existsSync(resolverPath), true, 'skills/RESOLVER.md missing');
 
-assert.equal(packageJson.files.includes('scripts/run-agent-evals.mjs'), true, 'npm package must include agent eval runner');
-assert.equal(packageJson.files.includes('scripts/normalize-codex-agent-trace.mjs'), true, 'npm package must include Codex trace normalizer');
-assert.equal(packageJson.files.includes('scripts/run-codex-live-agent-evals.mjs'), true, 'npm package must include Codex live eval runner');
-assert.equal(packageJson.files.includes('scripts/run-darwin-simple-evals.mjs'), true, 'npm package must include installed-product live eval runner');
-assert.equal(packageJson.files.includes('scripts/aggregate-agent-evals.mjs'), true, 'npm package must include agent eval aggregator');
-assert.equal(packageJson.files.includes('evals/gpt-5.6/'), true, 'npm package must include GPT-5.6 eval contracts');
-assert.equal(packageJson.files.includes('evals/darwin-simple/'), true, 'npm package must include installed-product eval contracts');
-assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/repository/'), true, 'npm package must include installed-product eval fixture');
-assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/spec-repository/'), true, 'npm package must include installed-product spec eval fixture');
-assert.equal(packageJson.files.includes('test/fixtures/darwin-simple/memory-repository/'), true, 'npm package must include installed-product memory eval fixture');
+for (const prefix of ['evals/', 'test/fixtures/', 'scripts/run-', 'scripts/aggregate-', 'scripts/normalize-']) {
+  assert.equal(
+    packageJson.files.some((path) => path.startsWith(prefix)),
+    false,
+    `npm runtime package must exclude ${prefix}`,
+  );
+}
+assert.equal(packageJson.files.includes('src/'), false, 'npm package must use an explicit runtime module allowlist');
 assert.equal(existsSync(pluginSkillsRoot), false, 'plugin skill payload directory must be absent');
 assert.equal(existsSync(removedSyncScriptPath), false, 'removed plugin skill sync script must be absent');
 assert.equal(packageJson.files.includes(`scripts/${removedPluginSyncScriptName}.mjs`), false, 'npm package must exclude removed sync script');
@@ -453,7 +453,6 @@ assert.deepEqual(
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
-assert.equal(packageJson.files.includes('test/fixtures/skill-contract-matrix.json'), true, 'npm package must include skill contract matrix');
 assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec']);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);

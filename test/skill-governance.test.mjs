@@ -33,11 +33,15 @@ describe('loopx docs-first governance', () => {
     }
   });
 
-  it('keeps benchmark and drill evidence packaged', async () => {
+  it('keeps benchmark and drill evidence in the repository but out of the runtime package', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
-    assert.equal(packageJson.files.includes('evals/benchmark/'), true);
-    assert.equal(packageJson.files.includes('evals/drills/'), true);
-    assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), true);
-    assert.equal(packageJson.files.includes('scripts/run-drills.mjs'), true);
+    assert.equal(existsSync(join(repoRoot, 'evals', 'benchmark')), true);
+    assert.equal(existsSync(join(repoRoot, 'evals', 'drills')), true);
+    assert.equal(existsSync(join(repoRoot, 'scripts', 'run-benchmark-evals.mjs')), true);
+    assert.equal(existsSync(join(repoRoot, 'scripts', 'run-drills.mjs')), true);
+    assert.equal(packageJson.files.includes('evals/benchmark/'), false);
+    assert.equal(packageJson.files.includes('evals/drills/'), false);
+    assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), false);
+    assert.equal(packageJson.files.includes('scripts/run-drills.mjs'), false);
   });
 });

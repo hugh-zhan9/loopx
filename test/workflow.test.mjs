@@ -13,20 +13,11 @@ import {
   LOOPX_BUNDLED_SKILLS,
   verifyInstallState,
 } from '../src/install-discovery.mjs';
-import { nextSkillCommand, withNextSkill } from '../src/next-skill.mjs';
-import { clarifyStage, initWorkspace, readState, resolveWorkflowRoot, resolveWorkspaceRoot, statusSummary } from '../src/workflow.mjs';
+import { clarifyStage, initWorkspace, readDocumentIndex, resolveWorkflowRoot, resolveWorkspaceRoot, statusSummary } from '../src/workflow.mjs';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(process.cwd());
 const cliPath = resolve(repoRoot, 'src/cli.mjs');
-const SCHEMA_VERSION_FIELD = ['schema', 'version'].join('_');
-const SCHEMA_VERSION_ONE = Number.parseInt('1', 10);
-const SCHEMA_VERSION_TWO = Number.parseInt('2', 10);
-const SCHEMA_VERSION_LINE = `${SCHEMA_VERSION_FIELD}: ${SCHEMA_VERSION_TWO}`;
-const removedIntakeArtifactKey = ['test', 'cases', 'path'].join('_');
-const removedIntakeArtifactExistsKey = ['test', 'cases', 'exists'].join('_');
-const removedMissingArtifactName = ['test', 'cases'].join('_');
-const removedHumanTestCasesLinePattern = new RegExp(`^${['test', 'cases:'].join(' ')}`, 'm');
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -50,194 +41,59 @@ function managedBlock(text, id) {
   return text.match(pattern)?.[1] ?? null;
 }
 
-async function writeResolvedSpec(root, slug) {
-  await writeFile(
-    join(root, 'spec.md'),
-    [
-      '---',
-      SCHEMA_VERSION_LINE,
-      `workflow_id: ${slug}`,
-      'stage: clarify',
-      'current_round: 2',
-      'ambiguity_score: 0.1',
-      'non_goals_resolved: true',
-      'decision_boundaries_resolved: true',
-      'pressure_pass_complete: true',
-      'unresolved_ambiguity_count: 0',
-      '---',
-      '',
-      `# loopx Spec: ${slug}`,
-      '',
-      '## Ambiguity List',
-      '',
-      '- A-1 | resolved | Requirement scope is implementation-ready',
-      '',
-      '## Non-Goals',
-      '',
-      '- Do not skip verification.',
-      '',
-      '## Decision Boundaries',
-      '',
-      '- Agent chooses implementation details within the plan.',
-    ].join('\n'),
-  );
-}
-
-async function writeResolvedClarification(path, slug, handoffDecision = 'direct_to_plan') {
-  await writeFile(
-    path,
-    [
-      '---',
-      SCHEMA_VERSION_LINE,
-      `workflow_id: ${slug}`,
-      'stage: clarify',
-      'current_round: 2',
-      'ambiguity_score: 0.1',
-      'non_goals_resolved: true',
-      'decision_boundaries_resolved: true',
-      'pressure_pass_complete: true',
-      'unresolved_ambiguity_count: 0',
-      '---',
-      '',
-      `# Clarification Log: ${slug}`,
-      '',
-      '## Resume State',
-      '',
-      '- current_round: 2',
-      '- unresolved_count: 0',
-      '- non_goals_resolved: true',
-      '- decision_boundaries_resolved: true',
-      '- pressure_pass_complete: true',
-      `- handoff_decision: ${handoffDecision}`,
-      '- next_question: none',
-    ].join('\n'),
-  );
-}
-
-async function writeResolvedClarificationResumeOnly(path, slug) {
-  await writeFile(
-    path,
-    [
-      '---',
-      SCHEMA_VERSION_LINE,
-      `workflow_id: ${slug}`,
-      'stage: clarify',
-      'current_round: 0',
-      'ambiguity_score: 1',
-      'non_goals_resolved: false',
-      'decision_boundaries_resolved: false',
-      'pressure_pass_complete: false',
-      'unresolved_ambiguity_count: 1',
-      '---',
-      '',
-      `# Clarification Log: ${slug}`,
-      '',
-      '## Resume State',
-      '',
-      '- current_round: 2',
-      '- ambiguity_score: 0.1',
-      '- unresolved_count: 0',
-      '- non_goals_resolved: true',
-      '- decision_boundaries_resolved: true',
-      '- pressure_pass_complete: true',
-      '- handoff_decision: direct_to_plan',
-      '- next_question: none',
-    ].join('\n'),
-  );
-}
-
-async function appendResolvedClarificationResume(path) {
-  await writeFile(
-    path,
-    `${await readFile(path, 'utf8')}
-## Notes
-
-- Earlier resume state may be stale after incremental edits.
-
-## Resume State
-
-- current_round: 2
-- ambiguity_score: 0.1
-- unresolved_count: 0
-- non_goals_resolved: true
-- decision_boundaries_resolved: true
-- pressure_pass_complete: true
-- handoff_decision: direct_to_plan
-- next_question: none
-`,
-  );
-}
-
-describe('loopx retained workflow shell', () => {
-  it('initializes workspace metadata and a clarify workflow', async () => {
+describe('loopx docs-first document shell', () => {
+  it('initializes workspace metadata and a document set', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-init-'));
     const result = await initWorkspace(wd, { slug: 'Demo Init' });
 
     assert.equal(result.workspaceRoot, resolveWorkspaceRoot(wd));
-    assert.equal(result.config.product_contract, 'skill-first-helper');
-    assert.deepEqual(result.config.workflow_intents, [
-      'clarify',
-      'spec',
-      'plan',
-      'exec',
-      'review',
-      'finish',
-    ]);
-    assert.equal(Object.hasOwn(result.config, 'default_flow'), false);
+    assert.equal(result.config.product_contract, 'docs-first');
+    assert.deepEqual(result.config.document_intents, ['clarify', 'spec', 'plan2exec']);
     assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'config.json')), true);
     assert.equal(existsSync(resolveWorkflowRoot(wd, 'demo-init')), true);
 
-    const state = await readState(wd, 'demo-init');
-    assert.equal(state.current_stage, 'clarify');
-    assert.equal(state.stage_status, 'blocked');
-    assert.equal(state.next_skill_command, null);
+    const documents = await readDocumentIndex(wd, 'demo-init');
+    assert.equal(documents.contract, 'loopx-docs-first');
+    assert.equal(documents.slug, 'demo-init');
+    assert.equal(existsSync(join(resolveWorkflowRoot(wd, 'demo-init'), 'documents.json')), true);
+    assert.equal(existsSync(join(resolveWorkflowRoot(wd, 'demo-init'), 'state.json')), false);
   });
 
-  it('clarify creates an intake package and deep mode state', async () => {
+  it('clarify creates goal, decision, boundary, and evidence documents', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-clarify-'));
-    const result = await clarifyStage(wd, 'deep-flow', { profile: 'deep' });
+    const result = await clarifyStage(wd, 'docs-only');
 
-    assert.equal(result.state.clarify_profile, 'deep');
-    assert.equal(result.state.clarify_max_rounds, 25);
     assert.equal(existsSync(join(result.root, 'spec.md')), true);
+    assert.match(result.documents.intake_package_path, /\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-docs-only(?:-\d{6})?$/);
+    assert.equal(existsSync(result.documents.clarification_path), true);
+    assert.equal(existsSync(result.documents.requirements_path), true);
 
-    assert.match(result.state.intake_package_path, /\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-deep-flow(?:-\d{6})?$/);
-    assert.equal(existsSync(result.state.intake_package_path), true);
-    assert.equal(result.state.clarification_path, join(result.state.intake_package_path, 'clarification.md'));
-    assert.equal(result.state.requirements_path, join(result.state.intake_package_path, 'requirements.md'));
-    assert.equal(Object.hasOwn(result.state, removedIntakeArtifactKey), false);
-    assert.equal(result.state.spec_artifact_path, result.state.requirements_path);
-    assert.equal(existsSync(result.state.clarification_path), true);
-    assert.equal(existsSync(result.state.requirements_path), true);
-
-    const requirements = await readFile(result.state.requirements_path, 'utf8');
-    assert.match(requirements, /## Acceptance Criteria/);
-    assert.match(requirements, /### AC-001/);
-    assert.match(requirements, /## Acceptance Scenarios/);
-    assert.match(requirements, /### TC-001/);
-    assert.match(requirements, /Source AC: AC-001/);
+    const workingCopy = await readFile(result.documents.working_copy_path, 'utf8');
+    for (const heading of ['Goal', 'Decisions', 'Boundaries', 'Evidence']) {
+      assert.match(workingCopy, new RegExp(`^## ${heading}$`, 'm'));
+    }
+    for (const forbidden of ['current_stage', 'stage_status', 'next_skill', 'handoff_decision', 'max_rounds']) {
+      assert.doesNotMatch(JSON.stringify(result.documents), new RegExp(forbidden));
+      assert.doesNotMatch(workingCopy, new RegExp(forbidden));
+    }
   });
 
-  it('status exposes clarify intake package paths', async () => {
+  it('status reports document paths without routing model execution', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-status-intake-'));
     const clarified = await clarifyStage(wd, 'package-status');
 
     const status = await statusSummary(wd, 'package-status');
-    assert.equal(status.intake_package_path, status.state.intake_package_path);
-    assert.equal(status.requirements_path, status.state.requirements_path);
-    assert.equal(Object.hasOwn(status, removedIntakeArtifactKey), false);
-    assert.equal(Object.hasOwn(status.state, removedIntakeArtifactKey), false);
-    assert.equal(status.spec_artifact_path, status.state.requirements_path);
+    assert.equal(status.contract, 'loopx-docs-first');
+    assert.equal(status.documents.intake_package_path, clarified.documents.intake_package_path);
     assert.equal(status.artifacts.intake_package_exists, true);
     assert.equal(status.artifacts.requirements_exists, true);
-    assert.equal(Object.hasOwn(status.artifacts, removedIntakeArtifactExistsKey), false);
+    assert.equal(Object.hasOwn(status, 'next_skill_command'), false);
+    assert.equal(Object.hasOwn(status, 'next_action'), false);
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, 'clarify', 'package-status'], { cwd: wd });
     assert.match(stdout, /^intake: .*\.loopx[/\\]intake[/\\]\d{4}-\d{2}-\d{2}-package-status/m);
     assert.match(stdout, /^requirements: .*requirements\.md$/m);
-    assert.doesNotMatch(stdout, removedHumanTestCasesLinePattern);
-
-    assert.equal(existsSync(clarified.state.requirements_path), true);
+    assert.doesNotMatch(stdout, /blocked:|next skill:|next:/);
   });
 
   it('clarify does not overwrite an existing same-day intake package', async () => {
@@ -245,141 +101,45 @@ describe('loopx retained workflow shell', () => {
     const first = await clarifyStage(wd, 'repeat-flow');
     const second = await clarifyStage(wd, 'repeat-flow');
 
-    assert.notEqual(first.state.intake_package_path, second.state.intake_package_path);
-    assert.equal(existsSync(first.state.requirements_path), true);
-    assert.equal(existsSync(second.state.requirements_path), true);
+    assert.notEqual(first.documents.intake_package_path, second.documents.intake_package_path);
+    assert.equal(existsSync(first.documents.requirements_path), true);
+    assert.equal(existsSync(second.documents.requirements_path), true);
   });
 
-  it('status and next recommend canonical plan2exec when clarify is handoff-ready', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-next-'));
-    const clarified = await clarifyStage(wd, 'ready-flow');
-    await writeResolvedClarification(clarified.state.clarification_path, 'ready-flow');
-
-    const status = await statusSummary(wd, 'ready-flow');
-    const expectedPlanCommand = `$plan2exec ${status.state.intake_package_path}`;
-    assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.state.next_skill_command, expectedPlanCommand);
-    assert.equal(status.next_skill_command, expectedPlanCommand);
-
-    const payload = withNextSkill({ ok: true }, status.state);
-    assert.deepEqual(payload, {
-      ok: true,
-      next_skill_command: expectedPlanCommand,
-      next_skill_hint: `Next skill: ${expectedPlanCommand}`,
-    });
-
-    const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'ready-flow'], { cwd: wd });
-    assert.match(nextStdout, new RegExp(`^next skill: \\$plan2exec ${escapeRegExp(status.state.intake_package_path)}$`, 'm'));
-    assert.doesNotMatch(nextStdout, /next cli:/);
-
-    const { stdout: statusStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow'], { cwd: wd });
-    const intakePackageName = status.state.intake_package_path.split(/[/\\]/).at(-1);
-    const pathSeparatorPattern = '(?:/|\\\\)';
-    const intakeDisplayPath = `(?:${escapeRegExp(status.state.intake_package_path)}|\\.loopx${pathSeparatorPattern}intake${pathSeparatorPattern}${escapeRegExp(intakePackageName)})`;
-    assert.match(statusStdout, new RegExp(`^intake: ${intakeDisplayPath}$`, 'm'));
-    assert.match(statusStdout, new RegExp(`^requirements: (?:${escapeRegExp(status.state.requirements_path)}|${intakeDisplayPath}${pathSeparatorPattern}requirements\\.md)$`, 'm'));
-    assert.doesNotMatch(statusStdout, removedHumanTestCasesLinePattern);
-
-    const { stdout: statusJsonStdout } = await execFileAsync(process.execPath, [cliPath, 'status', 'ready-flow', '--json'], { cwd: wd });
-    const statusJson = JSON.parse(statusJsonStdout);
-    assert.equal(statusJson.state.intake_package_path, status.state.intake_package_path);
-    assert.equal(statusJson.state.requirements_path, status.state.requirements_path);
-    assert.equal(Object.hasOwn(statusJson.state, removedIntakeArtifactKey), false);
-  });
-
-  it('routes ready clarify state from the persisted handoff decision', async () => {
-    const needsSpecWd = await mkdtemp(join(tmpdir(), 'loopx-needs-spec-'));
-    const needsSpec = await clarifyStage(needsSpecWd, 'needs-spec');
-    await writeResolvedClarification(needsSpec.state.clarification_path, 'needs-spec', 'needs_spec');
-    const needsSpecStatus = await statusSummary(needsSpecWd, 'needs-spec');
-    assert.equal(needsSpecStatus.state.handoff_decision, 'needs_spec');
-    assert.equal(needsSpecStatus.next_skill_command, `$spec ${needsSpecStatus.state.intake_package_path}`);
-    const { stdout: needsSpecNext } = await execFileAsync(process.execPath, [cliPath, 'next', 'needs-spec'], { cwd: needsSpecWd });
-    assert.match(needsSpecNext, /^next skill: \$spec /m);
-
-    const blockedWd = await mkdtemp(join(tmpdir(), 'loopx-blocked-handoff-'));
-    const blocked = await clarifyStage(blockedWd, 'blocked-handoff');
-    await writeResolvedClarification(blocked.state.clarification_path, 'blocked-handoff', 'blocked');
-    const blockedStatus = await statusSummary(blockedWd, 'blocked-handoff');
-    assert.equal(blockedStatus.state.handoff_decision, 'blocked');
-    assert.equal(blockedStatus.next_skill_command, null);
-  });
-
-  it('rejects pre-v2 running workflow state without rewriting it', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-old-workflow-'));
-    const clarified = await clarifyStage(wd, 'old-workflow');
-    const statePath = join(clarified.root, 'state.json');
-    const oldState = { ...clarified.state, schema_version: SCHEMA_VERSION_ONE };
-    await writeFile(statePath, `${JSON.stringify(oldState, null, 2)}\n`);
-
-    await assert.rejects(() => readState(wd, 'old-workflow'), /unsupported_workflow_schema:1:restart_required/);
-    await assert.rejects(() => statusSummary(wd), /unsupported_workflow_schema:1:restart_required/);
-    assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), oldState);
-
-    await assert.rejects(
-      execFileAsync(process.execPath, [cliPath, 'status', 'old-workflow', '--json'], { cwd: wd }),
-      (error) => error.code === 1 && /unsupported_workflow_schema:1:restart_required/.test(error.stderr),
-    );
-  });
-
-  it('status derives clarify readiness from Resume State when frontmatter is stale', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-resume-ready-'));
-    const clarified = await clarifyStage(wd, 'resume-ready');
-    await writeResolvedClarificationResumeOnly(clarified.state.clarification_path, 'resume-ready');
-
-    const status = await statusSummary(wd, 'resume-ready');
-    assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.next_skill_command, `$plan2exec ${status.state.intake_package_path}`);
-  });
-
-  it('status uses the last Resume State section when clarification has stale earlier state', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx-last-resume-'));
-    const clarified = await clarifyStage(wd, 'last-resume');
-    await appendResolvedClarificationResume(clarified.state.clarification_path);
-
-    const status = await statusSummary(wd, 'last-resume');
-    assert.equal(status.state.stage_status, 'ready');
-    assert.equal(status.state.unresolved_ambiguity_count, 0);
-    assert.equal(status.state.clarify_current_round, 2);
-    assert.equal(status.next_skill_command, `$plan2exec ${status.state.intake_package_path}`);
-  });
-
-  it('next skill quotes handoff paths that contain spaces', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'loopx space next-'));
-    const clarified = await clarifyStage(wd, 'space-flow');
-    await writeResolvedClarification(clarified.state.clarification_path, 'space-flow');
-
-    const status = await statusSummary(wd, 'space-flow');
-    assert.match(status.state.intake_package_path, /\s/);
-    assert.match(status.next_skill_command, /^\$plan2exec '/);
-    assert.match(status.next_skill_command, /'\s*$/);
-
-    const { stdout: nextStdout } = await execFileAsync(process.execPath, [cliPath, 'next', 'space-flow'], { cwd: wd });
-    assert.match(nextStdout, /^next skill: \$plan2exec /m);
-  });
-
-  it('next skill keeps retained review rollback guidance only', () => {
-    assert.equal(nextSkillCommand({
-      slug: 'review-plan',
+  it('reads legacy state only as a document index', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-legacy-state-'));
+    const root = resolveWorkflowRoot(wd, 'legacy');
+    const intake = join(wd, '.loopx', 'intake', 'legacy');
+    await mkdir(root, { recursive: true });
+    await mkdir(intake, { recursive: true });
+    const legacy = {
+      schema_version: 2,
+      slug: 'legacy',
       current_stage: 'review',
-      review_verdict: 'request-changes',
-      rollback_target: 'plan',
-    }), '$plan2exec review-plan');
-    assert.equal(nextSkillCommand({
-      slug: 'review-clarify',
-      current_stage: 'review',
-      review_verdict: 'request-changes',
-      rollback_target: 'clarify',
-    }), '$clarify review-clarify');
-    assert.equal(nextSkillCommand({
-      slug: 'old-plan',
-      current_stage: 'plan',
-      stage_status: 'awaiting-approval',
-      plan_blockers: [],
-    }), null);
+      stage_status: 'blocked',
+      intake_package_path: intake,
+      clarification_path: join(intake, 'clarification.md'),
+      requirements_path: join(intake, 'requirements.md'),
+    };
+    await writeFile(join(root, 'state.json'), `${JSON.stringify(legacy, null, 2)}\n`);
+
+    const documents = await readDocumentIndex(wd, 'legacy');
+    assert.equal(documents.contract, 'loopx-docs-first');
+    assert.equal(documents.requirements_path, legacy.requirements_path);
+    assert.equal(Object.hasOwn(documents, 'current_stage'), false);
+    assert.equal(existsSync(join(root, 'documents.json')), false);
   });
 
-  it('CLI exposes only retained commands in default help and rejects removed commands', async () => {
+  it('renders document sets without workflow state', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'loopx-render-docs-'));
+    await clarifyStage(wd, 'render-docs');
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, 'render', 'render-docs'], { cwd: wd });
+    const payload = JSON.parse(stdout);
+    assert.equal(existsSync(payload.workflowViewPath), true);
+    assert.equal(existsSync(payload.workspaceViewPath), true);
+  });
+
+  it('CLI exposes document commands and rejects orchestration commands', async () => {
     const { stdout: help } = await execFileAsync(process.execPath, [cliPath]);
     for (const command of [
       'loopx --version',
@@ -387,7 +147,6 @@ describe('loopx retained workflow shell', () => {
       'loopx clarify',
       'loopx render',
       'loopx status',
-      'loopx next',
       'loopx setup-context',
       'loopx install-skills',
       'loopx doctor',
@@ -409,13 +168,15 @@ describe('loopx retained workflow shell', () => {
       'loopx execution-start',
       'loopx finish-audit',
       'loopx finish-record',
+      'loopx next',
+      'loopx lancet',
     ]) {
       assert.doesNotMatch(help, new RegExp(removed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
 
     for (const command of [
       'approve', 'plan', 'build', 'review', 'archive', 'autopilot', 'migrate',
-      'finish-start', 'execution-start', 'finish-audit', 'finish-record',
+      'finish-start', 'execution-start', 'finish-audit', 'finish-record', 'next', 'lancet',
     ]) {
       await assert.rejects(
         execFileAsync(process.execPath, [cliPath, command, 'demo']),
