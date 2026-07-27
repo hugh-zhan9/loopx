@@ -315,21 +315,30 @@ describe('loopx docs-first document shell', () => {
     assert.match(planSkill, /explicit planning.*approval boundar.*interruption recovery.*durable coordination/is);
     assert.match(planSkill, /clear, bounded request.*prompt-first/is);
     for (const heading of [
-      'Source And Goal',
-      'Boundaries And Global Constraints',
-      'Execution Slices',
+      'Goal And Boundaries',
       'Integration And Final Verification',
       'Handoff And Residual Risks',
+      'Execution rules for the consuming agent',
     ]) {
       assert.match(planSchema, new RegExp(`^## ${heading}$`, 'm'));
       assert.match(fixture, new RegExp(`^## ${heading}$`, 'm'));
     }
-    assert.match(planSchema, /^### P-001: <coherent outcome>$/m);
-    for (const field of ['Outcome', 'Depends on', 'Write scope', 'Source anchors', 'Acceptance', 'Verification', 'Review focus']) {
-      assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
-      assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
+    assert.match(planSchema, /^## P-001 <coherent outcome>$/m);
+    assert.match(fixture, /^## P-001 /m);
+    for (const line of ['source:', 'status: ready', 'slices:', '- id: P-001', 'status: pending']) {
+      assert.match(planSchema, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
+      assert.match(fixture, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
     }
-    for (const field of ['Source', 'Goal', 'Status', 'Blockers', 'Residual risks', 'Resume note']) {
+    assert.ok(fixture.startsWith('---\n'), 'lean plan fixture must open with a YAML frontmatter block');
+    assert.ok(fixture.slice(4).includes('\n---\n'), 'lean plan fixture frontmatter must close before the body');
+    assert.match(planSchema, /depends: \[P-001\]/);
+    assert.match(planSchema, /depends: \[\]/);
+    assert.match(fixture, /depends: \[\]/);
+    for (const field of ['writes', 'anchors', 'verify', 'review']) {
+      assert.match(planSchema, new RegExp(`^> ${field}:`, 'm'));
+      assert.match(fixture, new RegExp(`^> ${field}:`, 'm'));
+    }
+    for (const field of ['Blockers', 'Residual risks', 'Resume note']) {
       assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
       assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
     }

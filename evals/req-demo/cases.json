@@ -50,7 +50,7 @@
         ],
         "file_contains": {
           "docs/loopx/design/2026-07-22-fitpulse-v1/需求设计文档.md": "AC-01",
-          "docs/loopx/plans/2026-07-22-fitpulse-v1.md": "loopx.execution-graph.v1"
+          "docs/loopx/plans/2026-07-22-fitpulse-v1.md": "## Goal And Boundaries"
         },
         "spec": "consistent",
         "memory": "none"

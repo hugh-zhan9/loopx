@@ -3,7 +3,7 @@ name: plan2exec
 description: "Creates an optional lean plan document for explicit planning, approval boundaries, interruption recovery, or durable coordination. The executing agent follows the plan itself; loopx ships no execution runtime. Not for clear bounded work, unresolved product or architecture decisions, or code changes."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
@@ -42,17 +42,23 @@ decision remains unresolved. Do not settle those decisions inside the plan.
 ## Output Contract
 
 Read [references/plan-schema.md](./references/plan-schema.md) and write one plan
-to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` with `Source And Goal`,
-`Boundaries And Global Constraints`, `Execution Slices` (stable `P-*`
-identifiers with dependencies, write scope, source anchors, acceptance,
-verification, and review focus), `Integration And Final Verification`, and
-`Handoff And Residual Risks`.
+to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`. The plan is one document
+with two layers:
+
+- YAML frontmatter holding the slice graph: the plan `source` and overall
+  `status`, plus stable `P-*` identifiers with `depends` and a per-slice
+  `status` the executing agent updates as work proceeds;
+- a narrative body: `Goal And Boundaries` prose the requester can approve in
+  one read, one section per execution slice — prose outcome and acceptance,
+  closed by a `writes` / `anchors` / `verify` / `review` meta block —
+  followed by `Integration And Final Verification` and
+  `Handoff And Residual Risks`.
 
 Every implementation-relevant source `AC-*`, `D-*`, and `TC-*` anchor must map
 to at least one execution slice, integration verification item, or an explicit
 `deferred-with-rationale` entry. When the source has no anchors, summarize each
-accepted requirement in a slice's `Source anchors` field instead of inventing
-IDs. Do not silently omit source requirements.
+accepted requirement in the slice's `anchors` line instead of inventing IDs.
+Do not silently omit source requirements.
 
 An execution slice is a coherent, independently verifiable outcome, not a
 minute-scale task. Split when outcomes have a real dependency, interface, or
@@ -61,9 +67,9 @@ into the outcome they enable. Preserve existing `P-*` identifiers when revising
 a plan and append new identifiers instead of renumbering prior slices.
 
 Record only dependencies, write scopes, and interfaces supported by source or
-repository evidence. Verification should name exact commands when known and
-otherwise name the required check and observable evidence without inventing
-tooling.
+repository evidence. The `verify` line should name exact commands when known
+and otherwise name the required check and observable evidence without
+inventing tooling.
 
 Do not add task microsteps, implementation snippets, a fixed launch order,
 per-slice commit commands, or executor choices. The schema's execution rules
@@ -78,8 +84,10 @@ and the installed working agreement govern how the plan is carried out.
    execution slices with evidenced dependencies and write scopes.
 5. Map every source requirement and anchor to a slice, integration check, or
    explicit `deferred-with-rationale` entry.
-6. Bind acceptance, verification, and review focus to every slice.
-7. Define final integration verification, handoff status, and residual risks.
+6. Bind acceptance prose and a `verify` line to every slice, and a `review`
+   line to high-risk slices.
+7. Define final integration verification, the frontmatter plan status,
+   handoff blockers, and residual risks.
 8. Check that the plan can survive a context handoff without recreating product
    decisions or the execution structure from scratch.
 
@@ -91,7 +99,8 @@ it before execution begins.
 Do not mark a plan `ready` when the source is contradictory, material
 decisions remain unresolved, complete source coverage cannot be shown, slice
 dependencies are cyclic or unknown, or acceptance cannot be observed. When
-durable recovery requires an artifact, record `Status: blocked`, the concrete
-blocker, and the resume note, then route to `clarify` or `spec`. Otherwise stop
+durable recovery requires an artifact, set frontmatter `status: blocked` and
+record the concrete blocker and the resume note, then route to `clarify` or
+`spec`. Otherwise stop
 without writing a plan. When no persistence trigger exists and the user did not
 explicitly invoke planning, stop without creating an artifact.

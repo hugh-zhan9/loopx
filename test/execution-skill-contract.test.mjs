@@ -19,9 +19,9 @@ test('plan2exec produces a document contract without selecting an execution runt
 
   assert.match(plan, /plan is a\s+document contract/i);
   assert.match(plan, /does not run or schedule the plan/i);
-  assert.match(schema, /Depends on/);
-  assert.match(schema, /Write scope/);
-  assert.match(schema, /Verification/);
+  assert.match(schema, /depends: \[P-001\]/);
+  assert.match(schema, /^> writes:/m);
+  assert.match(schema, /^> verify:/m);
   assert.match(schema, /Execution rules for the consuming agent/i);
   assert.doesNotMatch(schema, /selected_profile|loopx\.execution-graph/);
   assert.match(reviewer, /does not edit the plan/i);

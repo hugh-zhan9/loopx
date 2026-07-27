@@ -1,36 +1,64 @@
 # Plan Document Schema
 
-A plan is a document the executing agent reads and follows; loopx ships no
-execution runtime. Keep it lean: coherent slices, explicit dependencies,
-observable acceptance, and exact verification. The current repository remains
+A plan is one document serving two readers at once: a narrative body a human
+reads top-to-bottom to understand and approve the work, and a thin machine
+layer — YAML frontmatter plus one meta block per slice — the executing agent
+consumes for ordering, isolation, and progress. loopx ships no execution
+runtime; the agent follows the document. The current repository remains
 authoritative for local implementation choices.
+
+## Frontmatter: slice graph and progress
+
+The frontmatter is the only record of dependencies and execution status. Do
+not repeat either in the body.
+
+```yaml
+---
+source: <approved request, intake package, requirements, or design path>
+status: ready            # ready | blocked
+slices:
+  - id: P-001
+    status: pending      # pending | in_progress | done | blocked
+    depends: []          # always explicit; an empty list asserts independence
+  - id: P-002
+    status: pending
+    depends: [P-001]
+---
+```
+
+The executing agent updates each slice `status` as work proceeds, so an
+interrupted handoff resumes from the frontmatter instead of re-deriving
+progress from prose.
+
+## Body template
 
 # <Feature Name>
 
-## Source And Goal
+## Goal And Boundaries
 
-- Source: `<approved request, intake package, requirements, or design path>`
-- Goal: `<observable result this plan must deliver>`
+Narrative the requester can approve in one read: the observable result the
+plan must deliver, the design conclusions the source has already settled,
+explicit non-goals, protected behavior, compatibility rules, dependency
+limits, and approval boundaries. Use diagrams (for example mermaid) and
+repository file links where they carry real information.
 
-## Boundaries And Global Constraints
+## P-001 <coherent outcome>
 
-- `<non-goals, protected behavior, compatibility rules, dependency limits, and approval boundaries>`
+Each slice is a heading plus a few short paragraphs of prose: what this slice
+delivers, how it connects to the rest of the plan, and the observable
+conditions that mean it is done. Write acceptance into the prose as
+statements a reviewer can check, not as a separate form field.
 
-## Execution Slices
+End every slice with one meta block:
 
-### P-001: <coherent outcome>
+> writes: `<repository-relative paths this slice may modify>`
+> anchors: `<AC-*, D-*, TC-*, a summarized requirement, or deferred-with-rationale>`
+> verify: `<exact known commands, or the required check and its observable evidence>`
+> review: `<contract or regression risk an independent reviewer must check — high-risk slices only>`
 
-- Outcome: `<observable result delivered by this slice>`
-- Depends on: `<P-* identifiers or none>`
-- Write scope: `<repository-relative paths this slice may modify>`
-- Source anchors: `<AC-*, D-*, TC-*, summarized requirement, or deferred-with-rationale>`
-- Acceptance: `<observable conditions for this slice>`
-- Verification: `<exact known commands or required checks>`
-- Review focus: `<contract or regression risk an independent reviewer must check for high-risk slices>`
-
-Repeat `P-*` slices only for coherent outcomes with distinct dependency,
-interface, or acceptance boundaries. Preserve existing identifiers during plan
-revision and append new ones instead of renumbering.
+Add `P-*` slices only for coherent outcomes with distinct dependency,
+interface, or acceptance boundaries. Preserve existing identifiers during
+plan revision and append new ones instead of renumbering.
 
 ## Integration And Final Verification
 
@@ -39,17 +67,21 @@ revision and append new ones instead of renumbering.
 
 ## Handoff And Residual Risks
 
-- Status: `ready` | `blocked`
 - Blockers: `<none or concrete unresolved blocker>`
 - Residual risks: `<none known or concrete remaining risk>`
 - Resume note: `<none or the exact point/context needed for an interrupted handoff>`
 
 ## Execution rules for the consuming agent
 
-- Execute slices in dependency order; verify each slice with its exact
-  commands before starting dependents.
+- Execute slices in frontmatter dependency order; verify each slice with its
+  `verify` line before starting dependents, and update its frontmatter
+  `status` as work proceeds.
 - Two slices may run in parallel only when neither depends on the other and
-  their write scopes are disjoint; integrate results sequentially.
+  their `writes` paths are disjoint; integrate results sequentially.
+- Keep the frontmatter and body consistent: every frontmatter slice id has
+  exactly one body section, every slice declares `depends` explicitly (an
+  empty list asserts independence), and dependencies appear only in the
+  frontmatter.
 - Follow the installed working agreement for verification, review, stop, and
   Git discipline throughout.
 

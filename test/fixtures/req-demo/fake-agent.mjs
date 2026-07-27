@@ -22,53 +22,42 @@ macOS Tauri 2 local workout check-in app (React + SQLite).
 - Host in \`src-tauri/\`, frontend in \`src/\`.
 `;
 
-const LOOPX_PLAN_SOURCE = `# Plan: FitPulse v1
+const LOOPX_PLAN_SOURCE = `---
+source: .loopx/intake/2026-07-22-fitpulse-v1/
+status: ready
+slices:
+  - id: P-001
+    status: pending
+    depends: []
+  - id: P-002
+    status: pending
+    depends: [P-001]
+---
 
-## Source And Goal
+# FitPulse v1
 
-Implement FitPulse from \`.loopx/intake/2026-07-22-fitpulse-v1/\`.
+## Goal And Boundaries
 
-## Boundaries And Global Constraints
+Implement FitPulse from \`.loopx/intake/2026-07-22-fitpulse-v1/\`. Do not
+modify the intake package or \`docs/product/REQUIREMENTS.md\`. macOS 13+ /
+Tauri 2 / React / SQLite for v1.
 
-- Do not modify the intake package or \`docs/product/REQUIREMENTS.md\`.
-- macOS 13+ / Tauri 2 / React / SQLite for v1.
+## P-001 App shell and persistence
 
-## Execution Slices
+The app boots and workout data persists locally across restarts.
 
-### P-001 App shell and persistence
+> writes: \`src-tauri/\`, \`src/\`
+> anchors: AC-01, AC-08, AC-12
+> verify: app boots and data persists
 
-- Depends on: none
-- Acceptance: AC-01, AC-08, AC-12
-- Verification: app boots and data persists
+## P-002 Workout flows and visuals
 
-### P-002 Workout flows and visuals
+Check-in validation, heatmap, trend views, and library rules behave as the
+intake requires.
 
-- Depends on: P-001
-- Acceptance: AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-09, AC-10, AC-11, AC-13
-- Verification: validation, heatmap, trends, library rules
-
-\`\`\`loopx.execution-graph.v1
-{
-  "schema": "loopx.execution-graph.v1",
-  "selected_profile": "delegated-serial-v1",
-  "tasks": [
-    {
-      "id": "P-001",
-      "depends_on": [],
-      "write_scope": ["src-tauri/", "src/"],
-      "acceptance": ["AC-01", "AC-08", "AC-12"],
-      "verification": ["app boot", "persistence"]
-    },
-    {
-      "id": "P-002",
-      "depends_on": ["P-001"],
-      "write_scope": ["src/"],
-      "acceptance": ["AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-09", "AC-10", "AC-11", "AC-13"],
-      "verification": ["validation", "heatmap", "trends", "library rules"]
-    }
-  ]
-}
-\`\`\`
+> writes: \`src/\`
+> anchors: AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-09, AC-10, AC-11, AC-13
+> verify: validation, heatmap, trends, library rules
 
 ## Integration And Final Verification
 
@@ -76,7 +65,9 @@ Implement FitPulse from \`.loopx/intake/2026-07-22-fitpulse-v1/\`.
 
 ## Handoff And Residual Risks
 
-- status: ready_for_exec
+- Blockers: none.
+- Residual risks: none known.
+- Resume note: none.
 `;
 
 const BARE_PLAN_SOURCE = `# Plan: FitPulse v1
