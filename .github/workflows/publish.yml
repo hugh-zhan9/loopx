@@ -11,6 +11,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
     paths:
       - package.json
       - plugins/loopx/.codex-plugin/plugin.json

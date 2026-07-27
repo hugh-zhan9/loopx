@@ -1,8 +1,8 @@
 # CLI Reference
 
-The CLI is the installer, diagnostics, context setup, and local runtime support
-surface for loopx. The primary product surface remains the installed skill
-suite used inside the agent.
+The CLI is the installer, diagnostics, context setup, and local intake support
+surface for loopx. The primary product surface is the working agreement and
+document-producing skills installed into the agent host.
 
 ## Current Workflow State Contract
 
@@ -12,9 +12,6 @@ route from that decision; readiness alone never implies planning. Pre-v2
 running workflow state is unsupported and is not migrated or deleted. Start a
 new current-contract workflow when the CLI reports
 `unsupported_workflow_schema:<version>:restart_required`.
-
-Only the top-level controller owns agent lifecycle. Workers dispatched by
-loopx skills are leaf workers and must not create or wait for other agents.
 
 ## Quick start
 
@@ -54,19 +51,20 @@ loopx repair-install
 
 `loopx init`, `loopx clarify`, `loopx status`, and `loopx next` support local
 intake and handoff state. The installed product otherwise stays prompt-first.
-Its six canonical workflow intents are `clarify`, `spec`, `plan2exec`, `exec`,
-`review`, and `finish`; they are optional governance tools, not a fixed path.
+Its three canonical workflow intents are `clarify`, `spec`, and `plan2exec`.
+They produce documents; implementation, review, and Git disposition remain
+ordinary host-native model work governed by the installed working agreement.
 
 New `clarify` workflows write a local intake package under `.loopx/intake/YYYY-MM-DD-<slug>/` with canonical `requirements.md` and supporting `clarification.md`. Human output shows concise paths; use `--json` for full state fields.
 
 ## Installation
 
-Postinstall installs user-level skills and hooks:
+Postinstall installs user-level skills and the working agreement:
 
 - Codex skills: `~/.agents/skills/`
 - Claude skills: `~/.claude/skills/`
-- Codex hook: `~/.codex/hooks/codex-workflow-hook.mjs`
-- Claude hook: `~/.claude/hooks/loopx-workflow-hook.mjs`
+- Codex guidance: managed block in `~/.codex/AGENTS.md`
+- Claude guidance: managed block in `~/.claude/CLAUDE.md`
 
 Preview installed files first:
 
@@ -81,14 +79,7 @@ LOOPX_SKIP_POSTINSTALL=1 npm install -g @ai-content-space/loopx
 LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
 ```
 
-Disable loopx hooks for one process:
-
-```bash
-LOOPX_HOOKS=0 codex
-```
-
-Control Codex-only automatic `lancet` guidance for implementation and review
-work:
+Manage the retained `lancet` preference:
 
 ```bash
 loopx lancet status
@@ -97,8 +88,8 @@ loopx lancet on
 LOOPX_LANCET=0 codex
 ```
 
-`lancet` state lives under `~/.loopx/lancet/`. `LOOPX_LANCET=0` disables
-automatic guidance for the current process without rewriting local state.
+`lancet` state lives under `~/.loopx/lancet/`. The v0.8 package does not install
+a per-turn hook; the preference remains available to compatible host tooling.
 
 Repair an interrupted or conflicted install:
 

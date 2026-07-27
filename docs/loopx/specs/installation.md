@@ -1,25 +1,21 @@
 # Installation And CLI Onboarding Spec
 
-This file records stable loopx product-surface rules for first-use CLI output, installer behavior, hook guidance, and packaged skill scope.
+This file records stable loopx product-surface rules for first-use CLI output, installer behavior, working-agreement guidance, and packaged skill scope.
 
-Installed skills expose only the v2 current contract. Existing pre-v2 running
-`.loopx` state is not migrated and must restart. Agent lifecycle is
-controller-only: workers dispatched by loopx skills are leaf workers.
+Installed skills expose only the current contract. Existing pre-v2 running
+`.loopx` state is not migrated and must restart.
 
-The installed prompt-first surface has six canonical workflow intents:
-`clarify`, `spec`, `plan2exec`, `exec`, `review`, and `finish`. The explicit-only
-names `subagent-exec`, `parallel-subagent-exec`, `final-review`, and `fix-review`
-remain installed.
-`subagent-exec` and `parallel-subagent-exec` are explicit execution profiles
-owned by `exec`; `final-review` and `fix-review` are compatibility aliases for
-`review`. None participates in automatic routing.
+The installed prompt-first surface has three canonical workflow intents:
+`clarify`, `spec`, and `plan2exec`. They produce documents. Execution, review,
+verification, and Git disposition are governed by the installed working
+agreement and use host-native model capabilities.
 
 ## Public CLI Surface
 
 - `loopx --help` must start with a short quickstart path: install skills, init, clarify, status.
 - Public commands are install, init, clarify, render, status, next, setup-context, lancet, doctor, and repair-install.
 - Public `lancet` controls are `loopx lancet on`, `loopx lancet off`, and `loopx lancet status`.
-- Removed early runtime commands must not appear in current public docs, default help, next-step helpers, workflow hooks, or installer guidance.
+- Removed early runtime commands must not appear in current public docs, default help, next-step helpers, or installer guidance.
 - `loopx next` returns a skill handoff, not a runtime command handoff.
 - `loopx clarify` writes local runtime intake packages under `.loopx/intake/YYYY-MM-DD-<slug>/`; `loopx status --json` exposes `intake_package_path`, `requirements_path`, and `clarification_path`, with `spec_artifact_path` pointing to `requirements_path` for compatibility.
 
@@ -31,7 +27,7 @@ owned by `exec`; `final-review` and `fix-review` are compatibility aliases for
 
 ## Installer Behavior
 
-- `loopx install-skills --dry-run` is read-only. It must not write skills, hooks, lock files, settings, or template hashes.
+- `loopx install-skills --dry-run` is read-only. It must not write skills, guidance, lock files, settings, or template hashes.
 - All-target dry-run summaries must render the follow-up command as `loopx install-skills --target all --yes`.
 - `--dir` is valid only with a single target. `--target all --dir <path>` must fail before writing files.
 - `loopx install-skills` must exit nonzero whenever its final payload has `ok: false`, in both human and JSON modes.
@@ -42,12 +38,9 @@ owned by `exec`; `final-review` and `fix-review` are compatibility aliases for
 
 Undo installed files when you want to remove loopx-managed user-level artifacts:
 
-Execution profiles and compatibility aliases are explicit-only. Installation
-does not add them to automatic routing.
-
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,subagent-exec,parallel-subagent-exec,exec,review,final-review,fix-review,finish,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 rm -f ~/.codex/hooks/codex-workflow-hook.mjs ~/.claude/hooks/loopx-workflow-hook.mjs
 rm -rf ~/.loopx/lancet
 ```
@@ -56,10 +49,9 @@ rm -rf ~/.loopx/lancet
 
 - The package root `skills/` surface is exactly `skills/RESOLVER.md` plus the directories in `LOOPX_BUNDLED_SKILLS`.
 - Normal installs and plugin installs both consume bundled skills from the package root `skills/` source.
-- Compatibility alias directories contain only their forwarding `SKILL.md` files. Execution profiles may include bounded prompts, references, and deterministic review helpers.
 - Removed lifecycle wrappers, host-specific scheduler runtimes, legacy reviewer templates, and finish gates must not be published.
-- `lancet` is bundled in the package skill surface. Automatic `lancet` activation is Codex-only in this release.
+- `lancet` is bundled in the package skill surface as a support lens.
 - `lancet` user defaults and session state live under `~/.loopx/lancet/`.
-- `LOOPX_LANCET=0` disables automatic `lancet` guidance for the current process; `LOOPX_LANCET=1` enables it.
+- `LOOPX_LANCET` remains a preference for compatible host tooling; v0.8 installs no per-turn hook.
 - Auxiliary root skill sources must not be published by explicit or broad `package.json.files` entries.
 - `scripts/verify-skills.mjs` and the package governance tests are the release gates for this surface.

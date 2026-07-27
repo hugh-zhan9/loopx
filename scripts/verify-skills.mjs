@@ -231,7 +231,7 @@ async function assertPublicDocsAligned() {
   assertNoRemovedRuntimeCommandExposure(readmeZh, 'README.zh-CN.md');
   assertNoRemovedRuntimeCommandExposure(cliDoc, 'docs/loopx/cli.md');
   assertNoRemovedRuntimeCommandExposure(cliDocZh, 'docs/loopx/cli.zh-CN.md');
-  assertContains(readme, 'Skill-first workflow suite', 'README.md');
+  assertContains(readme, 'Docs-first engineering discipline', 'README.md');
   assertContains(readme, 'three canonical workflow intents', 'README.md');
   assertContains(readme, 'prompt-first', 'README.md');
   assertContains(readme, './docs/loopx/cli.md', 'README.md');
@@ -258,15 +258,12 @@ async function assertPublicDocsAligned() {
   
   
   assert.doesNotMatch(readmeZh, /黄金路径|finish-audit|finish-start|finish-record|execution-start/i);
-  assertContains(cliDoc, 'top-level controller', 'docs/loopx/cli.md');
-  assertContains(cliDocZh, '顶层 controller', 'docs/loopx/cli.zh-CN.md');
   for (const required of [
     'Quick start',
     'Human output is the default',
     'loopx install-skills --target all --dry-run',
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
-    'LOOPX_HOOKS=0',
   ]) {
     assertContains(cliDoc, required, 'docs/loopx/cli.md');
   }
@@ -276,7 +273,6 @@ async function assertPublicDocsAligned() {
     'loopx install-skills --target all --dry-run',
     'LOOPX_SKIP_POSTINSTALL=1',
     'LOOPX_POSTINSTALL=0',
-    'LOOPX_HOOKS=0',
   ]) {
     assertContains(cliDocZh, required, 'docs/loopx/cli.zh-CN.md');
   }

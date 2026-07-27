@@ -441,12 +441,12 @@ describe('loopx retained workflow shell', () => {
     const result = await installBundledSkills(loopxEnv(home), { yes: true });
     assert.equal(result.ok, true);
     assert.equal(result.installed.length, LOOPX_BUNDLED_SKILLS.length);
-    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'agent-topology.md')), true);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'evidence-contract.md')), true);
 
     const verification = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(verification.ok, true);
 
-    const sharedContract = join(home, '.agents', 'skills', 'shared', 'agent-topology.md');
+    const sharedContract = join(home, '.agents', 'skills', 'shared', 'evidence-contract.md');
     assert.equal(existsSync(sharedContract), true);
     await writeFile(sharedContract, '# drifted\n');
     const drifted = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
@@ -524,28 +524,22 @@ describe('loopx retained workflow shell', () => {
     assert.ok(codexRouting, 'Codex guidance must contain prompt-first routing');
     assert.equal(claudeRouting, codexRouting, 'Codex and Claude routing must be byte-consistent');
 
-    assert.match(codexRouting, /clear, bounded.*ordinary model work/is);
-    assert.match(codexRouting, /local defect.*small feature/is);
-    assert.match(codexRouting, /fresh verification/i);
-    assert.match(codexRouting, /no workflow artifacts/i);
-    assert.match(codexRouting, /ambiguity.*risk.*recovery.*coordination.*explicit user intent/is);
-    assert.match(codexRouting, /compatibility.*permission.*secret.*destructive migration.*architecture/is);
-    assert.match(codexRouting, /before mutation.*clarify.*spec/is);
+    assert.match(codexRouting, /smallest change that satisfies it/i);
+    assert.match(codexRouting, /Only claim completion from fresh command output/i);
+    assert.match(codexRouting, /materially ambiguous.*clarify/is);
+    assert.match(codexRouting, /public APIs and observable behavior stable/i);
+    assert.match(codexRouting, /Never commit, push, merge, or discard work unless the user explicitly asks/i);
     for (const forbidden of [/\$direct/i, /direct mode/i, /risk score/i, /Golden[- ]path/i, /skills\/RESOLVER\.md/i]) {
       assert.doesNotMatch(codexRouting, forbidden);
     }
 
     const clarifySkill = await readFile(join(home, '.agents', 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const specSkill = await readFile(join(home, '.agents', 'skills', 'spec', 'SKILL.md'), 'utf8');
-    const agentTopology = await readFile(join(home, '.agents', 'skills', 'shared', 'agent-topology.md'), 'utf8');
     assert.match(clarifySkill, /description:.*concrete ambiguity.*Not for clear bounded requests/i);
     assert.match(specSkill, /description:.*unresolved compatibility.*architecture decisions.*Not for clear local implementation/i);
-    assert.match(agentTopology, /top-level controller.*only orchestration owner/is);
-    assert.match(agentTopology, /default shared worker budget is four/i);
-    assert.match(agentTopology, /Implementers,\s+reviewers, fixers.*same budget/is);
   });
 
-  it('installs plan2exec with traceable execution slices and an authoritative execution graph', async () => {
+  it('installs plan2exec as a traceable document contract', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-lean-plan-'));
     const result = await installBundledSkills(loopxEnv(home));
 
@@ -563,7 +557,6 @@ describe('loopx retained workflow shell', () => {
       'Source And Goal',
       'Boundaries And Global Constraints',
       'Execution Slices',
-      'Authoritative Execution Graph',
       'Integration And Final Verification',
       'Handoff And Residual Risks',
     ]) {
@@ -571,28 +564,8 @@ describe('loopx retained workflow shell', () => {
       assert.match(fixture, new RegExp(`^## ${heading}$`, 'm'));
     }
     assert.match(planSchema, /^### P-001: <coherent outcome>$/m);
-    // The prose slice carries only the reading summary; field-level dispatch
-    // data is graph-only. The legacy fixture keeps the full field set.
-    for (const field of ['Outcome', 'Depends on', 'Source anchors', 'Acceptance', 'Review focus']) {
+    for (const field of ['Outcome', 'Depends on', 'Write scope', 'Source anchors', 'Acceptance', 'Verification', 'Review focus']) {
       assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
-    }
-    for (const field of ['Write scope', 'Relevant paths', 'Exclusive resources', 'Interfaces consumed', 'Interfaces produced', 'Verification', 'Expected evidence']) {
-      assert.doesNotMatch(planSchema, new RegExp(`^- ${field}:`, 'm'));
-    }
-    for (const field of [
-      'Outcome',
-      'Depends on',
-      'Write scope',
-      'Relevant paths',
-      'Exclusive resources',
-      'Interfaces consumed',
-      'Interfaces produced',
-      'Source anchors',
-      'Acceptance',
-      'Verification',
-      'Expected evidence',
-      'Review focus',
-    ]) {
       assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
     }
     for (const field of ['Source', 'Goal', 'Status', 'Blockers', 'Residual risks', 'Resume note']) {
@@ -601,9 +574,8 @@ describe('loopx retained workflow shell', () => {
     }
     assert.match(planSkill, /every implementation-relevant.*AC-\*.*D-\*.*TC-\*/is);
     assert.match(planSkill, /deferred-with-rationale/i);
-    assert.match(planSchema, /loopx\.execution-graph\.v1/);
-    assert.match(planSchema, /selected_profile/);
-    assert.match(planSchema, /parallel_safe/);
+    assert.match(planSchema, /Execution rules for the consuming agent/i);
+    assert.doesNotMatch(planSchema, /loopx\.execution-graph\.v1|selected_profile|parallel_safe/);
     for (const forbidden of [
       /Bite-Sized Task Granularity/i,
       /minute-scale/i,
@@ -615,150 +587,31 @@ describe('loopx retained workflow shell', () => {
     }
   });
 
-  it('installs one exec intent with explicit serial and parallel profile entries', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'loopx-unified-exec-'));
-    const result = await installBundledSkills(loopxEnv(home));
-
-    assert.equal(result.ok, true);
-    const execSkill = await readFile(join(home, '.agents', 'skills', 'exec', 'SKILL.md'), 'utf8');
-    const selection = await readFile(join(home, '.agents', 'skills', 'exec', 'references', 'execution-selection.md'), 'utf8');
-    const graphFixture = JSON.parse(await readFile(join(repoRoot, 'test', 'fixtures', 'prompt-execution-graph.json'), 'utf8'));
-
-    assert.match(execSkill, /clear request.*persistent plan/is);
-    assert.match(execSkill, /temporary graph/i);
-    assert.match(execSkill, /delegated-serial-v1.*default for planned work/is);
-    assert.match(execSkill, /fresh verification/i);
-    assert.match(execSkill, /inline-owned-v1.*prompt-first small work/is);
-    assert.match(selection, /producer-consumer interface/i);
-    assert.match(selection, /default shared worker budget is four/i);
-    assert.match(selection, /uncertain.*serial/is);
-    assert.doesNotMatch(execSkill, /requires? a persistent plan/i);
-    assert.doesNotMatch(execSkill, /ask the user to choose.*(?:serial|subagent|parallel)/is);
-    assert.doesNotMatch(selection, /risk score/i);
-
-    assert.equal(graphFixture.input.kind, 'prompt');
-    assert.equal(graphFixture.persistence, 'none');
-    assert.equal(graphFixture.selection.kind, 'serial');
-    assert.match(graphFixture.selection.reason, /producer.*consumer/i);
-    assert.equal(graphFixture.independent_prompt_case.input.kind, 'prompt');
-    assert.equal(graphFixture.independent_prompt_case.persistence, 'none');
-    assert.equal(graphFixture.independent_prompt_case.selection.kind, 'concurrent');
-    assert.match(
-      graphFixture.independent_prompt_case.selection.reason,
-      /distinct write surfaces.*no shared contract decision.*independent tests.*no integration ordering/i,
-    );
-
-    for (const [alias, canonical] of [
-      ['subagent-exec', 'exec'],
-      ['parallel-subagent-exec', 'exec'],
-    ]) {
-      const aliasSkill = await readFile(join(home, '.agents', 'skills', alias, 'SKILL.md'), 'utf8');
-      assert.match(aliasSkill, /^disable-model-invocation: true$/m, `${alias} must be explicit-only`);
-      assert.match(aliasSkill, /explicit `(?:delegated-serial-v1|parallel-strict-v1)` profile entry point/i);
-      assert.match(aliasSkill, /canonical `exec` controller/i);
-      assert.doesNotMatch(aliasSkill, /compatibility alias/i);
-    }
-  });
-
-  it('installs proportional independent review with explicit-only legacy aliases', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'loopx-proportional-review-'));
+  it('does not install the removed orchestration, review, or finish skills', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-docs-first-surface-'));
     const result = await installBundledSkills(loopxEnv(home));
 
     assert.equal(result.ok, true);
     const installedRoot = join(home, '.agents', 'skills');
-    const execSkill = await readFile(join(installedRoot, 'exec', 'SKILL.md'), 'utf8');
-    const selection = await readFile(join(installedRoot, 'exec', 'references', 'review-selection.md'), 'utf8');
-    const reviewSkill = await readFile(join(installedRoot, 'review', 'SKILL.md'), 'utf8');
-    const reviewContract = await readFile(join(installedRoot, 'shared', 'review-contract.md'), 'utf8');
-    const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
-    const routing = managedBlock(codexGuidance, 'prompt-first-routing');
-
-    assert.match(execSkill, /Every implementation or fix candidate must pass fresh\s+verification.*independent read-only task review/is);
-    assert.match(execSkill, /Only a clean reviewed candidate may integrate/i);
-    assert.match(execSkill, /integration check/i);
-    assert.match(selection, /Inline work always receives fresh verification.*controller integration\s+check/is);
-    assert.match(selection, /follow the canonical contract/i);
-    assert.match(reviewContract, /delegated-serial-v1.*parallel-strict-v1.*require independent task review/is);
-    for (const trigger of [
-      /explicit review intent/i,
-      /security-sensitive or\s+destructive behavior/i,
-      /public compatibility change/i,
-      /cross-scope interaction/i,
-      /conflict reconciliation/i,
+    for (const removed of [
+      'exec',
+      'subagent-exec',
+      'parallel-subagent-exec',
+      'review',
+      'final-review',
+      'fix-review',
+      'finish',
     ]) {
-      assert.match(reviewContract, trigger);
+      assert.equal(existsSync(join(installedRoot, removed, 'SKILL.md')), false, removed);
     }
-    assert.match(reviewContract, /read-only leaf worker/i);
-    assert.match(reviewSkill, /Critical and Important.*active\s+execution context.*fix.*verification/is);
-    assert.match(reviewContract, /fresh focused and combined verification.*independent re-review/is);
-    assert.match(routing, /independent review.*explicit.*security.*destructive.*compatibility.*interaction.*reconciliation/is);
 
-    for (const [alias, intentPattern] of [
-      ['final-review', /whole-feature review/i],
-      ['fix-review', /existing review feedback/i],
-    ]) {
-      const aliasSkill = await readFile(join(installedRoot, alias, 'SKILL.md'), 'utf8');
-      assert.equal(aliasSkill.match(/^disable-model-invocation: true$/gm)?.length, 1);
-      assert.match(aliasSkill, /permanent explicit (?:review intent )?entry/i);
-      assert.match(aliasSkill, /to `review`/i);
-      assert.doesNotMatch(aliasSkill, /compatibility alias/i);
-      assert.match(aliasSkill, intentPattern);
-      assert.match(aliasSkill, /Forward the (?:same arguments|findings)/i);
-      assert.match(aliasSkill, /does not require.*(?:report|ledger) artifact/is);
-    }
-  });
-
-  it('installs one quiet completion check and loopx-scoped finish guidance', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'loopx-completion-check-'));
-    const result = await installBundledSkills(loopxEnv(home));
-
-    assert.equal(result.ok, true);
-    const installedRoot = join(home, '.agents', 'skills');
-    const completionCheck = await readFile(join(installedRoot, 'shared', 'completion-check.md'), 'utf8');
-    const execSkill = await readFile(join(installedRoot, 'exec', 'SKILL.md'), 'utf8');
-    const fixSkill = await readFile(join(installedRoot, 'fix', 'SKILL.md'), 'utf8');
-    const finishSkill = await readFile(join(installedRoot, 'finish', 'SKILL.md'), 'utf8');
-    const finishChoices = await readFile(
-      join(installedRoot, 'finish', 'references', 'branch-worktree-and-recording.md'),
-      'utf8',
+    const agreement = managedBlock(
+      await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8'),
+      'prompt-first-routing',
     );
-    const routing = managedBlock(await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8'), 'prompt-first-routing');
-
-    assert.match(routing, /every completion claim.*quiet completion check/is);
-    assert.match(routing, /finish.*only.*explicit.*\$finish.*active loopx.*(?:exec|fix)/is);
-    assert.match(routing, /standalone Git.*branch.*commit.*merge.*must not.*finish/is);
-    assert.match(routing, /fresh task-relevant verification.*accepted intent.*final diff.*applicable specs/is);
-    assert.match(routing, /explicit user decision.*approved requirement.*existing spec authority/is);
-    assert.match(routing, /encountered.*evidence-backed.*non-obvious.*reusable project pitfall.*deduplication/is);
-    assert.match(routing, /shared memory.*newly tracked knowledge.*explicit acceptance/is);
-    assert.match(routing, /secrets.*raw conversation.*workflow state.*generic path-based.*commit summaries.*obvious code facts/is);
-    assert.match(routing, /neither an applicable spec nor qualifying knowledge changed.*no artifact or reminder/is);
-    assert.doesNotMatch(routing, /shared\/completion-check\.md/);
-    assert.match(execSkill, /Before any completion claim.*controller integration check.*quiet check/is);
-    assert.match(execSkill, /shared\/completion-check\.md/);
-    assert.match(fixSkill, /serial and concurrent.*completion check/is);
-    assert.match(fixSkill, /shared\/completion-check\.md/);
-    assert.match(fixSkill, /git_disposition:\s*requested\s*\|\s*not_requested/i);
-    assert.match(fixSkill, /finish.*only.*active fix run.*Git disposition/is);
-    assert.doesNotMatch(fixSkill, /finish_handoff:\s*`?\$finish|hand off to `finish`/i);
-
-    assert.match(completionCheck, /fresh task-relevant verification/i);
-    assert.match(completionCheck, /applicable spec.*changed by the implementation.*same implementation/is);
-    assert.match(completionCheck, /explicit user decision.*approved requirement.*existing spec authority/is);
-    assert.match(completionCheck, /encountered.*evidence-backed.*non-obvious.*reusable project pitfall/is);
-    assert.match(completionCheck, /shared memory.*newly tracked knowledge.*explicit acceptance/is);
-    assert.match(completionCheck, /secrets.*raw conversation.*workflow state/is);
-    assert.match(completionCheck, /generic path-based.*commit summar.*obvious code facts/is);
-    assert.match(completionCheck, /when neither.*changed.*no\s+artifact.*no reminder/is);
-
-    assert.match(finishSkill, /explicitly invokes `\$finish`.*active loopx.*(?:exec|fix)/is);
-    assert.match(finishSkill, /standalone Git request.*must not trigger `finish`/is);
-    assert.doesNotMatch(finishSkill, /^when_to_use:.*(?:create branch|commit current work|merge locally)/m);
-    assert.match(finishSkill, /do(?:es)? not require.*review report.*extraction candidate.*artifact/is);
-    for (const choice of ['commit', 'branch', 'merge', 'pull request', 'keep', 'cleanup', 'discard']) {
-      assert.match(`${finishSkill}\n${finishChoices}`, new RegExp(`\\b${choice}\\b`, 'i'));
-    }
-    assert.doesNotMatch(finishSkill, /completion check|knowledge distillation|memory candidate/i);
+    assert.match(agreement, /Only claim completion from fresh command output/i);
+    assert.match(agreement, /independent subagent review the exact diff/i);
+    assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/i);
   });
 
 });

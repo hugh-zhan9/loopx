@@ -1,7 +1,7 @@
 # CLI 参考
 
-CLI 是 loopx 的安装、诊断、上下文初始化和本地 runtime 支撑入口。主要产品表面仍然是
-在 agent 中使用的 installed skill suite。
+CLI 是 loopx 的安装、诊断、上下文初始化和本地 intake 支撑入口。主要产品表面是
+安装进 agent host 的 working agreement 和文档型 skills。
 
 ## 当前工作流状态合同
 
@@ -10,9 +10,6 @@ CLI 是 loopx 的安装、诊断、上下文初始化和本地 runtime 支撑入
 只根据该决策路由，ready 本身不再代表可以直接规划。pre-v2 运行状态不受
 支持，CLI 不会迁移或删除旧文件；出现
 `unsupported_workflow_schema:<version>:restart_required` 时应创建新的当前合同工作流。
-
-只有顶层 controller 管理 agent 生命周期。loopx skill 派发的 worker 都是 leaf
-worker，不得继续创建或等待其他 agent。
 
 ## 快速开始
 
@@ -50,20 +47,20 @@ loopx repair-install
 ```
 
 `loopx init`、`loopx clarify`、`loopx status` 和 `loopx next` 支撑本地 intake
-和 handoff state。安装后的产品在其他情况下保持 prompt-first。六个 canonical workflow intents
-是 `clarify`、`spec`、`plan2exec`、`exec`、`review` 和 `finish`；
-它们是可选治理工具，不是固定路径。
+和 handoff state。安装后的产品在其他情况下保持 prompt-first。三个 canonical
+workflow intents 是 `clarify`、`spec` 和 `plan2exec`，它们只产出文档；实现、
+评审和 Git 处置由宿主原生模型能力完成，并遵循安装后的 working agreement。
 
 新的 `clarify` workflow 会在 `.loopx/intake/YYYY-MM-DD-<slug>/` 下写入本地 intake package，包含 canonical `requirements.md` 和 supporting `clarification.md`。人类输出展示简洁路径；完整 state 字段使用 `--json`。
 
 ## 安装
 
-postinstall 默认安装用户级 skills 和 hooks：
+postinstall 默认安装用户级 skills 和 working agreement：
 
 - Codex skills：`~/.agents/skills/`
 - Claude skills：`~/.claude/skills/`
-- Codex hook：`~/.codex/hooks/codex-workflow-hook.mjs`
-- Claude hook：`~/.claude/hooks/loopx-workflow-hook.mjs`
+- Codex guidance：`~/.codex/AGENTS.md` 中的 managed block
+- Claude guidance：`~/.claude/CLAUDE.md` 中的 managed block
 
 先预览会写入哪些文件：
 
@@ -78,13 +75,7 @@ LOOPX_SKIP_POSTINSTALL=1 npm install -g @ai-content-space/loopx
 LOOPX_POSTINSTALL=0 npm install -g @ai-content-space/loopx
 ```
 
-只在当前进程禁用 loopx hooks：
-
-```bash
-LOOPX_HOOKS=0 codex
-```
-
-控制 Codex-only 的 `lancet` 自动指引；它只用于实现和评审阶段：
+管理保留的 `lancet` preference：
 
 ```bash
 loopx lancet status
@@ -93,8 +84,8 @@ loopx lancet on
 LOOPX_LANCET=0 codex
 ```
 
-`lancet` 状态保存在 `~/.loopx/lancet/`。`LOOPX_LANCET=0` 只禁用当前进程的
-自动指引，不改写本地状态。
+`lancet` 状态保存在 `~/.loopx/lancet/`。v0.8 不安装每轮 hook；该 preference
+保留给兼容的宿主工具读取。
 
 修复中断或冲突的安装：
 
