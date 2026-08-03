@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Project Docs"
+  short_description: "Keep repository documentation current and authoritative"
+  default_prompt: "Use $maintain-project-docs to reconcile current repository documentation and archive superseded material."

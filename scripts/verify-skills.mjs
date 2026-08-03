@@ -100,6 +100,10 @@ function parseFrontmatter(path, text) {
       fields.version = line.split(':', 2)[1].trim().replace(/^"|"$/g, '');
       continue;
     }
+    if (inMetadata && line.startsWith('  when_to_use:')) {
+      fields.when_to_use = line.split(':', 2)[1].trim().replace(/^"|"$/g, '');
+      continue;
+    }
     if (!line || line.startsWith(' ')) {
       continue;
     }

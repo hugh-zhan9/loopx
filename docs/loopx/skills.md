@@ -49,6 +49,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `using-git-worktrees` | Explicit workspace isolation. |
 | `doc-readability` | Document clarity and rewriting. |
 | `humanize-doc` | Rewrite discipline for AI-generated documents. |
+| `maintain-project-docs` | Repository-wide current authority, archival, and retrieval hygiene. |
 | `requirement-analyzer` | Requirement gaps and readiness. |
 | `plan-reviewer` | Ad-hoc review of a plan document against its source. |
 | `go-style`, `kratos` | Go and Go-Kratos discipline. |

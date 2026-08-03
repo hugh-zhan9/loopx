@@ -46,6 +46,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 | `using-git-worktrees` | 显式工作区隔离。 |
 | `doc-readability` | 文档清晰度与重写。 |
 | `humanize-doc` | AI 生成文档的改稿纪律（说人话、定案、不臆造）。 |
+| `maintain-project-docs` | 仓库文档的当前权威、历史归档与检索隔离。 |
 | `requirement-analyzer` | 需求缺口与就绪度。 |
 | `plan-reviewer` | 对照来源审查 plan 文档。 |
 | `go-style`、`kratos` | Go 与 Go-Kratos 纪律。 |

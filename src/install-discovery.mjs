@@ -34,6 +34,7 @@ const LOOPX_SKILLS = [
   'using-git-worktrees',
   'doc-readability',
   'humanize-doc',
+  'maintain-project-docs',
   'requirement-analyzer',
   'go-style',
   'kratos',
