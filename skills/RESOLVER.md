@@ -40,6 +40,7 @@ workflow artifacts.
 | Completion, fixed, passing, review-ready, commit, or handoff claims need fresh evidence | `skills/verify/SKILL.md` |
 | Implementation work needs an isolated workspace, existing isolation must be detected, or git worktree setup is requested | `skills/using-git-worktrees/SKILL.md` |
 | Document readability, PRD assessment, requirements gaps, unclear viewpoint, AI-like prose, or document rewriting | `skills/doc-readability/SKILL.md` |
+| Rewriting an AI-generated or AI-assisted document into plain, decision-first, fabrication-free prose | `skills/humanize-doc/SKILL.md` |
 | Existing requirement, PRD, spec, or feature brief needs ambiguity, gap, impact, feasibility, or readiness analysis | `skills/requirement-analyzer/SKILL.md` |
 | Lean plan source coverage, scope drift, dependency, acceptance, or verification audit | `skills/plan-reviewer/SKILL.md` |
 | Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
@@ -58,6 +59,7 @@ workflow artifacts.
 4. `issue` owns issue-driven bug-class intake and diagnosis; feature requests route back to the feature-driven flow. `fix` executes only `.loopx/issues/` ledgers marked `ready_for_fix`.
 5. `refactor-plan` plans behavior-preserving refactors only; a refactor that changes external behavior or contracts routes to `clarify` or `spec`.
 6. `doc-readability` assesses or rewrites documents (PRDs, requirements, specs, meeting notes, AI-like prose) first; clarified implementation work then routes back through `clarify`, `spec`, or `plan2exec`.
+7. `humanize-doc` is the rewrite discipline for AI-generated or AI-assisted drafts: plain language with domain terms preserved, affirmative decisions, invent-nothing with a deletion ledger, diagrams matched to decisions. Assessment-only requests stay with `doc-readability`; a common sequence is a `humanize-doc` rewrite followed by a `doc-readability` final assessment.
 7. `using-git-worktrees` prepares workspace isolation before implementation, but never owns `fix` parallel subagent worktrees.
 8. `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` are support lenses unless explicitly invoked: `requirement-analyzer` reports requirement gaps without advancing workflow state; `plan-reviewer` audits plan documents read-only without editing or dispatching; the domain lenses add discipline to design, implementation, and review without creating workflow states; `lancet` is implementation/review-only.
 

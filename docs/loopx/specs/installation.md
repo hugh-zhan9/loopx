@@ -32,8 +32,8 @@ decisions, boundaries, and evidence. Execution belongs to the model and host.
 Remove loopx-managed user-level artifacts when uninstalling:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,requirement-analyzer,go-style,kratos,api-designer,architecture-designer,sql-style,cli-developer,lancet}
 ```
 
 ## Published Surface

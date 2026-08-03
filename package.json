@@ -49,6 +49,7 @@
     "skills/debug/",
     "skills/doc-readability/",
     "skills/go-style/",
+    "skills/humanize-doc/",
     "skills/issue/",
     "skills/fix/",
     "skills/kratos/",
