@@ -26,8 +26,9 @@ const markdownPaths = [
   'AGENTS.md',
   'docs/loopx/cli.md',
   'docs/loopx/cli.zh-CN.md',
-  'docs/loopx/design/loopx-skill-suite-v1-design.md',
-  'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
+  'docs/loopx/decisions/docs-first-pivot.md',
+  'docs/loopx/specs/installation.md',
+  'docs/loopx/specs/version-compare-evaluation.md',
   'skills/RESOLVER.md',
 ];
 const packageLoopxDocs = [

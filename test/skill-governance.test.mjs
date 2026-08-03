@@ -44,4 +44,21 @@ describe('loopx docs-first governance', () => {
     assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), false);
     assert.equal(packageJson.files.includes('scripts/run-drills.mjs'), false);
   });
+
+  it('keeps superseded project documents outside current authority and default memory retrieval', async () => {
+    const historicalPaths = [
+      'docs/loopx/design/loopx-skill-suite-v1-design.md',
+      'docs/loopx/plans/loopx-skill-suite-v1-implementation.md',
+      'docs/loopx/specs/prompt-first-adaptive-execution.md',
+      'docs/adr/0001-prompt-first-adaptive-execution.md',
+    ];
+    for (const path of historicalPaths) {
+      assert.equal(existsSync(join(repoRoot, path)), false, `${path} must not remain current`);
+      assert.equal(existsSync(join(repoRoot, 'docs', 'archive', path)), true, `${path} must be archived`);
+    }
+
+    assert.equal(existsSync(join(repoRoot, 'docs', 'loopx', 'decisions', 'docs-first-pivot.md')), true);
+    const mempalIgnore = await readFile(join(repoRoot, '.mempalignore'), 'utf8');
+    assert.match(mempalIgnore, /^docs\/archive\/$/m);
+  });
 });

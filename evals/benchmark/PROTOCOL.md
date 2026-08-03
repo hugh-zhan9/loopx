@@ -15,8 +15,8 @@
 - Supersedes: `benchmark-protocol-v1` (v1 campaign was voided by a model
   gateway outage that destroyed 254 of 400 runs overnight; its 146 valid runs
   are reused below under the declared rule).
-- Design anchor: D-07 in
-  `docs/loopx/design/2026-07-24-lightweight-governance-and-eval/需求设计文档.md`.
+- Historical design anchor: D-07 in
+  `docs/archive/docs/loopx/design/2026-07-24-lightweight-governance-and-eval/需求设计文档.md`.
 
 ## Changes from v1 (pre-registered)
 

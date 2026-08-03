@@ -22,6 +22,27 @@ or hosts that benefit from explicit orchestration. Do not carry that runtime mod
 back into the v0.8+ mainline merely to support weaker models. Reversing this boundary
 requires an explicit architecture decision backed by comparative evaluation.
 
+## Documentation Authority
+
+Use the smallest current authority surface below; do not infer current behavior from
+historical plans or designs.
+
+- `AGENTS.md` owns cross-cutting repository guidance and the docs-first boundary.
+- `README.md`, `README.zh-CN.md`, `docs/loopx/cli*.md`, and
+  `docs/loopx/skills*.md` describe the current public product surface.
+- `docs/loopx/specs/` holds maintained long-lived contracts. The current architecture
+  decision is `docs/loopx/decisions/docs-first-pivot.md`.
+- `skills/`, `templates/`, executable configuration, tests, and implementation are
+  contract evidence for their own surfaces. `evals/` remains operational evaluation
+  material; `docs/release-notes/` remains version history.
+- `docs/archive/` preserves superseded plans, designs, decisions, analysis, and memory.
+  It is not current authority and must stay out of default retrieval. Active documents
+  may reference it only when explicitly discussing history.
+
+New design or plan artifacts may still be created at their skill-defined paths while
+they are approved inputs to active work. Archive them after completion or
+supersession instead of creating dated "latest" replacements.
+
 ## Project Structure & Module Organization
 
 This repository is a Node.js ESM CLI package for loopx, a docs-first engineering-discipline layer for Codex and Claude-style agentic coding assistants.
@@ -32,7 +53,8 @@ This repository is a Node.js ESM CLI package for loopx, a docs-first engineering
 - `plugins/loopx/` contains the Codex plugin shell and plugin install scripts.
 - `templates/` stores canonical workflow artifact templates.
 - `scripts/` contains postinstall, governance, and evaluation scripts.
-- `assets/` and `docs/` hold static assets, release notes, and design/planning documents.
+- `assets/` and `docs/` hold static assets, current product documents, release notes,
+  operational evidence, and archived design/planning history.
 
 Keep source changes close to the owning module. When changing bundled skill docs, edit `skills/` as the canonical source, then run `node scripts/verify-skills.mjs` to validate the package and plugin install surface. Skill `metadata.version` is independent from the npm package version; bump only the skills whose content or behavior contract changed.
 

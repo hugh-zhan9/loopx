@@ -18,9 +18,10 @@ token 仅 1/3（candidate vs docs-only -5.3pp [-10.5,-1.3]，配对零胜）；�
 三类对前沿模型全天花板；v0.7 运行时引入真实回归（eventbus 1/3、csv 2/3）且
 整体更贵。宿主原生 subagent/worktree/resume 已覆盖执行原语。
 
-**取代**：no-finish-preconditions、no-legacy-review-artifacts、
-no-loopx-ownership-inference 三条记录的管辖对象随 v0.8 删除，其精神由
-working agreement 的 Git 与评审条款延续。
+**取代**：no-finish-preconditions、no-git-in-completion-check、
+no-legacy-review-artifacts、no-loopx-ownership-inference 四条记录的管辖对象随
+v0.8 删除，其精神由 working agreement 的 Git 与评审条款延续。原记录保存在
+`docs/archive/docs/loopx/decisions/`，仅供历史分析。
 
 **保留的可证伪假设**：clarify/spec 产物对"需求半模糊任务"的增益尚未测量；
 弱模型可能从编排获益。两者列为 v0.8 的判决性实验。

@@ -78,6 +78,9 @@ host's native subagents.
 ## Context Rules
 
 `docs/loopx/specs/` contains binding long-lived repository context.
+`docs/loopx/decisions/docs-first-pivot.md` records the current architecture
+decision. `docs/archive/` is preserved history, not current authority, and is
+excluded from default retrieval.
 `.loopx/memory/MEMORY.md` is advisory curated memory. Current user instructions
 and approved source documents take priority over both.
 

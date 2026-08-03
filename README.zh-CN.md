@@ -71,6 +71,8 @@ $plan2exec <approved-source-or-planning-request>
 ## 上下文规则
 
 `docs/loopx/specs/` 保存长期有效、具有约束力的 repo context。
+`docs/loopx/decisions/docs-first-pivot.md` 记录当前架构决策。
+`docs/archive/` 只保存历史，不属于当前权威，并从默认检索中排除。
 `.loopx/memory/MEMORY.md` 是建议性的 curated memory。当前用户指令和已批准的
 source documents 优先级更高。
 
