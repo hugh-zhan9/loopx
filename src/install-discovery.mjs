@@ -28,6 +28,7 @@ const LOOPX_SKILLS = [
   'issue',
   'fix',
   'refactor-plan',
+  'code-darwin',
   'debug',
   'tdd',
   'verify',

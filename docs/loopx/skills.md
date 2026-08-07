@@ -43,6 +43,7 @@ Support skills remain directly invocable and composable with canonical intents:
 |---|---|
 | `codebase-spec` | Evidence-backed documentation of current behavior. |
 | `refactor-plan` | Behavior-preserving refactor planning. |
+| `code-darwin` | Evidence-backed codebase rot and smell audit with a prioritized refactor backlog. |
 | `tdd` | Failing-test-first development. |
 | `debug` | Root-cause diagnosis. |
 | `verify` | Fresh evidence before completion claims. |
@@ -52,7 +53,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `maintain-project-docs` | Repository-wide current authority, archival, and retrieval hygiene. |
 | `requirement-analyzer` | Requirement gaps and readiness. |
 | `plan-reviewer` | Ad-hoc review of a plan document against its source. |
-| `go-style`, `kratos` | Go and Go-Kratos discipline. |
+| `go-style`, `kratos` | Go engineering facade (style, modernization, performance, concurrency) and Go-Kratos discipline. |
 | `api-designer`, `architecture-designer`, `sql-style`, `cli-developer` | Domain-specific design and review lenses. |
 | `lancet` | Implementation and review simplification. |
 

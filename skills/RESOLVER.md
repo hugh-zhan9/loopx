@@ -35,6 +35,7 @@ workflow artifacts.
 
 | Trigger | Skill |
 |---|---|
+| Repository needs an evidence-backed code-rot, smell, coupling, or complexity audit with a prioritized refactor backlog | `skills/code-darwin/SKILL.md` |
 | Feature or bugfix implementation should be covered by a failing test first | `skills/tdd/SKILL.md` |
 | Bug, test failure, build failure, regression, unexpected behavior, root-cause investigation | `skills/debug/SKILL.md` |
 | Completion, fixed, passing, review-ready, commit, or handoff claims need fresh evidence | `skills/verify/SKILL.md` |
@@ -44,7 +45,7 @@ workflow artifacts.
 | Repository docs contain stale or conflicting decisions, dated duplicates, superseded process material, or unclear current authority | `skills/maintain-project-docs/SKILL.md` |
 | Existing requirement, PRD, spec, or feature brief needs ambiguity, gap, impact, feasibility, or readiness analysis | `skills/requirement-analyzer/SKILL.md` |
 | Lean plan source coverage, scope drift, dependency, acceptance, or verification audit | `skills/plan-reviewer/SKILL.md` |
-| Editing `.go` files or reviewing Go style | `skills/go-style/SKILL.md` |
+| Go implementation or review, idiom modernization, performance analysis, or concurrency correctness | `skills/go-style/SKILL.md` |
 | Go-Kratos proto, service, biz, data, middleware, auth, config, or troubleshooting | `skills/kratos/SKILL.md` |
 | REST/GraphQL API design, resource modeling, OpenAPI, pagination, versioning, or API error model discipline | `skills/api-designer/SKILL.md` |
 | System architecture, ADRs, NFRs, scalability, failure modes, or technology tradeoff discipline | `skills/architecture-designer/SKILL.md` |
@@ -59,11 +60,12 @@ workflow artifacts.
 3. Execution, review, and Git disposition follow the installed working agreement, not a loopx skill: the model implements, verifies with fresh evidence, dispatches an independent host-native reviewer for high-risk diffs, and never performs Git disposition without an explicit user request.
 4. `issue` owns issue-driven bug-class intake and diagnosis; feature requests route back to the feature-driven flow. `fix` executes only `.loopx/issues/` ledgers marked `ready_for_fix`.
 5. `refactor-plan` plans behavior-preserving refactors only; a refactor that changes external behavior or contracts routes to `clarify` or `spec`.
-6. `doc-readability` assesses or rewrites documents (PRDs, requirements, specs, meeting notes, AI-like prose) first; clarified implementation work then routes back through `clarify`, `spec`, or `plan2exec`.
-7. `humanize-doc` is the rewrite discipline for AI-generated or AI-assisted drafts: plain language with domain terms preserved, affirmative decisions, invent-nothing with a deletion ledger, diagrams matched to decisions. Assessment-only requests stay with `doc-readability`; a common sequence is a `humanize-doc` rewrite followed by a `doc-readability` final assessment.
-8. `maintain-project-docs` manages repository-wide document authority and lifecycle. It does not replace `doc-readability` for prose, `codebase-spec` for reverse specifications, `spec` for unresolved future decisions, or `plan2exec` for implementation planning.
-9. `using-git-worktrees` prepares workspace isolation before implementation, but never owns `fix` parallel subagent worktrees.
-10. `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `humanize-doc`, `maintain-project-docs`, `requirement-analyzer`, `plan-reviewer`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` are support lenses unless explicitly invoked: `maintain-project-docs` updates document authority without creating workflow state; `requirement-analyzer` reports requirement gaps without advancing workflow state; `plan-reviewer` audits plan documents read-only without editing or dispatching; the domain lenses add discipline to design, implementation, and review without creating workflow states; `lancet` is implementation/review-only.
+6. `code-darwin` audits code health and proposes a prioritized backlog; it does not replace `codebase-spec` for reverse specifications, `refactor-plan` for approved cleanup planning, or `architecture-designer` for deeper interface design. Default mode is read-only.
+7. `doc-readability` assesses or rewrites documents (PRDs, requirements, specs, meeting notes, AI-like prose) first; clarified implementation work then routes back through `clarify`, `spec`, or `plan2exec`.
+8. `humanize-doc` is the rewrite discipline for AI-generated or AI-assisted drafts: plain language with domain terms preserved, affirmative decisions, invent-nothing with a deletion ledger, diagrams matched to decisions. Assessment-only requests stay with `doc-readability`; a common sequence is a `humanize-doc` rewrite followed by a `doc-readability` final assessment.
+9. `maintain-project-docs` manages repository-wide document authority and lifecycle. It does not replace `doc-readability` for prose, `codebase-spec` for reverse specifications, `spec` for unresolved future decisions, or `plan2exec` for implementation planning.
+10. `using-git-worktrees` prepares workspace isolation before implementation, but never owns `fix` parallel subagent worktrees.
+11. `tdd`, `debug`, `verify`, `using-git-worktrees`, `doc-readability`, `humanize-doc`, `maintain-project-docs`, `requirement-analyzer`, `plan-reviewer`, `code-darwin`, `go-style`, `kratos`, `api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and `lancet` are support lenses unless explicitly invoked: `maintain-project-docs` updates document authority without creating workflow state; `requirement-analyzer` reports requirement gaps without advancing workflow state; `plan-reviewer` audits plan documents read-only without editing or dispatching; `code-darwin` audits rot and smells without creating workflow state; the domain lenses add discipline to design, implementation, and review without creating workflow states; `lancet` is implementation/review-only.
 
 ## Deterministic Guard
 

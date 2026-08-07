@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Darwin"
+  short_description: "Audit code health and prioritize safe refactors"
+  default_prompt: "Use $code-darwin to audit this repository for code rot, architecture smells, and safe refactoring priorities."

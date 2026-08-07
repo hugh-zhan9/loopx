@@ -40,6 +40,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 |---|---|
 | `codebase-spec` | 现状行为的证据化文档。 |
 | `refactor-plan` | 行为保持型重构规划。 |
+| `code-darwin` | 证据化的代码腐化/坏味道审计，并产出可优先处理的重构 backlog。 |
 | `tdd` | 失败测试先行的开发。 |
 | `debug` | 根因诊断。 |
 | `verify` | 完成声明前的新鲜证据。 |
@@ -49,7 +50,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 | `maintain-project-docs` | 仓库文档的当前权威、历史归档与检索隔离。 |
 | `requirement-analyzer` | 需求缺口与就绪度。 |
 | `plan-reviewer` | 对照来源审查 plan 文档。 |
-| `go-style`、`kratos` | Go 与 Go-Kratos 纪律。 |
+| `go-style`、`kratos` | Go 工程 facade（风格、现代化、性能、并发）与 Go-Kratos 纪律。 |
 | `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 领域设计与评审 lenses。 |
 | `lancet` | 实现与评审的最小化纪律。 |
 
