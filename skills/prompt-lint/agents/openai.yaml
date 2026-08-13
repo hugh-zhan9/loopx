@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prompt Lint"
+  short_description: "Assess whether a prompt defines executable, verifiable work"
+  default_prompt: "Use $prompt-lint to assess this prompt for goals, context, boundaries, and evidence."

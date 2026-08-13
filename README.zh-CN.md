@@ -29,8 +29,9 @@ Git 处置。
 Issue-driven workflows 继续可用：`$issue` 诊断 bug 类报告并写本地 ledger；
 `$fix` 执行标记为 `ready_for_fix` 的 ledger。`tdd`、`debug`、`verify`、
 `plan-reviewer`、`api-designer`、`generate-api-docs`、`architecture-designer`、
-`sql-style`、`cli-developer`、`lancet` 等支持 skills 仍是 lenses，不是
-workflow 状态。
+`sql-style`、`cli-developer`、`lancet`、`prompt-lint` 等支持 skills 仍是
+lenses，不是 workflow 状态。`prompt-lint` 只评估任务定义质量，不执行被评估的
+提示词。
 
 ## 为什么 docs-first
 

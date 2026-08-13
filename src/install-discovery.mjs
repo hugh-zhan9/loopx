@@ -45,6 +45,7 @@ const LOOPX_SKILLS = [
   'sql-style',
   'cli-developer',
   'lancet',
+  'prompt-lint',
 ];
 const LOOPX_RETIRED_SKILLS = Object.freeze([
   'plan',

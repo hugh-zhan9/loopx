@@ -34,6 +34,7 @@
     {"skill": "architecture-designer", "role": "support", "boundary": "support lens", "required_outputs": ["failure-mode table"], "safety_invariants": ["STOP Conditions"], "integrations": ["spec"], "required_references": ["references/nfr-checklist.md"], "version": "0.3.7"},
     {"skill": "sql-style", "role": "support", "boundary": "support lens", "required_outputs": ["EXPLAIN"], "safety_invariants": ["expand/contract"], "integrations": ["spec"], "required_references": [], "version": "0.3.6"},
     {"skill": "cli-developer", "role": "support", "boundary": "support lens", "required_outputs": ["Output contract"], "safety_invariants": ["non-interactive"], "integrations": ["spec"], "required_references": ["references/design-patterns.md"], "version": "0.3.8"},
-    {"skill": "lancet", "role": "support", "boundary": "support lens, not a workflow state", "required_outputs": ["smallest correct diff"], "safety_invariants": ["AC-*"], "integrations": ["exec"], "required_references": [], "version": "0.1.4"}
+    {"skill": "lancet", "role": "support", "boundary": "support lens, not a workflow state", "required_outputs": ["smallest correct diff"], "safety_invariants": ["AC-*"], "integrations": ["exec"], "required_references": [], "version": "0.1.4"},
+    {"skill": "prompt-lint", "role": "support", "boundary": "Do not execute the prompt under review", "required_outputs": ["Must supply", "Agent can discover"], "safety_invariants": ["Do not mutate files or external state"], "integrations": ["requirement-analyzer"], "required_references": ["references/rubric.md"], "version": "0.1.0"}
   ]
 }

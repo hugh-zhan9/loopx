@@ -54,6 +54,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 | `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 领域设计与评审 lenses。 |
 | `generate-api-docs` | 为现有 HTTP API 生成字段级 Markdown 与可导入 Apifox 的 OpenAPI YAML。 |
 | `lancet` | 实现与评审的最小化纪律。 |
+| `prompt-lint` | 只读检查提示词的目标、上下文、边界、验证证据与信号质量。 |
 
 Support lenses 不创建 workflow 状态，也不替代 `clarify`、`spec` 或
 `plan2exec`。
@@ -64,6 +65,7 @@ Support lenses 不创建 workflow 状态，也不替代 `clarify`、`spec` 或
 $clarify add team-level usage limits
 $spec billing-state-transitions
 $plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
+$prompt-lint "修复最后一个不完整批次被遗漏的问题，并添加回归测试。"
 ```
 
 每条完成路径都需要 working agreement 之下的新鲜任务相关验证。Prompt-first

@@ -57,6 +57,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `api-designer`, `architecture-designer`, `sql-style`, `cli-developer` | Domain-specific design and review lenses. |
 | `generate-api-docs` | Synchronized field-level Markdown and Apifox-importable OpenAPI YAML for existing HTTP APIs. |
 | `lancet` | Implementation and review simplification. |
+| `prompt-lint` | Read-only lint of prompt goals, context, boundaries, evidence, and signal quality. |
 
 Support lenses do not create workflow states or replace `clarify`, `spec`, or
 `plan2exec`.
@@ -67,6 +68,7 @@ Support lenses do not create workflow states or replace `clarify`, `spec`, or
 $clarify add team-level usage limits
 $spec billing-state-transitions
 $plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
+$prompt-lint "Fix the final partial batch being skipped and add regression coverage."
 ```
 
 Every completion path requires fresh task-relevant verification under the

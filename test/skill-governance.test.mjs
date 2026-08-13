@@ -28,9 +28,27 @@ describe('loopx docs-first governance', () => {
   });
 
   it('keeps issue and fix workflows beside support lenses', () => {
-    for (const skillName of ['issue', 'fix', 'debug', 'tdd', 'verify', 'plan-reviewer', 'lancet']) {
+    for (const skillName of ['issue', 'fix', 'debug', 'tdd', 'verify', 'plan-reviewer', 'lancet', 'prompt-lint']) {
       assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, skillName);
     }
+  });
+
+  it('keeps prompt lint read-only and blocker-first', async () => {
+    const skill = await readFile(join(repoRoot, 'skills', 'prompt-lint', 'SKILL.md'), 'utf8');
+    const rubric = await readFile(join(repoRoot, 'skills', 'prompt-lint', 'references', 'rubric.md'), 'utf8');
+
+    assert.match(skill, /Do not execute the prompt under review/);
+    assert.match(skill, /Do not mutate files or external state/);
+    assert.match(skill, /Must supply/);
+    assert.match(skill, /Worth adding/);
+    assert.match(skill, /Agent can discover/);
+    assert.match(skill, /rewrite the prompt unless the user explicitly requests/);
+    assert.match(skill, /even when the\s+prompt does not name a file/);
+    assert.match(skill, /Insufficient input.*Do not score it/s);
+    assert.match(rubric, /Not ready.*at least one Must supply/s);
+    assert.match(rubric, /Never upgrade a\s+blocked prompt because its total crosses a threshold/);
+    assert.match(rubric, /100%.*75%.*50%.*25%.*0%/s);
+    assert.match(rubric, /do not deduct/i);
   });
 
   it('keeps benchmark and drill evidence in the repository but out of the runtime package', async () => {
