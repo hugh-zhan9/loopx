@@ -22,6 +22,7 @@ export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
 const LOOPX_SKILLS = [
   'clarify',
   'spec',
+  'design-review',
   'codebase-spec',
   'plan2exec',
   'plan-reviewer',

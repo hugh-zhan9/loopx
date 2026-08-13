@@ -198,10 +198,7 @@ If design anchors are not applicable, include `Design anchors: not applicable` w
 
 If only the design proposal is complete, ask for review of the proposal before writing a detailed design or planning work.
 
-After the detailed spec is complete, check `design-review`'s selection gate:
-when the design changes public contracts, data schemas, or state machines,
-crosses system boundaries, contains hard-to-reverse decisions, or carries
-rulings product and QA have not seen, recommend a review before planning:
+After the detailed spec is complete, when `design-review`'s selection gate applies (public contracts, data schemas, state machines, cross-system impact, hard-to-reverse decisions, or rulings product and QA have not seen), recommend a review before planning:
 
 ```text
 $design-review docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md

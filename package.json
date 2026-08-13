@@ -64,6 +64,7 @@
     "skills/requirement-analyzer/",
     "skills/sql-style/",
     "skills/spec/",
+    "skills/design-review/",
     "skills/tdd/",
     "skills/using-git-worktrees/",
     "skills/verify/",
