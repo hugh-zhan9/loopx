@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.4.1"
+  version: "0.4.2"
 ---
 
 # loopx Spec
@@ -196,7 +196,16 @@ If design anchors are not applicable, include `Design anchors: not applicable` w
 
 If only the design proposal is complete, ask for review of the proposal before writing a detailed design or planning work.
 
-After the detailed spec is complete, recommend:
+After the detailed spec is complete, check `design-review`'s selection gate:
+when the design changes public contracts, data schemas, or state machines,
+crosses system boundaries, contains hard-to-reverse decisions, or carries
+rulings product and QA have not seen, recommend a review before planning:
+
+```text
+$design-review docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md
+```
+
+Otherwise, or after the review's resolutions are written back, recommend:
 
 ```text
 $plan2exec docs/loopx/design/YYYY-MM-DD-<kebab-slug>/需求设计文档.md

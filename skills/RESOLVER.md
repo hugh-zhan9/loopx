@@ -20,6 +20,7 @@ workflow artifacts.
 |---|---|
 | Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
 | Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
+| A completed design needs mixed-audience review before planning: generate a decision-oriented review brief, run it to verdicts, write resolutions back into the design | `skills/design-review/SKILL.md` |
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean plan document | `skills/plan2exec/SKILL.md` |
 
 ## Retained Specialized Workflows
