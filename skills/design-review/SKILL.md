@@ -1,19 +1,24 @@
 ---
 name: design-review
-description: "Generates a mixed-audience presentation brief from an approved design, walks reviewers through the solution, records the issues they raise, and writes resolutions back into the design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
+description: "Generates a standalone high-level design (概要设计) for mixed-audience review — what will be built, how, and what will change — records the issues reviewers raise, and writes resolutions back into the detailed design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
 when_to_use: "design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review"
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # loopx Design Review
 
-A review presents a settled solution; the problems come from the reviewers.
-The presenter walks through the 方案 in declarative voice — including its
-sensitive rulings and their costs — and reviewers challenge what they
-disagree with. Silence on a presented ruling is acceptance. The deliverable
-is the set of raised issues resolved and written back into the design
-document — the brief is only the vehicle.
+The review artifact is a 概要设计 — a self-contained high-level design
+that answers the reviewers' three questions: **what will be built, how it
+will work, and what will change**. Do not invent a bespoke "review brief"
+genre; engineering already has the right document for this stage.
+
+A review presents that settled design; the problems come from the
+reviewers. The presenter speaks in declarative voice — including the
+rulings made on the requirement's blank spots and their costs — and
+reviewers challenge what they disagree with. Silence on a presented ruling
+is acceptance. The deliverable is the set of raised issues resolved and
+written back into the detailed design — the 概要设计 is the vehicle.
 
 Do not organize the brief as a questionnaire. A brief full of blank
 "请拍板" slots pushes design responsibility onto the audience and signals
@@ -64,42 +69,40 @@ design is revised, regenerate the brief; do not patch it by hand.
 
 Write to the design directory, next to its sources:
 
-- `docs/loopx/design/YYYY-MM-DD-<slug>/评审材料.md`
+- `docs/loopx/design/YYYY-MM-DD-<slug>/概要设计.md`
 
 Use [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md) as the required
 structure. Rules that make it work for a mixed audience:
 
-- **The change inventory is mandatory.** Reviewers must see the blast
-  radius before the walkthrough: how many tables (and whether existing
-  schemas change), how many interfaces by surface, which services or
-  modules are touched, and which core paths are guaranteed zero-diff.
-  A brief that only narrates business behavior hides the review's scope.
-- **Capabilities are presented as 诉求 → 设计 → 为什么.** Each capability
-  cites the requirement it serves, shows the mechanism (state machine /
-  flow / timeline diagram plus small field or rule tables), then gives the
-  rationale — rule-heavy sections use a "规则 | 为什么" table. Rulings that
-  deviate from the requirement's wording are bolded. Purely technical
-  safeguards (concurrency, idempotency) appear as one-paragraph
-  "技术辅助" quote blocks pointing into the detailed design.
-- **Decisions consolidate into one table** (决策 | 结论 | 为什么 | 代价),
-  ordered by business impact, cost column mandatory. Undecided items do
-  not appear there — they mean the design is unfinished.
-- **Confirmation points are few, last, and answered.** After the full
-  walkthrough, a short list of yes/no items each with a suggested answer —
-  every ruling that deviates from the requirement text must appear here.
-  More than five or six means the walkthrough failed to digest the
-  rulings. This is not a questionnaire: each item carries the presenter's
-  recommendation.
+- **The spine is the three questions**: 我要做什么（背景与目标、范围）、
+  我会怎么做（总体方案 + 分模块方案）、我会改动什么（存储/接口/代码的
+  改动清单，含"既有核心路径零改动"的显式保证）。这就是概要设计的骨架，
+  不要另造评审专用的章节体系。
+- **Each item has exactly one full home.** A module's business rules live
+  once in that module's "规则 | 为什么" table; cross-module technical
+  decisions live once in the 总体方案 decision table; rulings needing
+  sign-off appear in 待确认 as one-line items (议题 + 建议) that point
+  back to the module section — never restate the full rationale a second
+  or third time. Repetition is how a brief bloats into a contract rider.
+- **Background matches the work's nature.** Brownfield work states real
+  pain (what fails today, with what consequence); greenfield work states
+  goals and regulatory constraints. Never fabricate legacy pain for a
+  new business — reviewers smell it immediately.
+- **Modules are presented as 诉求 → 设计 → 规则与理由**, each with one
+  diagram (state machine / flow / timeline). Rulings that deviate from
+  the requirement's wording are bolded and pointed at a 待确认 item.
+  Requirement-settled behavior gets a "（需求已定）" suffix. Purely
+  technical safeguards go into one-paragraph "技术辅助" quote blocks.
+- **Tense must match implementation status.** When the implementation is
+  already complete, drop pre-freeze language, and mark each acceptance
+  point as already-verified (automated / manual) or pending — a completed
+  feature reviewed in future tense reads as fiction.
 - **Behavior language in the main body; depth goes to the appendix.** No
   file paths, line numbers, or code identifiers outside the technical
-  appendix (实现要点、预研结论、`D-*` 对照). Translate field names into
-  business terms. Per-stakeholder cooperation items and executable
-  acceptance points each get their own section — they are what QA and
-  neighboring teams take away.
-- **Point, don't copy.** Detail lives in the design documents; the brief
-  links to them. A brief that duplicates the design will drift from it.
-  Keep the whole thing walkable in about 60 minutes; split the review
-  rather than compress it.
+  appendix. Translate field names into business terms.
+- **Point, don't copy.** Field-level contracts live in the detailed
+  design; the 概要设计 links to them. Keep the whole thing walkable in
+  about 60 minutes; split the review rather than compress it.
 
 ## Running The Review
 
@@ -174,9 +177,13 @@ After the review, the design document is the single source of truth again:
   repeats a dozen times — both are unreadable in a room; the former hides
   the mechanism, the latter buries the signal in boilerplate.
 - A brief with business narrative only — no change inventory (tables,
-  interfaces, touched modules), no consolidated decision table, no
-  per-stakeholder cooperation items — reviewers leave without knowing
-  the blast radius or what they owe.
+  interfaces, touched modules), no per-stakeholder cooperation items —
+  reviewers leave without knowing the blast radius or what they owe.
+- The same ruling fully restated in multiple sections (module rules,
+  decision table, confirmation points) — one full home, everything else
+  is a pointer.
+- Fabricated legacy pain points for greenfield work, or future-tense
+  acceptance criteria for an already-shipped implementation.
 - A brief that hides the design's sensitive rulings inside neutral prose —
   reviewers cannot challenge what they cannot see.
 - Code identifiers in the main body of a mixed-audience brief.
