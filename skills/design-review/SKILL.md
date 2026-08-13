@@ -3,7 +3,7 @@ name: design-review
 description: "Generates a standalone high-level design (概要设计) for mixed-audience review — what will be built, how, and what will change — records the issues reviewers raise, and writes resolutions back into the detailed design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
 when_to_use: "design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review"
 metadata:
-  version: "0.5.0"
+  version: "0.5.1"
 ---
 
 # loopx Design Review
@@ -35,6 +35,13 @@ where product and QA see the design before implementation starts. Open
 review items are unresolved material decisions: per `plan2exec`'s existing
 STOP conditions they block planning until resolved or explicitly deferred
 with an owner and a date.
+
+The 概要设计 this skill produces is also the **single home of the
+high-level layer** (architecture, core flows, module split). The detailed
+design keeps only a short 方案总述 pointing here — per spec's template,
+its 3.2-3.5 sections are written inline only for designs that skip review.
+This restores the classical two-document split: 概要设计 reviewed first,
+详细设计 carrying field-level contracts.
 
 ## Selection Gate
 

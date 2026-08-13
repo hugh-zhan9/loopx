@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.4.2"
+  version: "0.4.3"
 ---
 
 # loopx Spec
@@ -171,7 +171,9 @@ The detailed Markdown spec must include the template's core sections:
 - `# <项目/功能>设计文档`
 - `一、修订历史`（初稿即写入 V1.0.0 一行）
 - `二、需求信息`（2.1 背景、2.2 范围）
-- `三、概要设计`（3.1 方案总述、3.6 专项设计检查）
+- `三、概要设计`（3.1 方案总述、3.6 专项设计检查；架构/流程/模块层
+  只完整存在一处 —— 过 design-review 的设计由独立《概要设计.md》承载
+  3.2-3.5 的内容，详设的 3.1 指向它，不复述）
 - `四、详细设计`（每个涉及模块含 4.x.4 边界条件与 4.x.5 不变行为）
 - `Planning Handoff`
 - `十一、QA`（待确认问题、Verification Strategy / TC 覆盖映射、Design Contract Index）
