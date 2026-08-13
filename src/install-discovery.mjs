@@ -51,6 +51,16 @@ const LOOPX_SKILLS = [
 const LOOPX_RETIRED_SKILLS = Object.freeze([
   'plan',
   'plan-to-exec',
+  // Dissolved by the v0.8 docs-first pivot (docs/loopx/decisions/docs-first-pivot.md).
+  // Listing them here lets the installer clean them out of pre-0.8 installs;
+  // without it those installs keep orphaned skills forever.
+  'exec',
+  'subagent-exec',
+  'parallel-subagent-exec',
+  'review',
+  'final-review',
+  'fix-review',
+  'finish',
 ]);
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
