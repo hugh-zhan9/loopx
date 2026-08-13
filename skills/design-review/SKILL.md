@@ -3,7 +3,7 @@ name: design-review
 description: "Generates a mixed-audience presentation brief from an approved design, walks reviewers through the solution, records the issues they raise, and writes resolutions back into the design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
 when_to_use: "design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review"
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # loopx Design Review
@@ -69,28 +69,37 @@ Write to the design directory, next to its sources:
 Use [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md) as the required
 structure. Rules that make it work for a mixed audience:
 
-- **The solution walkthrough is the spine, and diagrams carry it.** Organize
-  along the business flow the design delivers. Each stage leads with one
-  picture — a state machine, flow, or timeline (mermaid) — that does the
-  explaining; prose around it stays to a few sentences. A walkthrough that
-  is a wall of text has failed regardless of its content.
-- **Sensitive rulings are short annotations beside the diagrams, not
-  repeated callout blocks.** Rulings the audience has never seen — deadline
-  semantics, timezone choices, degraded behavior — appear as one-line notes
-  (bold lead, then the consequence) attached to the stage they belong to.
-  State the change-cost only where it is asymmetric (changing now is an
-  order of magnitude cheaper than after launch) — pricing every item turns
-  the walkthrough into a contract rider. Requirement-settled behavior that
-  merely looks surprising gets a "（需求已定）" suffix so reviewers do not
-  waste fire on it. Never phrase a ruling as a question to the audience.
-- **Behavior language only.** No file paths, line numbers, table columns,
-  or code identifiers in the main body. Translate `annual_confirm_due_at`
-  into "下次年度确认日". A technical appendix may reference `D-*` anchors.
-- **Time-budgeted.** Mark each section with minutes; the whole brief must
-  be walkable in about 60 minutes. If it cannot, split the review — do not
-  compress the walkthrough.
+- **The change inventory is mandatory.** Reviewers must see the blast
+  radius before the walkthrough: how many tables (and whether existing
+  schemas change), how many interfaces by surface, which services or
+  modules are touched, and which core paths are guaranteed zero-diff.
+  A brief that only narrates business behavior hides the review's scope.
+- **Capabilities are presented as 诉求 → 设计 → 为什么.** Each capability
+  cites the requirement it serves, shows the mechanism (state machine /
+  flow / timeline diagram plus small field or rule tables), then gives the
+  rationale — rule-heavy sections use a "规则 | 为什么" table. Rulings that
+  deviate from the requirement's wording are bolded. Purely technical
+  safeguards (concurrency, idempotency) appear as one-paragraph
+  "技术辅助" quote blocks pointing into the detailed design.
+- **Decisions consolidate into one table** (决策 | 结论 | 为什么 | 代价),
+  ordered by business impact, cost column mandatory. Undecided items do
+  not appear there — they mean the design is unfinished.
+- **Confirmation points are few, last, and answered.** After the full
+  walkthrough, a short list of yes/no items each with a suggested answer —
+  every ruling that deviates from the requirement text must appear here.
+  More than five or six means the walkthrough failed to digest the
+  rulings. This is not a questionnaire: each item carries the presenter's
+  recommendation.
+- **Behavior language in the main body; depth goes to the appendix.** No
+  file paths, line numbers, or code identifiers outside the technical
+  appendix (实现要点、预研结论、`D-*` 对照). Translate field names into
+  business terms. Per-stakeholder cooperation items and executable
+  acceptance points each get their own section — they are what QA and
+  neighboring teams take away.
 - **Point, don't copy.** Detail lives in the design documents; the brief
   links to them. A brief that duplicates the design will drift from it.
+  Keep the whole thing walkable in about 60 minutes; split the review
+  rather than compress it.
 
 ## Running The Review
 
@@ -108,6 +117,11 @@ Presented rulings that drew no objection are accepted as-is — do not chase
 the room for explicit sign-off on each one. "讲完了" with unrecorded
 objections, however, is not a finished review; capture every challenge
 before it evaporates.
+
+Accepted changes land as **评审变更 rows in the brief's version table**
+(what changed, why — one line each) in addition to the design document's
+revision history. The brief thus carries its own audit trail of what the
+review altered, the way a v2.1/v2.2 changelog does.
 
 ## Writing Resolutions Back
 
@@ -159,6 +173,10 @@ After the review, the design document is the single source of truth again:
 - A walkthrough with no diagrams, or one where a fixed callout template
   repeats a dozen times — both are unreadable in a room; the former hides
   the mechanism, the latter buries the signal in boilerplate.
+- A brief with business narrative only — no change inventory (tables,
+  interfaces, touched modules), no consolidated decision table, no
+  per-stakeholder cooperation items — reviewers leave without knowing
+  the blast radius or what they owe.
 - A brief that hides the design's sensitive rulings inside neutral prose —
   reviewers cannot challenge what they cannot see.
 - Code identifiers in the main body of a mixed-audience brief.
