@@ -3,7 +3,7 @@ name: design-review
 description: "Generates a mixed-audience presentation brief from an approved design, walks reviewers through the solution, records the issues they raise, and writes resolutions back into the design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
 when_to_use: "design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review"
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # loopx Design Review
@@ -69,15 +69,20 @@ Write to the design directory, next to its sources:
 Use [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md) as the required
 structure. Rules that make it work for a mixed audience:
 
-- **The solution walkthrough is the spine.** Organize along the business
-  flow the design delivers, in declarative voice. The presenter states
-  what the system does; reviewers interrupt where they disagree.
-- **Highlight the sensitive rulings inside the walkthrough.** Rulings the
-  audience has never seen — deadline semantics, timezone choices, degraded
-  behavior, "known not-doing" — are stated as part of the 方案, each with
-  its rationale and its price (accepted cost; cost of changing now versus
-  after launch). Marked visibly so reviewers know where to aim, but never
-  phrased as questions to the audience.
+- **The solution walkthrough is the spine, and diagrams carry it.** Organize
+  along the business flow the design delivers. Each stage leads with one
+  picture — a state machine, flow, or timeline (mermaid) — that does the
+  explaining; prose around it stays to a few sentences. A walkthrough that
+  is a wall of text has failed regardless of its content.
+- **Sensitive rulings are short annotations beside the diagrams, not
+  repeated callout blocks.** Rulings the audience has never seen — deadline
+  semantics, timezone choices, degraded behavior — appear as one-line notes
+  (bold lead, then the consequence) attached to the stage they belong to.
+  State the change-cost only where it is asymmetric (changing now is an
+  order of magnitude cheaper than after launch) — pricing every item turns
+  the walkthrough into a contract rider. Requirement-settled behavior that
+  merely looks surprising gets a "（需求已定）" suffix so reviewers do not
+  waste fire on it. Never phrase a ruling as a question to the audience.
 - **Behavior language only.** No file paths, line numbers, table columns,
   or code identifiers in the main body. Translate `annual_confirm_due_at`
   into "下次年度确认日". A technical appendix may reference `D-*` anchors.
@@ -151,8 +156,11 @@ After the review, the design document is the single source of truth again:
 - A brief organized as a questionnaire — blank verdict slots asking the
   audience to decide. The presenter presents decisions; reviewers challenge
   them.
-- A brief that hides the design's sensitive rulings or their costs inside
-  neutral prose — reviewers cannot challenge what they cannot see.
+- A walkthrough with no diagrams, or one where a fixed callout template
+  repeats a dozen times — both are unreadable in a room; the former hides
+  the mechanism, the latter buries the signal in boilerplate.
+- A brief that hides the design's sensitive rulings inside neutral prose —
+  reviewers cannot challenge what they cannot see.
 - Code identifiers in the main body of a mixed-audience brief.
 - A review that produced minutes but left raised issues unresolved and
   ownerless.
