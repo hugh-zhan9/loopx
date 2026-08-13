@@ -169,13 +169,16 @@ If the user asks for a presentable document or visual review artifact, also writ
 The detailed Markdown spec must include the template's core sections:
 
 - `# <项目/功能>设计文档`
+- `一、修订历史`（初稿即写入 V1.0.0 一行）
 - `二、需求信息`（2.1 背景、2.2 范围）
 - `三、概要设计`（3.1 方案总述、3.6 专项设计检查）
 - `四、详细设计`（每个涉及模块含 4.x.4 边界条件与 4.x.5 不变行为）
 - `Planning Handoff`
 - `十一、QA`（待确认问题、Verification Strategy / TC 覆盖映射、Design Contract Index）
 
-Triggered sections（修订历史、可行性分析、架构与流程、存储、其他组件、接口、发布、监控、排期）appear only when the design involves them, per the template's trigger table.
+Triggered sections（可行性分析、架构与流程、存储、其他组件、接口、发布、监控、排期）appear only when the design involves them, per the template's trigger table.
+
+When a later revision changes a design conclusion — repository evidence contradicts an assumption, the source requirement contradicts a simplification, or an executor surfaces a boundary — record it inline at the affected section **and** append a row to `一、修订历史`. An inline note alone does not tell a reader how many times the document has been revised or which conclusions were later corrected.
 
 The `Planning Handoff` subsection states what `plan2exec` may decide without re-opening design and what must return to `clarify` or `spec`.
 
