@@ -3,7 +3,7 @@ name: design-review
 description: "Generates a standalone high-level design (概要设计) for mixed-audience review — what will be built, how, and what will change — records the issues reviewers raise, and writes resolutions back into the detailed design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec."
 when_to_use: "design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review"
 metadata:
-  version: "0.5.1"
+  version: "0.5.2"
 ---
 
 # loopx Design Review
@@ -81,10 +81,13 @@ Write to the design directory, next to its sources:
 Use [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md) as the required
 structure. Rules that make it work for a mixed audience:
 
-- **The spine is the three questions**: 我要做什么（背景与目标、范围）、
-  我会怎么做（总体方案 + 分模块方案）、我会改动什么（存储/接口/代码的
-  改动清单，含"既有核心路径零改动"的显式保证）。这就是概要设计的骨架，
-  不要另造评审专用的章节体系。
+- **The spine is the three questions — but headings stay professional.**
+  The document answers 做什么（背景与范围）、怎么做（总体设计 +
+  分模块方案）、改动什么（存储/接口/代码的改动清单，含"既有核心路径
+  零改动"的显式保证）。Use standard engineering headings（背景与范围 /
+  总体设计 / 分模块方案 / 改动清单）——the three questions are the
+  organizing frame, not literal section titles; first-person future-tense
+  headings read like an essay, not a design document.
 - **Each item has exactly one full home.** A module's business rules live
   once in that module's "规则 | 为什么" table; cross-module technical
   decisions live once in the 总体方案 decision table; rulings needing
