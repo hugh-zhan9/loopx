@@ -32,8 +32,8 @@ The three canonical workflow intents produce documents:
 Issue-driven workflows remain available: `$issue` diagnoses a bug-class report
 and writes a local ledger; `$fix` executes a ledger marked `ready_for_fix`.
 Support skills such as `tdd`, `debug`, `verify`, `plan-reviewer`,
-`api-designer`, `architecture-designer`, `sql-style`, `cli-developer`, and
-`lancet` remain lenses, not workflow states.
+`api-designer`, `generate-api-docs`, `architecture-designer`, `sql-style`,
+`cli-developer`, and `lancet` remain lenses, not workflow states.
 
 ## Why docs-first
 

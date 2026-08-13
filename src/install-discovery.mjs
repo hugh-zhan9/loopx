@@ -40,6 +40,7 @@ const LOOPX_SKILLS = [
   'go-style',
   'kratos',
   'api-designer',
+  'generate-api-docs',
   'architecture-designer',
   'sql-style',
   'cli-developer',

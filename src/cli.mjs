@@ -171,8 +171,13 @@ function countInstallConflicts(result) {
     .reduce((sum, target) => sum + (Array.isArray(target.conflicts) ? target.conflicts.length : 0), 0);
 }
 
+function runtimeDependenciesOk(result) {
+  return Object.values(result.runtimeDependencies || {})
+    .every((dependency) => dependency.available === true);
+}
+
 function printHumanDoctor(result) {
-  const ok = !result.mixedRuntimeRoots && result.installCheck?.ok === true;
+  const ok = !result.mixedRuntimeRoots && result.installCheck?.ok === true && runtimeDependenciesOk(result);
   console.log(`loopx doctor: ${ok ? 'ok' : 'attention needed'}`);
   console.log(`workspace: ${result.loopxRoot ?? result.workspaceRoot ?? '(unknown)'}`);
   if (result.mixedRuntimeRoots) {
@@ -181,6 +186,9 @@ function printHumanDoctor(result) {
     console.log('runtime roots: ok');
   }
   console.log(`install: ${result.installCheck?.ok === true ? 'ok' : 'failed'}`);
+  for (const [name, dependency] of Object.entries(result.runtimeDependencies || {})) {
+    console.log(`runtime ${name}: ${dependency.available ? 'ok' : `missing (required by ${dependency.requiredBy.join(', ')})`}`);
+  }
   const conflicts = countInstallConflicts(result);
   if (conflicts > 0) {
     console.log(`conflicts: ${conflicts}`);
@@ -367,7 +375,11 @@ async function main() {
       }
       case 'doctor': {
         const result = await doctorRuntime(process.cwd(), process.env);
-        const payload = { ok: !result.mixedRuntimeRoots && result.installCheck.ok, command, ...result };
+        const payload = {
+          ok: !result.mixedRuntimeRoots && result.installCheck.ok && runtimeDependenciesOk(result),
+          command,
+          ...result,
+        };
         if (options.get('--json')) {
           console.log(JSON.stringify(payload, null, 2));
         } else {

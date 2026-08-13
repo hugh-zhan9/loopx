@@ -1,5 +1,6 @@
 import { mkdir, rename } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { getTemplateBaselinePath, inspectInstallState, verifyInstallState } from './install-discovery.mjs';
@@ -25,6 +26,17 @@ function existsExactPath(path) {
   } catch {
     return false;
   }
+}
+
+export function inspectRuntimeDependencies(env = process.env) {
+  const rubyProbe = spawnSync('ruby', ['--version'], { encoding: 'utf8', env });
+  return {
+    ruby: {
+      available: rubyProbe.status === 0,
+      version: rubyProbe.status === 0 ? rubyProbe.stdout.trim() : null,
+      requiredBy: ['generate-api-docs'],
+    },
+  };
 }
 
 export async function ensureLoopxRoot(cwd) {
@@ -56,6 +68,7 @@ export async function doctorRuntime(cwd, env = process.env) {
     legacyInstalledWorkflowHookPath,
     legacyInstalled: existsSync(legacyInstalledWorkflowHookPath),
   };
+  const runtimeDependencies = inspectRuntimeDependencies(env);
 
   return {
     loopxRoot,
@@ -67,6 +80,7 @@ export async function doctorRuntime(cwd, env = process.env) {
     installCheck,
     templateGovernance,
     contextSetup: await inspectWorkspaceContext(cwd),
+    runtimeDependencies,
     hook,
   };
 }

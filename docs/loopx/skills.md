@@ -55,6 +55,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `plan-reviewer` | Ad-hoc review of a plan document against its source. |
 | `go-style`, `kratos` | Go engineering facade (style, modernization, performance, concurrency) and Go-Kratos discipline. |
 | `api-designer`, `architecture-designer`, `sql-style`, `cli-developer` | Domain-specific design and review lenses. |
+| `generate-api-docs` | Synchronized field-level Markdown and Apifox-importable OpenAPI YAML for existing HTTP APIs. |
 | `lancet` | Implementation and review simplification. |
 
 Support lenses do not create workflow states or replace `clarify`, `spec`, or

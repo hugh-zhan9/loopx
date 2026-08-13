@@ -1,6 +1,6 @@
 {
   "name": "loopx",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Skill-first workflow suite for agentic coding assistants",
   "interface": {
     "displayName": "loopx",

@@ -1,7 +1,7 @@
 {
   "name": "@ai-content-space/loopx",
   "type": "module",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Docs-first engineering discipline for agentic coding assistants",
   "repository": {
     "type": "git",
@@ -42,6 +42,7 @@
     "skills/RESOLVER.md",
     "skills/shared/",
     "skills/api-designer/",
+    "skills/generate-api-docs/",
     "skills/architecture-designer/",
     "skills/clarify/",
     "skills/cli-developer/",

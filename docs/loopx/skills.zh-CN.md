@@ -52,6 +52,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 | `plan-reviewer` | 对照来源审查 plan 文档。 |
 | `go-style`、`kratos` | Go 工程 facade（风格、现代化、性能、并发）与 Go-Kratos 纪律。 |
 | `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 领域设计与评审 lenses。 |
+| `generate-api-docs` | 为现有 HTTP API 生成字段级 Markdown 与可导入 Apifox 的 OpenAPI YAML。 |
 | `lancet` | 实现与评审的最小化纪律。 |
 
 Support lenses 不创建 workflow 状态，也不替代 `clarify`、`spec` 或
