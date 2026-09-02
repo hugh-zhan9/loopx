@@ -357,14 +357,14 @@ describe('loopx docs-first document shell', () => {
     }
   });
 
-  it('does not install the removed orchestration, review, or finish skills', async () => {
+  it('installs exec without restoring retired orchestration or review skills', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-docs-first-surface-'));
     const result = await installBundledSkills(loopxEnv(home));
 
     assert.equal(result.ok, true);
     const installedRoot = join(home, '.agents', 'skills');
+    assert.equal(existsSync(join(installedRoot, 'exec', 'SKILL.md')), true);
     for (const removed of [
-      'exec',
       'subagent-exec',
       'parallel-subagent-exec',
       'review',
@@ -382,6 +382,65 @@ describe('loopx docs-first document shell', () => {
     assert.match(agreement, /Only claim completion from fresh command output/i);
     assert.match(agreement, /independent subagent review the exact diff/i);
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/i);
+  });
+
+  it('preserves a pristine legacy exec install when its template baseline entry is unavailable', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-pristine-legacy-exec-'));
+    const env = loopxEnv(home);
+    await installBundledSkills(env);
+
+    const baselinePath = join(home, '.loopx', 'template-hashes.json');
+    const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+    baseline.items = baseline.items.filter((item) => item.path !== '.agents/skills/exec/SKILL.md');
+    await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+
+    const result = await installBundledSkills(env);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(
+      result.skipped.filter((item) => item.skillName === 'exec').map((item) => item.reason),
+      ['unknown'],
+    );
+  });
+
+  it('preserves a modified legacy exec install without a template baseline entry', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-modified-legacy-exec-'));
+    const env = loopxEnv(home);
+    await installBundledSkills(env);
+
+    const baselinePath = join(home, '.loopx', 'template-hashes.json');
+    const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+    baseline.items = baseline.items.filter((item) => item.path !== '.agents/skills/exec/SKILL.md');
+    await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+    const execPath = join(home, '.agents', 'skills', 'exec', 'SKILL.md');
+    const modified = `${await readFile(execPath, 'utf8')}\n# user edit\n`;
+    await writeFile(execPath, modified);
+
+    const result = await installBundledSkills(env);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(
+      result.skipped.filter((item) => item.skillName === 'exec').map((item) => item.reason),
+      ['unknown'],
+    );
+    assert.equal(await readFile(execPath, 'utf8'), modified);
+  });
+
+  it('preserves an unowned same-name exec skill', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-foreign-exec-'));
+    const env = loopxEnv(home);
+    const execPath = join(home, '.agents', 'skills', 'exec', 'SKILL.md');
+    await mkdir(join(home, '.agents', 'skills', 'exec'), { recursive: true });
+    await writeFile(execPath, '# user-owned exec\n');
+
+    const result = await installBundledSkills(env);
+
+    assert.equal(result.ok, false);
+    assert.deepEqual(
+      result.conflicts.filter((item) => item.skillName === 'exec').map((item) => item.reason),
+      ['foreign_or_unowned_target'],
+    );
+    assert.equal(await readFile(execPath, 'utf8'), '# user-owned exec\n');
   });
 
 });

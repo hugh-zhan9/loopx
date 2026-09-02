@@ -6,8 +6,16 @@ clause: "Never commit, push, merge, or discard work unless the user explicitly a
 
 # v0.8：产物是文档，执行归模型
 
-**决定了什么**：loopx 的核心交付物改为 working agreement 文档 + 三个产出文档的
-skills（clarify / spec / plan2exec-as-schema）。溶解 exec、subagent-exec、
+**2026-09-02 修订**：主线重新提供单文件 `exec` skill，作为用户显式选择的
+宿主原生 subagent playbook，只消费一份 ready `plan2exec` plan。它不恢复
+CLI runtime、hooks、独立 workflow state、scheduler 脚本或强制 review pipeline；
+执行原语与 agent 生命周期仍由模型和宿主拥有。由于该 skill 仅描述用户显式选择的
+宿主原生协作方式，不提供新的执行原语、默认路由或持久状态，这次修订不逆转
+execution ownership；任何 runtime、默认编排或 loopx-owned scheduler 的回归仍需新的
+对比评估与架构决定。
+
+**决定了什么**：v0.8 初始将 loopx 的核心交付物改为 working agreement 文档 +
+三个产出文档的 skills（clarify / spec / plan2exec-as-schema）。当时溶解 exec、subagent-exec、
 parallel-subagent-exec、review、final-review、fix-review、finish、每轮
 workflow hook 及其运行时（adaptive-exec 等约九个脚本）。执行、评审、验证与
 Git 纪律成为 working agreement 的条款，由模型和宿主原生能力履行。

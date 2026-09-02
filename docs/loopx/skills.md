@@ -5,8 +5,8 @@
 The installed product is docs-first. The primary deliverable is the working
 agreement installed into host guidance; execution belongs to the model and its
 host runtime. Clear bounded work is implemented and freshly verified directly
-under that agreement. The document-producing skills below add governance only
-when ambiguity, durable decisions, or coordination justify it.
+under that agreement. The optional `exec` skill is a host-native subagent
+playbook for an already-ready plan, not a loopx runtime.
 
 ## Canonical Workflow Intents
 
@@ -19,9 +19,16 @@ not form a required sequence.
 | `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement. | An accepted design document with `D-*` anchors. |
 | `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one. | One plan document with coherent slices, dependencies, acceptance, and verification, executed by the agent itself. |
 
-Ordinary work can use none of these. Execution, independent review of
-high-risk diffs, verification, and Git discipline are working-agreement
-clauses, not skills.
+Ordinary work can use none of these. `$exec` is selected only to execute one ready
+`plan2exec` document; it delegates implementation while the top-level model reviews
+and integrates. Independent review, verification, and Git discipline continue to
+follow the working agreement.
+
+## Optional Plan Execution
+
+| Skill | Use when | Behavior |
+|---|---|---|
+| `exec` | The user explicitly asks to execute one ready `plan2exec` document. | Leaf subagents implement slices; independent slices may run in parallel; the top-level model reviews and integrates sequentially. Optional `model`, `reasoning_effort`, and `max_workers` values are forwarded to host-native subagents. |
 
 ## Issue Workflows
 
@@ -68,6 +75,7 @@ Support lenses do not create workflow states or replace `clarify`, `spec`, or
 $clarify add team-level usage limits
 $spec billing-state-transitions
 $plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
+$exec docs/loopx/plans/2026-07-20-billing.md model=gpt-5.6-sol reasoning_effort=high max_workers=4
 $prompt-lint "Fix the final partial batch being skipped and add regression coverage."
 ```
 

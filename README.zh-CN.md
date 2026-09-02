@@ -10,8 +10,9 @@
 
 `loopx` 把工程纪律编译成文档，并用证据证明它们有效。核心交付物是一份安装进
 host guidance（`AGENTS.md` / `CLAUDE.md`）的简短 working agreement，加上三个
-产出文档的 skills。执行属于模型和宿主运行时：loopx 不再提供执行编排器、评审
-流水线或每轮 hook。
+产出文档的 skills。执行属于模型和宿主运行时：loopx 不提供执行 runtime、评审
+流水线或每轮 hook；可选的 `$exec` 只是消费 ready `plan2exec` 文档的宿主原生
+subagent playbook。
 
 日常工作在 working agreement 之下保持 prompt-first：先读后改、最小正确改动、
 显式边界条件、新鲜验证、遇到未指明的实质决策就停下来问、没有明确请求绝不做
@@ -25,6 +26,8 @@ Git 处置。
 - `plan2exec` 只在明确要求计划、审批边界、中断恢复或持久协调时写一份 lean
   plan 文档，由执行 agent 自己按文档执行。该名称与 agent 内建 Plan 模式明确
   区分。
+- `exec` 可选地通过 leaf subagent 执行一份 ready plan，由顶层模型负责审查、
+  顺序集成、冲突处理与验证。
 
 Issue-driven workflows 继续可用：`$issue` 诊断 bug 类报告并写本地 ledger；
 `$fix` 执行标记为 `ready_for_fix` 的 ledger。`tdd`、`debug`、`verify`、
@@ -64,6 +67,7 @@ loopx install-skills --target all --dry-run
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
 $plan2exec <approved-source-or-planning-request>
+$exec <ready-plan> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]
 ```
 
 其余一切都是 working agreement 之下的普通模型工作。每次完成声明都需要新鲜

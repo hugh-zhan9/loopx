@@ -1,10 +1,9 @@
 ---
 name: generate-api-docs
-description: "Generates or updates synchronized Markdown API documentation and self-contained OpenAPI YAML importable by Apifox from verified repository evidence, including field-level request and response contracts. Not for designing new APIs, changing implementation, documenting GraphQL without explicit HTTP operations, or replacing codebase-spec."
+description: "Generates synchronized Markdown API documentation and self-contained OpenAPI 3.1 YAML for Apifox from verified final HTTP behavior. Covers request/response fields, enums, nullability, limits, pagination, authentication, gateway envelopes, errors, and examples. Use for API docs, OpenAPI/Apifox YAML, endpoint docs, field inventories, 接口文档, 生成 OpenAPI, and 出入参文档. Not for new API design, implementation changes, GraphQL without explicit HTTP operations, or replacing codebase-spec."
 when_to_use: "generate-api-docs, API documentation, OpenAPI YAML, Apifox import, Markdown API docs, request fields, response fields, 接口文档, 生成 OpenAPI, Apifox YAML, 出入参文档"
 metadata:
-  version: "0.1.0"
-  maintained_by: loopx
+  version: "0.1.1"
 ---
 
 # Generate API Docs
@@ -34,15 +33,15 @@ Preserve unrelated working-tree changes. Do not modify generated source code or 
 
 Read [references/source-discovery.md](references/source-discovery.md). Search with `rg`/`rg --files`, then inspect the authority and every layer needed to establish actual wire behavior.
 
-Prefer, in order:
+Prefer, in order, while tracing through to the final public HTTP boundary:
 
-1. A repository-declared authoritative OpenAPI/proto/schema contract.
-2. Router or transport declarations plus request/response schemas.
-3. Controllers/handlers, serializers, validators, middleware, and error encoders.
+1. A repository-declared authoritative OpenAPI/proto/schema contract, verified against its runtime adapter.
+2. Router or transport declarations plus the concrete request and response DTOs used by the operation.
+3. Controllers/handlers, custom serializers, validators, middleware, gateway/proxy wrappers, and final error encoders.
 4. Contract/integration tests and executable examples.
-5. Existing prose documentation only as corroboration unless the repository declares it authoritative.
+5. Existing prose documentation as corroboration.
 
-When sources disagree, follow the repository's declared authority. Otherwise report the conflict; do not silently choose the most convenient source.
+The documented response is the payload observed by the HTTP client, not an intermediate service result. A proto or response DTO does not establish the final envelope when a gateway rewrites it. When executable sources and declared documentation disagree, report the conflict and follow the user's approved scope; never silently copy stale prose into the generated contract.
 
 ### 3. Build one endpoint inventory
 
@@ -61,9 +60,20 @@ For every request and response field, record its wire name, full object path, ty
 
 Include shared schemas, enums, nullability/optionality, formats, pagination, timestamps, idempotency, and error codes only when supported by evidence.
 
+For frontend-facing completeness, explicitly verify:
+
+- request enums separately from response enums; do not assume a stored numeric code is also returned as a number
+- custom JSON marshalers, presentation DTOs, localized enum objects, and unknown/null enum behavior
+- final success and error envelopes, HTTP status behavior, trace/request IDs, compatibility fields, and omitted fields
+- language values, aliases, defaults, and fallback behavior
+- pagination defaults, maxima, normalization/clamping, and deterministic sort order
+- upload media type, form field name, binary encoding, size limit, MIME allowlist, and whether type is detected or trusted
+- string limits and whether they are measured in bytes, characters, or code points
+- closed string keys used for steps, reasons, categories, and other frontend routing or display decisions
+
 ### 4. Write the OpenAPI YAML first
 
-Read [references/output-contract.md](references/output-contract.md) and write a self-contained OpenAPI `3.0.3` YAML file. OpenAPI 3.0.3 is the default compatibility target; keep an existing 3.1 contract only when the repository already relies on 3.1 semantics.
+Read [references/output-contract.md](references/output-contract.md) and write a self-contained OpenAPI `3.1.0` YAML file. Preserve a newer compatible 3.1 patch version when the repository already uses it. Use JSON Schema null unions or `anyOf`; do not emit the OpenAPI 3.0 `nullable` keyword.
 
 Use reusable `components` and local `$ref` values. Give every operation a stable, unique `operationId`. Include concrete request and response examples where the code or tests establish them. Never encode an HTTP response envelope that exists only in prose if runtime serialization differs.
 
@@ -72,6 +82,8 @@ Use reusable `components` and local `$ref` values. Give every operation a stable
 Use the YAML and endpoint inventory as inputs; do not rediscover the API independently. Follow the exact endpoint heading and Operation ID syntax in [references/output-contract.md](references/output-contract.md), because the validator uses them to detect drift.
 
 Explain authentication, common conventions, errors, pagination, timestamps, and enum meanings once in shared sections, then document each endpoint's parameters, body, responses, and examples.
+
+Write a current contract, not a change log. Do not include commit IDs, migration history, generation notes, implementation evidence lists, or prose about how an endpoint was changed unless the user explicitly requests historical documentation. Prefer shared field and enum sections over repeating explanatory prose, while keeping every operation's concrete field inventory verifiable.
 
 Every endpoint section must contain:
 
@@ -116,3 +128,5 @@ When either artifact already exists, preserve stable `operationId` values and in
 - Put secrets only in security-scheme placeholders, never examples.
 - Do not make network or production calls merely to obtain examples.
 - Do not mutate API implementation while performing a documentation-only request.
+- Do not use a database or proto enum declaration as proof of a response field's wire type; inspect the response serializer or DTO.
+- Do not document an intermediate service error or success object when a gateway/proxy produces a different client-visible envelope.

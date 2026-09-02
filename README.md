@@ -12,7 +12,8 @@
 Its primary deliverable is a short working agreement installed into host
 guidance (`AGENTS.md` / `CLAUDE.md`), plus three document-producing skills.
 Execution belongs to the model and its host runtime: loopx ships no execution
-orchestrator, no review pipeline, and no per-turn hook.
+runtime, review pipeline, or per-turn hook. The optional `$exec` skill is a thin
+host-native subagent playbook for an already-ready `plan2exec` document.
 
 Day-to-day work stays prompt-first under the working agreement: read first,
 smallest correct change, boundary conditions, fresh verification, stop and ask
@@ -28,6 +29,8 @@ The three canonical workflow intents produce documents:
 - `plan2exec` writes one lean plan document for explicit planning, approval
   boundaries, interruption recovery, or durable coordination. The executing
   agent follows the plan itself.
+- `exec` optionally executes one ready plan through leaf subagents while the
+  top-level model owns review, sequential integration, conflicts, and verification.
 
 Issue-driven workflows remain available: `$issue` diagnoses a bug-class report
 and writes a local ledger; `$fix` executes a ledger marked `ready_for_fix`.
@@ -70,6 +73,7 @@ Full CLI and installation details live in [CLI Reference](./docs/loopx/cli.md).
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
 $plan2exec <approved-source-or-planning-request>
+$exec <ready-plan> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]
 ```
 
 Everything else is ordinary model work under the installed working agreement.

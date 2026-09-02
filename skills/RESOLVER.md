@@ -7,9 +7,9 @@ installed skill frontmatter.
 
 loopx v0.8 is docs-first: the primary deliverable is the working agreement
 (`templates/working-agreement.md`) installed into host guidance, plus the
-document-producing skills below. Execution belongs to the model and its host
-runtime; loopx ships no execution orchestrator, review pipeline, or per-turn
-hook. Clear, bounded work stays prompt-first under the working agreement:
+document-producing skills below. Execution still belongs to the model and its host
+runtime; `$exec` is an optional host-native subagent playbook, not a loopx runtime,
+review pipeline, or per-turn hook. Clear, bounded work stays prompt-first under the working agreement:
 inspect, implement, verify with fresh evidence, apply the quiet completion
 check in `skills/shared/completion-check.md`, and report without creating
 workflow artifacts.
@@ -22,6 +22,12 @@ workflow artifacts.
 | Unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decision | `skills/spec/SKILL.md` |
 | A completed design needs mixed-audience review before planning: generate a standalone 概要设计 (what/how/what-changes), run the review, write resolutions back into the detailed design | `skills/design-review/SKILL.md` |
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one lean plan document | `skills/plan2exec/SKILL.md` |
+
+## Optional Plan Execution
+
+| Trigger | Skill |
+|---|---|
+| The user explicitly asks to execute one ready `plan2exec` plan through leaf subagents, with safe parallelism and controller-owned review and integration | `skills/exec/SKILL.md` |
 
 ## Retained Specialized Workflows
 
@@ -60,7 +66,7 @@ workflow artifacts.
 
 1. `clarify` stops before mutation when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result; new handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories. Local implementation choices never trigger `spec`.
 2. Documenting what an existing repository currently does is `codebase-spec`, not `spec` or `plan2exec`. `plan2exec` (named to avoid confusion with an agent's built-in Plan mode) writes one lean plan document to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` only for its explicit triggers; clear work without a persistence trigger stays prompt-first.
-3. Execution, review, and Git disposition follow the installed working agreement, not a loopx skill: the model implements, verifies with fresh evidence, dispatches an independent host-native reviewer for high-risk diffs, and never performs Git disposition without an explicit user request.
+3. Ordinary execution, review, and Git disposition follow the installed working agreement. `$exec` is used only for an explicitly selected ready `plan2exec` document; it delegates implementation to host-native leaf subagents while the top-level model reviews and integrates. Git disposition still requires an explicit user request.
 4. `issue` owns issue-driven bug-class intake and diagnosis; feature requests route back to the feature-driven flow. `fix` executes only `.loopx/issues/` ledgers marked `ready_for_fix`.
 5. `refactor-plan` plans behavior-preserving refactors only; a refactor that changes external behavior or contracts routes to `clarify` or `spec`.
 6. `code-darwin` audits code health and proposes a prioritized backlog; it does not replace `codebase-spec` for reverse specifications, `refactor-plan` for approved cleanup planning, or `architecture-designer` for deeper interface design. Default mode is read-only.

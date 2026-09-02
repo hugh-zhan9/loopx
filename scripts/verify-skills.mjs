@@ -68,7 +68,6 @@ const obsoleteImplementationPaths = [
   'skills/plan-to-exec/references/internal-plan-review.md',
   'skills/plan-to-exec/references/plan-schema.md',
   'skills/plan-to-exec/references/surface-change-planning.md',
-  'skills/exec/SKILL.md',
   'skills/subagent-exec/SKILL.md',
   'skills/parallel-subagent-exec/SKILL.md',
   'skills/review/SKILL.md',

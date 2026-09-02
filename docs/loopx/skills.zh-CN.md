@@ -4,8 +4,8 @@
 
 安装后的产品采用 docs-first。核心交付物是安装进 host guidance 的 working
 agreement；执行属于模型和宿主运行时。清晰且边界明确的工作在该 agreement 之下
-直接实现并完成新鲜验证。下面这些产出文档的 skills 只在歧义、持久决策或协调
-需要时才引入治理。
+直接实现并完成新鲜验证。可选的 `exec` 是消费 ready plan 的宿主原生 subagent
+playbook，不是 loopx runtime。
 
 ## Canonical Workflow Intents
 
@@ -17,8 +17,15 @@ agreement；执行属于模型和宿主运行时。清晰且边界明确的工�
 | `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要持久共识。 | 带 `D-*` 锚点的已接受设计文档。 |
 | `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、持久协调需要计划。 | 一份含一致 slices、依赖、验收与验证的 plan 文档，由 agent 自己执行。 |
 
-普通工作可以完全不使用它们。执行、高风险 diff 的独立评审、验证与 Git 纪律
-都是 working agreement 的条款，不是 skills。
+普通工作可以完全不使用它们。只有执行一份 ready `plan2exec` 文档时才选择
+`$exec`：实现交给 leaf subagent，顶层模型负责审查与集成。独立评审、验证与 Git
+纪律继续服从 working agreement。
+
+## 可选的 Plan 执行
+
+| Skill | 使用时机 | 行为 |
+|---|---|---|
+| `exec` | 用户明确要求执行一份 ready `plan2exec` 文档。 | Leaf subagent 实现 slices；独立 slices 可并行；顶层模型顺序审查与集成。可选的 `model`、`reasoning_effort` 和 `max_workers` 会传给宿主原生 subagent。 |
 
 ## Issue Workflows
 
@@ -65,6 +72,7 @@ Support lenses 不创建 workflow 状态，也不替代 `clarify`、`spec` 或
 $clarify add team-level usage limits
 $spec billing-state-transitions
 $plan2exec docs/loopx/design/2026-07-20-billing/requirements.md
+$exec docs/loopx/plans/2026-07-20-billing.md model=gpt-5.6-sol reasoning_effort=high max_workers=4
 $prompt-lint "修复最后一个不完整批次被遗漏的问题，并添加回归测试。"
 ```
 

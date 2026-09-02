@@ -25,6 +25,16 @@ end
 def effective_schema(root, schema)
   resolved = resolve_reference(root, schema)
   return nil unless resolved.is_a?(Hash)
+  variants = resolved["anyOf"] || resolved["oneOf"]
+  if variants.is_a?(Array)
+    selected = variants.find do |variant|
+      candidate = resolve_reference(root, variant)
+      candidate.is_a?(Hash) && candidate["type"] != "null"
+    end || variants.first
+    selected = effective_schema(root, selected)
+    return nil unless selected
+    return selected.merge(resolved.reject { |key, _| %w[anyOf oneOf].include?(key) })
+  end
   all_of = resolved["allOf"]
   return resolved unless all_of.is_a?(Array)
 
@@ -47,6 +57,7 @@ def schema_type(root, schema)
   effective = effective_schema(root, schema)
   return "unknown" unless effective
   type = effective["type"]
+  type = type.reject { |candidate| candidate == "null" }.first if type.is_a?(Array)
   type = "object" if type.nil? && effective["properties"].is_a?(Hash)
   if type == "array"
     item_type = schema_type(root, effective["items"])
@@ -56,13 +67,76 @@ def schema_type(root, schema)
   type.to_s
 end
 
+def schema_nullable?(root, schema)
+  resolved = resolve_reference(root, schema)
+  return false unless resolved.is_a?(Hash)
+  return true if resolved["nullable"] == true
+  type = resolved["type"]
+  return true if type.is_a?(Array) && type.include?("null")
+  variants = resolved["anyOf"] || resolved["oneOf"]
+  variants.is_a?(Array) && variants.any? do |variant|
+    candidate = resolve_reference(root, variant)
+    candidate.is_a?(Hash) && candidate["type"] == "null"
+  end
+end
+
 def field_state(required, schema, root)
   effective = effective_schema(root, schema) || {}
-  nullable = effective["nullable"] == true || (effective["type"].is_a?(Array) && effective["type"].include?("null"))
+  nullable = schema_nullable?(root, schema)
   "#{required ? 'required' : 'optional'} / #{nullable ? 'nullable' : 'non-null'}"
 end
 
-def flatten_schema_fields(root, schema, prefix = nil, required = true, fields = {})
+def validate_instance(root, schema, value, path, errors)
+  resolved_reference = resolve_reference(root, schema)
+  return if resolved_reference.nil?
+
+  if value.nil?
+    errors << "#{path} is null but the schema is non-null" unless schema_nullable?(root, schema)
+    return
+  end
+
+  effective = effective_schema(root, schema)
+  return unless effective
+
+  enum = effective["enum"]
+  errors << "#{path} value #{value.inspect} is outside enum #{enum.inspect}" if enum.is_a?(Array) && !enum.include?(value)
+
+  type = effective["type"]
+  type = type.reject { |candidate| candidate == "null" }.first if type.is_a?(Array)
+  type = "object" if type.nil? && effective["properties"].is_a?(Hash)
+  valid_type = case type
+               when "object" then value.is_a?(Hash)
+               when "array" then value.is_a?(Array)
+               when "string" then value.is_a?(String)
+               when "integer" then value.is_a?(Integer)
+               when "number" then value.is_a?(Numeric)
+               when "boolean" then value == true || value == false
+               else true
+               end
+  unless valid_type
+    errors << "#{path} has #{value.class}, expected #{type}"
+    return
+  end
+
+  if type == "object"
+    properties = effective["properties"] || {}
+    missing = Array(effective["required"]) - value.keys
+    errors << "#{path} misses required properties: #{missing.sort.join(', ')}" unless missing.empty?
+    if effective["additionalProperties"] == false
+      unknown = value.keys - properties.keys
+      errors << "#{path} has unknown properties: #{unknown.sort.join(', ')}" unless unknown.empty?
+    end
+    value.each do |name, child|
+      validate_instance(root, properties[name], child, "#{path}.#{name}", errors) if properties[name].is_a?(Hash)
+    end
+  elsif type == "array"
+    value.each_with_index do |child, index|
+      validate_instance(root, effective["items"], child, "#{path}[#{index}]", errors)
+    end
+  end
+end
+
+def flatten_schema_fields(root, schema, prefix = nil, required = true, fields = {}, record_object = true)
   effective = effective_schema(root, schema)
   return fields unless effective
 
@@ -70,16 +144,19 @@ def flatten_schema_fields(root, schema, prefix = nil, required = true, fields = 
     item_prefix = prefix ? "#{prefix}[]" : nil
     item = effective_schema(root, effective["items"])
     if prefix
-      fields[item_prefix] = { type: schema_type(root, effective), state: field_state(required, effective, root) }
+      fields[item_prefix] = { type: schema_type(root, schema), state: field_state(required, schema, root) }
     end
-    flatten_schema_fields(root, item, item_prefix, true, fields) if item && (item["type"] == "object" || item["properties"].is_a?(Hash))
+    flatten_schema_fields(root, item, item_prefix, true, fields, false) if item && (item["type"] == "object" || item["properties"].is_a?(Hash))
     return fields
   end
 
   properties = effective["properties"]
   unless properties.is_a?(Hash)
-    fields[prefix] = { type: schema_type(root, effective), state: field_state(required, effective, root) } if prefix
+    fields[prefix] = { type: schema_type(root, schema), state: field_state(required, schema, root) } if prefix
     return fields
+  end
+  if prefix && record_object
+    fields[prefix] = { type: schema_type(root, schema), state: field_state(required, schema, root) }
   end
   required_names = Array(effective["required"]).to_set
   properties.each do |name, property_schema|
@@ -119,7 +196,7 @@ unless document.is_a?(Hash)
 end
 
 version = document["openapi"].to_s
-errors << "openapi must be a supported 3.0.x or 3.1.x version" unless version.match?(/\A3\.(?:0|1)\.\d+\z/)
+errors << "openapi must be a 3.1.x version" unless version.match?(/\A3\.1\.\d+\z/)
 
 info = document["info"]
 errors << "info must be a mapping" unless info.is_a?(Hash)
@@ -136,6 +213,7 @@ operation_ids = {}
 operation_response_statuses = {}
 operation_request_fields = {}
 operation_response_fields = {}
+operation_response_schemas = {}
 
 if paths.is_a?(Hash)
   paths.each do |path, path_item|
@@ -199,6 +277,7 @@ if paths.is_a?(Hash)
       if responses.is_a?(Hash)
         operation_response_statuses[key] = responses.keys.map(&:to_s).to_set
         operation_response_fields[key] = {}
+        operation_response_schemas[key] = {}
         responses.each do |status, response|
           resolved_response = resolve_reference(document, response)
           unless resolved_response.is_a?(Hash)
@@ -212,6 +291,7 @@ if paths.is_a?(Hash)
           response_schema = first_content_schema(resolved_response)
           flatten_schema_fields(document, response_schema, nil, true, response_fields) if response_schema
           operation_response_fields[key][status.to_s] = response_fields
+          operation_response_schemas[key][status.to_s] = response_schema if response_schema
         end
       end
 
@@ -253,6 +333,7 @@ end
 walk = lambda do |node, location|
   case node
   when Hash
+    errors << "#{location} uses OpenAPI 3.0 nullable; use a JSON Schema null union" if node.key?("nullable")
     if node.key?("$ref")
       ref = node["$ref"]
       if !ref.is_a?(String) || !ref.start_with?("#/")
@@ -471,6 +552,8 @@ markdown_operations.each do |key, details|
       next
     end
     expected_response = operation_response_fields.fetch(key, {}).fetch(status, {})
+    response_schema = operation_response_schemas.fetch(key, {})[status]
+    validate_instance(document, response_schema, example, "Markdown #{key.join(' ')} response #{status}", errors) if response_schema
     example_paths = flatten_example_paths.call(example)
     allowed_object_containers = expected_response.keys.each_with_object(Set.new) do |field_name, prefixes|
       parts = field_name.split(".")

@@ -5,7 +5,7 @@
 Default to this portable shape:
 
 ```yaml
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Example API
   version: 1.0.0
@@ -50,12 +50,15 @@ Requirements:
 - Keep all `$ref` values local (`#/...`) so the file imports without companion files.
 - Define security schemes under `components.securitySchemes`; apply security globally or per operation according to runtime behavior.
 - Model no-content responses without a fabricated JSON body.
-- For OpenAPI 3.0, express nullable values with `nullable: true`; do not use 3.1-only JSON Schema syntax.
+- Express nullable values with OpenAPI 3.1 / JSON Schema syntax such as `type: [string, "null"]` or `anyOf`; do not use `nullable: true`.
 - Represent file upload/download with actual media types and binary schemas.
 - Include `deprecated: true` only when the source contract declares deprecation.
 - Give every request and response property a non-empty `description`.
-- Encode property requiredness in the parent schema's `required` list; use `nullable: true` only when the wire value may explicitly be null.
+- Encode property requiredness in the parent schema's `required` list; add `null` to the JSON Schema only when the wire value may explicitly be null.
 - Add examples at the media type, schema, or property level when verified examples exist. Keep examples schema-valid.
+- Model localized or presentation enums as their actual response objects. Keep request enums in the scalar form accepted on input.
+- Describe pagination defaults, maxima, normalization, and sort order; describe upload size/MIME limits and byte-based string limits where applicable.
+- Model the final gateway/proxy success and error envelope, including trace IDs, compatibility fields, omitted fields, and actual HTTP status behavior.
 
 ## Markdown
 
@@ -79,6 +82,8 @@ Recommended section content:
 5. Response overview table: status, meaning, media type, body/schema.
 6. A response-field table for every materially different response body.
 7. Complete success response content and representative error response content.
+
+Keep the document focused on the current callable contract. Omit commit IDs, implementation history, generator notes, and source-evidence appendices unless explicitly requested.
 
 Use these exact fourth-level headings inside every endpoint section so completeness can be checked mechanically:
 

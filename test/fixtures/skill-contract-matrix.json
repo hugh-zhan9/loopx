@@ -15,6 +15,9 @@
       "max": 140,
       "reason": "Keeps traceable execution slices and handoff requirements directly actionable without implementation microsteps."
     },
+    "exec": {
+      "max": 120
+    },
     "issue": {
       "max": 290,
       "reason": "Owns issue intake, diagnosis handoff, ledger state, and fix-readiness gates."
@@ -123,6 +126,28 @@
         "references/plan-schema.md"
       ],
       "version": "0.6.0"
+    },
+    {
+      "skill": "exec",
+      "role": "workflow",
+      "boundary": "does not author feature code",
+      "required_outputs": [
+        "Report the effective subagent profile",
+        "verification evidence",
+        "base identity and either an isolated-workspace"
+      ],
+      "safety_invariants": [
+        "Never let concurrent workers edit the controller",
+        "Do not spawn or wait for other agents",
+        "Review and integrate parallel results one at a time"
+      ],
+      "integrations": [
+        "plan2exec",
+        "clarify",
+        "spec"
+      ],
+      "required_references": [],
+      "version": "1.0.0"
     },
     {
       "skill": "plan-reviewer",
@@ -421,7 +446,7 @@
         "references/source-discovery.md",
         "references/output-contract.md"
       ],
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "skill": "architecture-designer",

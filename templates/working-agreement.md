@@ -57,5 +57,6 @@ every task.
 ## Larger work
 
 - For work that must survive interruption or coordinate several owners, write
-  one plan document with the `plan2exec` skill, then execute it yourself slice
-  by slice, verifying each slice before starting its dependents.
+  one plan document with the `plan2exec` skill, then execute it slice by slice,
+  directly or through an explicitly selected `$exec`, verifying each slice before
+  starting its dependents.

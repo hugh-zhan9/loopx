@@ -1,7 +1,7 @@
 {
   "name": "@ai-content-space/loopx",
   "type": "module",
-  "version": "0.8.9",
+  "version": "0.9.0",
   "description": "Docs-first engineering discipline for agentic coding assistants",
   "repository": {
     "type": "git",
@@ -58,6 +58,7 @@
     "skills/kratos/",
     "skills/lancet/",
     "skills/plan2exec/",
+    "skills/exec/",
     "skills/plan-reviewer/",
     "skills/prompt-lint/",
     "skills/refactor-plan/",

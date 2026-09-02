@@ -5,7 +5,8 @@ working agreement, and the published skill surface.
 
 The installed docs-first surface has three canonical workflow intents:
 `clarify`, `spec`, and `plan2exec`. They produce documents that define goals,
-decisions, boundaries, and evidence. Execution belongs to the model and host.
+decisions, boundaries, and evidence. Execution belongs to the model and host;
+`exec` is an optional host-native subagent playbook for one ready plan.
 
 ## Public CLI Surface
 
@@ -32,8 +33,8 @@ decisions, boundaries, and evidence. Execution belongs to the model and host.
 Remove loopx-managed user-level artifacts when uninstalling:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,plan-reviewer,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,exec,plan-reviewer,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,plan-reviewer,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
 ```
 
 ## Published Surface

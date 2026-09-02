@@ -25,6 +25,7 @@ const LOOPX_SKILLS = [
   'design-review',
   'codebase-spec',
   'plan2exec',
+  'exec',
   'plan-reviewer',
   'issue',
   'fix',
@@ -54,7 +55,6 @@ const LOOPX_RETIRED_SKILLS = Object.freeze([
   // Dissolved by the v0.8 docs-first pivot (docs/loopx/decisions/docs-first-pivot.md).
   // Listing them here lets the installer clean them out of pre-0.8 installs;
   // without it those installs keep orphaned skills forever.
-  'exec',
   'subagent-exec',
   'parallel-subagent-exec',
   'review',
@@ -400,11 +400,14 @@ async function createGovernedSourceTemplateItem(item, env = process.env, options
   return baseline.items[0];
 }
 
-async function templateGovernanceBeforeInstall(skillName, baselineItemsByPath, env = process.env, options = {}) {
+async function templateGovernanceBeforeInstall(skillName, baselineItemsByPath, currentRow, env = process.env, options = {}) {
   const { targetPath, sourcePath } = skillTemplatePaths(skillName, env, options);
   const probe = await createSkillTemplateItem(skillName, env, options);
   const existing = baselineItemsByPath.get(templateItemKey(probe));
   if (!existing) {
+    if (currentRow && existsSync(targetPath)) {
+      return { action: 'skip-user-modified', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null };
+    }
     return { action: 'install', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null };
   }
   const drift = await classifyTemplateDrift(existing, {
@@ -420,6 +423,9 @@ async function templateGovernanceBeforeInstall(skillName, baselineItemsByPath, e
 
 async function mergedSkippedTemplateItem(skillName, existing, env = process.env, options = {}) {
   const latest = await createSkillTemplateItem(skillName, env, options);
+  if (!existing) {
+    return latest;
+  }
   return {
     ...existing,
     source_path: latest.source_path,
@@ -852,7 +858,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
       });
       continue;
     }
-    const governance = await templateGovernanceBeforeInstall(skillName, baselineItemsByPath, env, installOptions);
+    const governance = await templateGovernanceBeforeInstall(skillName, baselineItemsByPath, current, env, installOptions);
     if (governance.action === 'skip-user-modified') {
       skipped.push({
         skillName,

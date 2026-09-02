@@ -9,13 +9,15 @@
 loopx v0.8 and later are docs-first. The product turns human intent into documents
 that define four things: goals, decisions, boundaries, and evidence. Documents may
 state what must be true, what must not change, and how correctness will be judged.
-They must not prescribe or own the model's execution process.
+They must not own the model's execution process. The optional single-file `exec`
+skill may describe how the top-level model consumes one ready plan through
+host-native subagents; it does not provide an execution runtime or persistent state.
 
 Execution, decomposition, scheduling, delegation, parallelism, review mechanics,
-recovery, and Git disposition belong to the model and its host. Do not add loopx
-controllers, schedulers, execution graphs, workflow-state hooks, mandatory review
-pipelines, or equivalent orchestration under a different name. Prefer host-native
-capabilities when execution support is needed.
+recovery, and Git disposition belong to the model and its host. Apart from the thin
+`exec` playbook, do not add loopx controllers, schedulers, execution graphs,
+workflow-state hooks, mandatory review pipelines, or equivalent orchestration under
+a different name. Prefer host-native capabilities when execution support is needed.
 
 v0.7 is the final strong-process line and remains a historical package for models
 or hosts that benefit from explicit orchestration. Do not carry that runtime model

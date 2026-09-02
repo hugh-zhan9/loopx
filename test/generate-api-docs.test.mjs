@@ -46,7 +46,7 @@ const validMarkdown = `# Widget API
 \`\`\`
 `;
 
-const validYaml = `openapi: 3.0.3
+const validYaml = `openapi: 3.1.0
 info:
   title: Widget API
   version: 1.0.0
@@ -84,6 +84,16 @@ describe('generate-api-docs validator', () => {
   it('accepts synchronized field-level Markdown and reusable property schemas', async () => {
     const { stdout } = await validate(validYaml, validMarkdown);
     assert.match(stdout, /1 operations, 1 unique operationIds/);
+  });
+
+  it('rejects OpenAPI 3.0 documents', async () => {
+    await assert.rejects(
+      validate(validYaml.replace('openapi: 3.1.0', 'openapi: 3.0.3'), validMarkdown),
+      (error) => {
+        assert.match(error.stderr, /openapi must be a 3\.1\.x version/);
+        return true;
+      },
+    );
   });
 
   it('rejects unknown response statuses and empty field/content sections', async () => {
@@ -136,7 +146,7 @@ describe('generate-api-docs validator', () => {
     );
   });
 
-  it('uses [] for scalar arrays and does not require object container rows', async () => {
+  it('uses [] for scalar arrays and requires object container rows', async () => {
     const yaml = validYaml
       .replace('      required: [id]', '      required: [id, labels, owner]')
       .replace(
@@ -145,7 +155,7 @@ describe('generate-api-docs validator', () => {
       );
     const markdown = validMarkdown.replace(
       '| `id` | string | required / non-null | Widget identifier. |',
-      '| `id` | string | required / non-null | Widget identifier. |\n| `labels[]` | array<string> | required / non-null | Widget labels. |\n| `owner.name` | string | required / non-null | Owner name. |',
+      '| `id` | string | required / non-null | Widget identifier. |\n| `labels[]` | array<string> | required / non-null | Widget labels. |\n| `owner` | object | required / non-null | Widget owner. |\n| `owner.name` | string | required / non-null | Owner name. |',
     ).replace('{"id":"wdg_1"}', '{"id":"wdg_1","labels":["new"],"owner":{"name":"Alex"}}');
 
     const { stdout } = await validate(yaml, markdown);

@@ -11,7 +11,6 @@ import {
 
 const repoRoot = resolve(import.meta.dirname, '..');
 const removedSkills = [
-  'exec',
   'review',
   'finish',
   'subagent-exec',
@@ -20,7 +19,7 @@ const removedSkills = [
   'fix-review',
 ];
 
-test('discovery exposes only the three docs-first canonical intents', () => {
+test('discovery exposes three document intents plus optional exec', () => {
   assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec']);
   for (const skillName of LOOPX_CANONICAL_WORKFLOW_SKILLS) {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true);
@@ -29,11 +28,12 @@ test('discovery exposes only the three docs-first canonical intents', () => {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), false);
     assert.equal(existsSync(join(repoRoot, 'skills', skillName, 'SKILL.md')), false);
   }
+  assert.equal(LOOPX_BUNDLED_SKILLS.includes('exec'), true);
+  assert.equal(existsSync(join(repoRoot, 'skills', 'exec', 'SKILL.md')), true);
 });
 
-test('removed orchestration and hook payloads stay absent', () => {
+test('retired orchestration and hook payloads stay absent', () => {
   for (const path of [
-    'skills/exec',
     'skills/review',
     'skills/shared/agent-topology.md',
     'skills/shared/review-contract.md',
