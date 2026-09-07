@@ -43,4 +43,3 @@ When executing a ready ledger, append or update these sections:
 - response_draft: <final user/reporter response>
 - git_disposition: requested | not_requested | blocked
 ```
-
