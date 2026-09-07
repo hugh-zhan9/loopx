@@ -2,113 +2,70 @@
 name: maintain-project-docs
 description: "Audits and reconciles repository documentation so current authority is explicit, complex modules have at most one maintained current document, and superseded plans, designs, reviews, or memory are archived and excluded from default retrieval. Use when agents are being misled by stale or conflicting docs, documentation has accumulated dated duplicates, or a repository needs source-of-truth cleanup. Not for prose polishing, current-state spec generation, future design, or implementation planning."
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   when_to_use: "stale docs, conflicting documentation, source-of-truth cleanup, archive superseded documents, AGENTS.md current decisions, one current doc per module, 文档收敛, 旧文档归档, 文档权威整理"
 ---
 
 # Maintain Project Docs
 
-Keep repository guidance and active documents aligned with current evidence.
-Preserve history without allowing it to steer ordinary agent decisions.
+Audit and reconcile document authority so current guidance is discoverable and
+superseded material cannot silently steer work. An audit-only request produces
+findings; a cleanup request authorizes the relevant repository edits. This skill
+does not decide new product, compatibility, data, security, or architecture policy.
 
-## Boundary
+## Classify authority before moving files
 
-This skill does not decide unresolved product intent, compatibility, data,
-security, or architecture questions. Route those questions to `clarify` or
-`spec` before changing the repository's declared authority.
+Read user rulings, applicable repository guidance, active documents, and the
+code/tests/configuration relevant to high-impact claims. Inspect retrieval rules
+or memory indexes when available and relevant; an external index is not the sole
+source of a current contract.
 
-Do not use this skill to improve one document's prose (`doc-readability`),
-reverse-engineer current behavior (`codebase-spec`), design future behavior
-(`spec`), or write an implementation plan (`plan2exec`). Do not create a new
-governance document merely to describe the cleanup process.
+Distinguish:
 
-## Evidence Order
+- Current rulings and approved sources: goals and constraints for the task.
+- Repository guidance and maintained module documents: current authority and navigation.
+- Code, schemas, protocols, configuration, and tests: current behavior evidence.
+- Runbooks and product inputs: their distinct operational and input roles.
+- Active plans, proposals, and reviews: in-use work artifacts, including pending
+  decisions and recovery state. Keep them available while work depends on them.
+- Completed or superseded plans, proposals, reviews, snapshots, and memory: history.
 
-Read applicable repository guidance and the user's named sources first. Then
-inspect active docs, code, tests, protocols, schemas, configuration, runbooks,
-Git history, and available project memory or retrieval indexes.
+Age, filename, or document type alone does not establish obsolescence. When intent
+and behavior disagree, record the contradiction and obtain the missing ruling if
+choosing authority would change the contract. Use `clarify` or `spec` for that
+separate decision; do not choose by recency or majority vote.
 
-Treat evidence according to its role:
+## Reconcile the smallest maintained surface
 
-1. Current user rulings and explicitly approved sources override repository
-   defaults.
-2. Repository guidance records current cross-cutting decisions and navigation.
-3. Protocols, schemas, configuration, tests, and implementation show current
-   observable behavior; they do not silently settle contrary future intent.
-4. Maintained module docs hold detailed current contracts that do not fit in
-   repository guidance.
-5. Runbooks, deployment configuration, and product inputs keep their distinct
-   operational or input roles.
-6. Plans, proposals, reviews, snapshots, and superseded decisions are history.
+1. Inventory in-scope documents, active references, retrieval inputs, and the
+   current authority map. Preserve unrelated user edits.
+2. Keep cross-cutting guidance in `AGENTS.md`/`CLAUDE.md` and at most one maintained
+   current narrative per complex module. Protocols, schemas, runbooks, and active
+   task artifacts retain their established roles and paths.
+3. Merge still-valid detail into its owning document in place. Avoid dated `latest`
+   replacements or a new governance document just to describe the cleanup.
+4. Archive completed or superseded material using the repository convention,
+   otherwise `docs/archive/<original-relative-path>`. Preserve history and check
+   destination collisions before moving; never overwrite an unrelated archive.
+5. Repair active links to current sources. Archive links belong only to explicit
+   historical discussion. Preserve still-needed active handoff and recovery links.
+6. Exclude archived/process-only history from default retrieval using existing
+   ignore mechanisms. Keep active work retrievable. Refresh indexes within the
+   authorized scope; external deletion or ingestion requires its own applicable
+   authorization. Never permanently purge history without explicit authorization.
 
-When active intent and current behavior disagree, record the contradiction and
-stop if choosing either side would change product behavior. Do not resolve it
-by file date, filename, confidence, or majority vote.
+Archive before delete. If classification or destructive scope is materially
+ambiguous, identify the exact unresolved choice before moving or rewriting it.
+This does not require confirmation for routine, evidenced, reversible cleanup.
 
-## Workflow
+## Verify and report
 
-### 1. Inventory before editing
+Resolve links and code/schema/test anchors affected by the cleanup, inspect default
+retrieval inputs, and review the diff for semantic loss. Run repository-required
+documentation/package checks, tests, and `git diff --check`. Distinguish baseline
+failures and uninspected areas from claims about the completed scope.
 
-- Enumerate documentation, guidance files, memory sources, and retrieval rules.
-- Search active references to dated, superseded, draft, proposal, plan, review,
-  memory, and snapshot material.
-- Compare high-impact claims with their implementation or contract anchors.
-- Produce an authority map: current authority, active operations, product
-  input, historical evidence, and unresolved contradictions.
-
-Do not mutate when the user requested only an audit or recommendation.
-
-### 2. Choose the smallest stable current surface
-
-- Keep cross-module decisions and navigation in the applicable repository
-  guidance file, such as `AGENTS.md` or `CLAUDE.md`.
-- Keep at most one stable, non-dated current document per complex module when
-  guidance alone would become too large. Simple modules may need no module doc.
-- Update current documents in place. Do not create `latest`, `v2`, or dated
-  replacements for facts that belong in the maintained document.
-- Keep executable configuration, protocols, schemas, runbooks, and product
-  inputs in their established locations and name their authority precisely.
-
-If classification or destructive scope is materially ambiguous, get an
-explicit ruling before moving or rewriting files.
-
-### 3. Reconcile and archive
-
-- Update repository guidance first so the current decision hierarchy is clear.
-- Merge still-valid detail into the maintained module document without copying
-  implementation history into it.
-- Archive before delete. Preserve original relative structure under the
-  repository's existing archive convention, or default to
-  `docs/archive/<original-relative-path>`.
-- Move completed plans, implemented proposals, obsolete snapshots, reviews,
-  and historical memory out of the active decision surface.
-- Update active references to current stable paths. Do not make active docs
-  depend on archive paths except for explicit historical analysis.
-
-### 4. Isolate retrieval
-
-- Exclude archive and process-only material from default agent search, semantic
-  indexing, or project-memory ingestion using the repository's existing ignore
-  mechanism.
-- Refresh indexes after structural changes.
-- Remove stale indexed entries only with reversible deletion when available.
-  Never permanently purge history without explicit authorization.
-- Keep current decisions in the repository source of truth; do not rely on an
-  external memory index as the only maintained copy.
-
-### 5. Verify the result
-
-- Confirm active docs contain no stale paths or superseded decision language.
-- Resolve every active link and every named code, protocol, schema, config, and
-  test anchor.
-- Confirm archived files are absent from default retrieval inputs.
-- Review the diff for accidental semantic changes and unrelated user work.
-- Run repository documentation guards, package validation, `git diff --check`,
-  and the repository-required test suite with fresh output.
-
-## Output Contract
-
-Report the resulting current-authority map, the archive manifest, retrieval or
-memory changes, verification evidence, and any unresolved contradiction. State
-clearly when test failures predated the documentation work. Do not claim that
-all documentation is current when uninspected or ambiguous areas remain.
+Report the current-authority map, archive manifest, retrieval changes, verification,
+and unresolved contradictions as applicable. A focused cleanup needs no exhaustive
+repository-wide manifest. Use `doc-readability` for prose, `codebase-spec` for a
+current-state specification, and `spec` for future design.

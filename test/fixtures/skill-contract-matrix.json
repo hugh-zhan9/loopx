@@ -5,7 +5,7 @@
       "max": 160
     },
     "spec": {
-      "max": 230,
+      "max": 245,
       "reason": "Keeps the proposal and detailed-design handoff contract directly executable."
     },
     "codebase-spec": {
@@ -16,7 +16,7 @@
       "reason": "Keeps traceable execution slices and handoff requirements directly actionable without implementation microsteps."
     },
     "exec": {
-      "max": 120
+      "max": 135
     },
     "issue": {
       "max": 290,
@@ -24,7 +24,7 @@
     },
     "fix": {
       "max": 260,
-      "reason": "Owns issue-ledger execution, verification, review closure, and finish handoff."
+      "reason": "Owns issue-ledger admission, execution evidence, review closure, and recovery handoff."
     },
     "refactor-plan": {
       "max": 100
@@ -58,7 +58,8 @@
       "role": "workflow",
       "boundary": "Do not write an implementation plan",
       "required_outputs": [
-        "Accepted proposal"
+        "Accepted proposal",
+        "architecture conformance contract"
       ],
       "safety_invariants": [
         "STOP Conditions"
@@ -66,13 +67,16 @@
       "integrations": [
         "plan2exec"
       ],
-      "required_references": [],
-      "version": "0.4.3"
+      "required_references": [
+        "../shared/architecture-conformance.md",
+        "../design-review/REVIEW_BRIEF_TEMPLATE.md"
+      ],
+      "version": "0.4.6"
     },
     {
       "skill": "design-review",
       "role": "workflow",
-      "boundary": "Do not review code",
+      "boundary": "reviews design, not code",
       "required_outputs": [
         "概要设计"
       ],
@@ -86,17 +90,17 @@
       "required_references": [
         "REVIEW_BRIEF_TEMPLATE.md"
       ],
-      "version": "0.5.2"
+      "version": "0.5.4"
     },
     {
       "skill": "codebase-spec",
       "role": "workflow",
-      "boundary": "Do not:",
+      "boundary": "Do not change",
       "required_outputs": [
-        "Evidence Standard"
+        "Scope and evidence"
       ],
       "safety_invariants": [
-        "Never print secret values"
+        "Never print secrets"
       ],
       "integrations": [
         "spec"
@@ -104,7 +108,7 @@
       "required_references": [
         "references/output-template.md"
       ],
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     {
       "skill": "plan2exec",
@@ -112,6 +116,7 @@
       "boundary": "Do not add task microsteps",
       "required_outputs": [
         "execution slice",
+        "Each slice's `architecture` line",
         "Goal And Boundaries",
         "Integration And Final Verification",
         "Handoff And Residual Risks"
@@ -123,9 +128,10 @@
         "exec"
       ],
       "required_references": [
-        "references/plan-schema.md"
+        "references/plan-schema.md",
+        "../shared/architecture-conformance.md"
       ],
-      "version": "0.6.0"
+      "version": "0.6.3"
     },
     {
       "skill": "exec",
@@ -133,6 +139,7 @@
       "boundary": "does not author feature code",
       "required_outputs": [
         "Report the effective subagent profile",
+        "architecture-conformance evidence",
         "verification evidence",
         "base identity and either an isolated-workspace"
       ],
@@ -146,14 +153,17 @@
         "clarify",
         "spec"
       ],
-      "required_references": [],
-      "version": "1.0.0"
+      "required_references": [
+        "../shared/architecture-conformance.md"
+      ],
+      "version": "1.0.3"
     },
     {
       "skill": "plan-reviewer",
       "role": "support",
       "boundary": "does not edit the plan",
       "required_outputs": [
+        "architecture conformance assessment",
         "assessment"
       ],
       "safety_invariants": [
@@ -162,8 +172,10 @@
       "integrations": [
         "plan2exec"
       ],
-      "required_references": [],
-      "version": "0.6.0"
+      "required_references": [
+        "../shared/architecture-conformance.md"
+      ],
+      "version": "0.6.2"
     },
     {
       "skill": "issue",
@@ -179,8 +191,12 @@
       "integrations": [
         "debug"
       ],
-      "required_references": [],
-      "version": "0.4.0"
+      "required_references": [
+        "../fix/references/resume-contract.md",
+        "references/ledger-template.md",
+        "../debug/references/diagnosis-contract.md"
+      ],
+      "version": "0.4.2"
     },
     {
       "skill": "fix",
@@ -197,9 +213,11 @@
         "completion-check.md"
       ],
       "required_references": [
-        "../shared/completion-check.md"
+        "../shared/completion-check.md",
+        "references/resume-contract.md",
+        "references/report-contract.md"
       ],
-      "version": "0.2.1"
+      "version": "0.3.1"
     },
     {
       "skill": "refactor-plan",
@@ -212,22 +230,24 @@
         "plan-reviewer"
       ],
       "integrations": [
+        "plan2exec",
+        "plan-reviewer",
         "exec"
       ],
       "required_references": [
         "REFACTOR_PLAN_TEMPLATE.md"
       ],
-      "version": "0.3.10"
+      "version": "0.4.1"
     },
     {
       "skill": "code-darwin",
       "role": "support",
       "boundary": "Default to read-only audit",
       "required_outputs": [
-        "prioritized refactoring backlog"
+        "Rank by change frequency"
       ],
       "safety_invariants": [
-        "Never make code changes during"
+        "Default to read-only audit"
       ],
       "integrations": [
         "refactor-plan"
@@ -236,7 +256,7 @@
         "references/governance-rules.md",
         "references/smell-patterns.md"
       ],
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "skill": "debug",
@@ -252,9 +272,10 @@
         "issue"
       ],
       "required_references": [
-        "references/diagnosis-contract.md"
+        "references/diagnosis-contract.md",
+        "references/four-phases.md"
       ],
-      "version": "0.3.6"
+      "version": "0.3.7"
     },
     {
       "skill": "tdd",
@@ -269,8 +290,11 @@
       "integrations": [
         "owning implementation workflow"
       ],
-      "required_references": [],
-      "version": "0.3.5"
+      "required_references": [
+        "references/red-green-refactor.md",
+        "testing-anti-patterns.md"
+      ],
+      "version": "0.3.6"
     },
     {
       "skill": "verify",
@@ -288,7 +312,7 @@
       "required_references": [
         "../shared/evidence-contract.md"
       ],
-      "version": "0.3.5"
+      "version": "0.3.6"
     },
     {
       "skill": "using-git-worktrees",
@@ -304,7 +328,7 @@
         "exec"
       ],
       "required_references": [],
-      "version": "0.1.4"
+      "version": "0.1.6"
     },
     {
       "skill": "doc-readability",
@@ -320,7 +344,7 @@
         "requirements document"
       ],
       "required_references": [],
-      "version": "0.3.5"
+      "version": "0.3.6"
     },
     {
       "skill": "humanize-doc",
@@ -338,12 +362,12 @@
       "required_references": [
         "references/examples.md"
       ],
-      "version": "0.2.4"
+      "version": "0.2.5"
     },
     {
       "skill": "maintain-project-docs",
       "role": "support",
-      "boundary": "does not decide unresolved product intent",
+      "boundary": "does not decide new product",
       "required_outputs": [
         "authority map",
         "archive manifest"
@@ -355,7 +379,7 @@
         "doc-readability"
       ],
       "required_references": [],
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "skill": "requirement-analyzer",
@@ -371,7 +395,7 @@
         "clarify"
       ],
       "required_references": [],
-      "version": "0.3.6"
+      "version": "0.3.7"
     },
     {
       "skill": "go-style",
@@ -391,23 +415,23 @@
         "references/performance.md",
         "references/concurrency.md"
       ],
-      "version": "0.4.0"
+      "version": "0.4.1"
     },
     {
       "skill": "kratos",
       "role": "support",
       "boundary": "generic Go style",
       "required_outputs": [
-        "Verification"
+        "Diagnose and verify"
       ],
       "safety_invariants": [
-        "Do not edit generated"
+        "never generated `.pb.go`"
       ],
       "integrations": [
         "go-style"
       ],
       "required_references": [],
-      "version": "0.3.5"
+      "version": "0.3.6"
     },
     {
       "skill": "api-designer",
@@ -423,9 +447,10 @@
         "spec"
       ],
       "required_references": [
-        "references/versioning.md"
+        "references/versioning.md",
+        "references/endpoint-template.md"
       ],
-      "version": "0.3.7"
+      "version": "0.3.9"
     },
     {
       "skill": "generate-api-docs",
@@ -436,7 +461,7 @@
         "OpenAPI YAML"
       ],
       "safety_invariants": [
-        "Do not invent endpoints"
+        "Do not change implementation, invent future behavior"
       ],
       "integrations": [
         "api-designer",
@@ -446,25 +471,27 @@
         "references/source-discovery.md",
         "references/output-contract.md"
       ],
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     {
       "skill": "architecture-designer",
       "role": "support",
       "boundary": "support lens",
       "required_outputs": [
-        "failure-mode table"
+        "material failure modes",
+        "reuse/isolation/maintenance judgments"
       ],
       "safety_invariants": [
-        "STOP Conditions"
+        "Do not finalize"
       ],
       "integrations": [
         "spec"
       ],
       "required_references": [
-        "references/nfr-checklist.md"
+        "references/nfr-checklist.md",
+        "../shared/architecture-conformance.md"
       ],
-      "version": "0.3.7"
+      "version": "0.3.10"
     },
     {
       "skill": "sql-style",
@@ -480,7 +507,7 @@
         "spec"
       ],
       "required_references": [],
-      "version": "0.3.6"
+      "version": "0.3.8"
     },
     {
       "skill": "cli-developer",
@@ -498,7 +525,7 @@
       "required_references": [
         "references/design-patterns.md"
       ],
-      "version": "0.3.8"
+      "version": "0.3.10"
     },
     {
       "skill": "lancet",
@@ -514,7 +541,7 @@
         "exec"
       ],
       "required_references": [],
-      "version": "0.1.4"
+      "version": "0.1.5"
     },
     {
       "skill": "prompt-lint",
@@ -533,7 +560,7 @@
       "required_references": [
         "references/rubric.md"
       ],
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }

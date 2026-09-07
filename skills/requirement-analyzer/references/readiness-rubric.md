@@ -14,7 +14,6 @@ Signals:
 - The source mixes competing goals without priority.
 - Behavioral model reveals non-deterministic transitions or undefined failure paths that require business decisions.
 - Cross-document contradictions exist that only the owner can resolve.
-- The score is low because business semantics, ownership, failure behavior, or user-visible outcomes are unresolved.
 
 Do this first:
 
@@ -43,7 +42,7 @@ Signals:
 - Rollout, rollback, or operational behavior needs a design decision.
 - The requirement is clear enough to compare options but not enough to write tasks.
 - Behavioral model is mostly complete but implementation approach (saga vs state machine, sync vs async, etc.) needs design.
-- Quality attribute scores are adequate (>60%) but behavioral coverage or traceability gaps remain at the design level.
+- Remaining behavioral coverage or traceability gaps concern technical design, with product semantics already clear.
 - The implementation approach is open, but product/business semantics are already decidable from the requirement and evidence.
 
 Output:
@@ -55,7 +54,9 @@ Output:
 
 ## Ready For `plan2exec`
 
-Recommend `plan2exec` only when the source is ready for an execution plan.
+Recommend `plan2exec` when the source is ready and a persistent plan serves the
+request, approval boundary, recovery, or coordination need. Clear local work can
+proceed through the host without creating a plan.
 
 Signals:
 
@@ -65,9 +66,8 @@ Signals:
 - Remaining choices are local implementation choices, not product or architecture decisions.
 - Known risks can be handled as implementation tasks with verification.
 - Behavioral model is complete: all states, transitions, operations, and mutations are defined with no P0 gaps.
-- All requirements trace to goals and have acceptance criteria (traceability coverage > 80%).
-- Quality attribute average >= 70%.
-- Maturity score is high enough to support confidence, but no owner-level or design-level decisions are pending.
+- Relevant requirements have goal and acceptance evidence, with any coverage limits disclosed.
+- No owner-level or durable design decision remains unresolved.
 
 Output:
 
@@ -95,11 +95,10 @@ Output:
 - Ask the smallest set of questions needed to unblock the next step.
 - If behavioral model analysis identified the blocker, include the specific state/transition/operation that is blocked.
 
-## Maturity Score Override Rules
+## Optional Scores and Readiness
 
-Score ranges do not route work by themselves. The maturity score provides a confidence signal, but specific unresolved issue types decide readiness:
-
-- **Any P0 blocker** -> cannot recommend `plan2exec` regardless of total score
-- **Score >= 85 but P0 exists** → recommend `clarify` or `blocked`, note that most of the document is ready
-- **Score < 50 but no P0** → recommend `clarify` only when owner decisions are needed; otherwise recommend `spec` or document rework with the dimensions dragging down confidence
-- **Behavioral model incomplete but score >= 70** → inspect the missing element: missing business semantics route to `clarify`; missing implementation approach routes to `spec`
+A numerical score is not required for any recommendation. If included, it
+summarizes the assessed scope; it does not supply permission or resolve gaps.
+Any unresolved P0 prevents a ready-for-implementation recommendation. Route
+missing business semantics to `clarify`, durable technical choices to `spec`,
+and wording-only defects to document improvement, regardless of score.

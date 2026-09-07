@@ -1,7 +1,8 @@
 # Prompt Lint Rubric
 
-Use this rubric after extracting the prompt's explicit claims. Score adequacy
-for the actual task type, not the number of sections or words.
+Use the readiness rules after extracting the prompt's explicit claims. Apply
+numerical scoring only when requested; judge adequacy for the actual task, not
+the number of sections or words.
 
 The rubric is calibrated to OpenAI's outcome-focused guidance: state the goal,
 relevant context, constraints, required evidence, success criteria, and useful

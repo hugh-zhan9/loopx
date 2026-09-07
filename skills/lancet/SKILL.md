@@ -3,84 +3,41 @@ name: lancet
 description: "Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state."
 when_to_use: "lancet, over-engineering, YAGNI, unnecessary dependency, simplest diff, implementation minimization, review minimization, Codex implementation discipline"
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # Lancet
 
-`lancet` is a support lens, not a workflow state. Use it when implementation or review work risks unnecessary code, avoidable dependencies, extra files, or abstractions that should be deleted instead of expanded.
+`lancet` is a support lens, not a workflow state. Apply it inside `exec`, `fix`,
+host-native implementation, or review when choosing implementation details.
+Product, API, schema, and architecture decisions remain with their source owners.
 
-## loopx Boundary
+## Find the smallest correct diff
 
-Use `lancet` inside implementation and review layers. It should tighten execution, subagent, and reviewer behavior without collapsing planning freedom.
+Check these options before adding code:
 
-Do not use this skill for:
+1. Omit the change if no requirement needs it; delete only within authorized scope.
+2. Reuse a suitable repository implementation and inspect its callers.
+3. Use the language standard library or native platform capability.
+4. Reuse an installed dependency.
+5. Add new code, files, or dependencies when the simpler options do not suffice.
 
-- `clarify` or `spec` planning
-- replacing product, API, schema, or architecture decisions
-- justifying skipped validation, error handling, security, accessibility, or regression coverage
-- inventing a new workflow state or separate process lane
+Show sufficiency against applicable `AC-*`, `D-*`, `TC-*`, task or issue anchors,
+and regression checks. Fewer lines are not an improvement if they weaken required
+validation, error handling, security, accessibility, migration safety, or evidence.
 
-## Core Contract
+Prefer a direct root-cause repair. Justify an abstraction by actual reuse or a
+necessary boundary; avoid speculative extension points and boilerplate wrappers.
+Keep a runnable check for non-trivial changed logic.
 
-Before adding code, check the cheapest correct option in this order:
+Retries, fallback, degradation, silent recovery, and compatibility shims require
+a named scenario and expected behavior in the current user instruction or
+accepted source contract. Do not invent them as implementation defaults. Preserve
+existing required failure behavior; identify an unresolved decision if the task
+cannot be completed without choosing a new policy.
 
-1. Delete or skip the change if the requirement does not need it.
-2. Reuse code that already exists in this repository.
-3. Use the language stdlib or native platform capability.
-4. Reuse an already-installed dependency.
-5. Only then add new code, files, or dependencies.
+## Review output
 
-Treat fallback, degradation, retry paths, compatibility shims, and silent
-recovery as requirement-level behavior, not implementation defaults. Add them
-only when the current user instruction, clarified source requirements, approved
-design, implementation plan, or issue contract names the scenario and expected
-behavior. Otherwise fail fast, ask for clarification, or record the blocker
-instead of guessing.
-
-## STOP Conditions
-
-Stop using `lancet` as the deciding lens when the smaller change would weaken validation, error handling, security, accessibility, migration safety, or required regression coverage. Minimal is correct only when it still satisfies the source contract.
-
-## Failure Handling
-
-| Trigger | First action | If still blocked |
-|---|---|---|
-| Smaller diff conflicts with source requirements | Preserve the requirement and name the extra cost | Do not delete required behavior to win simplicity |
-| Existing abstraction may already solve it | Search nearby callers and project utilities first | Report the reuse gap before adding a new abstraction |
-| Reviewer suggests fallback without source backing | Ask for the named failure mode and expected behavior | Treat unanchored fallback as scope expansion |
-
-## Implementation Discipline
-
-- Prefer the smallest correct diff and fewest touched files.
-- Prove sufficiency against every applicable `AC-*`, `D-*`, `T-*`, issue
-  anchor, validation rule, and regression check. "Smaller" is not correct when
-  it drops required behavior or evidence.
-- Fix root cause, not symptom.
-- Treat new abstractions as a cost that must be justified by repeated use or a real boundary.
-- Avoid speculative extensibility, placeholder layers, fallback or degraded modes, retry paths, compatibility shims, and boilerplate wrappers unless the task requires them now from an approved source.
-- Keep one runnable check for non-trivial logic.
-- Preserve validation, error handling, security, accessibility, and regression safety.
-
-## Review Discipline
-
-When `lancet` applies during review, explicitly inspect:
-
-- over-engineering and unnecessary abstraction
-- repo reuse opportunities
-- stdlib or native-platform replacements
-- avoidable dependencies
-- deletable boilerplate or extra files
-- unanchored fallback, degradation, retry, silent recovery, or compatibility shim logic not backed by clarified requirements, approved design, implementation plan, or issue contract
-
-If a smaller correct alternative exists, call it out directly.
-
-## Activation Notes
-
-- Use `lancet` when the user invokes it or when its frontmatter description matches the implementation or review task.
-- Keep planning freedom; apply the minimization lens only when choosing or reviewing implementation details.
-- `fix` uses the same `lancet` discipline as feature-driven implementation and review.
-
-## Handoff Reminder
-
-When handing work to implementers or reviewers, carry the distilled `lancet` rules instead of paraphrasing them into looser advice.
+Report concrete unnecessary work and the smaller correct alternative, including
+which requirement it still satisfies. If no meaningful simplification exists,
+say so briefly. This lens adds no scoring report, workflow stage, or approval gate.

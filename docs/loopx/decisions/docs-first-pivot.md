@@ -6,6 +6,12 @@ clause: "Never commit, push, merge, or discard work unless the user explicitly a
 
 # v0.8：产物是文档，执行归模型
 
+**2026-09-07 边界澄清（用户裁定）**：docs-first 不要求文档只能描述静态目标。
+保留计划中的依赖图、进度、验证顺序、并行约束，以及 skill 中由模型履行的
+执行和恢复说明；不按“完全 docs-first”删除这些规则。执行仍使用宿主原语，
+不恢复 loopx runtime、scheduler 服务、hooks 或独立运行时状态。
+文档能约束执行，但不提供执行引擎。
+
 **2026-09-02 修订**：主线重新提供单文件 `exec` skill，作为用户显式选择的
 宿主原生 subagent playbook，只消费一份 ready `plan2exec` plan。它不恢复
 CLI runtime、hooks、独立 workflow state、scheduler 脚本或强制 review pipeline；

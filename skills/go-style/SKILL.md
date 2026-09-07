@@ -3,7 +3,7 @@ name: go-style
 description: "Applies loopx Go engineering discipline and routes Go work to focused modernization, performance, or concurrency references. Use for .go edits, reviews, tests, package/API design, idiomatic cleanup, Go upgrades, benchmarks, pprof, races, locks, channels, and goroutine lifecycle. Not for non-Go code or Kratos-specific architecture by itself."
 when_to_use: "go-style, Go, golang, .go files, Go review, idiomatic Go, modernize Go, go fix, benchmark, pprof, performance, race, deadlock, goroutine, mutex, channel, context"
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Go Style
@@ -40,6 +40,7 @@ ordinary Go work to a separate Go skill.
 - Do not use syntax or standard-library APIs newer than the module's declared
   `go` directive.
 - Do not edit generated Go files as source. Find and change the generator input.
+- Preserve build constraints and target-specific file selection.
 - Keep the happy path straight down with early returns for errors and guards.
 - Avoid shadowing predeclared identifiers such as `len`, `error`, `string`,
   `copy`, `new`, and `make`.
@@ -102,10 +103,8 @@ ordinary Go work to a separate Go skill.
 
 ## STOP Conditions
 
-Stop before applying this skill when:
-
-- The request concerns Kratos API, service, biz, data, middleware, auth, or config
-  architecture; use `kratos` with `go-style` as its handwritten-Go lens.
+For Kratos framework work, combine `kratos` with this handwritten-Go lens.
+Stop before the affected edit when:
 - A behavior-changing edit has no meaningful verification path.
 - The module's target Go version cannot be established, or the apparent source
   file is generated and its generator cannot be found.
@@ -136,10 +135,3 @@ follow the before/after evidence contract in the performance reference.
 | Tests fail outside touched behavior | Inspect failure scope and existing worktree changes | Separate the baseline failure; do not claim completion |
 | Error semantics are unclear | Inspect callers and `errors.Is` or status handling | Preserve the existing error shape |
 | A reference conflicts with repository behavior | Follow the repository contract | Record the conflict in the handoff |
-
-## Anti-Patterns
-
-- Do not modernize syntax beyond the module's declared Go version.
-- Do not replace coherent local idioms with generic advice.
-- Do not make performance or concurrency claims without task-relevant evidence.
-- Preserve build constraints and target-specific file selection.

@@ -35,7 +35,10 @@ Use the PRD, clarified requirements, existing docs, and repo evidence as source 
 
 Before writing, identify the real forks in the road:
 
+- Which existing capability or extension point is the closest fit, and why is it reused, extended, or rejected?
 - Where should the logic live?
+- Which module owns the behavior and state, and what dependency and failure boundaries must hold?
+- What long-term change, test, diagnostic, and removal costs does the choice create?
 - Is the change additive or breaking?
 - What compatibility promise must hold?
 - What data or state must not be rewritten?
@@ -87,6 +90,14 @@ List each support lens triggered by the proposal and summarize what it changed o
 |---|---|---|---|
 | <api-designer/sql-style/etc. or none> | <why it applies> | <specific checks> | <decision, risk, or not applicable> |
 
+## Architecture Fit / 架构适配
+
+Summarize repository evidence and the reuse, isolation, and maintainability decisions. Name concrete paths, symbols, or contracts. A new parallel capability must identify the closest existing candidate and explain why reuse or extension is unsafe or insufficient.
+
+| Concern | Evidence | Decision | Cost or boundary | D anchor in detailed design |
+|---|---|---|---|---|
+| Reuse / isolation / maintainability | <path/symbol/contract> | <reuse/extend/new or boundary> | <accepted tradeoff> | <planned D-* or not_applicable> |
+
 ## Boundary Scenarios / 边界场景
 
 List scenarios that prove the proposal has real boundaries, not just a happy path.
@@ -101,7 +112,7 @@ Cover relevant categories:
 - limits, quotas, pagination boundaries, empty states, max/min values, and overflow
 - unchanged behavior that must not regress
 
-For each scenario, state whether the design handles it now, rejects it, defers it, or treats it as unchanged. If a category does not apply, write `不涉及` or `not applicable` with a short reason.
+For each scenario, state whether the design handles it now, rejects it, defers it, or treats it as unchanged. Explain non-obvious exclusions that affect the decision; omit plainly irrelevant categories rather than adding placeholder rows.
 
 ## Rationale / 理由与取舍
 
@@ -165,6 +176,7 @@ Before considering the proposal complete, verify:
 - The abstract names the chosen direction and the main promise.
 - Background includes a concrete pain point or evidence.
 - Proposal explains the smallest useful version before complex cases.
+- Architecture Fit cites existing capabilities and resolves reuse, ownership, isolation, and maintenance costs.
 - Boundary scenarios cover the important reject, retry, failure, compatibility, and unchanged-behavior cases.
 - Rationale lists at least one rejected alternative unless the decision is truly mechanical.
 - Compatibility states whether the change is breaking.

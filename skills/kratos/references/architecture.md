@@ -1,6 +1,7 @@
 # Architecture
 
-Guide for Kratos layered architecture and dependency injection.
+Guide for confirmed Kratos projects. Preserve existing layer and injection
+conventions; the fx examples below apply only when the project already uses fx.
 
 ## When to Use
 

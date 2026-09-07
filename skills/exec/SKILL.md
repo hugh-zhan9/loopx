@@ -1,9 +1,9 @@
 ---
 name: exec
-description: "Executes one ready plan2exec plan through host-native leaf subagents. The controller only schedules, reviews, integrates, resolves conflicts, and verifies; independent slices may run in parallel. Not for planning, blocked plans, prompt-first work, issue ledgers owned by fix, or Git disposition."
+description: "Executes one ready plan2exec plan through host-native leaf subagents while rechecking architecture conformance. The controller schedules, reviews, integrates, resolves conflicts, and verifies; independent slices may run in parallel. Not for planning, blocked plans, prompt-first work, issue ledgers owned by fix, or Git disposition."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.0.0"
+  version: "1.0.3"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
@@ -15,14 +15,21 @@ or tests.
 
 ## Admission
 
-- Require one plan path with `status: ready`, a non-empty acyclic slice graph,
-  explicit `depends`, `writes`, acceptance, and `verify` entries, and matching
-  frontmatter/body slice IDs.
-- Read the plan source, current user constraints, repository instructions, relevant
+- Require one plan path with `schema: loopx-plan/v1`, `status: ready`, a non-empty
+  acyclic slice graph, explicit `depends`, `writes`, `architecture`, acceptance,
+  and `verify` entries, and matching frontmatter/body slice IDs. Reject unknown
+  schemas. Treat an unversioned plan as legacy and return it to `plan2exec` for
+  an explicit in-place schema and architecture-evidence upgrade before dispatch.
+- Read the plan source and linked authoritative `概要设计.md` decisions, current user constraints, repository instructions, relevant
   specs and code, and the tracked/untracked baseline before dispatch.
+- Read [the architecture conformance contract](../shared/architecture-conformance.md)
+  and recheck the plan's reuse, ownership, dependency, isolation, and maintenance
+  evidence against the current tree. Missing current-schema evidence is invalid,
+  not a legacy compatibility signal, and never authorizes a new architecture
+  decision.
 - Preserve existing user changes. Treat overlap with planned `writes` as run-owned
-  only when the plan's slice status and Resume note identify the exact changed paths
-  from a prior `exec` run; otherwise stop before mutation and report the paths.
+  only when the slice status and Resume note match the prior run's baseline and
+  complete content checkpoint; otherwise stop before mutation and report the paths.
 - Require host-native leaf subagents. Never inline implementation when delegation is
   unavailable.
 - Accept optional `model`, `reasoning_effort`, and positive `max_workers`. Pass
@@ -41,12 +48,13 @@ and decide whether execution is complete or blocked.
 Each worker receives exactly one slice plus a self-contained prompt containing the
 plan goal and boundaries, accepted source behavior, current user constraints,
 applicable repository instructions and specs, integrated dependency interfaces,
-allowed and forbidden paths, acceptance, and verification. Include:
+allowed and forbidden paths, architecture constraints and evidence, acceptance,
+and verification. Include:
 
 > You are a leaf worker. Do not spawn or wait for other agents. Implement only this
 > slice, modify only its declared writes, and do not edit the plan or perform Git
 > disposition. Preserve baseline and other workers' changes. Report changed paths,
-> verification evidence, blockers, and residual risks.
+> architecture-conformance evidence, verification evidence, blockers, and residual risks.
 
 Require each worker to return its base identity and either an isolated-workspace
 locator plus candidate ref, or a complete unapplied patch. It must also report the
@@ -76,7 +84,9 @@ For each candidate, the controller:
 
 1. resolves the candidate from its base identity and locator, ref, or patch, then
    checks its exact delta and changed paths against that base and slice `writes`;
-2. checks acceptance, source behavior, and protected behavior;
+2. checks acceptance, source behavior, protected behavior, reuse of the owning
+   capability, dependency and state boundaries, fault isolation, and maintenance
+   surface against the plan and repository evidence;
 3. integrates the candidate onto the latest accepted state;
 4. reruns the slice `verify` command in the integrated workspace;
 5. dispatches an independent read-only leaf reviewer when the plan `review` line or
@@ -93,23 +103,31 @@ slice against that state. Continue when it resolves the conflict within existing
 `writes` and decisions. If resolution needs new paths, dependencies, or write scope,
 mark the slice and plan `blocked` and return to `plan2exec`. Route a new product,
 compatibility, data, security, or architecture decision to `clarify` or `spec`.
+An unexplained parallel capability, boundary bypass, widened blast radius, or
+new source of truth is architecture drift, not a local cleanup.
 
 ## Finish Or Block
 
-Keep a recoverable worker, verification, or review failure `in_progress`, keep the
-plan `ready`, and do not unlock dependents. In the Resume note record the failed
-slice, its run-owned changed paths, whether its candidate was integrated, the failed
-check, and the next leaf-worker action. On resume, re-read that exact delta and
-redispatch the slice; if current changes exceed the note or declared `writes`, stop
-as unattributable. Use
-`blocked` only for a material decision, scope/dependency change, invalid independence
-claim, or unattributable workspace contamination.
+Keep recoverable failures `in_progress` and the plan `ready`; do not unlock
+dependents. Before dispatch and after each integration or controller-owned edit,
+save a content checkpoint and identify it in the Resume note: baseline HEAD and
+checkout, baseline user delta, complete tracked/staged/untracked run delta (including
+new files, deletions, and modes), candidate identity/integration state, failed check,
+and next action. Store artifacts at a named host-local location; exclude only named
+plan/checkpoint bookkeeping from its own snapshot. No new execution runtime is needed.
+
+On resume, require the same baseline HEAD and exact content equality with baseline
+plus accepted run delta. Paths alone never establish ownership. A missing checkpoint,
+changed HEAD, or uncheckpointed edit stops mutation; preserve the changes and obtain
+explicit attribution before recording a replacement baseline and redispatching.
+Use `blocked` for a material decision, scope/dependency change, invalid independence
+claim, or unattributable contamination; record the exact blocker and recovery point.
 
 After every slice is `done`, run `Integration And Final Verification` and any
 required whole-diff review. Claim completion only from fresh passing evidence. The
 run delta must stay within declared slice `writes`, apart from controller-owned plan
 state edits, and pre-existing unrelated user changes must remain intact.
 
-Report the effective subagent profile, changed paths, verification evidence, review
-outcome, blockers, and residual risks. Do not commit, push, merge, discard work, or
-add an unrequested fallback.
+Report the effective subagent profile, changed paths, architecture-conformance and
+verification evidence, review outcome, blockers, and residual risks. Do not commit,
+push, merge, discard work, or add an unrequested fallback.

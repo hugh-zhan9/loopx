@@ -1,4 +1,5 @@
 ---
+schema: loopx-plan/v1
 source: docs/loopx/design/2026-07-20-custom-export-names/requirements.md
 status: ready
 slices:
@@ -23,6 +24,7 @@ else about loading changes.
 
 > writes: `src/config-loader.mjs`, `test/config-loader.test.mjs`
 > anchors: AC-001, TC-001
+> architecture: extend the existing config loader; keep configuration ownership and reload behavior inside that module; verify one source of naming policy through focused tests
 > verify: run the focused configuration-loader tests and observe both custom-name and default-name cases passing
 > review: reload compatibility and preservation of the default-name behavior
 
@@ -30,6 +32,7 @@ else about loading changes.
 
 - Run the repository test suite after the focused configuration-loader tests.
 - Confirm the public configuration format and default export name are unchanged.
+- Confirm the integrated diff keeps export-name policy in the existing loader and does not create a second source of truth.
 
 ## Handoff And Residual Risks
 

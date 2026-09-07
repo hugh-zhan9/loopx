@@ -4,146 +4,81 @@ description: "Applies loopx CLI design discipline for commands, flags, human and
 when_to_use: "cli-developer, CLI, command design, flags, JSON output, stdout stderr, interactive prompt, help text, shell completion, 命令行"
 license: MIT
 metadata:
-  version: "0.3.8"
+  version: "0.3.10"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/cli-developer
   maintained_by: loopx
 ---
 
 # CLI Developer
 
-## loopx Boundary
+Use this support lens for command design, implementation, or review inside the
+requested task. It does not create workflow state or replace `spec` for durable
+public-contract decisions. Read existing commands, callers, framework conventions,
+and repository instructions before proposing a new interface or dependency.
 
-`cli-developer` is a support lens, not a workflow state. Use it directly when the user asks for CLI design or implementation guidance, and use it from `spec`, `exec`, or `review` when changes affect command behavior.
+## Public contract
 
-This skill does not replace `clarify`, `spec`, `plan2exec`, or `review`. If product behavior, compatibility, migration, or public CLI contract decisions are unclear, route those decisions through `clarify` or `spec`.
+Treat command names, flags, arguments, configuration precedence, JSON schemas,
+exit codes, and stdout/stderr behavior as public API when callers can script them.
+Preserve existing contracts unless the task explicitly changes them with the
+required compatibility decision. Investigate unresolved behavior before finalizing
+it; local wording choices do not require a new design workflow.
 
-For loopx itself, preserve the established rule that human output is default for first-use commands and complete runtime payloads require explicit `--json`.
+Use stable names, early input validation, actionable errors, and useful `--help`.
+Keep `--version` where the public package or project convention requires it.
+Deprecate existing interfaces deliberately rather than hiding changes behind aliases.
 
-## Purpose
+## Output and terminal behavior
 
-Use this skill to design, implement, or review command-line behavior: command hierarchy, flags, arguments, help text, output contracts, errors, prompts, progress indicators, shell completions, terminal behavior, startup cost, and cross-platform UX.
+- Keep stdout for requested results and stderr for diagnostics, logs, prompts,
+  and progress. Machine output must remain parseable on success and failure.
+- Preserve the repository's human/machine output contract. For **loopx**, human
+  output is the first-use default and complete runtime payloads require explicit
+  `--json`. Do not impose that policy on tools with an established machine default.
+- In JSON mode, keep stable machine fields and structured errors; separate
+  human display text from values that callers use for branching.
+- Respect the project's TTY, CI, color-forcing, and non-interactive conventions.
+  No mandatory prompts in package-manager scripts, hooks, CI, or non-TTY runs.
+  Supply required inputs through flags/config or fail with an actionable error.
+- Destructive prompts explain the exact consequence. Honor explicit non-interactive
+  authorization without turning a convenience flag into permission for extra actions.
+- Handle interruption according to the operation's ownership and recovery contract;
+  do not delete unrelated state as cleanup.
 
-It applies to Node.js, Python, Go, and other CLI stacks, but defer to the repository's existing framework and command conventions before introducing new dependencies.
+## Installation and portability
 
-## Core Workflow
+Preserve canonical package-root sources and install provenance. Do not overwrite
+user-edited installed skill copies or write unrequested runtime artifacts into the
+repository. Inspect postinstall behavior and keep onboarding non-interactive-safe.
 
-1. **Analyze UX** — Identify the user workflows, command hierarchy, common tasks, automation paths, and first-use onboarding path.
-2. **Design commands** — Plan subcommands, flags, positional arguments, configuration sources, environment variables, and compatibility with existing command signatures.
-3. **Specify output contracts** — Decide which output is human-facing, which output is machine-readable, and how `--json`, stdout, stderr, and exit codes behave.
-4. **Implement** — Use the project's established CLI framework. After wiring commands, run representative `<cli> --help`, `<cli> --version`, success, validation-error, and non-interactive invocations.
-5. **Polish shell behavior** — Review color, TTY detection, SIGINT handling, prompt fallbacks, progress indicators, and shell completion support where the command is public or repeated-use.
-6. **Verify** — Run the relevant test suite and smoke tests on command behavior. Measure startup time against project-specific expectations when startup cost matters.
+Use platform path APIs for filesystem paths and the appropriate literal syntax for
+URLs or protocol paths. Quote shell examples and identify their supported shell;
+do not present Bash-specific commands as portable across zsh, fish, or PowerShell.
+Offer completions when useful and maintainable for the distribution, not for every
+internal command.
 
-## STOP Conditions
+Keep startup work proportional: parse arguments before expensive scans or network
+work where possible. Measure startup or streaming improvements before claiming them.
 
-Stop before changing a CLI contract when:
+## References
 
-- A flag, command name, JSON field, exit code, or stdout/stderr behavior may be scripted by users and compatibility is unresolved.
-- The command may run in CI or a non-TTY context and no non-interactive path exists.
-- The requested change belongs to product behavior or workflow semantics rather than CLI surface design.
+Load only the relevant framework or UX guidance; preserve project dependencies:
 
-## Reference Guide
+| Topic | Reference |
+| --- | --- |
+| Commands, flags, configuration | [design-patterns.md](references/design-patterns.md) |
+| Node.js | [node-cli.md](references/node-cli.md) |
+| Python | [python-cli.md](references/python-cli.md) |
+| Go | [go-cli.md](references/go-cli.md) |
+| Prompts, progress, help | [ux-patterns.md](references/ux-patterns.md) |
 
-Load detailed guidance based on context:
+## Verify and deliver
 
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Design Patterns | `references/design-patterns.md` | Subcommands, flags, config, architecture |
-| Node.js CLIs | `references/node-cli.md` | commander, yargs, inquirer, chalk |
-| Python CLIs | `references/python-cli.md` | click, typer, argparse, rich |
-| Go CLIs | `references/go-cli.md` | cobra, viper, bubbletea |
-| UX Patterns | `references/ux-patterns.md` | Progress bars, colors, prompts, help text |
+For changed command behavior, exercise relevant help/version, success, invalid
+input, machine-output, piped/non-TTY, and interruption paths, plus required project
+checks. A design discussion reports proposed behavior and its validation needs;
+it does not claim those invocations ran.
 
-## Command And Flag Discipline
-
-- Preserve existing command signatures unless a breaking change is explicitly approved and documented.
-- Prefer stable subcommands and explicit flags over mode inference that is hard to script.
-- Keep flag names consistent with existing project vocabulary and common CLI conventions.
-- Support `--help`; support `--version` for installable public CLIs or when the project already exposes it.
-- Validate user input early and return actionable errors with a non-zero exit code.
-- Treat command names, flags, positional arguments, JSON fields, and exit codes as public API once users can script against them.
-- Document deprecated flags before removing them when compatibility matters.
-
-## Output Discipline
-
-- Human output is the default for exploratory, onboarding, and first-use commands.
-- Complete runtime payloads, state snapshots, and automation-friendly output require explicit `--json`.
-- Keep stdout for requested command results. Send diagnostics, warnings, progress, logs, and prompts to stderr.
-- Do not mix spinner/progress text into stdout when stdout may be piped or parsed.
-- Use stable JSON schemas for `--json` output. Avoid prose in JSON fields that callers need to branch on.
-- Include enough structured error data in JSON mode for automation to handle failures.
-- Keep human error messages concise, specific, and action-oriented.
-
-## Interactivity And CI Discipline
-
-- Do not require interactive input in CI or non-TTY contexts.
-- Provide flags, environment variables, config files, or documented defaults for non-interactive operation.
-- Detect TTY before enabling prompts, colors, alternate screens, spinners, or progress bars.
-- When prompting, show the exact consequence of destructive or compatibility-sensitive choices.
-- Respect common non-interactive signals such as `CI=1`, piped stdin/stdout, and explicit `--yes`, `--no-input`, or equivalent project conventions.
-- Handle SIGINT gracefully: stop active work when possible, clean up partial local state when required, and exit with a clear message.
-
-## Installer And Onboarding Discipline
-
-- First-run commands should be readable without `--json` and should not require users to know internal workflow state.
-- Installer and postinstall flows must be non-interactive-safe unless the package manager or platform explicitly permits prompts.
-- Avoid writing generated runtime state into the repository unless the command explicitly operates on repo-managed artifacts.
-- For loopx plugin or skill installation flows, preserve the canonical
-  package-root skill source and recorded install provenance; avoid overwriting
-  user-edited installed copies outside the current repository.
-- Keep help text and error text compatible with common terminals and package manager logs.
-
-## Shell And Cross-Platform Discipline
-
-- Use platform-neutral path APIs. Do not hardcode `/`, `~`, drive letters, or shell-specific quoting.
-- Avoid assuming Bash. Consider zsh, fish, PowerShell, and cmd.exe when commands are public or documented for users.
-- Quote shell examples so paths with spaces work.
-- Detect color support and avoid color in non-TTY output unless the project supports explicit color forcing.
-- Normalize line endings and path display carefully when output may be compared in tests.
-- Provide shell completions for public, repeated-use CLIs when the framework and distribution path make them maintainable. Do not require completions for every internal or one-off CLI.
-
-## Performance Discipline
-
-- Keep startup work proportional to the command. Avoid loading large modules, reading network resources, or scanning large trees before argument parsing when not needed.
-- Measure startup time against project-specific expectations before claiming a performance target.
-- Prefer lazy loading for expensive subcommand-only dependencies.
-- Stream large inputs and outputs instead of buffering unnecessarily.
-
-## Failure Handling
-
-| Trigger | First action | If still blocked |
-|---|---|---|
-| A command works only interactively | Add or require flags/env/config for non-interactive mode | Stop and report the missing automation path |
-| JSON output contains human prose | Separate machine fields from display text | Treat schema instability as a blocking compatibility issue |
-| Help, success, and error output disagree | Run representative smoke commands and align wording with actual behavior | Report remaining mismatches as CLI contract defects |
-
-## Red Flags
-
-- Do not print diagnostics, prompts, or progress to stdout when output may be parsed.
-- Do not hide breaking CLI changes behind aliases or mode inference.
-- Do not require prompts in package-manager scripts, CI, hooks, or non-TTY runs.
-- Do not overwrite installed user-edited runtime state during onboarding.
-
-## Review Checklist
-
-- Is the command hierarchy understandable from `--help`?
-- Are flags, arguments, environment variables, and config precedence explicit?
-- Are stdout and stderr separated correctly for piping and automation?
-- Does `--json` return complete, stable, machine-readable payloads without human-only text?
-- Does the command work in non-interactive CI and non-TTY contexts?
-- Are prompts, colors, spinners, and progress indicators gated by terminal capability?
-- Are errors actionable and backed by appropriate exit codes?
-- Are public command signatures and JSON schemas backward-compatible or intentionally migrated?
-- Are startup costs measured when startup time matters?
-- Are shell examples and path handling cross-platform?
-
-## Output Checklist
-
-When delivering CLI design or implementation guidance, provide:
-
-1. Command structure: entry point, subcommands, arguments, and flags
-2. Output contract: human output, `--json` shape, stdout/stderr behavior, and exit codes
-3. Configuration handling: config files, env vars, flags, and precedence
-4. Interactivity rules: prompts, CI behavior, defaults, and TTY behavior
-5. Shell behavior: help text, completions when applicable, colors, paths, and signal handling
-6. Verification commands: help/version smoke tests, success/error invocations, JSON-mode checks, and project tests
+Deliver the requested decision, change, or findings with applicable command/output/
+configuration contracts, compatibility impact, and actual verification. A local
+flag review does not require a complete CLI redesign or a fixed output checklist.

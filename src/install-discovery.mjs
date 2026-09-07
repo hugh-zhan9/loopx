@@ -63,6 +63,13 @@ const LOOPX_RETIRED_SKILLS = Object.freeze([
   'finish',
 ]);
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
+// Pristine 0.8.9/0.9.0 shared files predate per-file baselines. Exact historical
+// content is safe to upgrade; any changed or unknown content remains protected.
+// Source fixtures: test/fixtures/legacy-shared-contracts/0.9.0/.
+const LEGACY_SHARED_CONTRACT_HASHES = new Map([
+  ['completion-check.md', '7ae1c0bd9493cfb30de394c8823033ddff331144'],
+  ['evidence-contract.md', 'bc6754464fa18f61926d5c89389fec7750575dae'],
+]);
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
   // v0.8 docs-first: no per-turn workflow hooks. The working agreement is the
   // discipline channel and travels in the managed guidance block below.
@@ -222,28 +229,41 @@ async function fileHash(path) {
   return hash.digest('hex');
 }
 
-async function sharedContractsHash(path) {
-  const hash = createHash('sha1');
+async function listRelativeFiles(root) {
+  const files = [];
   async function visit(currentPath, relativePath) {
-    const metadata = await lstat(currentPath);
-    const normalized = relativePath.split('\\').join('/');
-    if (metadata.isDirectory()) {
-      hash.update(`directory\0${normalized}\0`);
-      for (const entry of (await readdir(currentPath)).sort()) {
-        await visit(join(currentPath, entry), normalized ? `${normalized}/${entry}` : entry);
+    for (const entry of (await readdir(currentPath, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name))) {
+      const nextRelative = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        await visit(join(currentPath, entry.name), nextRelative);
+      } else {
+        files.push(nextRelative);
       }
-      return;
     }
-    if (metadata.isSymbolicLink()) {
-      hash.update(`symlink\0${normalized}\0${await readlink(currentPath)}\0`);
-      return;
-    }
-    hash.update(`file\0${normalized}\0`);
-    hash.update(await readFile(currentPath));
-    hash.update('\0');
   }
-  await visit(path, '');
-  return hash.digest('hex');
+  await visit(root, '');
+  return files;
+}
+
+async function sharedDirectoryConflict(root, relativeFile) {
+  let directory = root;
+  const directories = [directory];
+  for (const segment of relativeFile.split('/').slice(0, -1)) {
+    directory = join(directory, segment);
+    directories.push(directory);
+  }
+  for (const path of directories) {
+    let metadata;
+    try {
+      metadata = await lstat(path);
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+    if (metadata.isSymbolicLink()) return 'symlinked_shared_contract_directory';
+    if (!metadata.isDirectory()) return 'non_directory_shared_contract_parent';
+  }
+  return null;
 }
 
 async function ensureDir(path) {
@@ -343,6 +363,13 @@ function skillTemplatePaths(skillName, env = process.env, options = {}) {
   };
 }
 
+function sharedContractTemplatePaths(relativePath, env = process.env, options = {}) {
+  return {
+    targetPath: join(installedSharedContractsDir(env), relativePath),
+    sourcePath: join(sharedContractsSourceDir(env, options.skillSourceRoot), relativePath),
+  };
+}
+
 function managedScriptTemplatePaths(item, env = process.env) {
   return {
     targetPath: installedManagedScriptPath(item, env),
@@ -368,6 +395,30 @@ async function createSkillTemplateItem(skillName, env = process.env, options = {
     registryRevision: options.sourceUrl || 'local',
   });
   return baseline.items[0];
+}
+
+async function createSharedContractTemplateItem(relativePath, env = process.env, options = {}) {
+  const { targetPath, sourcePath } = sharedContractTemplatePaths(relativePath, env, options);
+  const baseline = await createTemplateBaseline(installTemplateRoot(env), [{
+    path: targetPath,
+    sourcePath,
+    kind: 'shared-contract',
+  }], {
+    registryRevision: options.sourceUrl || 'local',
+  });
+  return baseline.items[0];
+}
+
+async function mergedSkippedSharedContractItem(relativePath, existing, env = process.env, options = {}) {
+  if (!existing) {
+    return null;
+  }
+  const latest = await createSharedContractTemplateItem(relativePath, env, options);
+  return {
+    ...existing,
+    source_path: latest.source_path,
+    registry_hash: latest.registry_hash,
+  };
 }
 
 async function createManagedScriptTemplateItem(item, env = process.env) {
@@ -754,14 +805,22 @@ export async function inspectInstallState(env = process.env) {
 
   const sharedSource = sharedContractsSourceDir(env);
   const sharedTarget = installedSharedContractsDir(env);
+  const sharedFiles = existsSync(sharedSource) ? await listRelativeFiles(sharedSource) : [];
+  const driftedSharedFiles = [];
+  for (const relativePath of sharedFiles) {
+    const sourcePath = join(sharedSource, relativePath);
+    const targetPath = join(sharedTarget, relativePath);
+    if (!existsSync(targetPath) || await fileHash(sourcePath) !== await fileHash(targetPath)) {
+      driftedSharedFiles.push(relativePath);
+    }
+  }
   const sharedContracts = {
     sourcePath: sharedSource,
     installedPath: sharedTarget,
     available: existsSync(sharedSource),
     installed: existsSync(sharedTarget),
-    discovered: existsSync(sharedSource)
-      && existsSync(sharedTarget)
-      && await sharedContractsHash(sharedSource) === await sharedContractsHash(sharedTarget),
+    discovered: existsSync(sharedSource) && existsSync(sharedTarget) && driftedSharedFiles.length === 0,
+    driftedFiles: driftedSharedFiles,
   };
 
   return {
@@ -835,16 +894,57 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const sharedSource = sharedContractsSourceDir(env, installOptions.skillSourceRoot);
   const sharedTarget = installedSharedContractsDir(env);
   if (existsSync(sharedSource)) {
-    if (existsSync(sharedTarget) && await sharedContractsHash(sharedTarget) !== await sharedContractsHash(sharedSource)) {
-      conflicts.push({
-        skillName: 'shared-contracts',
-        reason: 'foreign_or_modified_shared_contracts',
-        installedPath: sharedTarget,
-      });
-    } else {
-      await removeInstalledSkill(sharedTarget);
-      await ensureDir(dirname(sharedTarget));
-      await cp(sharedSource, sharedTarget, { recursive: true });
+    for (const relativePath of await listRelativeFiles(sharedSource)) {
+      const { targetPath, sourcePath } = sharedContractTemplatePaths(relativePath, env, installOptions);
+      const directoryConflict = await sharedDirectoryConflict(sharedTarget, relativePath);
+      if (directoryConflict) {
+        conflicts.push({
+          skillName: `shared/${relativePath}`,
+          reason: directoryConflict,
+          installedPath: targetPath,
+        });
+        const existing = (existingBaseline?.items || []).find((item) =>
+          item.kind === 'shared-contract'
+          && resolve(installTemplateRoot(env), item.path) === resolve(targetPath));
+        if (existing) nextTemplateItems.push(existing);
+        continue;
+      }
+      const probe = await createSharedContractTemplateItem(relativePath, env, installOptions);
+      const existing = baselineItemsByPath.get(templateItemKey(probe));
+      let preserve = false;
+      let reason = null;
+      if (existsSync(targetPath)) {
+        if (existing) {
+          const drift = await classifyTemplateDrift(existing, {
+            root: installTemplateRoot(env),
+            targetPath,
+            sourcePath,
+          });
+          preserve = drift.status === 'user-modified' || drift.status === 'conflict';
+          reason = drift.status;
+        } else {
+          const installedHash = await fileHash(targetPath);
+          preserve = installedHash !== await fileHash(sourcePath)
+            && installedHash !== LEGACY_SHARED_CONTRACT_HASHES.get(relativePath);
+          reason = preserve ? 'unknown' : null;
+        }
+      }
+      if (preserve) {
+        conflicts.push({
+          skillName: `shared/${relativePath}`,
+          reason: `foreign_or_modified_shared_contract:${reason}`,
+          installedPath: targetPath,
+        });
+        const retained = await mergedSkippedSharedContractItem(relativePath, existing, env, installOptions);
+        if (retained) {
+          nextTemplateItems.push(retained);
+        }
+        continue;
+      }
+      await ensureDir(dirname(targetPath));
+      await removeInstalledFile(targetPath);
+      await cp(sourcePath, targetPath);
+      nextTemplateItems.push(await createSharedContractTemplateItem(relativePath, env, installOptions));
     }
   }
   for (const skillName of LOOPX_SKILLS) {

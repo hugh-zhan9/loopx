@@ -21,6 +21,11 @@ describe('loopx docs-first governance', () => {
   it('keeps the working agreement explicit about stop, verification, review, and Git discipline', async () => {
     const agreement = await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8');
     assert.match(agreement, /Run the repository test suite after your change/);
+    assert.match(agreement, /closest existing extension or reuse points/);
+    assert.match(agreement, /approved\s+design records the reason before mutation/i);
+    assert.match(agreement, /stop before mutation and use `spec`; do not\s+justify it after coding/i);
+    assert.match(agreement, /local module or helper.*remains an\s+implementation choice.*continue prompt-first/is);
+    assert.match(agreement, /unjustified duplication.*boundary violations.*failure blast radius/is);
     assert.match(agreement, /Only claim completion from fresh command output/);
     assert.match(agreement, /independent subagent review the exact diff/);
     assert.match(agreement, /do not guess and do not write code/);

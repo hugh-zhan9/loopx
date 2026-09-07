@@ -14,6 +14,7 @@ not repeat either in the body.
 
 ```yaml
 ---
+schema: loopx-plan/v1
 source: <approved request, intake package, requirements, or design path>
 status: ready            # ready | blocked
 slices:
@@ -29,6 +30,12 @@ slices:
 The executing agent updates each slice `status` as work proceeds, so an
 interrupted handoff resumes from the frontmatter instead of re-deriving
 progress from prose.
+
+`schema: loopx-plan/v1` identifies the current contract, including the required
+per-slice `architecture` line. An unversioned plan is legacy input: revise it
+through `plan2exec`, preserve existing `P-*` identifiers, and add the current
+schema and architecture evidence before execution. Do not infer that a
+malformed current plan is legacy merely because a required field is absent.
 
 ## Body template
 
@@ -53,6 +60,7 @@ End every slice with one meta block:
 
 > writes: `<repository-relative paths this slice may modify>`
 > anchors: `<AC-*, D-*, TC-*, a summarized requirement, or deferred-with-rationale>`
+> architecture: `<reuse/extension target or justified new capability; owner and dependency direction; state/fault boundary; maintenance check, or evidence-backed not_applicable>`
 > verify: `<exact known commands, or the required check and its observable evidence>`
 > review: `<contract or regression risk an independent reviewer must check — high-risk slices only>`
 
@@ -63,13 +71,15 @@ plan revision and append new ones instead of renumbering.
 ## Integration And Final Verification
 
 - `<cross-slice behavior, regression checks, packaging, documentation, or final suite evidence>`
+- `<whole-diff architecture check: chosen reuse point, dependency and state boundaries, no parallel source of truth, maintenance tests and diagnostics>`
 - `<source anchors covered only at integration level, if any>`
 
 ## Handoff And Residual Risks
 
 - Blockers: `<none or concrete unresolved blocker>`
 - Residual risks: `<none known or concrete remaining risk>`
-- Resume note: `<none or the exact point/context needed for an interrupted handoff>`
+- Resume note: `<none before execution; during execution, failed/next action and
+  references to the baseline, accepted content checkpoint, and candidate state>`
 
 ## Execution rules for the consuming agent
 
@@ -77,7 +87,13 @@ plan revision and append new ones instead of renumbering.
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.
 - Two slices may run in parallel only when neither depends on the other and
-  their `writes` paths are disjoint; integrate results sequentially.
+  their `writes` paths are disjoint and their `architecture` lines identify no
+  shared mutable state, generated output, migration, or hidden interface;
+  integrate results sequentially.
+- Recheck each slice's architecture evidence against the current tree before
+  editing. Preserve cited reuse points, ownership and dependency direction,
+  isolation boundaries, and maintenance checks; route new architecture
+  decisions back to `spec`.
 - Keep the frontmatter and body consistent: every frontmatter slice id has
   exactly one body section, every slice declares `depends` explicitly (an
   empty list asserts independence), and dependencies appear only in the

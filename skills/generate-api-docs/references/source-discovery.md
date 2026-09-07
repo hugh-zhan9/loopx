@@ -62,6 +62,11 @@ For every documented operation, be able to point to evidence for:
 - enum values and formats
 - response DTO/custom serialization after all gateway wrapping
 - pagination limits and stable ordering
-- upload limits and content-type detection rules
+- upload media types, form-field names, encoding, size/MIME limits, and detected versus trusted content type
+- language-key sets, aliases, defaults, and fallback behavior
+- string-limit units (bytes, characters, or code points)
+- response omissions, compatibility fields, trace/request IDs, and unknown/null enum behavior
+- closed keys used for steps, reasons, categories, and frontend routing
+- nested field and array-item paths, field descriptions, units, and constraints
 
 Examples must satisfy the documented schema and should come from tests or sanitized fixtures when available.

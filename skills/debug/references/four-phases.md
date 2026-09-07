@@ -1,196 +1,58 @@
-# The Four Phases: Full Process
+# Focused Failure Investigation
 
-Companion to `skills/debug/SKILL.md`. The SKILL body owns the Iron Law, red
-flags, rationalization rebuttals, and the diagnosis summary contract; this file
-owns the detailed phase-by-phase process, evidence-gathering examples, and
-partner signals.
+Use this detail when a failure crosses components or the first reproduction does
+not identify its source. A local failure with a clear cause needs no separate
+phase report.
 
-You MUST complete each phase before proceeding to the next.
+## Locate the boundary
 
-## Phase 1: Root Cause Investigation
+Start with the observed failure and trace backwards: failing operation, caller,
+input producer, and source of the input. At each relevant boundary, compare the
+expected and observed value, shape, timing, or configuration. Stop tracing when
+there is evidence of the cause rather than merely a later symptom.
 
-**BEFORE attempting ANY fix:**
+For a build pipeline, for example, distinguish whether a required variable is
+absent in the job, lost by a wrapper, or read incorrectly by the build tool. Check
+presence without exposing values:
 
-1. **Read Error Messages Carefully**
-   - Don't skip past errors or warnings
-   - They often contain the exact solution
-   - Read stack traces completely
-   - Note line numbers, file paths, error codes
+```bash
+if [ "${SIGNING_IDENTITY+x}" = x ]; then
+  printf 'SIGNING_IDENTITY is set\n'
+else
+  printf 'SIGNING_IDENTITY is unset\n'
+fi
+```
 
-2. **Reproduce Consistently**
-   - Can you trigger it reliably?
-   - What are the exact steps?
-   - Does it happen every time?
-   - If not reproducible → gather more data, don't guess
+Presence does not prove validity. Use a safe, task-specific validity check next;
+do not dump the environment, credentials, tokens, or signed payloads.
 
-3. **Check Recent Changes**
-   - What changed that could cause this?
-   - Git diff, recent commits
-   - New dependencies, config changes
-   - Environmental differences
+## Compare and test
 
-4. **Gather Evidence in Multi-Component Systems**
+Find a working path with comparable inputs and environment. Inspect relevant
+setup, dependencies, versions, and data flow; list differences that could explain
+the symptom. A difference is a hypothesis, not a cause by itself.
 
-   **WHEN system has multiple components (CI → build → signing, API → service → database):**
+Choose one discriminating experiment and predict its result before running it.
+Record the actual result and revise the hypothesis when it disagrees. Avoid
+bundling speculative fixes: a passing combined patch does not identify which
+change resolved the failure.
 
-   **BEFORE proposing fixes, add narrowly scoped diagnostic instrumentation only
-   when it is safe and authorized:**
-   ```
-   For EACH component boundary:
-     - Log only the minimum metadata or shape needed at component entry
-     - Log only the minimum metadata or shape needed at component exit
-     - Redact secrets, credentials, tokens, personal data, and payload values
-     - Verify environment/config propagation
-     - Check state at each layer
+Repeated failures call for new evidence or a different hypothesis. Escalate a
+scope or architecture decision when the evidence shows one is needed, not after
+a fixed attempt count. Explain what remains unknown when investigation stalls.
 
-   Run once to gather evidence showing WHERE it breaks
-   THEN analyze evidence to identify failing component
-   THEN investigate that specific component
-   ```
+## Instrument safely
 
-   **Example (multi-layer system):**
-   ```bash
-   # Layer 1: Workflow (report presence only; never print secret values)
-   if [ -n "${IDENTITY:-}" ]; then echo "IDENTITY=SET"; else echo "IDENTITY=UNSET"; fi
+Prefer existing logs, read-only queries, and isolated reproductions. Before a
+temporary edit, record the worktree baseline and follow the owning workflow's
+rules for dirty files. Keep the diagnostic diff distinguishable from user work.
+Use bounded, targeted logging without sensitive data. Remove only your own
+instrumentation after collecting evidence, or record it explicitly in the handoff.
 
-   # Layer 2: Build script (inspect an allowlisted variable by presence only)
-   if [ -n "${IDENTITY:-}" ]; then echo "IDENTITY propagated=SET"; else echo "IDENTITY propagated=UNSET"; fi
+## Hand off the repair
 
-   # Layer 3: Signing script (do not print private key material)
-   echo "=== Keychain state: ==="
-   security list-keychains
-   security find-identity -v
-
-   # Layer 4: Actual signing
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
-   ```
-
-   **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
-
-5. **Trace Data Flow**
-
-   **WHEN error is deep in call stack:**
-
-   See `root-cause-tracing.md` in the skill directory for the complete backward
-   tracing technique.
-
-   **Quick version:**
-   - Where does bad value originate?
-   - What called this with bad value?
-   - Keep tracing up until you find the source
-   - Fix at source, not at symptom
-
-## Phase 2: Pattern Analysis
-
-**Find the pattern before fixing:**
-
-1. **Find Working Examples**
-   - Locate similar working code in same codebase
-   - What works that's similar to what's broken?
-
-2. **Compare Against References**
-   - If implementing pattern, read reference implementation COMPLETELY
-   - Don't skim - read every line
-   - Understand the pattern fully before applying
-
-3. **Identify Differences**
-   - What's different between working and broken?
-   - List every difference, however small
-   - Don't assume "that can't matter"
-
-4. **Understand Dependencies**
-   - What other components does this need?
-   - What settings, config, environment?
-   - What assumptions does it make?
-
-## Phase 3: Hypothesis and Testing
-
-**Scientific method:**
-
-1. **Form Single Hypothesis**
-   - State clearly: "I think X is the root cause because Y"
-   - Write it down
-   - Be specific, not vague
-
-2. **Test Minimally**
-   - Make the SMALLEST possible change to test hypothesis
-   - One variable at a time
-   - Don't fix multiple things at once
-
-3. **Verify Before Continuing**
-   - Did it work? Yes → Phase 4
-   - Didn't work? Form NEW hypothesis
-   - DON'T add more fixes on top
-
-4. **When You Don't Know**
-   - Say "I don't understand X"
-   - Don't pretend to know
-   - Ask for help
-   - Research more
-
-## Phase 4: Optional Implementation Handoff
-
-Run this phase only when the user explicitly requested a fix. Diagnosis-only
-calls stop after recording the diagnosis contract.
-
-**Fix the root cause, not the symptom:**
-
-1. **Create Failing Test Case**
-   - Simplest possible reproduction
-   - Automated test if possible
-   - One-off test script if no framework
-   - MUST have before fixing
-   - Use the `tdd` skill for writing proper failing tests
-
-2. **Implement Single Fix**
-   - Address the root cause identified
-   - ONE change at a time
-   - No "while I'm here" improvements
-   - No bundled refactoring
-
-3. **Verify Fix**
-   - Test passes now?
-   - No other tests broken?
-   - Issue actually resolved?
-
-4. **If Fix Doesn't Work**
-   - STOP
-   - Count: How many fixes have you tried?
-   - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
-   - DON'T attempt Fix #4 without architectural discussion
-
-5. **If 3+ Fixes Failed: Question Architecture**
-
-   **Pattern indicating architectural problem:**
-   - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implement
-   - Each fix creates new symptoms elsewhere
-
-   **STOP and question fundamentals:**
-   - Is this pattern fundamentally sound?
-   - Are we "sticking with it through sheer inertia"?
-   - Should we refactor architecture vs. continue fixing symptoms?
-
-   **Discuss with your human partner before attempting more fixes**
-
-   This is NOT a failed hypothesis - this is a wrong architecture.
-
-## Your Human Partner's Signals You're Doing It Wrong
-
-**Watch for these redirections:**
-- "Is that not happening?" - You assumed without verifying
-- "Will it show us...?" - You should have added evidence gathering
-- "Stop guessing" - You're proposing fixes without understanding
-- "Ultrathink this" - Question fundamentals, not just symptoms
-- "We're stuck?" (frustrated) - Your approach isn't working
-
-**When you see these:** STOP. Return to Phase 1.
-
-## Real-World Impact
-
-From debugging sessions:
-- Systematic approach: 15-30 minutes to fix
-- Random fixes approach: 2-3 hours of thrashing
-- First-time fix rate: 95% vs 40%
-- New bugs introduced: Near zero vs common
+Record [the diagnosis contract](diagnosis-contract.md), including rejected
+hypotheses and remaining gaps. If repair is authorized, capture the original
+failure in a regression check, make the supported change, and verify the affected
+behavior plus required repository checks. If the failure persists, use its new
+evidence to continue investigation rather than layering unrelated fixes.

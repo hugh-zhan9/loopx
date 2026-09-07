@@ -22,5 +22,5 @@ environment_constraints: []
   suite passed.
 - A blocked environment is recorded as `result: blocked`, with the missing
   dependency in `environment_constraints`.
-- Skipped checks require a reason and remain visible during review and completion.
+- Skipped checks require a reason and remain visible to review and finish.
 

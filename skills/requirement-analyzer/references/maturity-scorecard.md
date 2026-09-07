@@ -1,8 +1,8 @@
 # Maturity Scorecard
 
 Companion to `skills/requirement-analyzer/SKILL.md`. Produce this quantitative
-maturity assessment only when the user requests it or deep analysis benefits
-from it. The qualitative evidence-backed verdict remains authoritative.
+maturity assessment only when the user requests it or a deep review has an explicit comparison
+question that it helps answer. The qualitative evidence-backed verdict remains authoritative.
 
 ## Dimensions
 
@@ -34,14 +34,13 @@ rather than state machine analysis.
 ## Score Bands
 
 - **85-100**: High confidence if no P0/P1 readiness blockers exist
-- **70-84**: Medium confidence; often ready for `spec` when product behavior is clear
-- **50-69**: Low confidence; usually needs focused `clarify` or document repair
-- **<50**: Very low confidence; major requirement rework or owner decisions likely needed
+- **70-84**: Medium confidence in the assessed dimensions
+- **50-69**: Low confidence; inspect the evidence behind weak dimensions
+- **<50**: Very low confidence in the assessed dimensions; identify concrete gaps
 
 ## Scores Do Not Route Work
 
 The maturity score is an informative summary. Score ranges do not route work by
 themselves: a specific unresolved business P0 can force `clarify` or blocked
-even with a high score, and a low score without a specific blocking decision
-usually means `clarify`, not blocked. See `readiness-rubric.md` for the full
-override rules.
+even with a high score. A low score without an owner decision does not justify
+`clarify`; report the relevant design or wording gaps. See `readiness-rubric.md`.

@@ -27,6 +27,13 @@ decisions, boundaries, and evidence. Execution belongs to the model and host;
 - `--dir` is valid only with one target.
 - Failed installs exit nonzero in human and JSON modes.
 - Postinstall opt-outs are `LOOPX_SKIP_POSTINSTALL=1` and `LOOPX_POSTINSTALL=0`.
+- Shared skill contracts have per-file upgrade baselines. When upgrading an
+  installation without those baselines, exact known pristine 0.8.9/0.9.0
+  completion/evidence contracts may upgrade by their recorded content hashes.
+  Different or unknown contents remain preserved and reported as conflicts.
+- Shared-contract writes must not traverse a symbolic link at the shared root
+  or an intermediate directory. Preserve those links and report a conflict
+  instead of replacing files in the linked source or another user directory.
 
 ## Undo installed files
 

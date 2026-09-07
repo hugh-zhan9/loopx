@@ -1,135 +1,72 @@
 ---
 name: architecture-designer
-description: "Applies loopx architecture discipline for system boundaries, ADRs, NFRs, scalability, failure modes, operability, and technology tradeoffs. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions."
+description: "Applies loopx architecture discipline for existing-capability reuse, ownership and isolation boundaries, maintainability, ADRs, NFRs, failure modes, and technology tradeoffs. Not for replacing clarify, spec, planning, code review, or workflow state transitions."
 when_to_use: "architecture-designer, architecture, system design, ADR, NFR, scalability, failure modes, technology tradeoff, 架构设计"
 license: MIT
 metadata:
-  version: "0.3.7"
+  version: "0.3.10"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/architecture-designer
   maintained_by: loopx
 ---
 
 # Architecture Designer
 
-## loopx Boundary
+Use this support lens for system design or architecture review, directly or
+inside `spec` and host-native review. It informs decisions without creating a
+workflow state, executing changes, or requiring a separate ADR for every question.
 
-`architecture-designer` is a support lens, not a workflow state. Use it directly for architecture review or system design discussion, and use it from `spec` or `review` when changes affect system boundaries, operational behavior, or long-lived design decisions.
+## Establish the decision
 
-This skill does not replace `clarify`, `spec`, `plan2exec`, or `review`. If architecture decisions are not yet approved, produce options and route the work through `spec`.
+Read the relevant requirements, current architecture, closest reusable capability,
+callers, and deployment constraints. For brownfield work, apply
+[the architecture conformance contract](../shared/architecture-conformance.md).
 
-When database technology, ownership, schema, migration, or query performance is part of the architecture decision, also use `sql-style`.
+Distinguish missing business priorities from open technical choices. Investigate
+available evidence, compare credible options, and label assumptions. If the choice
+depends on an unresolved goal, permission, or owner constraint, state the deciding
+question. Open architecture choices are the work of design: they do not prevent
+proposing alternatives. Record durable accepted decisions through `spec`; do not
+present a recommendation as approved merely because it was delivered.
 
-## When to Use
+## Checks that change the choice
 
-Use this lens when work involves:
+| Concern | Evidence and judgment |
+| --- | --- |
+| Existing capability reuse | Closest extension point, matching semantics and lifecycle, or reason extension is insufficient |
+| Ownership and isolation | Owning modules, dependency direction, shared state, trust boundaries, fault blast radius |
+| Maintainability | Change/test surface, diagnostic path, maintenance owner, extension or removal cost |
+| Functional and non-functional requirements | Required outcomes, explicit exclusions, ranked quality constraints and their evidence |
+| Data | Access paths, consistency, storage ownership, retention, migration compatibility |
+| Operations | Deployment, detection, failure recovery, security, privacy, and operating cost where material |
 
-- Defining system boundaries, service boundaries, ownership, or integration contracts.
-- Choosing between architectural patterns such as modular monolith, microservices, event-driven, layered, or hexagonal architecture.
-- Evaluating scalability, availability, latency, consistency, durability, security, operability, or cost requirements.
-- Documenting Architecture Decision Records (ADRs) for decisions that will outlive the current implementation task.
-- Reviewing failure modes, operational complexity, deployment topology, infrastructure patterns, or technology tradeoffs.
-- Selecting database or storage technology as part of a broader architecture decision.
+Do not assume unmeasured scale, add a service because of a pattern name, or treat
+a diagram as validation. Compare maintenance and operational costs as well as
+implementation cost. A missing owner or NFR can limit the recommendation; report
+that limitation without inventing a team, SLO, fallback, or recovery guarantee.
+Use `sql-style` when concrete SQL, schema, migration, or query decisions are involved.
 
-Do not use it for code-level refactoring, API shape alone, issue triage, task planning, or workflow state transitions unless those activities expose architecture decisions.
+## References
 
-## STOP Conditions
+Load only detail needed for the decision:
 
-Stop before producing a recommendation when:
+- [architecture-patterns.md](references/architecture-patterns.md): architectural style and boundaries.
+- [adr-template.md](references/adr-template.md): a requested or durable decision record.
+- [system-design.md](references/system-design.md): a full system design or capacity analysis.
+- [database-selection.md](references/database-selection.md): storage technology comparison.
+- [nfr-checklist.md](references/nfr-checklist.md): relevant quality attributes and validation.
 
-- Functional goals, excluded goals, or non-functional priorities are missing and the choice would change materially based on them.
-- The design would create a long-lived technology, data ownership, deployment, or operational decision without an approved `spec` path.
-- The available evidence only supports code-level cleanup rather than an architecture decision.
+Reference examples illustrate choices; their technology, scale, and policy values
+are not defaults for the current task. Fold conclusions into the owning `spec`
+when one exists rather than creating competing authoritative documents.
 
-## Architecture Discipline
+## Deliver
 
-Before recommending a design, establish:
+For a focused question, give the recommended option, source evidence, tradeoff,
+and any decision that still needs an owner. For a full architecture design,
+include boundaries, reuse/isolation/maintenance judgments, applicable NFR
+validation, and material failure modes with trigger, impact, detection, recovery,
+and owner. Include rollout, rollback, and ADRs where the requested scope needs them.
 
-1. Functional goals and excluded goals.
-2. Non-functional requirements and their priority order.
-3. Current constraints: team skills, migration limits, budget, compliance, deployment environment, and operational ownership.
-4. Data ownership, consistency needs, read/write access patterns, retention, and migration constraints.
-5. Failure modes, recovery expectations, observability needs, and operational runbooks.
-
-Treat architecture as tradeoff management. For each major decision, state the decision, alternatives considered, why the chosen option fits the constraints, and what it makes harder.
-
-## Reference Guide
-
-Load detailed guidance only when the context needs it:
-
-| Topic | Reference | Load When |
-| --- | --- | --- |
-| Architecture patterns | `references/architecture-patterns.md` | Choosing architectural style or service boundaries |
-| ADR template | `references/adr-template.md` | Recording a long-lived decision |
-| System design | `references/system-design.md` | Producing a full architecture design |
-| Database selection | `references/database-selection.md` | Comparing storage technologies |
-| NFR checklist | `references/nfr-checklist.md` | Eliciting or reviewing quality attributes |
-
-## Core Checks
-
-### Must Cover
-
-- System boundaries and ownership.
-- Functional and non-functional requirements.
-- Architecture options and explicit tradeoffs.
-- Data model, storage, consistency, and migration implications when relevant.
-- Failure modes, degradation behavior, backup/restore, and recovery path.
-- Security, privacy, compliance, and access control concerns.
-- Observability, deployment, operability, and maintenance cost.
-- Risks, mitigations, and open questions.
-
-### Avoid
-
-- Choosing technology before requirements and constraints are clear.
-- Over-engineering for hypothetical scale.
-- Ignoring operational cost or team ownership.
-- Treating diagrams as proof of a good design.
-- Hiding tradeoffs behind generic "scalable" or "cloud-native" claims.
-- Finalizing unapproved architecture decisions outside the `spec` flow.
-
-## Failure Handling
-
-| Trigger | First action | If still blocked |
-|---|---|---|
-| Requirements conflict | Name the conflict and compare the affected options | Route back to `clarify` or `spec`; do not choose by preference |
-| NFRs are absent | State the architecture cannot be ranked by quality attributes yet | Provide options and the exact NFR questions that would decide them |
-| Operational owner is unknown | Treat runbook, monitoring, incident, and cost assumptions as unresolved | Do not recommend infrastructure that requires an unnamed owner |
-
-## Output Shape
-
-For architecture discussion or review, produce the smallest useful artifact:
-
-1. Requirements and constraints summary.
-2. Options considered.
-3. Recommended architecture with a concise rationale.
-4. Quantified NFR validation and a failure-mode table with trigger, impact,
-   detection, recovery, and owner.
-5. Rollout and rollback evidence tied to source/design anchors when available.
-6. Major tradeoffs and rejected alternatives.
-7. ADR drafts for decisions that should be preserved.
-8. Open questions or decisions that must route through `spec`.
-
-Use Mermaid diagrams when they clarify component boundaries, data flow, ownership, or deployment topology.
-
-### ADR Skeleton
-
-```markdown
-# ADR-000: Decision Title
-
-## Status
-Proposed
-
-## Context
-What problem, constraints, requirements, and forces make this decision necessary?
-
-## Decision
-What option is selected?
-
-## Alternatives Considered
-- Option A: benefits, costs, and why rejected.
-- Option B: benefits, costs, and why rejected.
-
-## Consequences
-- Positive outcomes.
-- Negative outcomes.
-- Follow-up work, migration needs, or monitoring obligations.
-```
+Do not finalize a new long-lived data, security, deployment, or compatibility
+contract without the required acceptance. Preserve accepted local architecture
+when the task only calls for code-level cleanup.

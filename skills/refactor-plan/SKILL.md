@@ -1,79 +1,56 @@
 ---
 name: refactor-plan
-description: "Creates a behavior-preserving refactor plan with user interview, repo evidence, tiny commits, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
-when_to_use: "refactor-plan, refactor request, refactoring RFC, tiny commits, behavior-preserving cleanup, architecture cleanup, 重构计划"
+description: "Creates a behavior-preserving refactor plan with repo evidence, small verifiable steps, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
+when_to_use: "refactor-plan, refactor request, refactoring RFC, small verifiable steps, behavior-preserving cleanup, architecture cleanup, 重构计划"
 metadata:
-  version: "0.3.10"
+  version: "0.4.1"
 ---
 
 # Refactor Plan
 
-Create a behavior-preserving refactor plan. This skill plans refactoring work; it does not implement it.
+Plan a behavior-preserving structural improvement. Do not implement it or treat
+feature work, incident repair, or migrations as refactoring. The request must
+identify a concrete maintainability problem; inspect evidence before inventing one.
 
-## Hard Boundary
+## Establish the baseline and boundary
 
-Refactoring changes structure without changing externally observable behavior. If the requested work changes product behavior, public API semantics, data contracts, CLI behavior, schemas, permissions, compatibility, or user-visible output, stop and route to `clarify` or `spec` before planning.
+Read the request, worktree status, target modules, callers, relevant contracts,
+and tests. Preserve unrelated dirty files. Use existing answers about the problem,
+why it matters, proposed direction, and protected behavior; ask only for a material
+missing constraint instead of repeating an interview or confirmation ritual.
 
-Do not use this skill for immediate code edits, feature work, bug fixes, migrations, or broad cleanup with no concrete pain.
+Identify externally observable behavior that must remain unchanged, allowed write
+surfaces, and verification. Plan characterization tests where existing coverage
+cannot establish preservation. Stop the affected handoff when there is no practical
+behavior baseline or when the work requires unapproved public API, schema, data,
+permission, compatibility, or product behavior changes; use `clarify` or `spec`
+for those decisions. Do not force a broad rewrite across unrelated owners.
 
-## Safety Preflight
+## Plan the smallest useful change
 
-Do these before writing the plan. Skip a step only when the user or repo evidence already provides the same information.
+Compare credible options and choose the narrowest approach that addresses the
+observed pain. Map each step to concrete files/surfaces, behavior-preservation
+evidence, verification commands/results, and rollback notes. Group mechanical
+edits around verifiable outcomes; Git commit boundaries remain with the host and
+require user authorization.
 
-1. Inspect `git status --porcelain` and record whether the worktree is clean. Never require the user to discard unrelated dirty files.
-2. Ask the user for the problem they want to solve, why now, and any solution ideas they already have.
-3. Explore the repo to verify the problem, current structure, boundaries, callers, and existing tests.
-4. Identify externally observable behavior that must remain unchanged.
-5. Check test coverage for the target area. If coverage is weak, plan characterization tests before refactoring steps.
-6. Confirm scope: what will change, what will not change, and which public surfaces must remain stable.
+Read [fowler-refactorings.md](references/fowler-refactorings.md) when specific
+smells or techniques need explanation. A technique name is not justification for
+scope expansion; tie it to a demonstrated problem and preservation check.
 
-## STOP Conditions
+## Artifact and handoff
 
-Stop instead of writing a refactor plan when:
+Use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) and write
+`docs/loopx/refactors/YYYY-MM-DD-<topic>.md`, unless the user specifies another path.
+Publish to an issue tracker only on explicit request.
 
-- Scope, target modules, or success criteria are unclear.
-- The work requires new behavior or behavior changes.
-- The work changes public API, schema, data migration, config, permissions, package surface, or compatibility semantics.
-- There is no behavior baseline and no practical characterization test plan.
-- The requested refactor is incident response or production hotfix work where cleanup would increase repair risk.
-- The plan would require unrelated rewrites across multiple ownership boundaries.
+This is a refactor RFC and source for `plan2exec`, not a `loopx-plan/v1` execution
+plan. Preserve its Behavior Preservation Contract, baseline, step dependencies,
+write scope, verification, and recovery notes during conversion. Mark it ready for
+`plan2exec` only when those contracts are complete. A draft is not approved merely
+because the template contains a handoff line.
 
-When a stop condition appears, explain the blocker and route to `clarify`, `spec`, `debug`, `issue`, or a smaller refactor request as appropriate.
-
-## Planning Flow
-
-1. Interview the user until the purpose and constraints are specific.
-2. Verify the current codebase state from repo evidence.
-3. Present viable options when more than one refactor path exists.
-4. Choose the smallest behavior-preserving path that addresses the pain.
-5. Define behavior preservation evidence and verification commands.
-6. Break the work into tiny commits. Each commit must leave the codebase working.
-7. If the user asks about specific code smells, Fowler-style refactoring techniques, or mechanical refactor steps, read `references/fowler-refactorings.md` and use it as a planning reference. Also read it when the request mentions code smell, extract method, split class, primitive obsession, duplicate code, shotgun surgery, feature envy, or similar Fowler terms.
-
-Use Fowler terminology to choose safe steps, not to justify a large rewrite. Every proposed technique must map to a concrete smell and a behavior-preserving verification step.
-
-## Output
-
-Write the refactor plan to:
-
-```text
-docs/loopx/refactors/YYYY-MM-DD-<topic>.md
-```
-
-If the repository has an issue tracker and the user explicitly asks for a tracker issue, publish the same plan there. Otherwise keep the plan local.
-
-Use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) as the required output structure.
-
-The output is both the refactor RFC and the execution plan. It should be complete enough for `exec` to execute directly unless the template's Execution Handoff says material gaps remain.
-
-Before marking the refactor execution-ready, run `plan-reviewer` against the
-Behavior Preservation Contract and current-behavior evidence. Treat the plan's
-small units as atomic tasks; execution commit boundaries remain owned by
-`exec`.
-
-## Execution Handoff Rules
-
-- Mark the plan ready for `exec` only when every tiny commit has exact files/surfaces, behavior-preservation evidence, verification commands, expected results, and rollback notes.
-- Let `exec` decide whether independent units admit isolated concurrency.
-- Return to `clarify` or `spec` when the refactor plan exposes behavior, API, schema, compatibility, or architecture decisions.
-- Use `plan2exec` only when the refactor document is intentionally high-level and needs a separate execution plan.
+Do not pass an RFC directly to `exec` or `plan-reviewer`, including old Tiny Commits
+RFCs. Review the converted execution plan with `plan-reviewer`; only the ready
+schema-valid plan may enter `exec`. Return newly exposed behavior or architecture
+decisions to their owner instead of encoding them as mechanical refactor steps.

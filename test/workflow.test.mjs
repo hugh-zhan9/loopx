@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -39,6 +39,17 @@ function managedBlock(text, id) {
     `<!-- loopx:managed:block ${escapeRegExp(id)} -->\\n([\\s\\S]*?)\\n<!-- /loopx:managed:block ${escapeRegExp(id)} -->`,
   );
   return text.match(pattern)?.[1] ?? null;
+}
+
+async function simulateLegacySharedContractBaseline(home) {
+  const baselinePath = join(home, '.loopx', 'template-hashes.json');
+  const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+  baseline.items = baseline.items.filter(({ kind }) => kind !== 'shared-contract');
+  await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+  for (const name of ['completion-check.md', 'evidence-contract.md']) {
+    const original = await readFile(join(repoRoot, 'test', 'fixtures', 'legacy-shared-contracts', '0.9.0', name));
+    await writeFile(join(home, '.agents', 'skills', 'shared', name), original);
+  }
 }
 
 describe('loopx docs-first document shell', () => {
@@ -215,6 +226,74 @@ describe('loopx docs-first document shell', () => {
     assert.ok(drifted.failures.includes('shared_contracts_drifted'));
   });
 
+  it('adds a new shared contract when upgrading a pristine older install', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-shared-upgrade-'));
+    const env = loopxEnv(home);
+    const contract = join(home, '.agents', 'skills', 'shared', 'architecture-conformance.md');
+
+    const initial = await installBundledSkills(env, { yes: true });
+    assert.equal(initial.ok, true);
+    await rm(contract);
+    await simulateLegacySharedContractBaseline(home);
+
+    const upgraded = await installBundledSkills(env, { yes: true });
+
+    assert.equal(upgraded.ok, true);
+    assert.equal(existsSync(contract), true);
+    for (const name of ['completion-check.md', 'evidence-contract.md']) {
+      assert.equal(await readFile(join(home, '.agents', 'skills', 'shared', name), 'utf8'),
+        await readFile(join(repoRoot, 'skills', 'shared', name), 'utf8'));
+    }
+    assert.equal((await verifyInstallState(env)).ok, true);
+    assert.equal((await installBundledSkills(env, { yes: true })).ok, true);
+  });
+
+  it('adds a new shared contract without overwriting another modified contract', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-shared-preserve-'));
+    const env = loopxEnv(home);
+    const sharedRoot = join(home, '.agents', 'skills', 'shared');
+    const existingContract = join(sharedRoot, 'evidence-contract.md');
+    const newContract = join(sharedRoot, 'architecture-conformance.md');
+
+    const initial = await installBundledSkills(env, { yes: true });
+    assert.equal(initial.ok, true);
+    await rm(newContract);
+    await simulateLegacySharedContractBaseline(home);
+    const modified = `${await readFile(existingContract, 'utf8')}\nUser-owned rule: retain this customization.\n`;
+    await writeFile(existingContract, modified);
+
+    const upgraded = await installBundledSkills(env, { yes: true });
+
+    assert.equal(upgraded.ok, false);
+    assert.equal(await readFile(existingContract, 'utf8'), modified);
+    assert.equal(existsSync(newContract), true);
+    assert.ok(upgraded.conflicts.some(({ skillName }) => skillName === 'shared/evidence-contract.md'));
+  });
+
+  for (const directory of ['', 'nested']) {
+    it(`preserves source files behind a shared ${directory || 'root'} directory symlink`, async (t) => {
+      const home = await mkdtemp(join(tmpdir(), 'loopx-shared-symlink-'));
+      t.after(() => rm(home, { recursive: true, force: true }));
+      const sourceRoot = join(home, 'package-skills');
+      await cp(join(repoRoot, 'skills'), sourceRoot, { recursive: true });
+      const sourceDirectory = join(sourceRoot, 'shared', directory);
+      await mkdir(sourceDirectory, { recursive: true });
+      const sourceFile = join(sourceDirectory, 'link-probe.md');
+      const content = '# Shared contract\nPreserve canonical source.\n';
+      await writeFile(sourceFile, content);
+      const targetDirectory = join(home, '.agents', 'skills', 'shared', directory);
+      await mkdir(join(targetDirectory, '..'), { recursive: true });
+      await symlink(sourceDirectory, targetDirectory, 'dir');
+
+      const result = await installBundledSkills(loopxEnv(home), { yes: true, skillSourceRoot: sourceRoot });
+
+      assert.equal(result.ok, false);
+      assert.ok(result.conflicts.some(({ reason }) => reason === 'symlinked_shared_contract_directory'));
+      assert.equal(await readFile(sourceFile, 'utf8'), content);
+      assert.equal((await lstat(targetDirectory)).isSymbolicLink(), true);
+    });
+  }
+
   it('removes retired loopx-owned planning skills during installation', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-retired-skills-'));
     const env = loopxEnv(home);
@@ -325,7 +404,7 @@ describe('loopx docs-first document shell', () => {
     }
     assert.match(planSchema, /^## P-001 <coherent outcome>$/m);
     assert.match(fixture, /^## P-001 /m);
-    for (const line of ['source:', 'status: ready', 'slices:', '- id: P-001', 'status: pending']) {
+    for (const line of ['schema: loopx-plan/v1', 'source:', 'status: ready', 'slices:', '- id: P-001', 'status: pending']) {
       assert.match(planSchema, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
       assert.match(fixture, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
     }
@@ -334,7 +413,7 @@ describe('loopx docs-first document shell', () => {
     assert.match(planSchema, /depends: \[P-001\]/);
     assert.match(planSchema, /depends: \[\]/);
     assert.match(fixture, /depends: \[\]/);
-    for (const field of ['writes', 'anchors', 'verify', 'review']) {
+    for (const field of ['writes', 'anchors', 'architecture', 'verify', 'review']) {
       assert.match(planSchema, new RegExp(`^> ${field}:`, 'm'));
       assert.match(fixture, new RegExp(`^> ${field}:`, 'm'));
     }

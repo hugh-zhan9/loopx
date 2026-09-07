@@ -1,5 +1,10 @@
 # Example Reports
 
+These examples assume an explicit request for numerical scoring. They illustrate
+report content, not mandatory sections. For ordinary quick or standard reviews,
+omit scores and use the qualitative template in `report-template.md`. Readiness
+follows the stated unresolved decisions, not the numerical grade.
+
 These examples illustrate the expected output quality and format for requirement analysis reports. They are synthetic but modeled on real-world patterns.
 
 ## Example 1: Gap Checklist (Chinese PRD)
@@ -12,7 +17,7 @@ Source: "用户积分兑换功能 PRD v0.3"
 ## 结论
 
 - 推荐下一步：clarify
-- 成熟度评分：52/100 (需要 clarify)
+- 成熟度评分：52/100（所评维度置信度较低）
 - 阻塞项数量：3 个 P0
 - 主要风险：兑换失败的回滚机制未定义，积分过期规则与兑换时序存在矛盾
 
@@ -65,7 +70,7 @@ Source: "Multi-tenant API Key Management — Feature Brief v1"
 - Document type: Product requirement (mixed with some technical design)
 - Analysis depth: standard
 - Overall readiness: Not ready for plan
-- Maturity score: 71/100 (Ready for spec)
+- Maturity score: 71/100 (medium confidence)
 - Highest priority issue: Tenant isolation model for key scopes is undefined
 
 ## Maturity Scorecard
@@ -175,7 +180,7 @@ Source: JIRA ticket "Add export button to analytics dashboard"
 ## 结论
 
 - 推荐下一步：plan
-- 成熟度评分：88/100 (可进入规划)
+- 成熟度评分：88/100（所评维度置信度较高）
 - 阻塞项数量：0
 - 主要风险：大数据量导出的超时和内存问题（P1，不阻塞规划）
 
@@ -225,7 +230,7 @@ Source: "公司行动事件处理系统 PRD v1.2"
 - Document type: Product requirement (complex stateful workflow)
 - Analysis depth: deep
 - Overall readiness: Not ready for plan
-- Maturity score: 63/100 (Needs clarify)
+- Maturity score: 63/100 (low confidence)
 - Highest priority issue: 事件确认后的明细生成失败回滚路径未定义
 
 ## Maturity Scorecard
@@ -402,7 +407,7 @@ Before submitting a requirement analysis report, verify:
 - [ ] The report does not invent business decisions or advance loopx workflow state
 - [ ] Impact is classified as unknown only when evidence is genuinely absent, not when it can be inferred from context
 - [ ] Behavioral model covers all identified states, transitions, operations, and mutations (when applicable)
-- [ ] Quality attribute scoring covers all identifiable requirement statements
-- [ ] Traceability matrix links all requirements to goals and acceptance criteria
-- [ ] Maturity scorecard is consistent with the qualitative findings
-- [ ] The maturity grade matches the readiness recommendation (or override is explained)
+- [ ] Optional quality scoring identifies assessed scope and any sampling
+- [ ] Traceability covers the requested depth and identifies missing links
+- [ ] Any requested maturity scorecard is consistent with the qualitative findings
+- [ ] Readiness follows unresolved decisions, independently of scores

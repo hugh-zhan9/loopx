@@ -3,7 +3,7 @@ name: issue
 description: "Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues."
 when_to_use: "issue, bug report, regression issue, failing test issue, build failure issue, unexpected behavior, issue-driven, bug-class issue, 问题工单, bug修复流程"
 metadata:
-  version: "0.4.0"
+  version: "0.4.2"
 ---
 
 # Issue
@@ -20,7 +20,7 @@ Issue-driven handles:
 
 Issue-driven does not handle feature requests or enhancements. Return those to
 prompt-first work or the justified canonical intent: `clarify`, `spec`, `plan2exec`,
-`exec`, `review`, or `finish`.
+or host-native execution and review under the working agreement.
 
 ## Contract
 
@@ -53,8 +53,8 @@ Reject or route:
 
 - feature request -> `feature_request`, suggest `$clarify`
 - enhancement -> `feature_request`, suggest `$clarify`
-- pure review feedback -> suggest `$review`
-- approved implementation plan -> suggest `$exec`
+- pure review feedback -> perform or recommend host-native review under the working agreement
+- ready `loopx-plan/v1` implementation plan -> suggest `$exec`; other planning documents go to `plan2exec` for conversion
 
 ## Triage Decision Matrix
 
@@ -84,98 +84,10 @@ Ask these questions:
 
 ## Ledger Template
 
-Write this structure:
-
-```markdown
-# Issue Ledger: <title-or-slug>
-
-metadata:
-  phase: intake | triage | diagnosis | fix_brief | closeout
-  status: pending | in_progress | ready_for_fix | needs_info | not_a_bug | duplicate | already_fixed | feature_request | blocked | needs_scope_change
-  form: full | short
-  source: pasted | local_file | failing_test | build_failure | reproduction_notes | existing_ledger
-  created_at: YYYY-MM-DD
-  updated_at: YYYY-MM-DD
-
-## Source
-
-<original report, file path, failing output, or reproduction notes>
-
-## Worktree Baseline
-
-- clean: true | false
-- dirty_files:
-  - <path>
-
-## Triage
-
-- classification: bug | regression | failing_test | build_failure | unexpected_behavior | not_a_bug | needs_info | feature_request
-- routing_decision: issue_driven | prompt_first | review | exec | blocked
-- decision_question_results:
-  - previously_worked: yes | no | unknown
-  - documented_or_accepted_contract: yes | no | unknown
-  - failing_existing_check: yes | no | unknown
-  - new_or_changed_behavior: yes | no | unknown
-- reason: <why>
-
-## Diagnosis Summary
-
-diagnosis:
-  classification: bug | regression | failing_test | build_failure | unexpected_behavior | not_a_bug | needs_info
-  reproduction_status: reproduced | intermittent | not_reproduced | not_attempted
-  evidence:
-    - type: command | log | steps | code | user_report
-      value: <summary>
-  root_cause_status: confirmed | likely | unknown
-  root_cause: <specific cause and mechanism, or unknown>
-  hypotheses_rejected:
-    - <hypothesis and evidence>
-  fix_mode: root_cause_fix | defensive_fix | blocked | no_fix_needed
-  regression_test_required: true | false
-  regression_test_exception_reason: <required when false>
-  risk_triggers:
-    - no_repro
-    - defensive_fix
-    - public_surface
-    - scope_unclear
-
-## Fix Brief
-
-- strategy: <root-cause fix or defensive fix>
-- expected_touched_files:
-  - <path>
-- expected_touched_surfaces:
-  - <surface>
-- parallel_safe: false by default; true only when expected files/surfaces are narrow, non-overlapping, and avoid public CLI/API/schema/config, lockfile, and generated artifacts
-- parallel_safety_reason: <why this is safe, or why it defaults to false>
-- regression_test_plan: <test to add or update>
-- verification_commands:
-  - <command>
-- forbidden_scope:
-  - public CLI/API/schema/config changes unless explicitly listed
-  - lockfile changes unless explicitly listed
-  - generated artifact changes unless explicitly listed
-- diagnostic_patches:
-  - <none or patch path/summary>
-
-## Response Draft
-
-<short response for the reporter or user>
-
-## Handoff
-
-- if status is `ready_for_fix`: `$fix .loopx/issues/<this-ledger>.md`
-- if status is `needs_info`: ask for the missing reproduction, log, environment, or version data
-- if status is `not_a_bug`: explain the observed behavior and evidence
-- if status is `duplicate`: link or describe the existing issue/source
-- if status is `already_fixed`: explain the evidence that current behavior is already fixed
-- if status is `feature_request`: route to `$clarify`
-- if status is `blocked`: explain the blocker and the next decision needed
-
-## Evidence Log
-
-- YYYY-MM-DD <command/file/observation> -> <result>
-```
+Use [the full ledger template](references/ledger-template.md) for `form: full`.
+It carries source, baseline, triage, Diagnosis Summary, Fix Brief, response draft,
+handoff, and evidence. Use [the diagnosis contract](../debug/references/diagnosis-contract.md)
+for field semantics. The short-form exception below keeps the same readiness bar.
 
 ## Short-Form Ledger
 
@@ -199,7 +111,9 @@ outgrows one file, upgrade to the full ledger before continuing.
 
 `needs_scope_change` is a fix-owned status: `fix` sets it when execution needs
 files outside the approved scope, and the ledger returns here for a scope
-decision.
+decision. Preserve its Resume Record and checkpoint artifacts when revising the
+brief. After resolving the blocker or scope decision, restore `ready_for_fix`
+without erasing prior execution evidence; `fix` validates recovery on re-entry.
 
 ## Process
 
@@ -235,7 +149,7 @@ If these fields cannot be filled from available evidence, do not write a ready F
 - Use `already_fixed` when current code or tests show the reported behavior no longer reproduces.
 - Use `feature_request` for enhancements and route to `$clarify`.
 - Use `blocked` when diagnosis cannot continue without a user or external decision.
-- Do not use execution statuses such as fixed, reviewed, complete, or failed in `issue`; those belong to `fix` ledger append sections.
+- `issue` does not set execution outcomes or `complete`. `fix` owns execution metadata and reports according to [its recovery contract](../fix/references/resume-contract.md); diagnosis-stage `in_progress` alone never authorizes resuming a repair.
 
 ## Ready For Fix Gate
 
@@ -253,20 +167,14 @@ Use `ready_for_fix` only when all conditions are true:
 
 Do not set `ready_for_fix` when root cause is unknown, reproduction was not attempted, evidence is only a vague user expectation, expected files are placeholders, verification commands are missing, or the report is actually a feature request.
 
-User confirmation is not required for a narrow root-cause fix with reproduced or strongly evidenced behavior. User confirmation is required before handoff when the Fix Brief relies on `no_repro`, `defensive_fix`, public surface changes, generated artifacts, lockfiles, migrations, package metadata, or other high-risk scope.
+User confirmation is not required for a narrow root-cause fix with reproduced or strongly evidenced behavior. Record confirmation before handoff when the Fix Brief relies on `no_repro`, `defensive_fix`, public surface changes, generated artifacts, lockfiles, migrations, package metadata, or other high-risk scope. Existing explicit approval for the same scope and risk
+is sufficient; do not ask again. A pending answer is not approval.
 
-## Temporary Diagnostic Edits
+## Diagnostic Handoff
 
-Temporary diagnostic edits are allowed only to gather evidence and only on a clean worktree by default.
-
-When the worktree is dirty:
-
-- Do not make diagnostic edits unless the user explicitly allows them.
-- If allowed, record the baseline diff before editing.
-- Keep diagnostic changes isolated from pre-existing user changes.
-- Before handoff, either revert the diagnostic diff or record the patch and reason in `diagnostic_patches`.
-
-Do not leave unrecorded diagnostic changes in the worktree.
+Apply the preflight rules to temporary edits. Remove only the diagnostic delta
+or identify its patch and purpose in `diagnostic_patches` before handoff. Never
+revert pre-existing changes or leave unexplained instrumentation behind.
 
 ## Parallel Safety
 

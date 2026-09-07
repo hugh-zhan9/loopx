@@ -1,5 +1,10 @@
 # API Error Handling
 
+The formats and extensions below are alternatives and examples. Preserve the
+accepted client contract; request IDs, code fields, localization, and retry
+metadata are not automatic additions to an existing API. Apply the practices
+only within the selected contract and requested design scope.
+
 ## Error Response Design
 
 Consistent, informative error responses are critical for API usability.
@@ -459,7 +464,9 @@ Document all possible errors for each endpoint:
 
 ## Retry Guidance
 
-Help clients understand if they should retry:
+Define retry guidance only when required by the accepted contract. Status alone
+does not establish safe replay: consider operation idempotency, uncertain write
+outcomes, and the documented retry budget. The values below are illustrative:
 
 ```json
 {
@@ -476,7 +483,7 @@ Help clients understand if they should retry:
 }
 ```
 
-### Retryable Errors
+### Statuses That May Permit Retry Under the Operation Contract
 
 - 408 Request Timeout
 - 429 Too Many Requests (with Retry-After)
@@ -485,7 +492,7 @@ Help clients understand if they should retry:
 - 503 Service Unavailable
 - 504 Gateway Timeout
 
-### Non-Retryable Errors
+### Statuses Usually Requiring Caller Action Before Another Attempt
 
 - 400 Bad Request
 - 401 Unauthorized

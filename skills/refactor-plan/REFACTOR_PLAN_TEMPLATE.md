@@ -1,6 +1,6 @@
 # <Topic> Refactor Plan
 
-> **For agentic workers:** This document is both the refactor RFC and the execution plan. Execute only if the Behavior Preservation Contract, Tiny Commits, Verification Plan, and Execution Handoff are complete.
+> **For agentic workers:** Once approved, this RFC is a source for `plan2exec`, not an executable `loopx-plan/v1` plan. Complete the Behavior Preservation Contract, Refactor Steps, Verification Plan, and Execution Handoff before conversion.
 
 **Source:** <user request, discussion, issue, code smell report, or existing document>
 
@@ -55,7 +55,7 @@ List the evidence that defines current externally observable behavior:
 
 Stop execution and return for clarification or design if:
 
-- A commit requires files or surfaces outside the approved scope.
+- A step requires files or surfaces outside the approved scope.
 - A test failure suggests behavior changed.
 - A public contract, schema, CLI/API behavior, permission rule, config key, package surface, or generated artifact must change.
 - Characterization tests cannot be written or run.
@@ -78,11 +78,11 @@ Explain the chosen path and why it is behavior-preserving. Include alternatives 
 - Tests that must not be weakened because they represent external behavior:
 - Test anti-patterns to avoid:
 
-## Tiny Commits
+## Refactor Steps
 
-Each commit must leave the codebase working and behavior-preserving. Use exact file paths, commands, and expected outputs.
+Each step must leave the codebase working and behavior-preserving. Use exact file paths, commands, and expected outputs.
 
-### Commit 1: <small refactor action>
+### Step 1: <small refactor action>
 
 **Intent:** <why this step exists>
 
@@ -115,11 +115,11 @@ Each commit must leave the codebase working and behavior-preserving. Use exact f
 
 **Expected result:** <exact pass/fail expectation or output pattern>
 
-**Rollback note:** <how to revert this commit or what to undo>
+**Rollback note:** <how to revert this step or what to undo>
 
-### Commit 2: <small refactor action>
+### Step 2: <small refactor action>
 
-Repeat the same structure. Do not combine unrelated refactorings in one commit.
+Repeat the same structure. Do not combine unrelated refactorings in one step.
 
 ## Verification Plan
 
@@ -133,9 +133,9 @@ Expected:
 
 - <expected output>
 
-### Per Commit
+### Per Step
 
-| Commit | Command | Expected Result |
+| Step | Command | Expected Result |
 |---|---|---|
 | 1 | `<command>` | <expected result> |
 
@@ -151,7 +151,7 @@ Expected:
 
 ## Rollback Plan
 
-- Commit-level rollback:
+- Step-level rollback:
 - Full refactor rollback:
 - How to detect that rollback is needed:
 - Files or generated artifacts to restore or regenerate:
@@ -164,17 +164,17 @@ Expected:
 
 ## Execution Handoff
 
-**Ready for:** `exec` | `clarify` | `spec` | `blocked`
+**Ready for:** `plan2exec` | `clarify` | `spec` | `blocked`
 
 **Reason:**
 
-**Required sub-skills:** `tdd` | `go-style` | `sql-style` | `review` | `verify` | none
+**Required sub-skills:** `tdd` | `go-style` | `sql-style` | `verify` | none
 
 **Execution notes:**
 
-- Use `exec` for sequential or tightly coupled refactors.
-- Let `exec` decide whether independent tasks admit isolated concurrency.
-- Use `plan2exec` only when this document is intentionally high-level and missing an execution-ready plan.
+- Convert this RFC through `plan2exec`, preserving behavior, scope, dependencies, and verification.
+- Run `plan-reviewer` on the resulting `loopx-plan/v1` plan, then pass that ready plan to `exec` when execution is requested.
+- Step boundaries do not authorize commits; Git disposition follows the working agreement.
 
 ## Further Notes
 

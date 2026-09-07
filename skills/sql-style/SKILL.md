@@ -4,133 +4,79 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.6"
+  version: "0.3.8"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---
 
 # SQL Style
 
-## Purpose
+Apply this support lens to SQL, schema, migrations, indexes, ORM access, or database
+performance in the requested task. It does not replace `spec` for unresolved data
+ownership, product behavior, permissions, or migration compatibility decisions.
 
-`sql-style` is the shared loopx SQL/database support lens. It fuses useful upstream `sql-pro` guidance with loopx workflow discipline.
+## Establish the database context
 
-Do not delete or flatten useful SQL/database guidance from other skills just because `sql-style` exists. Instead, make related skills call `sql-style` when SQL, database schema, migration, indexing, or query-performance discipline is relevant.
+Inspect the actual dialect/version, ORM, migration tool, deployment order, relevant
+queries, callers, and data contracts. Resolve discoverable context before asking.
+When a choice depends on missing product semantics or recovery policy, compare
+options and identify the decision; do not execute destructive work to discover it.
 
-Use it directly for SQL, schema, index, migration, and database performance work. Use it from `spec`, `exec`, or `review` when work touches persistent data or performance-sensitive data access.
+Database writes, backfills, and plan inspection that executes a statement need the
+same authorization as the operation itself. Prefer non-executing plan inspection
+for unapproved mutations; an analysis request does not authorize production writes.
 
-This skill does not replace `spec`. If data ownership, product semantics, migration compatibility, permission boundaries, or rollback decisions are unresolved, route those decisions through `clarify` or `spec`.
+## Schema and migration
 
-## When To Use
+- Preserve established conventions and intentional keys, uniqueness, nullability,
+  defaults, foreign keys, and ownership. Treat nullability as observable behavior.
+- Define rollback or forward repair for partial migration failure. Make repeated
+  runs safe when the deployment process may retry.
+- For rolling deployment, preserve old/new application compatibility. For large
+  tables, establish lock behavior, online-change limits, bounded batches, and stop
+  conditions. Use expand/contract sequencing when the compatibility window needs it.
+- Resumable backfills need checkpoints, progress evidence, and reconciliation;
+  do not impose a backfill runtime on a small atomic migration.
+- In Kratos/MySQL work, preserve table and persisted-column comments according to
+  the established project convention; coordinate with `kratos` for framework detail.
 
-- Designing or reviewing database schemas
-- Writing or optimizing SQL queries
-- Adding or changing indexes
-- Writing migrations, backfills, or data cleanup
-- Reviewing ORM-generated SQL or repository data access
-- Investigating slow queries with `EXPLAIN` or query plans
-- Handling dialect-specific behavior in PostgreSQL, MySQL, SQLite, or SQL Server
+## Query and index decisions
 
-## STOP Conditions
+- Prefer set-based operations and return only needed columns/rows. Avoid
+  `SELECT *` or broad ORM preloads without a repository-specific reason.
+- Account for `NULL` in predicates, joins, ordering, and uniqueness. Keep paginated
+  ordering deterministic. Use existence checks rather than counts when only
+  existence matters and the actual query plan supports the choice.
+- State transaction and isolation assumptions when correctness depends on them.
+  Inspect generated ORM SQL instead of assuming the abstraction preserves them.
+- Add indexes for demonstrated access paths or constraints. Consider column order,
+  selectivity, covering behavior, redundant indexes, and write amplification.
+- Check dialect-specific upserts, JSON, generated columns, collations, time zones,
+  and locking against the repository's actual database.
+- Review privileges and sensitive-data exposure for changed data paths. Preserve
+  required error and integrity behavior when optimizing.
 
-Stop before recommending or editing database changes when:
+## Performance evidence
 
-- Data ownership, product semantics, permission boundaries, rollout order, or rollback expectations are unknown.
-- The change can destroy, rewrite, backfill, or expose production data and no approved migration or recovery path exists.
-- The repository's actual dialect, ORM, migration tool, or deployment order is unclear.
+Use project targets when available. Otherwise report a measured baseline rather
+than inventing an SLO or production row count. Inspect execution plans and compare
+before/after evidence on representative data before claiming an improvement.
 
-Route unresolved product and compatibility decisions through `clarify` or `spec` before continuing.
+Use the project's database client and safe test environment; SQL statements are
+not shell commands. `EXPLAIN ANALYZE` runs the statement and is not a read-only
+substitute for `EXPLAIN`. If plan or workload evidence is unavailable, identify the
+unverified claim and use the narrowest meaningful available check.
 
-## Schema And Migration Discipline
+## References and output
 
-- Preserve existing schema conventions unless they are clearly broken.
-- Define primary keys, foreign keys, uniqueness, nullability, and defaults intentionally.
-- Treat nullability as product behavior, not a storage afterthought.
-- Include rollback or forward-fix strategy for migrations that can fail mid-flight.
-- Make repeated migration or backfill runs safe when the deployment process may retry.
-- For large tables, plan lock behavior, batching, indexes, and online migration constraints.
-- Keep application compatibility in mind during rolling deploys.
-- For MySQL tables in Kratos projects, preserve the existing loopx rule: `CREATE TABLE` statements should include table comments, and persisted columns should include column comments where the project convention requires them.
+Load detail only for the current problem:
 
-## Query Discipline
+- [query-patterns.md](references/query-patterns.md): joins, CTEs, subqueries, recursion.
+- [window-functions.md](references/window-functions.md): ranking and analytics.
+- [optimization.md](references/optimization.md): plans, indexes, statistics.
+- [database-design.md](references/database-design.md): keys, constraints, schemas.
+- [dialect-differences.md](references/dialect-differences.md): dialect-specific syntax and behavior.
 
-- Prefer set-based operations over row-by-row loops.
-- Avoid `SELECT *` in production queries unless the repository has an explicit reason.
-- Filter early and return only required columns.
-- Handle `NULL` explicitly in predicates, joins, ordering, and uniqueness assumptions.
-- Prefer `EXISTS` over `COUNT(*)` for existence checks when only existence matters.
-- Make ordering deterministic for paginated or user-visible results.
-- Use transactions deliberately. State the isolation assumptions when correctness depends on them.
-- For online schema changes, prefer expand/contract sequencing. Backfills need
-  resumable checkpoints, progress observability, reconciliation, and a rollback
-  or stop rule. Review privileges and PII exposure for every new data path.
-- Keep query intent readable with names, structure, or short comments for non-obvious logic.
-
-## Index Discipline
-
-- Add indexes for demonstrated access paths, constraints, or clearly required query patterns.
-- Consider column order, selectivity, covering behavior, and write amplification.
-- Avoid redundant indexes unless the dialect or workload justifies them.
-- Verify the intended query uses the index with the project's database tooling when practical.
-- Document why a non-obvious index exists.
-
-## Performance Verification
-
-- Use project-specific performance targets when they exist.
-- If no target exists, state the measured baseline and proposed improvement without inventing an SLO.
-- Analyze execution plans before claiming an optimization works.
-- Test against production-like data volume when data size can change the plan.
-- Record before/after evidence for meaningful optimizations.
-
-Example commands:
-
-```bash
-EXPLAIN ANALYZE <query>;
-go test ./...
-npm test
-pytest
-```
-
-## Failure Handling
-
-| Trigger | First action | If still blocked |
-|---|---|---|
-| `EXPLAIN` output is unavailable | State that the optimization is unverified and use the narrowest available query or test evidence | Do not claim performance improvement; report the evidence gap |
-| Migration cannot be made safely repeatable | Split schema change, backfill, and cleanup into separate phases | Stop and require an approved rollout or recovery decision |
-| Dialect behavior is uncertain | Check project configuration, migration files, and existing SQL for the actual dialect | Mark the assumption explicitly and avoid dialect-specific syntax |
-
-## Red Flags
-
-- Do not use `SELECT *` or broad ORM preloads in production paths without a repository-specific reason.
-- Do not add indexes without an access path, constraint, or measured query need.
-- Do not hide destructive migrations behind "cleanup" language.
-- Do not invent SLOs, production row counts, or rollback guarantees.
-
-## Dialect Discipline
-
-- Check dialect-specific behavior for upserts, JSON fields, generated columns, partial indexes, expression indexes, collations, time zones, and locking.
-- Do not assume PostgreSQL behavior applies to MySQL or SQLite.
-- Keep ORM abstractions honest by inspecting generated SQL when performance or correctness depends on it.
-
-## Reference Guide
-
-Load detailed guidance from the preserved upstream references when the task needs it:
-
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Query Patterns | `references/query-patterns.md` | JOINs, CTEs, subqueries, recursive queries |
-| Window Functions | `references/window-functions.md` | ROW_NUMBER, RANK, LAG/LEAD, analytics |
-| Optimization | `references/optimization.md` | EXPLAIN plans, indexes, statistics, tuning |
-| Database Design | `references/database-design.md` | Normalization, keys, constraints, schemas |
-| Dialect Differences | `references/dialect-differences.md` | PostgreSQL, MySQL, SQLite, or SQL Server behavior |
-
-## Review Checklist
-
-- Are schema semantics explicit: keys, uniqueness, nullability, defaults?
-- Is migration order safe for rolling deploys and retries?
-- Could repeated runs corrupt data or duplicate work?
-- Do queries avoid unnecessary columns, rows, and row-by-row loops?
-- Are `NULL` and ordering semantics intentional?
-- Are indexes justified by access paths and verified when practical?
-- Are dialect-specific assumptions documented?
-- Is performance evidence fresh before any performance claim?
+Return the SQL, design, or review requested, with relevant semantics, compatibility,
+migration/recovery constraints, and actual verification. Do not duplicate every
+check as a separate report or add a migration mechanism without a requirement.

@@ -163,7 +163,9 @@ Flag as incomplete when:
 
 ## Requirement Quality Checks
 
-For each identifiable requirement statement, assess against the 8 quality attributes. See `references/quality-attributes-rubric.md` for scoring details.
+Check relevant statements against the 8 quality attributes at the chosen depth.
+Use them qualitatively by default; numerical labels below apply only when scoring
+is in scope. See `quality-attributes-rubric.md` for optional scoring details.
 
 ### Quick Quality Smell Test
 
@@ -180,7 +182,7 @@ Flag immediately if any requirement statement:
 
 ## Traceability Checks
 
-For each requirement, verify traceability links exist. See `references/traceability-guide.md` for matrix generation.
+Within the assessed scope, check requirement traceability and disclose sampling. See `references/traceability-guide.md` for matrix generation.
 
 ### Quick Traceability Checks
 
@@ -192,7 +194,8 @@ For each requirement, verify traceability links exist. See `references/traceabil
 
 ## Development Readiness
 
-Quick checks to determine if the requirement is ready for the next loopx workflow step.
+Use `readiness-rubric.md` to recommend the next step. These checks summarize
+applicable evidence; they do not impose a numerical gate or mandatory workflow.
 
 ### Ready for `clarify`
 
@@ -218,9 +221,9 @@ Quick checks to determine if the requirement is ready for the next loopx workflo
 - [ ] Affected surfaces are discoverable
 - [ ] Remaining choices are local implementation choices
 - [ ] No owner-level decisions are pending
-- [ ] Behavioral model is complete (all states, transitions, operations, mutations defined)
-- [ ] Traceability coverage > 80%
-- [ ] Quality attribute average >= 70%
+- [ ] Applicable states, transitions, operations, and mutations have no unresolved business gaps
+- [ ] Relevant requirements have goal and acceptance evidence; coverage limits are disclosed
+- [ ] A persistent plan serves the request, approval boundary, recovery, or coordination need
 
 ### Blocked
 

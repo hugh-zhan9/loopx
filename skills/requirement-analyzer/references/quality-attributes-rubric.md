@@ -1,6 +1,8 @@
 # Requirement Quality Attributes Rubric
 
-Use this reference to score individual requirement statements for quality. Apply in `standard` and `deep` analysis depth. In `quick` mode, skip per-statement scoring and only flag statements scoring 0 on any attribute.
+Use these attributes as qualitative checks at the requested analysis depth. Score
+only when the user requests numbers or a deep review has an explicit comparison
+question that scoring helps answer. Quick and standard reviews do not require scores.
 
 Do not let scoring dominate the report. Quality scores are a diagnostic lens for finding unclear or untestable requirements; P0/P1 findings, behavioral model gaps, and readiness routing remain the main output.
 
@@ -157,21 +159,25 @@ Are quantities, timing, sizes, rates, and thresholds specified where applicable?
 - Simple CRUD without performance concerns
 - UI text or label requirements
 
-## Scoring Process
+## Optional Scoring Process
+
+Apply this process only when numerical assessment is in scope. Mark inapplicable
+attributes as `-` and exclude their points from the denominator. Report the
+coverage and denominator; a sample does not establish a document-wide average.
 
 1. **Identify requirement statements** — Break the document into individual testable requirement statements. A statement is one atomic assertion about system behavior. In `standard`, focus on high-risk statements instead of exhaustively scoring every sentence.
 
-2. **Score each statement** — Apply all 8 attributes. Use the scoring table above. In `standard`, scoring may be summarized by attribute and worst offender; in `deep`, include per-statement scoring.
+2. **Score each statement** — Apply all 8 attributes. Use the scoring table above for the declared scope. Summarize a sample or provide per-statement detail as requested.
 
-3. **Compute statement score** — Sum of all 8 attributes (max 16 per statement).
+3. **Compute statement score** — Sum applicable attributes (2 points each; maximum 16).
 
 4. **Identify worst offenders** — Flag any statement with a 0 on any attribute as needing attention.
 
-5. **Compute document average** — Average of all statement scores, normalized to percentage.
+5. **Compute assessed-scope average** — Normalize each statement by its applicable maximum, then average. Call it document-wide only when all requirements were assessed.
 
 ## Output Format
 
-### Per-Statement Scoring (deep mode)
+### Per-Statement Scoring (when requested)
 
 ```markdown
 | # | Requirement Statement | Test | Atom | Nec | Unamb | Comp | Cons | Impl | Meas | Total |
@@ -182,7 +188,7 @@ Are quantities, timing, sizes, rates, and thresholds specified where applicable?
 
 Note: Use `-` when an attribute is not applicable (e.g., measurability for a boolean feature).
 
-### Summary Scoring (standard mode)
+### Summary Scoring (when requested)
 
 ```markdown
 | Attribute | Avg Score | Statements at 0 | Worst Offender |
@@ -196,14 +202,15 @@ Note: Use `-` when an attribute is not applicable (e.g., measurability for a boo
 | Impl-freedom | 1.6 | 2 | R11: dictates Redis + specific schema |
 | Measurability | 1.0 | 6 | R2: "real-time" without latency target |
 
-Overall quality: 11.7/16 (73%)
+Assessed-scope quality: 11.7/16 (73%; example assumes all attributes applicable)
 ```
 
-In standard mode, omit the table if it would distract from higher-signal P0/P1 findings. Instead, state the two or three worst quality patterns and cite examples.
+Without a scoring request or justified deep comparison, omit numerical tables. State the highest-impact quality patterns and cite examples.
 
 ## Contribution to Maturity Score
 
-The quality attributes contribute to the **Clarity** dimension (20 points) of the maturity scorecard:
+When a maturity scorecard is in scope, the assessed quality percentage contributes
+to its **Clarity** dimension (20 points). Disclose sampled coverage:
 
 - Average quality score >= 80%: 20 points
 - Average quality score 60-79%: 15 points

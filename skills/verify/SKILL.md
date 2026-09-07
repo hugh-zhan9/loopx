@@ -3,145 +3,53 @@ name: verify
 description: "Audits fresh verification evidence when explicitly invoked or activated by an owning workflow before a completion, fixed, passing, review-ready, or commit-readiness claim. Not for automatic workflow selection, replacing the quiet completion check, speculative confidence, or stale results."
 when_to_use: "explicit verify invocation, owning workflow requests verification audit, fresh evidence for completion or commit readiness, 验证审计"
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
-# Verification Before Completion
+# Verify
 
-## Overview
+Audit fresh verification evidence when explicitly invoked or activated by an
+owning workflow. This skill does not select a workflow or replace the quiet
+completion check.
 
-Completion claims require fresh, relevant verification evidence.
+## Evidence before claims
 
-**Core principle:** Evidence before claims, always.
+1. Identify the claim and the checks that can support it. Use the repository's
+   required checks and checks relevant to the changed behavior.
+2. Inspect the actual command output, exit status, tested scope, and any skips.
+   A command starting successfully is not a completed check.
+3. Confirm the evidence applies to the current code, configuration, inputs, and
+   relevant environment. Rerun affected checks after these change, or when the
+   prior output or tested state cannot be established. A new message alone does
+   not invalidate otherwise current evidence.
+4. State the result at the scope the evidence supports, including failures,
+   omissions, and environment constraints. Without applicable passing evidence,
+   you cannot claim it passes.
 
-**Violating the letter of this rule is violating the spirit of this rule.**
+## Match evidence to the claim
 
-## The Iron Law
+| Claim | Evidence needed |
+| --- | --- |
+| Focused tests pass | Completed output for the named tests; no full-suite implication |
+| Full suite passes | Completed full-suite output, with skipped tests disclosed |
+| Build or lint passes | That check's output; neither substitutes for the other |
+| Reported bug is fixed | Original reproduction or equivalent targeted evidence now passes |
+| Regression test detects the defect | Expected failure before the fix and success after it, when safely reproducible |
+| Delegated changes are integrated | Inspect the integrated diff and evidence for that state; an agent's success report alone is insufficient |
+| Task is complete | Required behavior and boundaries accounted for, plus relevant verification; passing tests alone do not establish coverage |
 
-```
-NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
-```
+Do not revert or delete user changes to manufacture regression evidence. Use an
+isolated reproduction when needed and label any evidence limitation.
 
-If you haven't run the verification command in this message, you cannot claim it passes.
+## Record and report
 
-## The Gate Function
+Use [the shared evidence contract](../shared/evidence-contract.md) when a workflow
+or handoff requires a durable record. For a standalone audit, the response can
+carry the evidence; no extra artifact is required solely by this skill. Identify
+the tested tree or change state alongside the command evidence so its relevance
+can be checked after further edits or integration.
 
-```
-BEFORE claiming any status or expressing satisfaction:
-
-1. IDENTIFY: What command proves this claim?
-2. RUN: Execute the FULL command (fresh, complete)
-3. READ: Full output, check exit code, count failures
-4. VERIFY: Does output confirm the claim?
-   - If NO: State actual status with evidence
-   - If YES: State claim WITH evidence
-5. ONLY THEN: Make the claim
-
-Skipping a step means the claim is not verified.
-```
-
-## Common Failures
-
-| Claim | Requires | Not Sufficient |
-|-------|----------|----------------|
-| Tests pass | Test command output: 0 failures | Previous run, "should pass" |
-| Linter clean | Linter output: 0 errors | Partial check, extrapolation |
-| Build succeeds | Build command: exit 0 | Linter passing, logs look good |
-| Bug fixed | Test original symptom: passes | Code changed, assumed fixed |
-| Regression test works | Red-green cycle verified | Test passes once |
-| Agent completed | VCS diff shows changes | Agent reports "success" |
-| Requirements met | Line-by-line checklist | Tests passing |
-
-## Red Flags - STOP
-
-- Using "should", "probably", "seems to"
-- Expressing satisfaction before verification ("Great!", "Perfect!", "Done!", etc.)
-- About to commit/push/PR without verification
-- Trusting agent success reports
-- Relying on partial verification
-- Thinking "just this once"
-- Tired and wanting work over
-- **ANY wording implying success without having run verification**
-
-## Rationalization Prevention
-
-| Excuse | Reality |
-|--------|---------|
-| "Should work now" | RUN the verification |
-| "I'm confident" | Confidence ≠ evidence |
-| "Just this once" | No exceptions |
-| "Linter passed" | Linter ≠ compiler |
-| "Agent said success" | Verify independently |
-| "I'm tired" | Exhaustion ≠ excuse |
-| "Partial check is enough" | Partial proves nothing |
-| "Different words so rule doesn't apply" | Spirit over letter |
-
-## Key Patterns
-
-**Tests:**
-```
-✅ [Run test command] [See: 34/34 pass] "All tests pass"
-❌ "Should pass now" / "Looks correct"
-```
-
-**Regression tests (TDD Red-Green):**
-```
-✅ Write → Run (pass) → Revert fix → Run (MUST FAIL) → Restore → Run (pass)
-❌ "I've written a regression test" (without red-green verification)
-```
-
-**Build:**
-```
-✅ [Run build] [See: exit 0] "Build passes"
-❌ "Linter passed" (linter doesn't check compilation)
-```
-
-**Requirements:**
-```
-✅ Re-read plan → Create checklist → Verify each → Report gaps or completion
-❌ "Tests pass, phase complete"
-```
-
-**Agent delegation:**
-```
-✅ Agent reports success → Check VCS diff → Verify changes → Report actual state
-❌ Trust agent report
-```
-
-## Why This Matters
-
-From 24 failure memories:
-- your human partner said "I don't believe you" - trust broken
-- Undefined functions shipped - would crash
-- Missing requirements shipped - incomplete features
-- Time wasted on false completion → redirect → rework
-- Violates: "Honesty is a core value. If you lie, you'll be replaced."
-
-## When To Apply
-
-**ALWAYS before:**
-- ANY variation of success/completion claims
-- ANY expression of satisfaction
-- ANY positive statement about work state
-- Committing, PR creation, task completion
-- Moving to next task
-- Delegating to agents
-
-**Rule applies to:**
-- Exact phrases
-- Paraphrases and synonyms
-- Implications of success
-- ANY communication suggesting completion/correctness
-
-## The Bottom Line
-
-Record durable command evidence using
-[`../shared/evidence-contract.md`](../shared/evidence-contract.md). Distinguish
-focused from full verification and record environment-blocked checks instead of
-silently skipping them.
-
-**No shortcuts for verification.**
-
-Run the command. Read the output. THEN claim the result.
-
-This is non-negotiable.
+If a check is blocked, report the missing dependency and the unverified scope.
+Do not silently drop required checks or modify validation to obtain a pass.
+Once applicable checks pass, repeat or broaden them only for a changed state,
+an uncovered requirement, a failure, or a repository requirement.

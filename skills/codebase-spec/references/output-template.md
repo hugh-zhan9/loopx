@@ -1,6 +1,10 @@
 # Codebase Spec Template
 
-Use this structure for the final Markdown unless the user requested another format. Keep sections even when brief; write `Unknown` or `Not applicable` with a reason instead of silently deleting important areas.
+Use applicable sections at the requested depth unless the user provides another
+format. Overview output needs only the summary, scope, main surfaces, and gaps.
+Standard/Deep output preserves all material evidence areas; label missing evidence
+`Unknown` with the inspected scope. Omit irrelevant sections rather than filling
+a complete template for a small request.
 
 ```markdown
 # <Project Or Module> Codebase Spec

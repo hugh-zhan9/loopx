@@ -1,263 +1,69 @@
 # Requirement Analysis Report Template
 
-Use this structure for the default markdown report. Keep it concise; expand only where the requirement has real risk.
-
-## Full Analysis Report
+Adapt this structure to the requested gap checklist or analysis report. Omit
+empty sections and irrelevant matrices. Use natural headings in the user's
+language. A quick review needs only its scope, readiness, and concrete findings.
 
 ```markdown
 # Requirement Analysis
 
-## Summary
+## Conclusion
 
-- Source:
-- Document type:
-- Analysis depth:
-- Overall readiness:
-- Maturity score:
-- Highest priority issue:
+- Source and assessed scope: <document/version/sections; note excerpts or sampling>
+- Readiness: <what can proceed and which decisions still block it>
+- Main reason: <evidence-backed conclusion>
 
-Note: readiness recommendation is authoritative; maturity score is diagnostic.
+## Findings
 
-## Maturity Scorecard
-
-| Dimension | Score | Max | Notes |
-|-----------|-------|-----|-------|
-| Completeness | | 20 | |
-| Clarity | | 20 | |
-| Testability | | 20 | |
-| Behavioral Coverage | | 20 | |
-| Traceability | | 20 | |
-| **Total** | | **100** | |
-
-Score band: [high confidence / medium confidence / low confidence / very low confidence]
-
-Score confidence: [high / medium / low]
-
-## Readiness Recommendation
-
-Recommended next step: `clarify` | `spec` | `plan2exec` | blocked pending owner decisions
-
-Reason:
-
-## P0 Blockers
-
-| Issue | Evidence | Why It Blocks | Question / Decision Needed |
+| Priority | Gap and source evidence | Consequence | Question or next action |
 | --- | --- | --- | --- |
+| <P0/P1/P2> | <specific statement or missing behavior, with anchor> | <effect on decisions or delivery> | <bounded resolution> |
 
-## P1 Major Risks
+## Resolved From Evidence
 
-| Issue | Evidence | Risk | Suggested Resolution |
-| --- | --- | --- | --- |
+<Only relevant questions already answered by source, references, or repo evidence.
+Separate confirmed facts from inferences that still need confirmation.>
 
-## P2 Improvements
+## Remaining Decisions
 
-| Issue | Evidence | Improvement |
-| --- | --- | --- |
-
-## Quality Attribute Scoring
-
-Include this section as a targeted summary in standard mode. Use per-statement scoring only in deep mode or when quality scoring is the requested output.
-
-### Summary
-
-| Attribute | Avg Score | Statements at 0 | Worst Offender |
-|-----------|-----------|-----------------|----------------|
-| Testability | | | |
-| Atomicity | | | |
-| Necessity | | | |
-| Unambiguity | | | |
-| Completeness | | | |
-| Consistency | | | |
-| Implementation-freedom | | | |
-| Measurability | | | |
-
-Overall quality: X/16 (Y%)
-
-### Per-Statement Scoring (deep mode only)
-
-| # | Requirement Statement | Test | Atom | Nec | Unamb | Comp | Cons | Impl | Meas | Total |
-|---|----------------------|------|------|-----|-------|------|------|------|------|-------|
-
-## Behavioral Model (conditional — stateful requirements only)
-
-### State Model: [Entity Name]
-
-| State | Type | Description | Timeout/Escalation |
-|-------|------|-------------|--------------------|
-
-State hierarchy: [flat / layered]
-
-### Transition Matrix
-
-| From | Action/Trigger | To | Actor | Guard | Failure Path |
-|------|----------------|-----|-------|-------|--------------|
-
-### Operation Matrix
-
-| State | Allowed Operations | Forbidden | Role | Entry Point |
-|-------|--------------------|-----------|------|-------------|
-
-### Data Mutation Matrix
-
-| Operation | Creates | Updates | Deletes | Side Effects | Audit/Notify | Idempotency |
-|-----------|---------|---------|---------|--------------|--------------|-------------|
-
-### Implementation Fit (when repo root provided)
-
-| Element | Requirement | Implementation | Status | Evidence |
-|---------|------------|----------------|--------|----------|
-
-Summary: Covered X / Partial Y / Conflict Z / Missing W
-
-### Behavioral Model Gaps
-
-- [ ] ...
-
-## Traceability Matrix
-
-### Business Goals → Requirements
-
-| # | Business Goal | Supporting Requirements | Coverage |
-|---|--------------|----------------------|----------|
-
-### Requirements → Acceptance Criteria
-
-| # | Requirement | Acceptance Criteria | Quality |
-|---|------------|--------------------|---------|
-
-### Traceability Gaps
-
-| Gap | Type | Priority | Impact |
-|-----|------|----------|--------|
-
-## Cross-Document Consistency (conditional — multiple docs only)
-
-### Documents Analyzed
-
-| # | Document | Version/Date | Role |
-|---|----------|-------------|------|
-
-### Contradictions
-
-| Entity/Rule | Doc A Says | Doc B Says | Impact | Priority |
-|-------------|-----------|-----------|--------|----------|
-
-### Implicit Dependencies
-
-| Document | Assumes | Defined In | Risk |
-|----------|---------|-----------|------|
-
-### Terminology Inconsistency
-
-| Concept | Term in Doc A | Term in Doc B | Recommendation |
-|---------|--------------|--------------|----------------|
-
-## Evidence-Based Resolutions
-
-| Question / Ambiguity | Evidence Used | Resolution Strength | Working Conclusion |
-| --- | --- | --- | --- |
-
-Resolution strength: `resolved by evidence` | `likely but needs confirmation` | `unresolved decision`
-
-## Open Decisions For Clarify
-
-| Decision | Candidate Interpretations | Consequence | Owner Needed |
-| --- | --- | --- | --- |
-
-## Facts
-
-- ...
-
-## Inferences
-
-- Inference:
-  Evidence:
-
-## Assumptions
-
-- Assumption:
-  Why it matters:
-
-## Follow-Up Questions
-
-1. ...
-
-Include only questions that remain after evidence-based resolution. Do not repeat questions already answered by the requirement package or repo context.
+<Unresolved owner or design choices, plausible interpretations, consequences,
+and known decision owner. Do not invent an owner or choose a business policy.>
 
 ## Suggested Next Step
 
-...
+<Justified recommendation; no automatic workflow transition or new artifact.>
 ```
 
-## Gap Checklist Mode
+## Conditional sections
 
-For a compact gap checklist, use:
+Add these only when the task and chosen depth call for them:
 
-```markdown
-# 需求缺口清单
+- **Behavioral model:** state, transition, operation, and mutation matrices from
+  [behavioral-model-guide.md](behavioral-model-guide.md), including evidence gaps.
+  Describe product behavior without designing its implementation.
+- **Implementation fit:** compare the extracted behavior with narrowly relevant
+  code when a repo is supplied. Future requirements absent from current code are
+  planned changes, not automatically defects.
+- **Traceability:** goal/requirement/acceptance links using
+  [traceability-guide.md](traceability-guide.md). Disclose sampling and orphan links.
+- **Cross-document consistency:** identify conflicting claims, versions, and
+  authority; do not silently decide which business rule wins.
+- **Numerical assessment:** only when requested or a deep comparison question
+  justifies it. Use [quality-attributes-rubric.md](quality-attributes-rubric.md)
+  and [maturity-scorecard.md](maturity-scorecard.md). State scope, denominators,
+  excluded dimensions, and uncertainty. No score may override an unresolved P0.
 
-## 结论
+For a Chinese gap checklist, use “结论、必须确认、主要风险、可以后续完善” where
+applicable; the same evidence and scope rules apply. No mandatory scorecard.
 
-- 推荐下一步：
-- 成熟度评分：X/100 (等级)
-- 阻塞项数量：
-- 主要风险：
+## Reviewer self-check
 
-## 成熟度评分
-
-| 维度 | 得分 | 满分 | 说明 |
-|------|------|------|------|
-| 完整性 | | 20 | |
-| 清晰度 | | 20 | |
-| 可测试性 | | 20 | |
-| 行为覆盖 | | 20 | |
-| 可追溯性 | | 20 | |
-| **合计** | | **100** | |
-
-## 必须确认
-
-- [ ] 问题：
-      证据：
-      影响：
-
-## 行为模型缺口 (如涉及状态流转)
-
-### 状态模型
-
-| 状态 | 类型 | 描述 | 超时处理 |
-|------|------|------|----------|
-
-### 缺失的转换/操作
-
-- [ ] ...
-
-## 质量评分摘要
-
-| 属性 | 均分 | 评分为0的条目数 |
-|------|------|----------------|
-
-## 可追溯性缺口
-
-- [ ] ...
-
-## 可以后续完善
-
-- [ ] 问题：
-      证据：
-      建议：
-```
-
-## Reviewer Self-Check
-
-Before delivering either report mode, confirm:
-
-- Did every P0/P1 cite requirement text or nearby repo evidence?
-- Are facts, inferences, and assumptions separated?
-- Are follow-up questions concrete enough for an owner to answer?
-- Are technical design questions separated from true requirement gaps?
-- Does the readiness recommendation match the highest-priority unresolved issue?
-- Did the behavioral model identify all states, transitions, operations, and mutations?
-- Did the quality scoring cover all identifiable requirement statements?
-- Does the traceability matrix cover all requirements and business goals?
-- Is the maturity score consistent with the qualitative assessment?
-- Did the report avoid creating workflow artifacts or advancing loopx state?
+- Does every P0/P1 identify source evidence and a concrete downstream consequence?
+- Are missing business semantics separated from open technical design choices?
+- Were available references checked before calling something an owner decision?
+- Are facts, inferences, unresolved choices, and sampled coverage distinguished?
+- Are applicable behavior and traceability gaps covered at the requested depth?
+- Are scores, if included, consistent with their stated scope and uncertainty?
+- Does the qualitative readiness verdict follow the unresolved decisions, rather
+  than the presence of tables or a numerical threshold?
+- Does the report refrain from inventing business policy or advancing workflow state?
