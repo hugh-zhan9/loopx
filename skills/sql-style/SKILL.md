@@ -4,7 +4,7 @@ description: "Applies loopx SQL and database-change discipline for queries, sche
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---
@@ -25,6 +25,9 @@ options and identify the decision; do not execute destructive work to discover i
 Database writes, backfills, and plan inspection that executes a statement need the
 same authorization as the operation itself. Prefer non-executing plan inspection
 for unapproved mutations; an analysis request does not authorize production writes.
+
+When concurrent persisted state is involved, read and apply
+[the database concurrency contract](../shared/database-concurrency.md).
 
 ## Schema and migration
 

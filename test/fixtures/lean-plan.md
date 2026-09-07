@@ -1,7 +1,7 @@
 ---
 schema: loopx-plan/v1
 source: docs/loopx/design/2026-07-20-custom-export-names/requirements.md
-status: ready
+status: blocked
 slices:
   - id: P-001
     status: pending
@@ -36,12 +36,14 @@ else about loading changes.
 
 ## Handoff And Residual Risks
 
-- Blockers: none.
+- Review evidence: pending.
+- Blockers: Independent plan review pending.
 - Residual risks: none known.
 - Resume note: none.
 
 ## Execution rules for the consuming agent
 
+- Begin only after independent plan review permits `status: ready`.
 - Execute slices in frontmatter dependency order; verify each slice with its
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.

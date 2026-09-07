@@ -3,7 +3,7 @@ name: generate-api-docs
 description: "Generates synchronized Markdown API documentation and self-contained OpenAPI 3.1 YAML for Apifox from verified final HTTP behavior. Covers request/response fields, enums, nullability, limits, pagination, authentication, gateway envelopes, errors, and examples. Use for API docs, OpenAPI/Apifox YAML, endpoint docs, field inventories, 接口文档, 生成 OpenAPI, and 出入参文档. Not for new API design, implementation changes, GraphQL without explicit HTTP operations, or replacing codebase-spec."
 when_to_use: "generate-api-docs, API documentation, OpenAPI YAML, Apifox import, Markdown API docs, request fields, response fields, 接口文档, 生成 OpenAPI, Apifox YAML, 出入参文档"
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Generate API Docs
@@ -51,8 +51,10 @@ Use local `$ref` and reusable components; represent null with JSON Schema unions
 or `anyOf`, not the OpenAPI 3.0 `nullable` keyword.
 
 Write Markdown from the same inventory and YAML. Preserve the reference's exact
-endpoint heading and Operation ID syntax because the validator uses them. Cover
-all request fields and each materially different response's fields and content.
+summary heading, interface URL, and Operation ID syntax because the validator
+uses them. Include complete request examples, bare primary response headings, and
+referenced common default errors; preserve all materially different response fields
+and content.
 Explain shared conventions once; shared tables must identify their exact wire schema.
 
 Keep current documentation focused on the contract, not a changelog. Preserve
@@ -73,8 +75,8 @@ ruby "<installed-skill-directory>/scripts/validate_api_docs.rb"   path/to/api.op
 ```
 
 It checks supported OpenAPI/YAML structure, operation IDs, local references, path
-parameters, descriptions, Markdown field/content sections, and method/path/ID
-parity. Fix reported errors. Ruby is required; `loopx doctor` reports that dependency.
+parameters, descriptions, request examples, referenced common default errors,
+Markdown field/content sections, and summary/method/path/ID parity. Fix reported errors. Ruby is required; `loopx doctor` reports that dependency.
 If unavailable, report the prerequisite and do not claim validation passed.
 
 Run repository-native contract or schema checks where required. Import into Apifox

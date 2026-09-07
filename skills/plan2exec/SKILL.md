@@ -1,9 +1,9 @@
 ---
 name: plan2exec
-description: "Creates an optional lean plan document that preserves approved architecture constraints for explicit planning, approval boundaries, interruption recovery, or durable coordination. The agent executes it; loopx ships no execution runtime. Not for clear bounded work, unresolved decisions, or code changes."
+description: "Creates an optional lean plan document that preserves approved architecture constraints for explicit planning, approval boundaries, interruption recovery, or durable coordination. Requires independent review before readiness; execution remains host-native. Not for clear bounded work, unresolved decisions, or code changes."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.6.3"
+  version: "0.6.4"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
@@ -44,6 +44,9 @@ to `spec`.
 Stop and route to `clarify` or `spec` when a material product, API, data,
 permission, migration, compatibility, security, or cross-module architecture
 decision remains unresolved. Do not settle those decisions inside the plan.
+
+When concurrent persisted state is involved, read and apply
+[the database concurrency contract](../shared/database-concurrency.md).
 
 ## Output Contract
 
@@ -92,10 +95,23 @@ and the installed working agreement govern how the plan is carried out.
 
 ## Handoff
 
-Check source coverage, acceptance, graph validity, and architecture evidence
-against the contract above. Report the plan path and concrete blockers, if any.
-Use `plan-reviewer` when requested or required by the owning workflow; it can
-also provide an optional read-only check before execution.
+Before marking a plan `ready`, require an independent host-native subagent to
+use `plan-reviewer` on the complete plan, approved source, and linked evidence.
+While review is pending, keep `status: blocked` with `Independent plan review pending`
+in Handoff. The reviewer is a read-only leaf: no edits, helpers, or recursive
+`plan2exec` invocation. Do not pre-judge its findings.
+
+Fix plan-local blocking findings and obtain a fresh review of the revised content.
+Return unresolved source decisions to `clarify` or `spec`. Only a ready verdict
+permits the owner to remove the pending blocker and set `status: ready`;
+non-blocking suggestions do not prevent readiness. Record reviewer identity,
+reviewed plan/source content identity, and verdict in Handoff so readiness can be
+checked after interruption. A substantive revision invalidates that evidence;
+status/progress bookkeeping alone does not.
+
+If independent delegation is unavailable, a local check is diagnostic only: leave
+the plan blocked and report the missing review. This gate applies to a selected
+`plan2exec` plan; it does not require a plan or review pipeline for ordinary work.
 
 ## STOP Conditions
 

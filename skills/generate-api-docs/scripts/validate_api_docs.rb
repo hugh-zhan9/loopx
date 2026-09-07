@@ -4,6 +4,7 @@
 require "yaml"
 require "set"
 require "json"
+require "uri"
 
 HTTP_METHODS = %w[get put post delete options head patch trace].freeze
 
@@ -173,6 +174,28 @@ def first_content_schema(container)
   media && media["schema"]
 end
 
+def request_path_patterns(servers, operation_path)
+  servers = [{ "url" => "/" }] if !servers.is_a?(Array) || servers.empty?
+  route = Regexp.escape(operation_path).gsub(/\\\{[^}]+\\\}/, "[^/?]+")
+  servers.map do |server|
+    # Hosts/ports may also be templated; only the base path belongs in an
+    # origin-form HTTP request line. Operation servers override path/root servers.
+    base = server.fetch("url").sub(%r{\A[^/]+://[^/]*}, "").split(/[?#]/, 2).first.to_s
+    base = "/#{base}" unless base.empty? || base.start_with?("/")
+    pattern = base.sub(%r{/\z}, "").split(/(\{[^}]+\})/).map do |part|
+      if part.start_with?("{") && part.end_with?("}")
+        variable = server.fetch("variables").fetch(part[1...-1])
+        variable.fetch("default") # Server variables require a declared default.
+        values = variable["enum"]
+        values.is_a?(Array) ? "(?:#{values.map { |value| Regexp.escape(value.to_s) }.join('|')})" : "[^?#]*"
+      else
+        Regexp.escape(part)
+      end
+    end.join
+    /\A#{pattern}#{route}\z/
+  end
+end
+
 def abort_usage
   warn "Usage: validate_api_docs.rb <openapi.yaml> <api.md>"
   exit 2
@@ -210,6 +233,12 @@ errors << "paths must be a non-empty mapping" unless paths.is_a?(Hash) && !paths
 
 operations = {}
 operation_ids = {}
+operation_summaries = {}
+operation_primary_statuses = {}
+operation_request_schemas = {}
+operation_request_media_types = {}
+operation_default_refs = {}
+operation_request_paths = {}
 operation_response_statuses = {}
 operation_request_fields = {}
 operation_response_fields = {}
@@ -236,6 +265,22 @@ if paths.is_a?(Hash)
       end
 
       key = [method.upcase, path]
+      summary = operation["summary"].to_s.strip
+      errors << "#{key.join(' ')} needs a non-empty summary" if summary.empty?
+      operation_summaries[key] = summary
+      servers = if operation.key?("servers")
+                  operation["servers"]
+                elsif path_item.key?("servers")
+                  path_item["servers"]
+                else
+                  document["servers"]
+                end
+      begin
+        operation_request_paths[key] = request_path_patterns(servers, path)
+      rescue KeyError, NoMethodError
+        errors << "#{key.join(' ')} needs valid server URLs and server variable defaults"
+        operation_request_paths[key] = []
+      end
       operation_id = operation["operationId"].to_s.strip
       errors << "#{key.join(' ')} needs operationId" if operation_id.empty?
       if !operation_id.empty? && operation_ids.key?(operation_id)
@@ -248,6 +293,9 @@ if paths.is_a?(Hash)
       request_fields = {}
       request_body = resolve_reference(document, operation["requestBody"])
       request_schema = first_content_schema(request_body)
+      operation_request_schemas[key] = request_schema if request_schema
+      content = request_body.is_a?(Hash) ? request_body["content"] : nil
+      operation_request_media_types[key] = content&.find { |_, media| media.is_a?(Hash) && media["schema"].is_a?(Hash) }&.first if content.is_a?(Hash)
       body_fields = {}
       flatten_schema_fields(document, request_schema, nil, true, body_fields) if request_schema
       body_fields.each do |name, contract|
@@ -276,6 +324,15 @@ if paths.is_a?(Hash)
       errors << "#{key.join(' ')} needs a non-empty responses mapping" unless responses.is_a?(Hash) && !responses.empty?
       if responses.is_a?(Hash)
         operation_response_statuses[key] = responses.keys.map(&:to_s).to_set
+        operation_primary_statuses[key] = responses.keys.map(&:to_s).find { |status| status.match?(/\A2(?:\d\d|XX)\z/) }
+        if responses.key?("default")
+          ref = responses["default"].is_a?(Hash) ? responses["default"]["$ref"] : nil
+          if ref.is_a?(String) && ref.start_with?("#/components/responses/")
+            operation_default_refs[key] = ref
+          else
+            errors << "#{key.join(' ')} default response needs a local components/responses reference for shared documentation"
+          end
+        end
         operation_response_fields[key] = {}
         operation_response_schemas[key] = {}
         responses.each do |status, response|
@@ -375,37 +432,77 @@ end
 property_walk.call(document, "#")
 
 markdown_operations = {}
+shared_defaults = {}
 current_key = nil
+current_details = nil
 current_section = nil
+pending_summary = nil
+in_fence = false
 File.foreach(markdown_path).with_index(1) do |line, line_number|
-  if (match = line.match(/\A### (GET|PUT|POST|DELETE|OPTIONS|HEAD|PATCH|TRACE) (\/\S*)\s*\z/))
-    current_key = [match[1], match[2]]
-    if markdown_operations.key?(current_key)
-      errors << "Markdown duplicates #{current_key.join(' ')} at line #{line_number}"
-    else
-      markdown_operations[current_key] = {
-        operation_id: nil,
-        request_fields: nil,
-        response_fields: {},
-        response_content: {}
-      }
+  if line.start_with?("```")
+    current_section << line if current_section
+    in_fence = !in_fence
+    next
+  elsif in_fence
+    current_section << line if current_section
+    next
+  end
+
+  if (match = line.match(/\A### Default error: (#[^\s]+)\s*\z/))
+    ref = match[1]
+    errors << "Markdown duplicates shared default error #{ref}" if shared_defaults.key?(ref)
+    current_details = { response_fields: {}, response_content: {} }
+    shared_defaults[ref] = current_details
+    current_key = nil
+    pending_summary = nil
+    current_section = nil
+  elsif (match = line.match(/\A### (.+?)\s*\z/))
+    pending_summary = match[1].strip
+    if pending_summary.match?(/\A(?:GET|PUT|POST|DELETE|OPTIONS|HEAD|PATCH|TRACE) \//)
+      errors << "Markdown legacy endpoint heading at line #{line_number}: migrate to summary heading and 接口 URL metadata"
     end
+    current_key = nil
+    current_details = nil
+    current_section = nil
+  elsif (match = line.match(/\A- 接口 URL：`(GET|PUT|POST|DELETE|OPTIONS|HEAD|PATCH|TRACE) (\/\S*)`\s*\z/))
+    current_key = [match[1], match[2]]
+    errors << "Markdown #{current_key.join(' ')} needs a summary heading" if pending_summary.to_s.empty?
+    errors << "Markdown duplicates #{current_key.join(' ')} at line #{line_number}" if markdown_operations.key?(current_key)
+    current_details = {
+      summary: pending_summary, operation_id: nil, default_ref: nil,
+      request_fields: nil, request_content: nil, response_fields: {}, response_content: {}
+    }
+    markdown_operations[current_key] = current_details
     current_section = nil
   elsif current_key && (match = line.match(/\A- Operation ID: `([^`]+)`\s*\z/))
-    if markdown_operations[current_key][:operation_id]
-      errors << "Markdown has multiple Operation ID lines for #{current_key.join(' ')}"
+    errors << "Markdown has multiple Operation ID lines for #{current_key.join(' ')}" if current_details[:operation_id]
+    current_details[:operation_id] = match[1]
+  elsif current_key && (match = line.match(/\A- Default error: `([^`]+)`\s*\z/))
+    errors << "Markdown has multiple Default error references for #{current_key.join(' ')}" if current_details[:default_ref]
+    current_details[:default_ref] = match[1]
+  elsif current_key && (match = line.match(/\A#### Request (fields|content)\s*\z/))
+    field = "request_#{match[1]}".to_sym
+    current_details[field] = []
+    current_section = current_details[field]
+  elsif current_details && (match = line.match(/\A#### Response (fields|content)(?:: (\S+))?\s*\z/))
+    field = "response_#{match[1]}".to_sym
+    status = match[2] || (current_key ? operation_primary_statuses[current_key] : "default")
+    if status.nil?
+      errors << "Markdown response heading at line #{line_number} needs an explicit status because no 2xx response is defined"
+      current_section = nil
     else
-      markdown_operations[current_key][:operation_id] = match[1]
+      if current_key && (status == "default" || (match[2] && status == operation_primary_statuses[current_key]))
+        errors << "Markdown #{current_key.join(' ')} must use bare primary response headings and a shared Default error reference"
+      end
+      errors << "Markdown duplicates #{field} #{status} at line #{line_number}" if current_details[field].key?(status)
+      current_details[field][status] = []
+      current_section = current_details[field][status]
     end
-  elsif current_key && line.match?(/\A#### Request fields\s*\z/)
-    markdown_operations[current_key][:request_fields] = []
-    current_section = markdown_operations[current_key][:request_fields]
-  elsif current_key && (match = line.match(/\A#### Response fields: (\S+)\s*\z/))
-    markdown_operations[current_key][:response_fields][match[1]] = []
-    current_section = markdown_operations[current_key][:response_fields][match[1]]
-  elsif current_key && (match = line.match(/\A#### Response content: (\S+)\s*\z/))
-    markdown_operations[current_key][:response_content][match[1]] = []
-    current_section = markdown_operations[current_key][:response_content][match[1]]
+  elsif line.start_with?("# ", "## ")
+    current_key = nil
+    current_details = nil
+    pending_summary = nil
+    current_section = nil
   elsif line.start_with?("#### ")
     current_section = nil
   elsif current_section
@@ -509,6 +606,25 @@ flatten_example_paths = lambda do |value, prefix = nil, paths = Set.new|
 end
 
 markdown_operations.each do |key, details|
+  if details[:summary] != operation_summaries[key]
+    errors << "summary mismatch for #{key.join(' ')}: OpenAPI=#{operation_summaries[key].inspect}, Markdown=#{details[:summary].inspect}"
+  end
+  default_ref = operation_default_refs[key]
+  if default_ref
+    if details[:default_ref] != default_ref
+      errors << "Markdown #{key.join(' ')} needs Default error reference #{default_ref}"
+    end
+    shared = shared_defaults[default_ref]
+    if shared
+      %i[response_fields response_content].each do |field|
+        details[field]["default"] = shared[field]["default"] if shared[field]["default"]
+      end
+    else
+      errors << "Markdown #{key.join(' ')} missing shared default error #{default_ref}"
+    end
+  elsif details[:default_ref]
+    errors << "Markdown #{key.join(' ')} has an unexpected Default error reference"
+  end
   errors << "Markdown #{key.join(' ')} needs an Operation ID line" if details[:operation_id].nil?
   if details[:request_fields].nil?
     errors << "Markdown #{key.join(' ')} needs a Request fields section"
@@ -518,6 +634,69 @@ markdown_operations.each do |key, details|
     expected_request = operation_request_fields.fetch(key, {})
     actual_request = parse_field_table.call(details[:request_fields], true)
     compare_field_contract.call(key, "request fields", expected_request, actual_request)
+  end
+
+  request_lines = details[:request_content]
+  if request_lines.nil?
+    errors << "Markdown #{key.join(' ')} needs a Request content section"
+  else
+    request_fields = operation_request_fields.fetch(key, {})
+    request_schema = operation_request_schemas[key]
+    no_input = request_lines.map(&:strip).include?("No request parameters or body.")
+    if request_fields.empty? && request_schema.nil?
+      errors << "Markdown #{key.join(' ')} Request content must say No request parameters or body." unless no_input
+    elsif no_input
+      errors << "Markdown #{key.join(' ')} Request content claims no input despite documented inputs"
+    else
+      unless response_content_present.call(request_lines) && !request_lines.map(&:strip).include?("No response body.")
+        errors << "Markdown #{key.join(' ')} Request content needs a non-empty fenced example"
+      end
+      if operation_request_media_types[key].to_s.match?(/(?:\/json|\+json)\z/)
+        example = parse_json_example.call(request_lines)
+        # JSON null is a valid example only for a nullable request schema.
+        json_null = request_lines.join.match?(/```json\s+null\s+```/)
+        if example.nil? && !json_null
+          errors << "Markdown #{key.join(' ')} Request content needs valid JSON in a json fence"
+        else
+          validate_instance(document, request_schema, example, "Markdown #{key.join(' ')} request", errors)
+        end
+      end
+      parameters = request_fields.reject { |(location, _), _| location == "body" }
+      unless parameters.empty?
+        http = request_lines.join[/```http\s*\n(.*?)\n```/m, 1]
+        request_line = http&.lines&.first.to_s.strip.split
+        method, target = request_line
+        begin
+          uri = URI.parse(target.to_s)
+          matches_path = operation_request_paths.fetch(key, []).any? { |pattern| uri.path.to_s.match?(pattern) }
+          unless method == key[0] && matches_path
+            errors << "Markdown #{key.join(' ')} request example must include matching method and path in an http fence"
+          end
+          if uri.path.to_s.match?(/[{}]|%7[bd]/i)
+            errors << "Markdown #{key.join(' ')} request example must use concrete path values"
+          end
+          query_names = URI.decode_www_form(uri.query.to_s).map(&:first)
+          headers = http.to_s.lines.drop(1).take_while { |line| !line.strip.empty? }.each_with_object({}) do |line, result|
+            name, value = line.split(":", 2)
+            result[name.to_s.downcase] = value.to_s.strip if value
+          end
+          cookie_names = headers.fetch("cookie", "").split(";").map { |cookie| cookie.strip.split("=", 2).first }
+          parameters.each do |(location, name), contract|
+            next unless contract[:state].start_with?("required")
+            present = case location
+                      when "path" then true # checked by the route pattern above
+                      when "query" then query_names.include?(name)
+                      when "header" then !headers[name.downcase].to_s.empty?
+                      when "cookie" then cookie_names.include?(name)
+                      else false
+                      end
+            errors << "Markdown #{key.join(' ')} request example misses required #{location}:#{name}" unless present
+          end
+        rescue URI::InvalidURIError, ArgumentError
+          errors << "Markdown #{key.join(' ')} request example needs a valid concrete URI"
+        end
+      end
+    end
   end
 
   documented_fields = details[:response_fields].keys.to_set
@@ -545,7 +724,12 @@ markdown_operations.each do |key, details|
       errors << "Markdown #{key.join(' ')} Response content: #{status} needs a non-empty fenced example or No response body."
       next
     end
-    next if lines.map(&:strip).include?("No response body.")
+    if lines.map(&:strip).include?("No response body.")
+      if operation_response_schemas.fetch(key, {})[status]
+        errors << "Markdown #{key.join(' ')} Response content: #{status} claims no body despite a response schema"
+      end
+      next
+    end
     example = parse_json_example.call(lines)
     if example.nil?
       errors << "Markdown #{key.join(' ')} Response content: #{status} needs valid JSON in a json fence"

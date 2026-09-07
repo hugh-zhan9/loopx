@@ -404,7 +404,7 @@ describe('loopx docs-first document shell', () => {
     }
     assert.match(planSchema, /^## P-001 <coherent outcome>$/m);
     assert.match(fixture, /^## P-001 /m);
-    for (const line of ['schema: loopx-plan/v1', 'source:', 'status: ready', 'slices:', '- id: P-001', 'status: pending']) {
+    for (const line of ['schema: loopx-plan/v1', 'source:', 'status: blocked', 'slices:', '- id: P-001', 'status: pending']) {
       assert.match(planSchema, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
       assert.match(fixture, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
     }

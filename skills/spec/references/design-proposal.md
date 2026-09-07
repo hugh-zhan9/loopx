@@ -82,6 +82,8 @@ For each important API, state, data, or workflow decision:
 - Name the boundary where the rule stops applying.
 - Distinguish new behavior from unchanged behavior.
 
+涉及并发持久化状态时，比较并发方案，说明不变量、协调方式与冲突边界；不在下游计划中补做决定。
+
 ## Support Lens Checks / 专项设计检查
 
 List each support lens triggered by the proposal and summarize what it changed or confirmed in the design.

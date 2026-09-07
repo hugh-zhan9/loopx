@@ -3,7 +3,7 @@ name: spec
 description: "Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes."
 when_to_use: "spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案"
 metadata:
-  version: "0.4.6"
+  version: "0.4.7"
 ---
 
 # loopx Spec
@@ -29,6 +29,9 @@ business requirements return to `clarify`. Existing legacy
 For brownfield work, read [the architecture conformance contract](../shared/architecture-conformance.md).
 Inspect reuse candidates, owning modules, dependencies, state/fault boundaries,
 and maintenance costs before recommending the design.
+
+When concurrent persisted state is involved, read and apply
+[the database concurrency contract](../shared/database-concurrency.md).
 
 ## Develop the decision
 

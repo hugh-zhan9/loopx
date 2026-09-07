@@ -6,6 +6,14 @@ clause: "Never commit, push, merge, or discard work unless the user explicitly a
 
 # v0.8：产物是文档，执行归模型
 
+**2026-09-07 本地规则融合（用户授权，0.9.2）**：选用 `plan2exec` 后，计划
+须经宿主原生独立叶子 reviewer 评审才可 ready；不可委派时保持 blocked。
+评审证据写入同一计划，实质修订后重新评审，执行进度更新不触发重复评审。
+这是一份被选中计划的交付条件，不扩展成所有任务的默认 pipeline，不增加
+runtime、hooks 或单独状态。保留 0.9.1 的 schema、架构证据和并行隔离规则。
+并发规则统一放在 `skills/shared/database-concurrency.md`，由设计、计划、
+评审和 SQL skill 消费；API 文档格式及迁移由对应 output contract 维护。
+
 **2026-09-07 边界澄清（用户裁定）**：docs-first 不要求文档只能描述静态目标。
 保留计划中的依赖图、进度、验证顺序、并行约束，以及 skill 中由模型履行的
 执行和恢复说明；不按“完全 docs-first”删除这些规则。执行仍使用宿主原语，

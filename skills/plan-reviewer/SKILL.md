@@ -3,7 +3,7 @@ name: plan-reviewer
 description: "Reviews a persistent implementation plan and its authoritative execution graph against the approved source, including architecture conformance, coverage, dependencies, isolation claims, review focus, and verification. Not for creating plans, reviewing code, dispatching execution, or advancing workflow state."
 when_to_use: "explicit plan review, execution graph audit, source-to-plan coverage, dependency and parallel-safety review, plan verification quality"
 metadata:
-  version: "0.6.2"
+  version: "0.6.3"
 argument-hint: "<plan path and approved source>"
 ---
 
@@ -30,6 +30,13 @@ If the approved source is missing or materially ambiguous, stop and identify
 the exact source needed. Do not infer product or architecture decisions during
 plan review.
 
+When concurrent persisted state is involved, read and apply
+[the database concurrency contract](../shared/database-concurrency.md).
+
+The `Independent plan review pending` blocker is not itself a finding during
+this gate. Review the substantive plan; only a ready verdict allows its owner to
+promote it. All other unresolved blockers remain substantive.
+
 ## Review
 
 Check:
@@ -41,7 +48,8 @@ Check:
 5. Each `architecture` line is supported by source or repository evidence and preserves the reuse or extension point, owning module, dependency direction, state and fault boundary, and maintenance check; any new architecture decision routes back to `spec`.
 6. Producer-consumer interfaces and shared mutable or generated resources have the required dependency or exclusive-resource constraint; `writes` paths and architecture boundaries make any parallelism safe.
 7. Acceptance is observable; verification is feasible; expected evidence can prove the result; the `review` line on a high-risk slice names contract and integration risks.
-8. The plan avoids implementation transcripts, code snippets, task microsteps, fixed launch schedules, and per-slice commits.
+8. Concurrency-relevant slices preserve the shared database contract, source decisions, conflict behavior, and verification; missing CAS/lock contracts or prohibited locking dependencies are blocking source/design gaps.
+9. The plan avoids implementation transcripts, code snippets, task microsteps, fixed launch schedules, and per-slice commits.
 
 Treat a missing or unknown schema, missing architecture evidence, unexplained
 parallel capability, contradictory outcomes, invalid graph structure, graph/prose
@@ -59,6 +67,7 @@ Report:
 - coverage of applicable anchors;
 - architecture conformance assessment for reuse, isolation, and maintainability;
 - graph validity and ready-frontier assessment;
+- concurrency assessment when relevant, and reviewed plan/source content identity;
 - assessment: ready, ready after named fixes, or blocked.
 
 The reviewer is a read-only leaf worker. Include:

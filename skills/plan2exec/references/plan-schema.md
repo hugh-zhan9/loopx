@@ -16,7 +16,7 @@ not repeat either in the body.
 ---
 schema: loopx-plan/v1
 source: <approved request, intake package, requirements, or design path>
-status: ready            # ready | blocked
+status: blocked          # ready only after independent plan review
 slices:
   - id: P-001
     status: pending      # pending | in_progress | done | blocked
@@ -76,13 +76,17 @@ plan revision and append new ones instead of renumbering.
 
 ## Handoff And Residual Risks
 
-- Blockers: `<none or concrete unresolved blocker>`
+- Review evidence: `<independent reviewer, reviewed plan/source content identity, verdict; pending before review>`
+- Blockers: `<Independent plan review pending, none after approval, or concrete blocker>`
 - Residual risks: `<none known or concrete remaining risk>`
 - Resume note: `<none before execution; during execution, failed/next action and
   references to the baseline, accepted content checkpoint, and candidate state>`
 
 ## Execution rules for the consuming agent
 
+- Begin only with `status: ready` and independent review evidence for the current
+  substantive plan/source content, as required by [plan2exec](../SKILL.md).
+  Substantive revisions require renewed review; progress updates alone do not.
 - Execute slices in frontmatter dependency order; verify each slice with its
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.

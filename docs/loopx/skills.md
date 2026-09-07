@@ -24,6 +24,12 @@ Ordinary work can use none of these. `$exec` is selected only to execute one rea
 and integrates. Independent review, verification, and Git discipline continue to
 follow the working agreement.
 
+A selected `plan2exec` plan requires independent host-native `plan-reviewer`
+approval before readiness. Keep review evidence in the plan and renew it after
+substantive plan/source changes. Without delegation the plan stays blocked;
+ordinary prompt-first work remains unaffected. Concurrency design, planning,
+review, and SQL share the database concurrency contract.
+
 ## Optional Plan Execution
 
 | Skill | Use when | Behavior |

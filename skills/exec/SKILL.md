@@ -3,7 +3,7 @@ name: exec
 description: "Executes one ready plan2exec plan through host-native leaf subagents while rechecking architecture conformance. The controller schedules, reviews, integrates, resolves conflicts, and verifies; independent slices may run in parallel. Not for planning, blocked plans, prompt-first work, issue ledgers owned by fix, or Git disposition."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.0.3"
+  version: "1.0.4"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
@@ -20,6 +20,8 @@ or tests.
   and `verify` entries, and matching frontmatter/body slice IDs. Reject unknown
   schemas. Treat an unversioned plan as legacy and return it to `plan2exec` for
   an explicit in-place schema and architecture-evidence upgrade before dispatch.
+- Require independent plan review evidence for the current substantive plan/source
+  content in Handoff; return missing/stale evidence to `plan2exec`. Progress alone does not invalidate it.
 - Read the plan source and linked authoritative `概要设计.md` decisions, current user constraints, repository instructions, relevant
   specs and code, and the tracked/untracked baseline before dispatch.
 - Read [the architecture conformance contract](../shared/architecture-conformance.md)

@@ -21,6 +21,10 @@ playbook，不是 loopx runtime。
 `$exec`：实现交给 leaf subagent，顶层模型负责审查与集成。独立评审、验证与 Git
 纪律继续服从 working agreement。
 
+选用 `plan2exec` 后，计划必须经过宿主原生独立 `plan-reviewer` 评审才能 ready。
+评审证据留在计划内，计划或来源发生实质修改后重新评审；无法委派时保持 blocked。
+普通 prompt-first 工作不受此门槛影响。设计、计划、评审和 SQL 共用数据库并发契约。
+
 ## 可选的 Plan 执行
 
 | Skill | 使用时机 | 行为 |

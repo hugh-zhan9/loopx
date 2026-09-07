@@ -9,7 +9,8 @@ loopx v0.8 is docs-first: the primary deliverable is the working agreement
 (`templates/working-agreement.md`) installed into host guidance, plus the
 document-producing skills below. Execution still belongs to the model and its host
 runtime; `$exec` is an optional host-native subagent playbook, not a loopx runtime,
-review pipeline, or per-turn hook. Clear, bounded work stays prompt-first under the working agreement:
+review pipeline for ordinary work, or per-turn hook. A selected `plan2exec` plan
+requires independent host-native readiness review. Clear, bounded work stays prompt-first under the working agreement:
 inspect existing architecture and reuse points, implement, verify with fresh evidence, apply the quiet completion
 check in `skills/shared/completion-check.md`, and report without creating
 workflow artifacts.

@@ -17,7 +17,9 @@ Execution tools and agent lifecycle remain owned by the model and host.
 The docs-first boundary does not prohibit operational instructions in documents.
 It prohibits a loopx execution runtime: do not add scheduler/controller services,
 executable orchestration graphs, workflow-state hooks, separate runtime state, or
-mandatory default review pipelines. The model interprets plans and recovery
+mandatory default review pipelines for ordinary work. A selected `plan2exec`
+plan requires an independent host-native readiness review; this bounded document
+gate does not add an execution runtime. The model interprets plans and recovery
 records using host-native capabilities. Git disposition still requires an
 explicit user request.
 
