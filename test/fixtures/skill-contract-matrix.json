@@ -365,7 +365,7 @@
       "required_references": [
         "references/examples.md"
       ],
-      "version": "0.2.5"
+      "version": "0.2.6"
     },
     {
       "skill": "maintain-project-docs",

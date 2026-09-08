@@ -3,7 +3,7 @@ name: humanize-doc
 description: "Rewrites AI-assisted documents into accurate, plain language while preserving domain terms, decision status, factual claims, boundaries, and evidence. Not for assessment-only readability verdicts, requirement gap analysis, code review, or implementation planning."
 when_to_use: "humanize-doc, rewrite AI draft, de-AI a document, AI-like prose in docs, invented jargon, hedged decisions, fabricated claims, over-compressed tables, telegraphic docs, design doc rewrite, 去AI味, 说人话, 改稿, 文档重写, 设计文档改写, 电报体"
 metadata:
-  version: "0.2.5"
+  version: "0.2.6"
 ---
 
 # Humanize Doc
@@ -18,6 +18,10 @@ Read the source end to end within the requested scope. A request to rewrite or
 remove AI-like prose authorizes editing directly. A review-only request gets
 findings, not an unsolicited rewrite. Infer audience and purpose where clear;
 ask only about an ambiguity that would materially change meaning.
+
+Check the repository and project memory for recorded documentation conventions
+before rewriting. A project ruling on document shape — current-state only, no
+change log, audience layering — outranks the shape of the source.
 
 Inventory the facts, proposals, accepted decisions, rules, exceptions, ownership,
 and source references before editing. Reconcile that inventory with the result.
@@ -50,7 +54,13 @@ If a pronoun cannot be resolved from context, flag it rather than guess.
 - State the useful claim directly. Remove filler, repeated disclaimers, invented
   labels, and narration about the writing process.
 - Keep domain and protocol terms such as Symbol, ISIN, Kafka, enum values, and
-  existing team vocabulary. Add a short gloss when the audience needs it.
+  existing team vocabulary. Add a short gloss when the audience needs it. A term
+  that appears only in this draft — not in the repository, sibling documents, or
+  the team's existing material — is an invented label rather than vocabulary:
+  replace it with plain wording instead of preserving it.
+- Define every abbreviation, symbol, and date code the document relies on, at
+  first use or in one short table. Notation the reader must reconstruct is a
+  defect even when every fact is correct.
 - Prefer concrete actions and complete sentences to abstraction wrappers and
   compressed arrow chains. Do not expand concise labels into unnecessary prose.
 - Bring the main decision or story forward. Add orientation only when it helps
@@ -89,3 +99,8 @@ is needed. Explicitly surface any unresolved factual or semantic ambiguity.
 Check the result against the source inventory: no new facts, stronger commitments,
 lost boundaries, altered numbers, broken links, or conflicting diagram branches.
 Apply the same checks to newly written headings, summaries, glosses, and examples.
+
+Then read the result as the stated audience: every abbreviation defined, no term
+that exists only in this document, and no heading or gloss you introduced that is
+harder to read than what it replaced. Re-run both checks after any later
+structural pass, which can strip the definition of a term whose uses remain.

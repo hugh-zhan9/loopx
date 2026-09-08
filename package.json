@@ -1,7 +1,7 @@
 {
   "name": "@ai-content-space/loopx",
   "type": "module",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Docs-first engineering discipline for agentic coding assistants",
   "repository": {
     "type": "git",
