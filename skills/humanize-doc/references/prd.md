@@ -1,6 +1,6 @@
 # PRD Readability and Completeness
 
-Use this reference only when the confirmed document type is `Requirements document / PRD`, or when the user explicitly asks to evaluate a document as a PRD.
+Use this reference only when the user explicitly asks for a PRD completeness assessment. Do not load it merely because a prose edit happens to concern a PRD.
 
 ## Core Standard
 

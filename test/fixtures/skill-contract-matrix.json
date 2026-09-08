@@ -334,38 +334,26 @@
       "version": "0.1.6"
     },
     {
-      "skill": "doc-readability",
-      "role": "support",
-      "boundary": "readability",
-      "required_outputs": [
-        "Readability verdict"
-      ],
-      "safety_invariants": [
-        "semantic preservation"
-      ],
-      "integrations": [
-        "requirements document"
-      ],
-      "required_references": [],
-      "version": "0.3.6"
-    },
-    {
       "skill": "humanize-doc",
       "role": "support",
-      "boundary": "assessment-only",
+      "boundary": "not product decisions or workflow state",
       "required_outputs": [
+        "Readability verdict",
         "deletion ledger"
       ],
       "safety_invariants": [
-        "Invent nothing"
+        "Invent nothing",
+        "Assessment only"
       ],
       "integrations": [
-        "doc-readability"
+        "requirement-analyzer"
       ],
       "required_references": [
-        "references/examples.md"
+        "references/examples.md",
+        "references/readability.md",
+        "references/prd.md"
       ],
-      "version": "0.2.6"
+      "version": "0.3.0"
     },
     {
       "skill": "maintain-project-docs",
@@ -379,10 +367,10 @@
         "Archive before delete"
       ],
       "integrations": [
-        "doc-readability"
+        "humanize-doc"
       ],
       "required_references": [],
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     {
       "skill": "requirement-analyzer",

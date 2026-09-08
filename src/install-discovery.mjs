@@ -35,7 +35,6 @@ const LOOPX_SKILLS = [
   'tdd',
   'verify',
   'using-git-worktrees',
-  'doc-readability',
   'humanize-doc',
   'maintain-project-docs',
   'requirement-analyzer',
@@ -50,6 +49,8 @@ const LOOPX_SKILLS = [
   'prompt-lint',
 ];
 const LOOPX_RETIRED_SKILLS = Object.freeze([
+  // Readability assessment and rewriting now share the humanize-doc entrypoint.
+  'doc-readability',
   'plan',
   'plan-to-exec',
   // Dissolved by the v0.8 docs-first pivot (docs/loopx/decisions/docs-first-pivot.md).
@@ -213,14 +214,14 @@ function managedScriptItemsForTarget(target) {
   return LOOPX_MANAGED_SCRIPT_ITEMS.filter((item) => !Array.isArray(item.targets) || item.targets.includes(target || 'codex'));
 }
 
-async function fileHash(path) {
+async function fileHash(path, originalPath = path) {
   const hash = createHash('sha1');
   const stat = await lstat(path);
   if (stat.isDirectory()) {
     const entries = (await readdir(path)).sort();
-    hash.update(path);
+    hash.update(originalPath);
     for (const entry of entries) {
-      hash.update(await fileHash(join(path, entry)));
+      hash.update(await fileHash(join(path, entry), join(originalPath, entry)));
     }
     return hash.digest('hex');
   }
@@ -543,12 +544,47 @@ function isLoopxOwnedRow(skillName, row, env = process.env) {
   );
 }
 
-async function removeRetiredOwnedSkills(skillRows, env = process.env) {
+async function removeRetiredOwnedSkills(skillRows, env, { skipped, baselineItems }) {
   const removed = [];
   for (const skillName of LOOPX_RETIRED_SKILLS) {
     const row = skillRows[skillName];
     if (!isLoopxOwnedRow(skillName, row, env)) {
       continue;
+    }
+    const retiredStat = skillName === 'doc-readability'
+      ? await lstat(row.installedPath).catch((error) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      })
+      : null;
+    if (retiredStat) {
+      const baseline = baselineItems.find((item) => item.kind === 'skill'
+        && resolve(installTemplateRoot(env), item.path) === join(row.installedPath, 'SKILL.md'));
+      const sourceDir = baseline?.source_path
+        ? dirname(resolve(installTemplateRoot(env), baseline.source_path))
+        : null;
+      // Legacy folder hashes include source paths. Rebase the installed copy's
+      // paths to that recorded source while checking every file, including refs.
+      const known = sourceDir && row.skillFolderHash && retiredStat.isDirectory();
+      let pristine = false;
+      if (known) {
+        const files = (await listRelativeFiles(row.installedPath)).sort();
+        // The old hash did not include file names or link types. Require the
+        // retired skill's known layout before using it as deletion evidence.
+        const knownLayout = files.length === 2
+          && files[0] === 'SKILL.md' && files[1] === 'references/prd.md';
+        const regularFiles = knownLayout && (await Promise.all(files.map((file) =>
+          lstat(join(row.installedPath, file))))).every((stat) => stat.isFile());
+        pristine = regularFiles && await fileHash(row.installedPath, sourceDir) === row.skillFolderHash;
+      }
+      if (!pristine) {
+        skipped.push({
+          skillName,
+          reason: known ? 'user-modified' : 'unknown',
+          installedPath: row.installedPath,
+        });
+        continue;
+      }
     }
     await removeInstalledSkill(row.installedPath);
     delete skillRows[skillName];
@@ -889,8 +925,12 @@ export async function installBundledSkills(env = process.env, options = {}) {
   const installed = [];
   const conflicts = [];
   const skipped = [];
-  const removed = await removeRetiredOwnedSkills(nextData.skills, env);
-  const nextTemplateItems = [];
+  const removed = await removeRetiredOwnedSkills(nextData.skills, env, {
+    skipped,
+    baselineItems: existingBaseline?.items || [],
+  });
+  const nextTemplateItems = (existingBaseline?.items || []).filter((item) => skipped.some(({ installedPath }) =>
+    resolve(installTemplateRoot(env), item.path) === join(installedPath, 'SKILL.md')));
   const sharedSource = sharedContractsSourceDir(env, installOptions.skillSourceRoot);
   const sharedTarget = installedSharedContractsDir(env);
   if (existsSync(sharedSource)) {

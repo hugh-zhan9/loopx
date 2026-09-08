@@ -39,6 +39,7 @@ async function main() {
         ok,
         installed: result.installed,
         conflicts: result.conflicts ?? [],
+        skipped: result.skipped ?? [],
         inspection: result.inspection,
         distributionChannel: DISTRIBUTION_CHANNEL,
         pluginRoot: PLUGIN_ROOT,

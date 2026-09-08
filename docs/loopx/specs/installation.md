@@ -27,6 +27,11 @@ decisions, boundaries, and evidence. Execution belongs to the model and host;
 - `--dir` is valid only with one target.
 - Failed installs exit nonzero in human and JSON modes.
 - Postinstall opt-outs are `LOOPX_SKIP_POSTINSTALL=1` and `LOOPX_POSTINSTALL=0`.
+- `humanize-doc` is the single skill for readability assessment and document
+  rewriting. It replaces `doc-readability`. During upgrades, remove a retired
+  `doc-readability` copy only when its loopx ownership and full contents can be
+  verified against the recorded installation. Preserve foreign, modified, or
+  unknown copies; report skipped owned copies for manual reconciliation.
 - Shared skill contracts have per-file upgrade baselines. When upgrading an
   installation without those baselines, exact known pristine 0.8.9/0.9.0
   completion/evidence contracts may upgrade by their recorded content hashes.
@@ -50,4 +55,6 @@ rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,plan-reviewer
 - Benchmark runners, evaluation fixtures, traces, and governance-only scripts remain in the source repository.
 - `lancet` is a discoverable support lens, not a runtime mode or stored preference.
 - `prompt-lint` is a read-only support lens and never executes the checked prompt.
+- `humanize-doc` supports assessment-only requests, targeted suggestions, and
+  direct rewrites without changing product decisions or workflow state.
 - Normal and plugin installs consume canonical skills from the package root.

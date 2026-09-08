@@ -1,33 +1,54 @@
 ---
 name: humanize-doc
-description: "Rewrites AI-assisted documents into accurate, plain language while preserving domain terms, decision status, factual claims, boundaries, and evidence. Not for assessment-only readability verdicts, requirement gap analysis, code review, or implementation planning."
-when_to_use: "humanize-doc, rewrite AI draft, de-AI a document, AI-like prose in docs, invented jargon, hedged decisions, fabricated claims, over-compressed tables, telegraphic docs, design doc rewrite, 去AI味, 说人话, 改稿, 文档重写, 设计文档改写, 电报体"
+description: "Assesses document readability and rewrites documents into accurate, plain language, including removing AI-like prose. Use for unclear viewpoints, dense specs, PRDs, procedures, meeting notes, and document editing. Preserves facts, domain terms, decision status, boundaries, and evidence. Not for systematic requirement readiness analysis, code review, implementation planning, or file-format conversion."
 metadata:
-  version: "0.2.6"
+  version: "0.3.0"
+  when_to_use: "humanize-doc, document readability, readability assessment, unclear viewpoint, rewrite AI draft, de-AI a document, invented jargon, over-compressed tables, telegraphic docs, PRD assessment, 文档可读性, 需求文档评估, 去AI味, 说人话, 改稿, 文档重写, 设计文档改写, 电报体"
 ---
 
 # Humanize Doc
 
-Rewrite AI-assisted drafts into accurate, readable prose. Use `doc-readability`
-for an assessment-only request and `requirement-analyzer` for business gaps.
-This skill changes wording and structure, not product decisions or workflow state.
+Assess or improve how easily the intended reader can understand a document,
+make a decision, or carry out its instructions. Shorter prose helps only when
+it preserves meaning and reduces the reader's reconstruction work. This skill
+changes wording and structure, not product decisions or workflow state.
 
 ## Apply the requested scope
 
-Read the source end to end within the requested scope. A request to rewrite or
-remove AI-like prose authorizes editing directly. A review-only request gets
-findings, not an unsolicited rewrite. Infer audience and purpose where clear;
-ask only about an ambiguity that would materially change meaning.
+Read the actual source end to end within the requested scope. State when only an
+excerpt or sample is accessible; do not silently treat a partial rewrite as a
+whole-document edit. Infer audience, purpose, main claim, and expected next action
+from the request and source. Honor choices already made in the session; ask only
+when competing interpretations materially change the result.
+
+Match the requested action without asking for a mode already clear from context:
+
+- **Assessment only:** report findings without rewriting.
+- **Assessment with targeted suggestions:** show focused improvements.
+- **Rewrite only if blocking:** edit only when a reading obstacle prevents the
+  intended decision or action; otherwise report the assessment.
+- **Rewrite directly:** edit the requested scope and briefly explain the changes.
+  A request to rewrite or remove AI-like prose authorizes editing directly.
 
 Check the repository and project memory for recorded documentation conventions
 before rewriting. A project ruling on document shape — current-state only, no
 change log, audience layering — outranks the shape of the source.
 
-Inventory the facts, proposals, accepted decisions, rules, exceptions, ownership,
-and source references before editing. Reconcile that inventory with the result.
-Use [examples.md](references/examples.md) when applying the distinctions below.
+For every action, use the document-specific checks in
+[readability.md](references/readability.md). Apply them before and after editing,
+including direct rewrites and rewrites conditional on a blocking issue. Use its
+findings format when assessment is requested; editing alone needs no separate verdict.
+For an explicitly requested PRD completeness assessment, also load
+[prd.md](references/prd.md). Use `requirement-analyzer` for systematic business
+closure, state, traceability, and readiness analysis. A prose-only edit does not
+require that audit; report visible missing decisions without inventing answers.
 
 ## Preserve meaning
+
+Before a substantive edit, inventory facts, proposals, accepted decisions,
+requirements, definitions, exclusions, exceptions, ownership, and source links.
+Reconcile that inventory with the result. Use [examples.md](references/examples.md)
+when removing AI-like prose or handling the semantic distinctions below.
 
 **Invent nothing.** Preserve quantities, units, dates, identifiers, domain terms,
 conditions, and decision status. Do not turn “suggest daily execution” into a
@@ -54,10 +75,12 @@ If a pronoun cannot be resolved from context, flag it rather than guess.
 - State the useful claim directly. Remove filler, repeated disclaimers, invented
   labels, and narration about the writing process.
 - Keep domain and protocol terms such as Symbol, ISIN, Kafka, enum values, and
-  existing team vocabulary. Add a short gloss when the audience needs it. A term
-  that appears only in this draft — not in the repository, sibling documents, or
-  the team's existing material — is an invented label rather than vocabulary:
-  replace it with plain wording instead of preserving it.
+  existing team vocabulary. Preserve new terms when the document defines them
+  clearly and they serve a necessary distinction, even if they appear nowhere
+  else. Add a short gloss when the audience needs it. Replace empty or opaque
+  labels with plain wording when their meaning is supported by the source;
+  flag an unclear meaning rather than guessing a replacement. Novelty alone
+  is not a reason to remove a term.
 - Define every abbreviation, symbol, and date code the document relies on, at
   first use or in one short table. Notation the reader must reconstruct is a
   defect even when every fact is correct.
@@ -90,7 +113,11 @@ short documents do not need a mandatory lifecycle diagram or key-decisions table
 
 ## Deliver and check
 
-Deliver the rewritten document or file changes and a brief explanation. Include
+For assessment, deliver the **Readability verdict**, extracted core point, and
+anchored findings described in [readability.md](references/readability.md).
+Explain whether rewriting would help; a review-only request ends with findings.
+
+For editing, deliver the rewritten document or file changes and a brief explanation. Include
 a **deletion ledger** for substantive removed claims or rules, with source
 location and reason; group routine duplicate wording or filler removals instead
 of listing every sentence. If nothing substantive was removed, no empty ledger
@@ -100,7 +127,8 @@ Check the result against the source inventory: no new facts, stronger commitment
 lost boundaries, altered numbers, broken links, or conflicting diagram branches.
 Apply the same checks to newly written headings, summaries, glosses, and examples.
 
-Then read the result as the stated audience: every abbreviation defined, no term
-that exists only in this document, and no heading or gloss you introduced that is
-harder to read than what it replaced. Re-run both checks after any later
+Then read the result as the stated audience: every abbreviation defined, necessary
+new terms still defined and used consistently, empty labels removed without
+inventing meaning, and no heading or gloss you introduced harder to read than
+what it replaced. Re-run both checks after any later
 structural pass, which can strip the definition of a term whose uses remain.

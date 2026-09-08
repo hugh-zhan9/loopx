@@ -58,8 +58,7 @@ prompt-first 工作或有充分理由的 canonical intent。
 | `debug` | 根因诊断。 |
 | `verify` | 完成声明前的新鲜证据。 |
 | `using-git-worktrees` | 显式工作区隔离。 |
-| `doc-readability` | 文档清晰度与重写。 |
-| `humanize-doc` | AI 生成文档的改稿纪律（说人话、保留决策状态、不臆造）。 |
+| `humanize-doc` | 文档可读性评估、改稿与去 AI 味，保留事实、决策状态和边界。 |
 | `maintain-project-docs` | 仓库文档的当前权威、历史归档与检索隔离。 |
 | `requirement-analyzer` | 需求缺口与就绪度。 |
 | `plan-reviewer` | 对照来源审查 plan 文档。 |

@@ -65,8 +65,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `debug` | Root-cause diagnosis. |
 | `verify` | Fresh evidence before completion claims. |
 | `using-git-worktrees` | Explicit workspace isolation. |
-| `doc-readability` | Document clarity and rewriting. |
-| `humanize-doc` | Rewrite discipline for AI-generated documents. |
+| `humanize-doc` | Readability assessment, document editing, and removing AI-like prose while preserving meaning. |
 | `maintain-project-docs` | Repository-wide current authority, archival, and retrieval hygiene. |
 | `requirement-analyzer` | Requirement gaps and readiness. |
 | `plan-reviewer` | Ad-hoc review of a plan document against its source. |
