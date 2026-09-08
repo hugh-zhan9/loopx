@@ -21,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: npm-publish-${{ github.ref }}
@@ -75,6 +74,9 @@ jobs:
     needs: detect-version-change
     if: github.ref_name != 'darwin' && needs.detect-version-change.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Check out repository
@@ -85,6 +87,9 @@ jobs:
         with:
           node-version: 22.14.0
           registry-url: https://registry.npmjs.org
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.19.1
 
       - name: Install dependencies
         run: npm install
@@ -113,5 +118,3 @@ jobs:
       - name: Publish package
         if: steps.package_version.outputs.should_publish == 'true'
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
