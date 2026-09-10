@@ -4,7 +4,7 @@ description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, re
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---
@@ -31,6 +31,42 @@ choices. Present evidenced options where useful; use `clarify` for remaining
 owner decisions and `spec` for durable design decisions. Open technical choices
 are design work, not a reason to stop before comparing alternatives. Do not
 finalize a breaking contract without an accepted migration or deprecation path.
+
+## Return only what callers need
+
+Define response fields from accepted caller scenarios, not from database columns,
+ORM entities, domain objects, or upstream payloads. For every new response field,
+including nested fields, identify a concrete display, action, computation, or
+required protocol use in the contract. Use caller code or accepted requirements
+as evidence; do not invent consumers. Omit fields without that evidence. Storage
+availability, possible future use, and debugging convenience do not justify them.
+
+Choose fields separately for list, detail, and edit scenarios. Do not default to
+one full object for all three. Explicitly select the response fields within the
+existing API boundary; do not serialize an entire persistence object. Internal
+snapshots, audit payloads, fingerprints, and diagnostic metadata require a named
+consumer need before exposure. Even detail responses need that justification;
+do not automatically move every rejected list field into a new detail endpoint.
+
+When a caller needs to inspect structured data, return a defined object or array
+with documented member types, meaning, and nullability. Do not JSON-encode it
+inside a string field or use an unbounded object/map to avoid defining the
+contract. Database storage as JSON text does not determine the wire type. Opaque
+text is appropriate only when the accepted use needs the original text itself
+(such as raw export), or an existing compatibility contract requires it; record
+that reason. If stored JSON must be decoded, define validation and failure
+behavior without inventing an empty-object or raw-string fallback.
+
+For example, an exception list does not inherit `expectedJson`, `confirmedJson`,
+and `differenceJson` snapshot columns merely because they exist. A requested
+comparison view should expose only the defined changes that view consumes.
+Parsing a full snapshot into an object does not make its unused fields necessary.
+
+For existing APIs, inspect relevant consumers and compatibility promises before
+removing fields or changing string fields to objects. One frontend's non-use is
+not proof that every consumer can lose a field. Record an accepted migration or
+deprecation path where needed. Judge sufficiency by the scenario, not a fixed
+field-count limit; field selection parameters and new endpoints are not defaults.
 
 ## Inspect the relevant dimensions
 
