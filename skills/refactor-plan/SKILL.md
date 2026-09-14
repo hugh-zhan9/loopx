@@ -1,16 +1,27 @@
 ---
 name: refactor-plan
-description: "Creates a behavior-preserving refactor plan with repo evidence, small verifiable steps, scope boundaries, and testing decisions. Not for feature changes or immediate implementation."
-when_to_use: "refactor-plan, refactor request, refactoring RFC, small verifiable steps, behavior-preserving cleanup, architecture cleanup, 重构计划"
+description: "Find worthwhile refactoring opportunities or write a behavior-preserving refactor plan (重构检查、重构计划). Use for code health and maintainability work."
 metadata:
-  version: "0.4.1"
+  version: "0.6.0"
+  when_to_use: "refactor-plan, refactoring audit, technical debt, duplication, coupling, complexity, refactoring RFC, behavior-preserving cleanup, 重构检查, 重构计划"
 ---
 
 # Refactor Plan
 
-Plan a behavior-preserving structural improvement. Do not implement it or treat
-feature work, incident repair, or migrations as refactoring. The request must
-identify a concrete maintainability problem; inspect evidence before inventing one.
+Find maintainability problems or plan a behavior-preserving improvement. Match
+the request: an audit ends with findings; a planning request produces a proposal.
+An already authorized implementation can proceed under the working agreement,
+without inventing another plan or asking for the same permission. Feature work,
+incident repair, and migrations keep their own behavior and decision boundaries.
+
+## When the problem is not yet known
+
+For an audit or a request to find worthwhile refactors, read
+[code-audit.md](references/code-audit.md). Inspect the named scope and report the
+supported findings and priorities. Use the bundled scanner only when its signals
+help select candidates; a small local review does not need a full-repository scan.
+Do not create an RFC, technical-debt ledger, or code change for an audit-only
+request. No finding is a valid result. Continue below when a refactor plan is needed.
 
 ## Establish the baseline and boundary
 
@@ -40,17 +51,17 @@ scope expansion; tie it to a demonstrated problem and preservation check.
 
 ## Artifact and handoff
 
-Use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) and write
+For a planning request, use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) and write
 `docs/loopx/refactors/YYYY-MM-DD-<topic>.md`, unless the user specifies another path.
 Publish to an issue tracker only on explicit request.
 
-This is a refactor RFC and source for `plan2exec`, not a `loopx-plan/v1` execution
-plan. Preserve its Behavior Preservation Contract, baseline, step dependencies,
-write scope, verification, and recovery notes during conversion. Mark it ready for
-`plan2exec` only when those contracts are complete. A draft is not approved merely
-because the template contains a handoff line.
+This refactor RFC can guide host-native implementation directly when the user has
+authorized it. Preserve its Behavior Preservation Contract, baseline, dependencies,
+write scope, verification, and recovery notes. A draft is not approved merely
+because the template contains a handoff line. Review of an existing proposal ends with findings; it does not create a new RFC.
 
-Do not pass an RFC directly to `exec` or `plan-reviewer`, including old Tiny Commits
-RFCs. Review the converted execution plan with `plan-reviewer`; only the ready
-schema-valid plan may enter `exec`. Return newly exposed behavior or architecture
-decisions to their owner instead of encoding them as mechanical refactor steps.
+A second plan is optional: use `plan2exec` only for additional durable coordination
+or an explicitly requested execution plan. An RFC without a `loopx-plan/v1` graph
+does not go directly to the optional `$exec` delegate; ordinary host implementation
+needs no conversion. Return newly exposed behavior or architecture decisions to
+`clarify` or `spec` instead of treating them as mechanical refactor steps.

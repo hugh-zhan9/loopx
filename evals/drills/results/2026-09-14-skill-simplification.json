@@ -1,0 +1,1073 @@
+{
+  "kind": "exploratory host-native decision exercises",
+  "date": "2026-09-14",
+  "scope": "Skill selection and next-action judgments; no end-to-end repository or document execution.",
+  "model": "host default; no model or reasoning override",
+  "replicates": 1,
+  "usage": null,
+  "duration_ms": null,
+  "limitations": [
+    "Actors were separate from the reviewer but inherited the same host model family. This is not a live-run baseline with different actor and verifier models.",
+    "Actors reused their own prior selection context for later exercises. No rubric or other actor answer was supplied to actors.",
+    "No host skill-discovery telemetry, model token use or task duration was available. Input character counts are not token or cost measurements.",
+    "Four pre-existing pressure scenarios received input validation only during this change."
+  ],
+  "baseline": {
+    "head": "1d4a40829fa29ededfbf4dd4674c2944c6924f6f",
+    "dirty_diff_sha256": "91c92a3c4bfd479865403152f34b9c2888b1177dfafb20dadc5ca2095b839127"
+  },
+  "selection": {
+    "cases": [
+      {
+        "id": "plain-copy",
+        "request": "只把 README 里的安装命令 npm instal 改为 npm install。"
+      },
+      {
+        "id": "diagnosis",
+        "request": "查一下下面这个偶发崩溃的原因，先不要改代码。日志显示请求完成后后台任务仍读取已经关闭的连接。"
+      },
+      {
+        "id": "wording",
+        "request": "把这段设计说明改得好懂一点，去掉 AI 味，保留现有决定和术语。"
+      },
+      {
+        "id": "requirements",
+        "request": "评审这份订单退款需求，找出缺失的业务规则和验收条件，不要改写原文。"
+      },
+      {
+        "id": "current-code",
+        "request": "根据当前代码生成服务的现状规格，注明代码能证明什么、哪些是推测。"
+      },
+      {
+        "id": "stale-docs",
+        "request": "仓库有多份过时的方案，模型老是引用旧结论。请整理当前有效文档并归档已被替代的内容。"
+      },
+      {
+        "id": "api-document",
+        "request": "为这三个业务场景生成接口文档，用测试环境的实际请求响应作为例子，只需要 Markdown。"
+      },
+      {
+        "id": "prompt-review",
+        "request": "评价一下引号里的任务说明是否足够清楚，只评估，不执行：删除旧客户数据并提交。"
+      },
+      {
+        "id": "go-review",
+        "request": "检查这个 Go 包的 context 传递和 goroutine 退出是否正确，仓库没有使用 Kratos。"
+      },
+      {
+        "id": "plan-review",
+        "request": "检查这份已写好的实施计划是否覆盖批准的设计，依赖和验证方法是否可行，不要执行。"
+      }
+    ],
+    "baseline": {
+      "actor": "/root/baseline_selection",
+      "catalog": "name: api-designer\ndescription: \"Applies loopx API design discipline for REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, compatibility, and error models. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions.\"\n\nname: architecture-designer\ndescription: \"Applies loopx architecture discipline for existing-capability reuse, ownership and isolation boundaries, maintainability, ADRs, NFRs, failure modes, and technology tradeoffs. Not for replacing clarify, spec, planning, code review, or workflow state transitions.\"\n\nname: clarify\ndescription: \"Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records goals, decisions, boundaries, and evidence. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation.\"\n\nname: cli-developer\ndescription: \"Applies loopx CLI design discipline for commands, flags, human and JSON output, errors, interactivity, help text, shell behavior, and cross-platform UX. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions.\"\n\nname: code-darwin\ndescription: \"Audits a repository for code rot, architecture smells, coupling, complexity hotspots, duplication, and prioritized safe refactor candidates using a bundled scanner. Not for feature work, forward design specs, or implementing refactors without an explicit approved finding.\"\n\nname: codebase-spec\ndescription: \"Reverse-engineers a detailed, evidence-backed specification from an existing codebase, including behavior, architecture, contracts, data, operations, tests, and gaps. Not for writing a forward design from unresolved requirements, planning implementation, or changing code.\"\n\nname: debug\ndescription: \"Applies root-cause diagnosis when explicitly invoked or activated by an issue or implementation workflow for a bug, failing test, build failure, regression, or unexpected behavior. Not for automatic routing of ordinary prompt-first defects, new feature planning, routine code review, or unauthorized fixes.\"\n\nname: design-review\ndescription: \"Prepares and maintains a standalone high-level design (概要设计) for mixed-audience review — what will be built, how, and what will change — records the issues reviewers raise, and writes resolutions back into the detailed design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec.\"\n\nname: exec\ndescription: \"Executes one ready plan2exec plan through host-native leaf subagents while rechecking architecture conformance. The controller schedules, reviews, integrates, resolves conflicts, and verifies; independent slices may run in parallel. Not for planning, blocked plans, prompt-first work, issue ledgers owned by fix, or Git disposition.\"\n\nname: fix\ndescription: \"Issue-driven bug fix execution for .loopx/issues ready_for_fix ledgers or recorded in_progress repairs, with verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, unqualified ledgers, issue intake, tracker automation, commits, pushes, or closing issues.\"\n\nname: generate-api-docs\ndescription: \"Generates concise Markdown API documentation by business scenario from verified final HTTP behavior, documenting each scenario's calls and fields independently with examples verified by actual HTTP calls. Generates OpenAPI 3.1 YAML for Apifox only on explicit request. Use for API docs, endpoint docs, field inventories, 接口文档, 出入参文档, and requested OpenAPI/Apifox exports. Not for new API design, implementation changes, GraphQL without explicit HTTP operations, or replacing codebase-spec.\"\n\nname: go-style\ndescription: \"Applies loopx Go engineering discipline and routes Go work to focused modernization, performance, or concurrency references. Use for .go edits, reviews, tests, package/API design, idiomatic cleanup, Go upgrades, benchmarks, pprof, races, locks, channels, and goroutine lifecycle. Not for non-Go code or Kratos-specific architecture by itself.\"\n\nname: humanize-doc\ndescription: \"Assesses document readability and rewrites documents into accurate, plain language, including removing AI-like prose. Use for unclear viewpoints, dense specs, PRDs, procedures, meeting notes, and document editing. Preserves facts, domain terms, decision status, boundaries, and evidence. Not for systematic requirement readiness analysis, code review, implementation planning, or file-format conversion.\"\n\nname: issue\ndescription: \"Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues.\"\n\nname: kratos\ndescription: \"Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone.\"\n\nname: lancet\ndescription: \"Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state.\"\n\nname: maintain-project-docs\ndescription: \"Audits and reconciles repository documentation so current authority is explicit, complex modules have at most one maintained current document, and superseded plans, designs, reviews, or memory are archived and excluded from default retrieval. Use when agents are being misled by stale or conflicting docs, documentation has accumulated dated duplicates, or a repository needs source-of-truth cleanup. Not for prose polishing, current-state spec generation, future design, or implementation planning.\"\n\nname: plan-reviewer\ndescription: \"Reviews a persistent implementation plan and its authoritative execution graph against the approved source, including architecture conformance, coverage, dependencies, isolation claims, review focus, and verification. Not for creating plans, reviewing code, dispatching execution, or advancing workflow state.\"\n\nname: plan2exec\ndescription: \"Creates an optional lean plan document that preserves approved architecture constraints for explicit planning, approval boundaries, interruption recovery, or durable coordination. Requires independent review before readiness; execution remains host-native. Not for clear bounded work, unresolved decisions, or code changes.\"\n\nname: prompt-lint\ndescription: \"Lints a prompt or task brief for goal clarity, necessary context, boundaries, verifiable evidence, and signal quality before execution. Use for prompt assessment, task-definition readiness, missing-context analysis, or a requested prompt score. Not for executing the checked prompt, inventing missing requirements, general document review, or replacing requirement-analyzer for full PRDs and specs.\"\n\nname: refactor-plan\ndescription: \"Creates a behavior-preserving refactor plan with repo evidence, small verifiable steps, scope boundaries, and testing decisions. Not for feature changes or immediate implementation.\"\n\nname: requirement-analyzer\ndescription: \"Use when reviewing existing requirements, PRDs, specs, or feature briefs for ambiguity, missing business closure, state/workflow behavior, data mutations, traceability, implementation fit, feasibility, or development readiness. Not for changing workflow state, inventing business decisions, writing implementation plans, or editing code.\"\n\nname: spec\ndescription: \"Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes.\"\n\nname: sql-style\ndescription: \"Applies loopx SQL and database-change discipline for queries, schemas, indexes, migrations, dialects, and performance-sensitive data access. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions.\"\n\nname: tdd\ndescription: \"Applies failing-test-first and red-green-refactor discipline when explicitly invoked or activated by an owning implementation workflow. Not for automatic routing of ordinary prompt-first work, generated files, throwaway prototypes, or deleting existing user-owned implementation to recreate a red phase.\"\n\nname: using-git-worktrees\ndescription: \"Sets up or verifies an isolated workspace for implementation work using native worktree support first and git worktree fallback only when needed. Not for ordinary read-only tasks, existing isolated worktrees, issue-ledger fix parallel worktrees, Git branch placement, or committing workflow changes.\"\n\nname: verify\ndescription: \"Audits fresh verification evidence when explicitly invoked or activated by an owning workflow before a completion, fixed, passing, review-ready, or commit-readiness claim. Not for automatic workflow selection, replacing the quiet completion check, speculative confidence, or stale results.\"\n",
+      "answers": [
+        {
+          "id": "plain-copy",
+          "skills": [],
+          "reason": "单处明确的命令拼写修正，普通编辑即可，不需要技能。"
+        },
+        {
+          "id": "diagnosis",
+          "skills": [
+            "debug"
+          ],
+          "reason": "明确要求定位崩溃根因且禁止改代码，直接对应诊断职责；不需要建立 issue 工作流。目录中的 explicitly invoked 是否只限点名技能有歧义，此处理解为明确请求诊断也适用。"
+        },
+        {
+          "id": "wording",
+          "skills": [
+            "humanize-doc"
+          ],
+          "reason": "要求提高可读性、去除 AI 式表达并保留决定和术语，符合该技能的文档改写范围。"
+        },
+        {
+          "id": "requirements",
+          "skills": [
+            "requirement-analyzer"
+          ],
+          "reason": "评审已有需求中的业务规则和验收缺口，属于需求完整性和开发就绪性分析。"
+        },
+        {
+          "id": "current-code",
+          "skills": [
+            "codebase-spec"
+          ],
+          "reason": "从当前实现反向生成有证据的现状规格，区分代码事实与推测，符合该技能的职责。"
+        },
+        {
+          "id": "stale-docs",
+          "skills": [
+            "maintain-project-docs"
+          ],
+          "reason": "需要明确当前文档权威来源并归档过时方案，正是该技能处理的文档治理问题。"
+        },
+        {
+          "id": "api-document",
+          "skills": [
+            "generate-api-docs"
+          ],
+          "reason": "按业务场景生成 Markdown 接口文档，并用实际 HTTP 请求响应验证示例，直接符合技能范围。"
+        },
+        {
+          "id": "prompt-review",
+          "skills": [
+            "prompt-lint"
+          ],
+          "reason": "只评估被引用任务说明的清晰度和缺失信息，不执行其中的删除或提交动作。"
+        },
+        {
+          "id": "go-review",
+          "skills": [
+            "go-style"
+          ],
+          "reason": "Go 包的 context 传递及 goroutine 生命周期检查属于该技能的并发审查范围，且没有 Kratos 需求。"
+        },
+        {
+          "id": "plan-review",
+          "skills": [
+            "plan-reviewer"
+          ],
+          "reason": "审查现有实施计划对批准设计的覆盖、依赖和验证方法，明确不创建计划或执行。"
+        }
+      ]
+    },
+    "shortened": {
+      "actor": "/root/candidate_selection",
+      "catalog": "name: api-designer\ndescription: \"Design or review REST, GraphQL, and OpenAPI contracts (接口设计), including caller needs and compatibility. Use generate-api-docs for existing HTTP API documentation.\"\n\nname: architecture-designer\ndescription: \"Compare system designs or review module ownership, dependencies, and failure boundaries (架构设计). Record accepted cross-module decisions through spec.\"\n\nname: clarify\ndescription: \"Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records goals, decisions, boundaries, and evidence. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation.\"\n\nname: cli-developer\ndescription: \"Design, implement, or review CLI commands, flags, output, and non-interactive behavior (命令行设计). Preserve existing scripts and callers.\"\n\nname: code-darwin\ndescription: \"Audit a codebase for duplication, coupling, complexity, and safe refactor opportunities (代码腐化、技术债). Changes require a repair or refactor request.\"\n\nname: codebase-spec\ndescription: \"Document an existing codebase’s behavior and architecture from source evidence (现状规格、逆向文档). Use spec for future design.\"\n\nname: debug\ndescription: \"Applies root-cause diagnosis when explicitly invoked or activated by an issue or implementation workflow for a bug, failing test, build failure, regression, or unexpected behavior. Not for automatic routing of ordinary prompt-first defects, new feature planning, routine code review, or unauthorized fixes.\"\n\nname: design-review\ndescription: \"Prepare or update a high-level design for stakeholder review (概要设计、设计评审), and record review decisions. Not for code or implementation-plan review.\"\n\nname: exec\ndescription: \"Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires a plan and host delegation; does not commit, push, or merge.\"\n\nname: fix\ndescription: \"Issue-driven bug fix execution for .loopx/issues ready_for_fix ledgers or recorded in_progress repairs, with verification, proportional review, and quiet completion checking. Not for feature work, vague bug reports, unqualified ledgers, issue intake, tracker automation, commits, pushes, or closing issues.\"\n\nname: generate-api-docs\ndescription: \"Write API docs by business scenario using actual test calls (接口文档). Keep full field descriptions and polish the prose. Export OpenAPI or Apifox YAML only when requested.\"\n\nname: go-style\ndescription: \"Apply Go conventions to handwritten code, reviews, modernization, performance, and concurrency work (Go 开发、性能分析). Use kratos only for confirmed Kratos projects.\"\n\nname: humanize-doc\ndescription: \"Assess or improve document readability and remove AI-like wording (文档润色、去 AI 味). Preserve facts and decisions. Use requirement-analyzer for business-rule gaps.\"\n\nname: issue\ndescription: \"Issue-driven bug-class workflow intake: triage a bug report, run debug-discipline diagnosis, create a .loopx/issues ledger, and produce a fix brief. Not for feature requests, enhancements, implementation plans, lasting code changes, issue tracker automation, or closing issues.\"\n\nname: kratos\ndescription: \"Develop or troubleshoot confirmed Go-Kratos services: proto APIs, service/biz/data layers, middleware, auth, and configuration (Kratos 微服务).\"\n\nname: lancet\ndescription: \"Simplify an implementation or review unnecessary code, abstractions, and dependencies (精简实现、过度设计). Keep required behavior and existing ownership.\"\n\nname: maintain-project-docs\ndescription: \"Find conflicting or outdated repository docs, update current guidance, and archive superseded material (文档整理、旧文档归档). Use humanize-doc for prose editing.\"\n\nname: plan-reviewer\ndescription: \"Review an implementation plan against its approved source for coverage, dependencies, safe parallel work, and verification (计划评审). Do not edit or execute it.\"\n\nname: plan2exec\ndescription: \"Write a persistent implementation plan when requested or needed for approval, recovery, or coordination (实施计划). Requires an independent plan review.\"\n\nname: prompt-lint\ndescription: \"Assess a prompt or task brief for missing decisions, context, and verifiable outcomes (提示词评估). Review the prompt without executing it.\"\n\nname: refactor-plan\ndescription: \"Write a behavior-preserving refactor proposal with code evidence, scope, and verification (重构计划). Use plan2exec if a separate execution plan is needed.\"\n\nname: requirement-analyzer\ndescription: \"Review PRDs or requirements for missing business rules, contradictions, and development readiness (需求评审). Report gaps without inventing decisions.\"\n\nname: spec\ndescription: \"Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes.\"\n\nname: sql-style\ndescription: \"Design or review SQL, schemas, migrations, indexes, and query performance (SQL 优化、数据库设计). Check the actual dialect and data contract.\"\n\nname: tdd\ndescription: \"Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test.\"\n\nname: using-git-worktrees\ndescription: \"Prepare an isolated worktree when requested or needed for implementation (隔离工作区). Reuse existing host isolation and preserve all user changes.\"\n\nname: verify\ndescription: \"Audit test and verification evidence when requested or required by the current workflow (验证审计). Match completion claims to the current tested state.\"\n",
+      "answers": [
+        {
+          "id": "plain-copy",
+          "skills": [],
+          "reason": "明确、局部的拼写修正，普通编辑即可，不需要文档整理或润色技能。"
+        },
+        {
+          "id": "diagnosis",
+          "skills": [],
+          "reason": "按普通只读诊断处理。debug 描述要求显式启用或由 issue/实施工作流激活，并排除普通缺陷自动路由；本请求未指定该技能或工作流。issue 会引入未要求的问题台账。"
+        },
+        {
+          "id": "wording",
+          "skills": [
+            "humanize-doc"
+          ],
+          "reason": "直接要求提升可读性、去掉 AI 味并保留事实、术语和已有决定。"
+        },
+        {
+          "id": "requirements",
+          "skills": [
+            "requirement-analyzer"
+          ],
+          "reason": "评审业务规则和验收条件的缺口属于需求完整性检查，不是原文润色。"
+        },
+        {
+          "id": "current-code",
+          "skills": [
+            "codebase-spec"
+          ],
+          "reason": "需要依据当前源码记录既有行为与架构，并区分证据和推测。"
+        },
+        {
+          "id": "stale-docs",
+          "skills": [
+            "maintain-project-docs"
+          ],
+          "reason": "需要确立当前文档权威并归档被替代的旧方案，完全匹配仓库文档治理。"
+        },
+        {
+          "id": "api-document",
+          "skills": [
+            "generate-api-docs"
+          ],
+          "reason": "按业务场景生成接口文档并采用真实测试调用示例；只要求 Markdown，无需 API 契约设计或格式导出。"
+        },
+        {
+          "id": "prompt-review",
+          "skills": [
+            "prompt-lint"
+          ],
+          "reason": "用户要求评估引用任务说明的清晰度而不执行，匹配提示词评审。"
+        },
+        {
+          "id": "go-review",
+          "skills": [
+            "go-style"
+          ],
+          "reason": "Go 的 context 和 goroutine 生命周期属于 Go 并发代码评审；已明确排除 Kratos。"
+        },
+        {
+          "id": "plan-review",
+          "skills": [
+            "plan-reviewer"
+          ],
+          "reason": "需要对照批准设计检查现有实施计划的覆盖、依赖和验证方法，并明确禁止执行。"
+        }
+      ]
+    }
+  },
+  "behavior": {
+    "baseline": {
+      "actor": "/root/baseline_selection",
+      "inputs": [
+        {
+          "id": "authorized-continuation",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (templates/working-agreement.md) ---\n# Engineering Working Agreement\n\nYou are working in a repository that uses loopx. Follow this discipline for\nevery task.\n\n## Before changing anything\n\n- Read the task twice. Restate the goal and the smallest change that satisfies it.\n- Read the code you are about to change and every caller that depends on it.\n- For brownfield work, identify the owning module, applicable architecture rules,\n  and the closest existing extension or reuse points before adding a new path.\n- Run the existing test suite first so you know the baseline is green.\n- If intent, scope, acceptance, permissions, or a destructive choice is\n  materially ambiguous, run the `clarify` skill before mutation instead of\n  guessing.\n\n## While changing\n\n- Make the smallest correct change. Do not restructure code the task does not\n  require.\n- Preserve module ownership and dependency direction. Do not create a parallel\n  service, store, workflow, source of truth, or cross-boundary helper that changes\n  ownership, dependencies, shared state, or fault boundaries unless an approved\n  design records the reason before mutation.\n- If a change needs a new architecture decision — such as a new service, store,\n  workflow, source of truth, cross-module dependency, state owner, dependency\n  direction, or fault boundary — stop before mutation and use `spec`; do not\n  justify it after coding. A local module or helper that follows an established\n  owner, extension point, dependency direction, and boundary remains an\n  implementation choice; record the evidence and continue prompt-first.\n- Keep shared state and failures inside the established boundary, and leave a\n  clear test, diagnostic, ownership, and removal path. Do not introduce a generic\n  abstraction for hypothetical reuse.\n- Check boundary conditions explicitly: empty input, single element, off-by-one\n  at loop limits, partial final batches.\n- When two changes touch the same shared file or shared state, integrate them\n  sequentially and re-read the merged result; never let one edit overwrite\n  another.\n- When you parallelize with subagents, give each an independent assignment and\n  integrate results one at a time; a subagent completes its own assignment and\n  never spawns helpers of its own.\n- Keep public APIs and observable behavior stable unless the task explicitly\n  asks to change them.\n- Never add fallback, retry, degraded-mode, or compatibility-shim behavior that\n  no requirement names; fail fast instead.\n\n## Verification and review\n\n- Run the repository test suite after your change and fix what you broke.\n- Add a test that would have caught the defect or that pins the new behavior.\n- Review the final diff for unjustified duplication, boundary violations, widened\n  failure blast radius, and avoidable maintenance burden.\n- Only claim completion from fresh command output, never from memory.\n- For security-sensitive, destructive, or public-compatibility changes, have an\n  independent subagent review the exact diff before you conclude. Reviewers\n  only report findings; a review prompt never pre-judges severity or restricts\n  what may be reported; Critical or Important findings are fixed and freshly\n  re-verified before completion.\n\n## When to stop and ask\n\n- If the task requires a decision that is not specified — especially anything\n  that can break compatibility for existing consumers (public formats, schemas,\n  APIs) — do not guess and do not write code. Stop, state the unresolved\n  decision, and ask for an explicit ruling before making any repository change.\n- Record durable product, data, security, or architecture rulings with the\n  `spec` skill so later work inherits them.\n\n## Git\n\n- Never commit, push, merge, or discard work unless the user explicitly asks.\n- Before any destructive Git action, confirm the exact target.\n\n## Larger work\n\n- For work that must survive interruption or coordinate several owners, write\n  one plan document with the `plan2exec` skill, then execute it slice by slice,\n  directly or through an explicitly selected `$exec`, verifying each slice before\n  starting its dependents.\n\n\n--- TASK ---\n这是一次只讨论下一步的演练，不要操作仓库。此前用户说：请修正文档中三个已经明确的失效链接，完成检查，不要提交。你已读完相关段落，发现目标页面仍在仓库，只是路径改了；没有语义变化。修改前链接检查报告这三个链接失效。你修复前两个后收到用户补充：第三个也一起处理。仓库规定文档修改运行链接检查，完整测试只要求代码变更运行。你会怎样继续，何时报告完成？列出要做的检查和需要用户回答的问题；若没有问题，写明没有。"
+        },
+        {
+          "id": "local-helper-choice",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (templates/working-agreement.md) ---\n# Engineering Working Agreement\n\nYou are working in a repository that uses loopx. Follow this discipline for\nevery task.\n\n## Before changing anything\n\n- Read the task twice. Restate the goal and the smallest change that satisfies it.\n- Read the code you are about to change and every caller that depends on it.\n- For brownfield work, identify the owning module, applicable architecture rules,\n  and the closest existing extension or reuse points before adding a new path.\n- Run the existing test suite first so you know the baseline is green.\n- If intent, scope, acceptance, permissions, or a destructive choice is\n  materially ambiguous, run the `clarify` skill before mutation instead of\n  guessing.\n\n## While changing\n\n- Make the smallest correct change. Do not restructure code the task does not\n  require.\n- Preserve module ownership and dependency direction. Do not create a parallel\n  service, store, workflow, source of truth, or cross-boundary helper that changes\n  ownership, dependencies, shared state, or fault boundaries unless an approved\n  design records the reason before mutation.\n- If a change needs a new architecture decision — such as a new service, store,\n  workflow, source of truth, cross-module dependency, state owner, dependency\n  direction, or fault boundary — stop before mutation and use `spec`; do not\n  justify it after coding. A local module or helper that follows an established\n  owner, extension point, dependency direction, and boundary remains an\n  implementation choice; record the evidence and continue prompt-first.\n- Keep shared state and failures inside the established boundary, and leave a\n  clear test, diagnostic, ownership, and removal path. Do not introduce a generic\n  abstraction for hypothetical reuse.\n- Check boundary conditions explicitly: empty input, single element, off-by-one\n  at loop limits, partial final batches.\n- When two changes touch the same shared file or shared state, integrate them\n  sequentially and re-read the merged result; never let one edit overwrite\n  another.\n- When you parallelize with subagents, give each an independent assignment and\n  integrate results one at a time; a subagent completes its own assignment and\n  never spawns helpers of its own.\n- Keep public APIs and observable behavior stable unless the task explicitly\n  asks to change them.\n- Never add fallback, retry, degraded-mode, or compatibility-shim behavior that\n  no requirement names; fail fast instead.\n\n## Verification and review\n\n- Run the repository test suite after your change and fix what you broke.\n- Add a test that would have caught the defect or that pins the new behavior.\n- Review the final diff for unjustified duplication, boundary violations, widened\n  failure blast radius, and avoidable maintenance burden.\n- Only claim completion from fresh command output, never from memory.\n- For security-sensitive, destructive, or public-compatibility changes, have an\n  independent subagent review the exact diff before you conclude. Reviewers\n  only report findings; a review prompt never pre-judges severity or restricts\n  what may be reported; Critical or Important findings are fixed and freshly\n  re-verified before completion.\n\n## When to stop and ask\n\n- If the task requires a decision that is not specified — especially anything\n  that can break compatibility for existing consumers (public formats, schemas,\n  APIs) — do not guess and do not write code. Stop, state the unresolved\n  decision, and ask for an explicit ruling before making any repository change.\n- Record durable product, data, security, or architecture rulings with the\n  `spec` skill so later work inherits them.\n\n## Git\n\n- Never commit, push, merge, or discard work unless the user explicitly asks.\n- Before any destructive Git action, confirm the exact target.\n\n## Larger work\n\n- For work that must survive interruption or coordinate several owners, write\n  one plan document with the `plan2exec` skill, then execute it slice by slice,\n  directly or through an explicitly selected `$exec`, verifying each slice before\n  starting its dependents.\n\n\n--- TASK ---\n只评估下一步，不修改文件。用户要求同一个模块里的两个私有函数统一用已有校验逻辑。你已确认：模块负责这些输入；校验函数就在同一文件；调整不改变返回值、异常、公共 API、共享状态、依赖方向或调用顺序；当前相关测试通过。另一个模型建议先生成一份架构设计和一份实施计划，等用户分别批准后再动手。你如何处理，依据是什么，还需检查什么？"
+        },
+        {
+          "id": "design-plan-handoff",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (skills/spec/SKILL.md) ---\n---\nname: spec\ndescription: \"Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes.\"\nwhen_to_use: \"spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案\"\nmetadata:\n  version: \"0.4.8\"\n---\n\n# loopx Spec\n\nTurn clarified requirements into evidenced design decisions. Do not write an implementation plan,\nchange code, or invent business requirements. Clear local\nimplementation choices do not require this skill.\n\n## Inputs and authority\n\nRead the approved request, PRD, requirements document, or intake package and the\nrelevant repository code, contracts, and tests. Current user rulings and named\nsources govern intent; relevant maintained specs bind existing constraints.\nMemory is advisory. Use indexes or filenames to select relevant context, not a\nblanket read of all specs or memory.\n\nFor `.loopx/intake/YYYY-MM-DD-<slug>/`, `requirements.md` owns requirements and\n`AC-*` / `TC-*` coverage. Read `clarification.md` for exact wording or supporting\nhistory only when needed. Missing material intake criteria/scenarios or conflicting\nbusiness requirements return to `clarify`. Existing legacy\n`.loopx/intake/clarify-*.md` inputs remain readable; do not migrate them incidentally.\n\nFor brownfield work, read [the architecture conformance contract](../shared/architecture-conformance.md).\nInspect reuse candidates, owning modules, dependencies, state/fault boundaries,\nand maintenance costs before recommending the design.\n\nWhen concurrent persisted state is involved, read and apply\n[the database concurrency contract](../shared/database-concurrency.md).\n\n## Develop the decision\n\nResolve missing business goals, required behavior, acceptance, permission limits,\ncompatibility promises, or operational ownership from evidence or `clarify`.\nWithin known constraints, undecided API shape, data layout, rollout mechanism,\nor module boundaries belong here: compare credible options and propose a choice.\nLabel pending technical decisions as proposed instead of blocking useful design\nwork or presenting them as already accepted.\n\nUse a proposal when the user requests one, credible alternatives need comparison,\nor the decision has material public/data/security/operational consequences,\nmigration cost, or is hard to reverse. Read [design-proposal.md](references/design-proposal.md).\nFor low-risk work with an accepted direction, proceed directly to detailed design.\nDo not ask the user to select a document mode.\n\nDeliver a proposal for decision when material technical choices await acceptance.\nExisting explicit approval is sufficient. Before detailed design or planning\nhandoff, satisfy required proposal review and acceptance; do not finalize a\ncontract with missing evidence for a parallel capability, owning module, dependency direction, or state boundary.\n\n## Artifacts and their owners\n\nUse a stable kebab-case slug derived from the requested feature and this directory\nfor new outputs: `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`. Keep existing historical\nfiles in place unless document maintenance is part of the task.\n\n- `设计提案.md`: rationale and alternatives when a proposal is triggered.\n- `需求设计文档.md`: detailed contract using [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md).\n- `概要设计.md`: architecture, core flows, and module boundaries when the\n  `design-review` selection gate applies; create/update it before detailed design\n  using [the overview template](../design-review/REVIEW_BRIEF_TEMPLATE.md).\n\nThe overview is maintained authority, not a generated summary. Preserve its\nindependent decisions, anchors, review issues, and revision history. When moving\nan older design's overview content out of detail, transfer and verify coverage\nbefore replacing sections 3.2–3.5 with a pointer. Field-level contracts remain in\nthe detailed design. Without an overview, those sections remain inline.\n\nThe detailed design references accepted proposal decisions and its requirement\nsource; do not reopen a settled direction in another file. If requested, produce\nmatching presentable HTML for the Markdown artifacts in scope.\n\n## Detailed contract\n\nFollow the template's core sections and conditional-section triggers, preserving\nnumbering. Do not repeat its full schema here or fill irrelevant triggered\nsections with `无` / `不涉及`. The core includes revision history, requirements,\ndesign overview and architecture checks, per-module details, Planning Handoff,\nand QA with verification and contract index.\n\nState applicable normal and failure boundaries, invalid inputs, permissions,\nduplicates, concurrency, partial failure, dependency timeout, legacy data,\nmigration overlap, rollback, and protected behavior. Keep non-obvious exclusions\nexplicit; omit plainly irrelevant categories instead of requiring a ritual row.\nA fallback or degraded mode is a design decision only when a source requirement\nnames the scenario and expected behavior.\n\nWhen a revision changes a conclusion, update its owning section and append the\nreason to `一、修订历史`. Update cross-document links and indexes without copying\nthe full decision into a second authoritative home.\n\n## Stable anchors\n\nPlace implementation-relevant `D-*` anchors beside their decisions in the owning\noverview or detailed section. Keep accepted IDs stable. Use applicable **Behavior\nContract**, **Data Contract**, **Interface Contract**, **Workflow Contract**, or\n**Operational Contract** blocks. A Workflow Contract is required when changing\nartifact fields, handoffs, gates, or downstream skill consumption.\n\nEach entry names the D anchor, source AC when present, contract type, decision,\nboundary/non-goal, and downstream planning/review expectation. The detailed\n`Design Contract Index` lists every anchor and links to overview-owned decisions\nwithout duplicating them. Proposal-only or no-implementation designs may use\n`Design anchors: not applicable` with a reason; never invent meaningless IDs.\n\nPreserve requirement-stage `TC-*` coverage in Verification Strategy as automated\nchecks, manual checks, or explicit deferred-with-rationale items. Make source\n`AC-*`, design `D-*`, and scenario `TC-*` relationships recoverable for planning.\nA missing decision cannot be repaired by assigning an anchor to a guess.\n\n## Support lenses\n\nLoad only lenses triggered by the actual decision:\n\n| Concern | Lens |\n| --- | --- |\n| REST/GraphQL, API schemas, client evolution | `api-designer` |\n| Modules, reuse, shared state, boundaries, NFRs, deployment | `architecture-designer` |\n| SQL, persistence, migration, indexes, query behavior | `sql-style` |\n| CLI contracts and shell behavior | `cli-developer` |\n| Handwritten Go contracts and idioms | `go-style` |\n| Confirmed Go-Kratos framework work | `kratos` |\n\nRecord applied lenses, or `Support lenses: none`. Fold conclusions into this\nunified design and its anchors; lenses do not create separate authoritative\ncontract files or override the base design.\n\n## Handoff and STOP Conditions\n\nReport produced paths, decision status, and concrete unresolved choices. Proposal\ncompletion alone does not authorize a detailed or executable design. Request the\nremaining decision only when it has not already been given.\n\nWhen `design-review` applies, prepare its overview and recommend review of\n`需求设计文档.md` before planning. Apply resolutions to their owning documents.\nUse `plan2exec` when the accepted, internally consistent design needs a persistent\nexecution plan; it may choose local implementation details inside the recorded\nPlanning Handoff boundaries.\n\nDo not hand off as ready while material business/design questions, required\nreview, architecture evidence, anchor coverage, or source conflicts remain open.\nResolve discovered facts directly, business decisions through `clarify`, and\ntechnical decisions here. A document may be delivered as proposed or blocked\nwithout falsely claiming approval or completion.\n\n\n--- CONTRACT (skills/design-review/SKILL.md) ---\n---\nname: design-review\ndescription: \"Prepares and maintains a standalone high-level design (概要设计) for mixed-audience review — what will be built, how, and what will change — records the issues reviewers raise, and writes resolutions back into the detailed design's revision history. Not for reviewing code, plans, or requirements, and not a replacement for spec.\"\nwhen_to_use: \"design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review\"\nmetadata:\n  version: \"0.5.4\"\n---\n\n# loopx Design Review\n\nPrepare and maintain a standalone 概要设计 for mixed-audience review: what will be\nbuilt, how it works, and what changes. Present an evidenced design and its costs;\nreviewers raise objections. Do not invent decisions to fill a presentation or\nturn the document into a questionnaire that delegates all design work to the room.\n\n## Select the review\n\nReview when requested, or when a design changes public contracts, schemas, state\nmachines, cross-system behavior, hard-to-reverse decisions, or material rulings\nproduct/QA have not reviewed. Skip ceremony for local choices and already accepted\nbehavior-preserving designs. This skill reviews design, not code, execution plans,\nor requirements; those use host review, `plan-reviewer`, or `requirement-analyzer`.\n\nThe overview is the single home of architecture, core flows, and module boundaries.\nDetailed design owns field-level contracts. Material unresolved decisions block\nimplementation handoff; minor review suggestions need not block unrelated work.\n\n## Inputs\n\nRead the existing `概要设计.md`, detailed `需求设计文档.md` and its QA/D-* index,\naccepted `设计提案.md` when present, and source `requirements.md` / `AC-*` rulings.\nSource business requirements constrain the design; reading the overview first\npreserves its content and does not make it override those requirements.\n\nPreserve overview-only decisions, anchors, raised issues, resolutions, and version\nhistory. Do not regenerate the overview from detail alone. For an older design\nwithout one, transfer architecture/flow/module content, verify coverage, then\nreplace detailed sections 3.2–3.5 with a link. Missing design decisions return to\n`spec`; do not fabricate them during review preparation.\n\n## Output: The Review Brief\n\nMaintain `docs/loopx/design/YYYY-MM-DD-<slug>/概要设计.md` alongside its sources,\nusing [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md).\n\n- Use the engineering structure: background/scope, overall design, modules,\n  change inventory, stakeholder impact, risks, and acceptance.\n- Give each decision one full home: module rules in that module, cross-module\n  choices in the overall design, review questions as short linked items.\n- Describe actual brownfield pain or greenfield goals; do not invent legacy defects.\n- Explain module needs, design, rules, and reasons. Use diagrams where they clarify\n  state, timing, or flow; a trivial module need not have a decorative diagram.\n- Make deviations from source wording visible with their rationale and pending\n  decision. Settled requirements remain settled; technical recommendations remain\n  proposals until the required acceptance is recorded.\n- Prefer business language for mixed audiences. Keep necessary API names or evidence\n  anchors with a brief explanation; move dense implementation listings to the appendix.\n- State the real change inventory and cooperation needed. Claim “core path unchanged”\n  only when scope and verification support it. Do not invent counts or guarantees.\n- Match tense to implementation status. For shipped work, mark this as a confirmation\n  review and account for migration cost; acceptance points distinguish tested from pending.\n\n## Record review outcomes\n\nRecord who raised each issue, the challenged decision, evidence, and resolution:\n\n| Resolution | Record |\n| --- | --- |\n| 采纳修改 | Accepted change, owner, affected sections |\n| 解释后维持 | Explanation and recorded outcome |\n| 搁置 | Unresolved choice, known owner/date, and whether it blocks handoff |\n\nPreparing or sending the document is not evidence a review occurred. Record the\nactual review result. A no-objection convention may apply only to an explicitly\ncompleted review that adopted it; silence in chat, a pending response, or elapsed\ntime is not acceptance. Do not request individual sign-offs again for decisions\nalready explicitly approved.\n\n## Write resolutions back\n\n1. Apply accepted changes to their owning overview or detailed section, preserving\n   stable `D-*` anchors and updating the detailed Design Contract Index and links.\n2. Record review changes and reasons in the overview version table and detailed\n   `一、修订历史`, without duplicating the full decision.\n3. Close resolved questions with their evidence. Keep deferred items open, with\n   owner/date where established and an explicit effect on readiness.\n4. Block `plan2exec` handoff only for material unresolved decisions on its scope.\n   An owner/date alone does not make a blocking question safe; an accepted scope\n   deferral must remove that dependency from the work allowed to proceed.\n\n## STOP Conditions\n\nIf the source is unreadable, required proposal acceptance is missing, or no\nimplementation-relevant `D-*` decisions exist, identify the missing input and\nreturn to `spec` before representing the design as ready. Missing business intent\nbelongs to `clarify`; an open technical proposal can be discussed for decision but\nmust remain visibly proposed.\n\nWhen a source changes after preparation, reconcile the affected owning sections\nand preserve independent overview decisions and history. Do not silently choose\nbetween conflicting contracts or edit technical content beyond accepted resolutions.\nReport the artifact, actual review status, resolved issues, and remaining blockers.\n\n\n--- CONTRACT (skills/plan2exec/SKILL.md) ---\n---\nname: plan2exec\ndescription: \"Creates an optional lean plan document that preserves approved architecture constraints for explicit planning, approval boundaries, interruption recovery, or durable coordination. Requires independent review before readiness; execution remains host-native. Not for clear bounded work, unresolved decisions, or code changes.\"\nwhen_to_use: \"plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划\"\nmetadata:\n  version: \"0.6.4\"\nargument-hint: \"<approved source path or clear planning request>\"\n---\n\n# loopx Plan2Exec\n\nCreate one concise persistent plan document that preserves intent and\ndecomposes it into coherent, independently verifiable outcomes. The plan is a\ndocument contract: whoever executes it — usually the same model in a later\nsession — follows the schema's execution rules and the installed working\nagreement. loopx does not run or schedule the plan.\n\n## Selection Gate\n\nPersistent planning is justified only when at least one concrete trigger is\npresent:\n\n- the user explicitly asks for a plan;\n- work must cross an approval boundary before mutation;\n- interruption recovery needs a durable handoff;\n- coordination across stages or owners must outlive the current context.\n\nA clear, bounded request without one of these triggers stays prompt-first. Do\nnot create a plan merely because work spans several files, has multiple\noutcomes, or benefits from verification.\n\n## Inputs And Boundaries\n\nStart from the user's approved request, requirements, intake package, or design\nspec. Follow source links to an authoritative `概要设计.md` and its `D-*` decisions when present. Inspect relevant repository context before naming likely modules or known\ndependencies.\n\nRead [the architecture conformance contract](../shared/architecture-conformance.md).\nPreserve source `D-*` decisions for reuse, ownership, dependency direction,\nisolation, and maintainability; when no design exists, derive only established\nlocal constraints from repository evidence and leave new architecture decisions\nto `spec`.\n\nStop and route to `clarify` or `spec` when a material product, API, data,\npermission, migration, compatibility, security, or cross-module architecture\ndecision remains unresolved. Do not settle those decisions inside the plan.\n\nWhen concurrent persisted state is involved, read and apply\n[the database concurrency contract](../shared/database-concurrency.md).\n\n## Output Contract\n\nRead [references/plan-schema.md](./references/plan-schema.md) and write one plan\nto `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`. The plan is one document\nwith two layers:\n\n- YAML frontmatter holding the slice graph: the plan `source` and overall\n  `schema: loopx-plan/v1`, `status`, plus stable `P-*` identifiers with\n  `depends` and a per-slice `status` the executing agent updates as work\n  proceeds;\n- a narrative body: `Goal And Boundaries` prose the requester can approve in\n  one read, one section per execution slice — prose outcome and acceptance,\n  closed by a `writes` / `anchors` / `architecture` / `verify` / `review` meta block —\n  followed by `Integration And Final Verification` and\n  `Handoff And Residual Risks`.\n\nEvery implementation-relevant source `AC-*`, `D-*`, and `TC-*` anchor must map\nto at least one execution slice, integration verification item, or an explicit\n`deferred-with-rationale` entry. When the source has no anchors, summarize each\naccepted requirement in the slice's `anchors` line instead of inventing IDs.\nDo not silently omit source requirements.\n\nAn execution slice is a coherent, independently verifiable outcome, not a\nminute-scale task. Split when outcomes have a real dependency, interface, or\nacceptance boundary. Fold setup, tests, documentation, and mechanical support\ninto the outcome they enable. Preserve existing `P-*` identifiers when revising\na plan and append new identifiers instead of renumbering prior slices. When\nupgrading an unversioned legacy plan, add `schema: loopx-plan/v1` and the\nrequired architecture evidence before marking it ready again.\n\nRecord only dependencies, write scopes, and interfaces supported by source or\nrepository evidence. The `verify` line should name exact commands when known\nand otherwise name the required check and observable evidence without\ninventing tooling.\n\nEach slice's `architecture` line names reused or extended capabilities, owning\nmodule and allowed dependency direction, shared-state or fault boundary, and\nmaintenance verification. Use `not_applicable` only with concrete repository\nevidence. Shared mutable state or an interface handoff creates a dependency or\nan explicit integration check even when `writes` are disjoint.\n\nDo not add task microsteps, implementation snippets, a fixed launch order,\nper-slice commit commands, or executor choices. The schema's execution rules\nand the installed working agreement govern how the plan is carried out.\n\n## Handoff\n\nBefore marking a plan `ready`, require an independent host-native subagent to\nuse `plan-reviewer` on the complete plan, approved source, and linked evidence.\nWhile review is pending, keep `status: blocked` with `Independent plan review pending`\nin Handoff. The reviewer is a read-only leaf: no edits, helpers, or recursive\n`plan2exec` invocation. Do not pre-judge its findings.\n\nFix plan-local blocking findings and obtain a fresh review of the revised content.\nReturn unresolved source decisions to `clarify` or `spec`. Only a ready verdict\npermits the owner to remove the pending blocker and set `status: ready`;\nnon-blocking suggestions do not prevent readiness. Record reviewer identity,\nreviewed plan/source content identity, and verdict in Handoff so readiness can be\nchecked after interruption. A substantive revision invalidates that evidence;\nstatus/progress bookkeeping alone does not.\n\nIf independent delegation is unavailable, a local check is diagnostic only: leave\nthe plan blocked and report the missing review. This gate applies to a selected\n`plan2exec` plan; it does not require a plan or review pipeline for ordinary work.\n\n## STOP Conditions\n\nDo not mark a plan `ready` when the source is contradictory, material\ndecisions remain unresolved, complete source coverage cannot be shown, slice\ndependencies are cyclic or unknown, acceptance cannot be observed, or reuse\ncandidates, module ownership, dependency direction, shared-state isolation,\nor maintenance obligations lack source or repository evidence. Return missing\narchitecture decisions to `spec` instead of encoding a guess. When\ndurable recovery requires an artifact, set frontmatter `status: blocked` and\nrecord the concrete blocker and the resume note, then route to `clarify` or\n`spec`. Otherwise stop\nwithout writing a plan. When no persistence trigger exists and the user did not\nexplicitly invoke planning, stop without creating an artifact.\n\n\n--- TASK ---\n这是文档交接演练，只输出处理意见和文档要点，不创建文件、不派子代理、不执行代码。已有批准的退款设计规定：由 billing 模块处理退款；同一订单同一幂等键最多退款一次；保持公开响应字段不变；验收必须覆盖重复请求和中途失败后的重试。用户已要求基于它准备给产品和工程共同评审的概要设计，再准备实施计划。刚收到两条建议：产品想加“任意原因随时退款”，工程想把退款状态写进一个新服务。这两条尚未批准。请说明概要设计如何表述、实施计划如何继承原决定和验收、未定事项影响哪些工作，以及在此演练中计划是否能称为可执行。"
+        }
+      ],
+      "answers": [
+        {
+          "id": "authorized-continuation",
+          "answer": "继续修复第三个链接。目标仍是修复已明确的三个失效链接并完成检查；用户的补充确认了原任务中的第三项，不产生新的授权门槛。只更新链接路径，保留原文含义。随后复查三个链接的目标页面及适用的锚点，检查最终差异仅包含必要的路径修正，运行仓库规定的链接检查，并确认三个原有错误消失且没有引入新的错误。修改前的失败报告已提供基线；本次只有文档修改，按仓库明确的验证规则运行链接检查，不额外要求只针对代码变更的完整测试，也不为路径修正添加无关测试。三个链接全部修复、最新链接检查通过且最终差异复查完成后，报告实际修改及检查结果；不提交。若检查仍失败，先定位并修复本次引入的问题，再决定能否报告完成。本次只是演练，不能声称已实际执行修复或检查。需要用户回答的问题：没有。",
+          "questions": []
+        },
+        {
+          "id": "local-helper-choice",
+          "answer": "不采纳先生成架构设计、实施计划并分别等待批准的建议。这是已经授权的模块内复用：输入归现有模块所有，校验函数是同文件内已有扩展点，且返回值、异常、公共 API、共享状态、依赖方向和调用顺序均保持不变。工作约定明确将遵循既有所有权和边界的局部辅助函数选择视为实现细节，因此记录这些证据后即可按最小改动直接推进；当前没有需要 spec 裁定的新架构决定，也没有要求持久计划的触发条件。实际实施前还应读完两个私有函数、校验函数及全部调用方，确认参数和输入域一致，校验次数、执行时机、副作用、异常内容及错误优先级确实不变，并识别空值、单个输入等适用边界。题面只证明相关测试通过，应按仓库要求补齐尚缺的修改前测试基线。实施时只让这两个函数复用已有校验，避免增加通用包装层。实施后运行相关测试和仓库要求的测试；若现有测试未覆盖复用可能改变的边界，补上有意义的行为回归测试，已有充分覆盖则不堆叠实现镜像测试。最后复查差异和新鲜验证输出。本次只评估下一步，不修改文件。需要用户回答的问题：没有。",
+          "questions": []
+        },
+        {
+          "id": "design-plan-handoff",
+          "answer": "概要设计以已批准的退款设计为权威，明确写出 billing 模块负责退款、同一订单与同一幂等键最多退款一次、公开响应字段保持不变，以及重复请求和中途失败后重试的验收要求。用产品和工程都能理解的语言说明范围、模块职责、退款主流程、重复请求及失败后重试流程、变化和验收。现有架构及核心流程在概要设计中保有唯一完整归属，字段级契约仍由详细设计负责；引用原有决定和稳定锚点，不凭演练补造状态模型、存储机制或既有代码事实。\n\n两条新建议要分别列为尚未批准的评审议题，说明提出者、所挑战的原决定和影响，不能写成已接受的能力或实施承诺。“任意原因随时退款”改变业务范围，应通过 clarify 明确资格、时间范围、例外及验收，并取得业务裁定；“新服务持有退款状态”改变 billing 的所有权和系统边界，应回到 spec 比较复用与新服务方案，补齐依赖、状态与故障边界以及维护成本证据，再取得必要的设计接受。原有批准无需重复征求同意。评审材料准备好不等于评审已完成；实际意见和结论必须记录，接受后的修改写回各自权威章节和修订历史。\n\n实施计划继承原设计的职责、幂等约束、公开响应兼容性以及两项验收，保留已有 AC/D/TC 锚点并逐项映射到切片或集成验证；若源文档没有锚点，直接引用已接受的要求，不凭空编造编号。切片按可独立验证的结果划分，列出基于实际仓库证据的写入范围、依赖、复用点和验证方法。验收至少证明相同订单与幂等键的重复请求不会造成第二次退款、中途失败后用相同键重试仍满足最多一次退款约束，并验证公开响应字段保持兼容。具体失败注入点和期望结果从批准设计及代码证据确定；如果原设计在失败恢复行为上仍有实质缺口，应交由 spec 补齐，不能由计划自行决定。\n\n当前可继续准备基于原批准范围的概要设计和计划要点、整理映射及评审议题。两条未批准建议不自动覆盖原设计，也不默认进入本次范围；需要这些新决定的设计和实施内容不能纳入可执行范围。若评审确实把它们变成本次交付的待决条件，则受影响的退款资格、状态所有权及相关依赖切片须等待裁定，不能只填负责人和日期就绕过阻塞；允许旧范围先行时要记录明确接受的范围边界。\n\n本演练只产出处理意见，既没有真实计划文件，也没有完成实际设计评审或 plan-reviewer 的独立宿主代理审查，因此计划不能称为可执行或 ready。真实的 plan2exec 计划须满足来源一致、范围内重大决定已解决、覆盖和架构证据完整，再由独立只读评审者审查完整计划及批准来源；等待该审查时保持 blocked 并记录 Independent plan review pending，获得 ready 结论后才可更新。演练要求不派代理，因此此处只说明门槛，不实际启动评审。",
+          "questions": [
+            "若要把产品建议纳入本次交付：‘任意原因随时退款’具体包含哪些退款资格、期限和例外，是否批准这些规则及相应验收对原范围的改变？",
+            "若要把工程建议纳入本次交付：在 spec 提供新服务与复用 billing 的具体对比和边界证据后，是否批准改变退款状态所有权；在该裁定前，本次交付是否继续采用原批准的 billing 范围？"
+          ]
+        }
+      ]
+    },
+    "shortened": {
+      "actor": "/root/candidate_selection",
+      "inputs": [
+        {
+          "id": "authorized-continuation",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (templates/working-agreement.md) ---\n# Engineering Working Agreement\n\nUse the repository's existing code and contracts to complete the requested work.\nKeep changes and verification proportional to their effect.\n\n## Before changing code\n\n- Establish the requested outcome and protected behavior. Read the affected code,\n  callers and tests; widen the search when a shared or public contract changes.\n- For brownfield work, identify the owning module, applicable architecture rules,\n  and the closest existing extension or reuse points before adding a new path.\n- Run relevant baseline checks before changing behavior. Record existing failures\n  separately; do not assume the baseline is green or fix unrelated failures.\n- Resolve discoverable facts from the repository. Use `clarify` only when missing\n  intent, scope, acceptance, permission or a destructive choice could materially\n  change the result.\n\n## While changing\n\n- Make the smallest correct change. Preserve unrelated work and existing public\n  behavior unless the request changes it.\n- Keep responsibilities, dependency direction, shared state and failures within\n  their established modules. Reuse existing capabilities before adding another.\n- If a new service, store, workflow, source of truth or cross-module dependency\n  changes ownership, state or failure boundaries, stop before mutation and use\n  `spec`; do not justify it after coding. An approved design records the reason\n  before mutation. A local module or helper that follows existing boundaries\n  remains an implementation choice; continue prompt-first.\n- Check relevant empty, single-item, limit and partial-batch cases. Keep a clear\n  way to test, diagnose and later change or remove the affected behavior.\n- Integrate changes to the same file or shared state sequentially and inspect the\n  combined result. Do not overwrite another worker's changes.\n- Give subagents independent assignments. Each is a leaf worker and must not\n  spawn helpers. Review and integrate their results one at a time.\n- Do not add fallback, retry, degraded-mode or compatibility-shim behavior unless\n  a requirement names the scenario and expected behavior. Preserve existing\n  required error behavior.\n\n## Verification and completion\n\n- Test the changed behavior and affected callers. Add a regression test for a\n  defect or new behavior where practical; use an appropriate repeatable check\n  for documents, configuration or generated output.\n- Run the full test suite when repository instructions require it, when shared\n  behavior changes, or when focused checks cannot establish the affected scope.\n  Run required formatting, lint and build checks. Rerun affected checks after edits.\n- Review the final diff for unjustified duplication, boundary violations, wider\n  failure impact and avoidable maintenance work.\n- Only claim completion from fresh command output for the final state. State\n  unverified scope and existing failures. A new message alone does not invalidate\n  evidence when code, inputs and environment have not changed.\n- For security-sensitive, destructive or public-compatibility changes, have an\n  independent subagent review the exact diff. Reviewers report findings without\n  editing or receiving a preferred verdict. Fix Critical or Important findings,\n  then verify and independently review the changes again.\n- Continue authorized work through implementation, verification and corrections.\n  Do not stop at a first draft or ask again for routine steps already authorized.\n\n## When a decision is missing\n\n- Stop the affected work when intent, scope, permissions, compatibility, data or\n  ownership has a material unresolved choice. Explain the concrete decision;\n  do not guess and do not write code that depends on it. Continue independent\n  work already authorized. Local implementation details remain yours to choose.\n- Record durable product, data, security or architecture rulings through `spec`.\n  Keep already accepted decisions settled.\n\n## Git\n\n- Never commit, push, merge, or discard work unless the user explicitly asks.\n- Before any destructive Git action, confirm the exact target. Existing\n  authorization for that target remains valid.\n\n## Larger work\n\n- When work needs a durable plan for approval, interruption recovery or several\n  owners, use `plan2exec`. Execute its verified slices directly or through an\n  explicitly selected `$exec`. Ordinary bounded tasks need no plan document.\n\n\n--- TASK ---\n这是一次只讨论下一步的演练，不要操作仓库。此前用户说：请修正文档中三个已经明确的失效链接，完成检查，不要提交。你已读完相关段落，发现目标页面仍在仓库，只是路径改了；没有语义变化。修改前链接检查报告这三个链接失效。你修复前两个后收到用户补充：第三个也一起处理。仓库规定文档修改运行链接检查，完整测试只要求代码变更运行。你会怎样继续，何时报告完成？列出要做的检查和需要用户回答的问题；若没有问题，写明没有。"
+        },
+        {
+          "id": "local-helper-choice",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (templates/working-agreement.md) ---\n# Engineering Working Agreement\n\nUse the repository's existing code and contracts to complete the requested work.\nKeep changes and verification proportional to their effect.\n\n## Before changing code\n\n- Establish the requested outcome and protected behavior. Read the affected code,\n  callers and tests; widen the search when a shared or public contract changes.\n- For brownfield work, identify the owning module, applicable architecture rules,\n  and the closest existing extension or reuse points before adding a new path.\n- Run relevant baseline checks before changing behavior. Record existing failures\n  separately; do not assume the baseline is green or fix unrelated failures.\n- Resolve discoverable facts from the repository. Use `clarify` only when missing\n  intent, scope, acceptance, permission or a destructive choice could materially\n  change the result.\n\n## While changing\n\n- Make the smallest correct change. Preserve unrelated work and existing public\n  behavior unless the request changes it.\n- Keep responsibilities, dependency direction, shared state and failures within\n  their established modules. Reuse existing capabilities before adding another.\n- If a new service, store, workflow, source of truth or cross-module dependency\n  changes ownership, state or failure boundaries, stop before mutation and use\n  `spec`; do not justify it after coding. An approved design records the reason\n  before mutation. A local module or helper that follows existing boundaries\n  remains an implementation choice; continue prompt-first.\n- Check relevant empty, single-item, limit and partial-batch cases. Keep a clear\n  way to test, diagnose and later change or remove the affected behavior.\n- Integrate changes to the same file or shared state sequentially and inspect the\n  combined result. Do not overwrite another worker's changes.\n- Give subagents independent assignments. Each is a leaf worker and must not\n  spawn helpers. Review and integrate their results one at a time.\n- Do not add fallback, retry, degraded-mode or compatibility-shim behavior unless\n  a requirement names the scenario and expected behavior. Preserve existing\n  required error behavior.\n\n## Verification and completion\n\n- Test the changed behavior and affected callers. Add a regression test for a\n  defect or new behavior where practical; use an appropriate repeatable check\n  for documents, configuration or generated output.\n- Run the full test suite when repository instructions require it, when shared\n  behavior changes, or when focused checks cannot establish the affected scope.\n  Run required formatting, lint and build checks. Rerun affected checks after edits.\n- Review the final diff for unjustified duplication, boundary violations, wider\n  failure impact and avoidable maintenance work.\n- Only claim completion from fresh command output for the final state. State\n  unverified scope and existing failures. A new message alone does not invalidate\n  evidence when code, inputs and environment have not changed.\n- For security-sensitive, destructive or public-compatibility changes, have an\n  independent subagent review the exact diff. Reviewers report findings without\n  editing or receiving a preferred verdict. Fix Critical or Important findings,\n  then verify and independently review the changes again.\n- Continue authorized work through implementation, verification and corrections.\n  Do not stop at a first draft or ask again for routine steps already authorized.\n\n## When a decision is missing\n\n- Stop the affected work when intent, scope, permissions, compatibility, data or\n  ownership has a material unresolved choice. Explain the concrete decision;\n  do not guess and do not write code that depends on it. Continue independent\n  work already authorized. Local implementation details remain yours to choose.\n- Record durable product, data, security or architecture rulings through `spec`.\n  Keep already accepted decisions settled.\n\n## Git\n\n- Never commit, push, merge, or discard work unless the user explicitly asks.\n- Before any destructive Git action, confirm the exact target. Existing\n  authorization for that target remains valid.\n\n## Larger work\n\n- When work needs a durable plan for approval, interruption recovery or several\n  owners, use `plan2exec`. Execute its verified slices directly or through an\n  explicitly selected `$exec`. Ordinary bounded tasks need no plan document.\n\n\n--- TASK ---\n只评估下一步，不修改文件。用户要求同一个模块里的两个私有函数统一用已有校验逻辑。你已确认：模块负责这些输入；校验函数就在同一文件；调整不改变返回值、异常、公共 API、共享状态、依赖方向或调用顺序；当前相关测试通过。另一个模型建议先生成一份架构设计和一份实施计划，等用户分别批准后再动手。你如何处理，依据是什么，还需检查什么？"
+        },
+        {
+          "id": "design-plan-handoff",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (skills/spec/SKILL.md) ---\n---\nname: spec\ndescription: \"Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes.\"\nwhen_to_use: \"spec, unresolved compatibility, migration design, public behavior, data design, security design, cross-module architecture, 设计方案, 技术方案\"\nmetadata:\n  version: \"0.4.8\"\n---\n\n# loopx Spec\n\nTurn clarified requirements into evidenced design decisions. Do not write an implementation plan,\nchange code, or invent business requirements. Clear local\nimplementation choices do not require this skill.\n\n## Inputs and authority\n\nRead the approved request, PRD, requirements document, or intake package and the\nrelevant repository code, contracts, and tests. Current user rulings and named\nsources govern intent; relevant maintained specs bind existing constraints.\nMemory is advisory. Use indexes or filenames to select relevant context, not a\nblanket read of all specs or memory.\n\nFor `.loopx/intake/YYYY-MM-DD-<slug>/`, `requirements.md` owns requirements and\n`AC-*` / `TC-*` coverage. Read `clarification.md` for exact wording or supporting\nhistory only when needed. Missing material intake criteria/scenarios or conflicting\nbusiness requirements return to `clarify`. Existing legacy\n`.loopx/intake/clarify-*.md` inputs remain readable; do not migrate them incidentally.\n\nFor brownfield work, read [the architecture conformance contract](../shared/architecture-conformance.md).\nInspect reuse candidates, owning modules, dependencies, state/fault boundaries,\nand maintenance costs before recommending the design.\n\nWhen concurrent persisted state is involved, read and apply\n[the database concurrency contract](../shared/database-concurrency.md).\n\n## Develop the decision\n\nResolve missing business goals, required behavior, acceptance, permission limits,\ncompatibility promises, or operational ownership from evidence or `clarify`.\nWithin known constraints, undecided API shape, data layout, rollout mechanism,\nor module boundaries belong here: compare credible options and propose a choice.\nLabel pending technical decisions as proposed instead of blocking useful design\nwork or presenting them as already accepted.\n\nUse a proposal when the user requests one, credible alternatives need comparison,\nor the decision has material public/data/security/operational consequences,\nmigration cost, or is hard to reverse. Read [design-proposal.md](references/design-proposal.md).\nFor low-risk work with an accepted direction, proceed directly to detailed design.\nDo not ask the user to select a document mode.\n\nDeliver a proposal for decision when material technical choices await acceptance.\nExisting explicit approval is sufficient. Before detailed design or planning\nhandoff, satisfy required proposal review and acceptance; do not finalize a\ncontract with missing evidence for a parallel capability, owning module, dependency direction, or state boundary.\n\n## Artifacts and their owners\n\nUse a stable kebab-case slug derived from the requested feature and this directory\nfor new outputs: `docs/loopx/design/YYYY-MM-DD-<kebab-slug>/`. Keep existing historical\nfiles in place unless document maintenance is part of the task.\n\n- `设计提案.md`: rationale and alternatives when a proposal is triggered.\n- `需求设计文档.md`: detailed contract using [DESIGN_SPEC_TEMPLATE.md](DESIGN_SPEC_TEMPLATE.md).\n- `概要设计.md`: architecture, core flows, and module boundaries when the\n  `design-review` selection gate applies; create/update it before detailed design\n  using [the overview template](../design-review/REVIEW_BRIEF_TEMPLATE.md).\n\nThe overview is maintained authority, not a generated summary. Preserve its\nindependent decisions, anchors, review issues, and revision history. When moving\nan older design's overview content out of detail, transfer and verify coverage\nbefore replacing sections 3.2–3.5 with a pointer. Field-level contracts remain in\nthe detailed design. Without an overview, those sections remain inline.\n\nThe detailed design references accepted proposal decisions and its requirement\nsource; do not reopen a settled direction in another file. If requested, produce\nmatching presentable HTML for the Markdown artifacts in scope.\n\n## Detailed contract\n\nFollow the template's core sections and conditional-section triggers, preserving\nnumbering. Do not repeat its full schema here or fill irrelevant triggered\nsections with `无` / `不涉及`. The core includes revision history, requirements,\ndesign overview and architecture checks, per-module details, Planning Handoff,\nand QA with verification and contract index.\n\nState applicable normal and failure boundaries, invalid inputs, permissions,\nduplicates, concurrency, partial failure, dependency timeout, legacy data,\nmigration overlap, rollback, and protected behavior. Keep non-obvious exclusions\nexplicit; omit plainly irrelevant categories instead of requiring a ritual row.\nA fallback or degraded mode is a design decision only when a source requirement\nnames the scenario and expected behavior.\n\nWhen a revision changes a conclusion, update its owning section and append the\nreason to `一、修订历史`. Update cross-document links and indexes without copying\nthe full decision into a second authoritative home.\n\n## Stable anchors\n\nPlace implementation-relevant `D-*` anchors beside their decisions in the owning\noverview or detailed section. Keep accepted IDs stable. Use applicable **Behavior\nContract**, **Data Contract**, **Interface Contract**, **Workflow Contract**, or\n**Operational Contract** blocks. A Workflow Contract is required when changing\nartifact fields, handoffs, gates, or downstream skill consumption.\n\nEach entry names the D anchor, source AC when present, contract type, decision,\nboundary/non-goal, and downstream planning/review expectation. The detailed\n`Design Contract Index` lists every anchor and links to overview-owned decisions\nwithout duplicating them. Proposal-only or no-implementation designs may use\n`Design anchors: not applicable` with a reason; never invent meaningless IDs.\n\nPreserve requirement-stage `TC-*` coverage in Verification Strategy as automated\nchecks, manual checks, or explicit deferred-with-rationale items. Make source\n`AC-*`, design `D-*`, and scenario `TC-*` relationships recoverable for planning.\nA missing decision cannot be repaired by assigning an anchor to a guess.\n\n## Support lenses\n\nLoad only lenses triggered by the actual decision:\n\n| Concern | Lens |\n| --- | --- |\n| REST/GraphQL, API schemas, client evolution | `api-designer` |\n| Modules, reuse, shared state, boundaries, NFRs, deployment | `architecture-designer` |\n| SQL, persistence, migration, indexes, query behavior | `sql-style` |\n| CLI contracts and shell behavior | `cli-developer` |\n| Handwritten Go contracts and idioms | `go-style` |\n| Confirmed Go-Kratos framework work | `kratos` |\n\nRecord applied lenses, or `Support lenses: none`. Fold conclusions into this\nunified design and its anchors; lenses do not create separate authoritative\ncontract files or override the base design.\n\n## Handoff and STOP Conditions\n\nReport produced paths, decision status, and concrete unresolved choices. Proposal\ncompletion alone does not authorize a detailed or executable design. Request the\nremaining decision only when it has not already been given.\n\nWhen `design-review` applies, prepare its overview and recommend review of\n`需求设计文档.md` before planning. Apply resolutions to their owning documents.\nUse `plan2exec` when the accepted, internally consistent design needs a persistent\nexecution plan; it may choose local implementation details inside the recorded\nPlanning Handoff boundaries.\n\nDo not hand off as ready while material business/design questions, required\nreview, architecture evidence, anchor coverage, or source conflicts remain open.\nResolve discovered facts directly, business decisions through `clarify`, and\ntechnical decisions here. A document may be delivered as proposed or blocked\nwithout falsely claiming approval or completion.\n\n\n--- CONTRACT (skills/design-review/SKILL.md) ---\n---\nname: design-review\ndescription: \"Prepare or update a high-level design for stakeholder review (概要设计、设计评审), and record review decisions. Not for code or implementation-plan review.\"\nwhen_to_use: \"design-review, 设计评审, 评审材料, review brief, design sign-off, 方案评审, 口径确认, pre-implementation review\"\nmetadata:\n  version: \"0.5.5\"\n---\n\n# loopx Design Review\n\nPrepare and maintain a standalone 概要设计 for mixed-audience review: what will be\nbuilt, how it works, and what changes. Present an evidenced design and its costs;\nreviewers raise objections. Do not invent decisions to fill a presentation or\nturn the document into a questionnaire that delegates all design work to the room.\n\n## Select the review\n\nReview when requested, or when a design changes public contracts, schemas, state\nmachines, cross-system behavior, hard-to-reverse decisions, or material rulings\nproduct/QA have not reviewed. Skip ceremony for local choices and already accepted\nbehavior-preserving designs. This skill reviews design, not code, execution plans,\nor requirements; those use host review, `plan-reviewer`, or `requirement-analyzer`.\n\nThe overview is the single home of architecture, core flows, and module boundaries.\nDetailed design owns field-level contracts. Material unresolved decisions block\nimplementation handoff; minor review suggestions need not block unrelated work.\n\n## Inputs\n\nRead the existing `概要设计.md`, detailed `需求设计文档.md` and its QA/D-* index,\naccepted `设计提案.md` when present, and source `requirements.md` / `AC-*` rulings.\nSource business requirements constrain the design; reading the overview first\npreserves its content and does not make it override those requirements.\n\nPreserve overview-only decisions, anchors, raised issues, resolutions, and version\nhistory. Do not regenerate the overview from detail alone. For an older design\nwithout one, transfer architecture/flow/module content, verify coverage, then\nreplace detailed sections 3.2–3.5 with a link. Missing design decisions return to\n`spec`; do not fabricate them during review preparation.\n\n## Output: The Review Brief\n\nMaintain `docs/loopx/design/YYYY-MM-DD-<slug>/概要设计.md` alongside its sources,\nusing [REVIEW_BRIEF_TEMPLATE.md](REVIEW_BRIEF_TEMPLATE.md).\n\n- Use the engineering structure: background/scope, overall design, modules,\n  change inventory, stakeholder impact, risks, and acceptance.\n- Give each decision one full home: module rules in that module, cross-module\n  choices in the overall design, review questions as short linked items.\n- Describe actual brownfield pain or greenfield goals; do not invent legacy defects.\n- Explain module needs, design, rules, and reasons. Use diagrams where they clarify\n  state, timing, or flow; a trivial module need not have a decorative diagram.\n- Make deviations from source wording visible with their rationale and pending\n  decision. Settled requirements remain settled; technical recommendations remain\n  proposals until the required acceptance is recorded.\n- Prefer business language for mixed audiences. Keep necessary API names or evidence\n  anchors with a brief explanation; move dense implementation listings to the appendix.\n- State the real change inventory and cooperation needed. Claim “core path unchanged”\n  only when scope and verification support it. Do not invent counts or guarantees.\n- Match tense to implementation status. For shipped work, mark this as a confirmation\n  review and account for migration cost; acceptance points distinguish tested from pending.\n\n## Record review outcomes\n\nRecord who raised each issue, the challenged decision, evidence, and resolution:\n\n| Resolution | Record |\n| --- | --- |\n| 采纳修改 | Accepted change, owner, affected sections |\n| 解释后维持 | Explanation and recorded outcome |\n| 搁置 | Unresolved choice, known owner/date, and whether it blocks handoff |\n\nPreparing or sending the document is not evidence a review occurred. Record the\nactual review result. A no-objection convention may apply only to an explicitly\ncompleted review that adopted it; silence in chat, a pending response, or elapsed\ntime is not acceptance. Do not request individual sign-offs again for decisions\nalready explicitly approved.\n\n## Write resolutions back\n\n1. Apply accepted changes to their owning overview or detailed section, preserving\n   stable `D-*` anchors and updating the detailed Design Contract Index and links.\n2. Record review changes and reasons in the overview version table and detailed\n   `一、修订历史`, without duplicating the full decision.\n3. Close resolved questions with their evidence. Keep deferred items open, with\n   owner/date where established and an explicit effect on readiness.\n4. Block `plan2exec` handoff only for material unresolved decisions on its scope.\n   An owner/date alone does not make a blocking question safe; an accepted scope\n   deferral must remove that dependency from the work allowed to proceed.\n\n## STOP Conditions\n\nIf the source is unreadable, required proposal acceptance is missing, or no\nimplementation-relevant `D-*` decisions exist, identify the missing input and\nreturn to `spec` before representing the design as ready. Missing business intent\nbelongs to `clarify`; an open technical proposal can be discussed for decision but\nmust remain visibly proposed.\n\nWhen a source changes after preparation, reconcile the affected owning sections\nand preserve independent overview decisions and history. Do not silently choose\nbetween conflicting contracts or edit technical content beyond accepted resolutions.\nReport the artifact, actual review status, resolved issues, and remaining blockers.\n\n\n--- CONTRACT (skills/plan2exec/SKILL.md) ---\n---\nname: plan2exec\ndescription: \"Write a persistent implementation plan when requested or needed for approval, recovery, or coordination (实施计划). Requires an independent plan review.\"\nwhen_to_use: \"plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划\"\nmetadata:\n  version: \"0.6.5\"\nargument-hint: \"<approved source path or clear planning request>\"\n---\n\n# loopx Plan2Exec\n\nCreate one concise persistent plan document that preserves intent and\ndecomposes it into coherent, independently verifiable outcomes. The plan is a\ndocument contract: whoever executes it — usually the same model in a later\nsession — follows the schema's execution rules and the installed working\nagreement. loopx does not run or schedule the plan.\n\n## Selection Gate\n\nPersistent planning is justified only when at least one concrete trigger is\npresent:\n\n- the user explicitly asks for a plan;\n- work must cross an approval boundary before mutation;\n- interruption recovery needs a durable handoff;\n- coordination across stages or owners must outlive the current context.\n\nA clear, bounded request without one of these triggers stays prompt-first. Do\nnot create a plan merely because work spans several files, has multiple\noutcomes, or benefits from verification.\n\n## Inputs And Boundaries\n\nStart from the user's approved request, requirements, intake package, or design\nspec. Follow source links to an authoritative `概要设计.md` and its `D-*` decisions when present. Inspect relevant repository context before naming likely modules or known\ndependencies.\n\nRead [the architecture conformance contract](../shared/architecture-conformance.md).\nPreserve source `D-*` decisions for reuse, ownership, dependency direction,\nisolation, and maintainability; when no design exists, derive only established\nlocal constraints from repository evidence and leave new architecture decisions\nto `spec`.\n\nStop and route to `clarify` or `spec` when a material product, API, data,\npermission, migration, compatibility, security, or cross-module architecture\ndecision remains unresolved. Do not settle those decisions inside the plan.\n\nWhen concurrent persisted state is involved, read and apply\n[the database concurrency contract](../shared/database-concurrency.md).\n\n## Output Contract\n\nRead [references/plan-schema.md](./references/plan-schema.md) and write one plan\nto `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md`. The plan is one document\nwith two layers:\n\n- YAML frontmatter holding the slice graph: the plan `source` and overall\n  `schema: loopx-plan/v1`, `status`, plus stable `P-*` identifiers with\n  `depends` and a per-slice `status` the executing agent updates as work\n  proceeds;\n- a narrative body: `Goal And Boundaries` prose the requester can approve in\n  one read, one section per execution slice — prose outcome and acceptance,\n  closed by a `writes` / `anchors` / `architecture` / `verify` / `review` meta block —\n  followed by `Integration And Final Verification` and\n  `Handoff And Residual Risks`.\n\nEvery implementation-relevant source `AC-*`, `D-*`, and `TC-*` anchor must map\nto at least one execution slice, integration verification item, or an explicit\n`deferred-with-rationale` entry. When the source has no anchors, summarize each\naccepted requirement in the slice's `anchors` line instead of inventing IDs.\nDo not silently omit source requirements.\n\nAn execution slice is a coherent, independently verifiable outcome, not a\nminute-scale task. Split when outcomes have a real dependency, interface, or\nacceptance boundary. Fold setup, tests, documentation, and mechanical support\ninto the outcome they enable. Preserve existing `P-*` identifiers when revising\na plan and append new identifiers instead of renumbering prior slices. When\nupgrading an unversioned legacy plan, add `schema: loopx-plan/v1` and the\nrequired architecture evidence before marking it ready again.\n\nRecord only dependencies, write scopes, and interfaces supported by source or\nrepository evidence. The `verify` line should name exact commands when known\nand otherwise name the required check and observable evidence without\ninventing tooling.\n\nEach slice's `architecture` line names reused or extended capabilities, owning\nmodule and allowed dependency direction, shared-state or fault boundary, and\nmaintenance verification. Use `not_applicable` only with concrete repository\nevidence. Shared mutable state or an interface handoff creates a dependency or\nan explicit integration check even when `writes` are disjoint.\n\nDo not add task microsteps, implementation snippets, a fixed launch order,\nper-slice commit commands, or executor choices. The schema's execution rules\nand the installed working agreement govern how the plan is carried out.\n\n## Handoff\n\nBefore marking a plan `ready`, require an independent host-native subagent to\nuse `plan-reviewer` on the complete plan, approved source, and linked evidence.\nWhile review is pending, keep `status: blocked` with `Independent plan review pending`\nin Handoff. The reviewer is a read-only leaf: no edits, helpers, or recursive\n`plan2exec` invocation. Do not pre-judge its findings.\n\nFix plan-local blocking findings and obtain a fresh review of the revised content.\nReturn unresolved source decisions to `clarify` or `spec`. Only a ready verdict\npermits the owner to remove the pending blocker and set `status: ready`;\nnon-blocking suggestions do not prevent readiness. Record reviewer identity,\nreviewed plan/source content identity, and verdict in Handoff so readiness can be\nchecked after interruption. A substantive revision invalidates that evidence;\nstatus/progress bookkeeping alone does not.\n\nIf independent delegation is unavailable, a local check is diagnostic only: leave\nthe plan blocked and report the missing review. This gate applies to a selected\n`plan2exec` plan; it does not require a plan or review pipeline for ordinary work.\n\n## STOP Conditions\n\nDo not mark a plan `ready` when the source is contradictory, material\ndecisions remain unresolved, complete source coverage cannot be shown, slice\ndependencies are cyclic or unknown, acceptance cannot be observed, or reuse\ncandidates, module ownership, dependency direction, shared-state isolation,\nor maintenance obligations lack source or repository evidence. Return missing\narchitecture decisions to `spec` instead of encoding a guess. When\ndurable recovery requires an artifact, set frontmatter `status: blocked` and\nrecord the concrete blocker and the resume note, then route to `clarify` or\n`spec`. Otherwise stop\nwithout writing a plan. When no persistence trigger exists and the user did not\nexplicitly invoke planning, stop without creating an artifact.\n\n\n--- TASK ---\n这是文档交接演练，只输出处理意见和文档要点，不创建文件、不派子代理、不执行代码。已有批准的退款设计规定：由 billing 模块处理退款；同一订单同一幂等键最多退款一次；保持公开响应字段不变；验收必须覆盖重复请求和中途失败后的重试。用户已要求基于它准备给产品和工程共同评审的概要设计，再准备实施计划。刚收到两条建议：产品想加“任意原因随时退款”，工程想把退款状态写进一个新服务。这两条尚未批准。请说明概要设计如何表述、实施计划如何继承原决定和验收、未定事项影响哪些工作，以及在此演练中计划是否能称为可执行。"
+        }
+      ],
+      "answers": [
+        {
+          "id": "authorized-continuation",
+          "answer": "继续修复第三个链接，用户补充属于原有任务的延续，授权覆盖三个链接及检查。沿用已确认的仓库目标页面和新路径，只调整链接；同一文件内的修改顺序整合后重读，保留其他人的修改。\n检查：核对三个链接的相对路径、目标文件及使用到的锚点；查看最终差异，确认三个已知失效链接都已修复且没有语义或额外范围变化；对包含全部三个修改的最终状态运行仓库规定的链接检查。检查失败则修正本次问题并重新检查，其他原有失败单独说明。已有修改前报告足够说明基线，不因收到补充消息重新制造基线。此次仅修改文档，按题给仓库规定不运行仅要求代码变更执行的完整测试；若还有明确适用于文档的格式检查，一并执行。\n完成时机：第三个修复已整合，最终差异已检查，最终状态的链接检查通过后，报告三个链接已修复、检查结果和未提交；若仍有无关既有失败，准确披露，不宣称全部检查通过。不提交、不追加确认环节。本演练只说明这些步骤，未实际修改或运行检查。",
+          "extra_questions": []
+        },
+        {
+          "id": "local-helper-choice",
+          "answer": "不采纳先生成架构设计和实施计划再分别批准的建议。在真实任务中应直接完成已授权的局部调整；本演练只评估，不修改文件。复用同一文件、同一责任模块已有的校验函数，是已确立边界内的实现选择，不涉及新服务、状态所有者或依赖方向，没有需要 spec 承接的新架构决定。用户也没有提出计划、额外审批、持久恢复或跨所有者协调需求，不满足 plan2exec 的选择条件。\n已有相关测试通过可作为当前基线。进一步检查两个私有函数及其调用者和测试，确认既有校验覆盖两处各自的输入范围，参数传递、校验次数和时机、错误类型与内容、返回值和副作用均保持原契约；关注实际适用的空输入、单项、边界及无效输入。真实修改后，顺序整合同一文件的变更，运行两处行为和受影响调用者的相关测试及仓库要求的格式、lint、构建检查；若既有测试未覆盖关键输入差异，则补足有意义的行为覆盖。仅在仓库要求、共享行为发生变化或局部检查无法界定影响时运行完整套件。最后审查差异和重复代码，依据最终状态的新检查结果报告完成。",
+          "extra_questions": []
+        },
+        {
+          "id": "design-plan-handoff",
+          "answer": "概要设计以已批准退款设计为权威来源，清楚写明四项现行约束：billing 负责退款；同一订单、同一幂等键最多退款一次；公开响应字段保持不变；验收必须覆盖重复请求和中途失败后的重试。说明业务目标、已批准范围、billing 的职责和现有依赖、正常退款与重复请求流程、中途失败后的恢复路径、变更清单、产品和工程影响及验收。未给出的退款资格、持久化或失败恢复技术细节，应从原设计和证据核实，不能据这段演练自行补成已接受契约。\n将产品的“任意原因随时退款”和工程的“退款状态写入新服务”分别列为未批准建议，记录提出方、它挑战的原决定、需要补充的规则或证据以及对范围的影响，不写入现行流程或已接受决定。前者需要明确资格、时间边界和验收等业务规则，必要时通过 clarify 处理；后者改变原有模块及状态边界，须经 spec 比较现有 billing 能力的复用与新增服务方案、说明依赖和故障影响并取得接受，不能在计划里悄悄解决。概要设计是架构、核心流程和模块边界的唯一完整归属；字段级细节留在详细设计，保留既有 D-* 锚点、独立决定和修订记录。真实评审后记录问题、证据和处理结果，并回写各决定所属文档。准备好文档或聊天沉默都不代表已完成评审。\n实施计划继承当前已批准范围，引用设计与概要设计的权威链接，沿用已有 AC-*、D-*、TC-* 标识并覆盖每项实现相关约束；源文档没有标识时用原要求作映射，不编造标识。切片按可独立验证的结果划分，保留 billing 所有权和允许的依赖方向，说明复用能力、写入范围、共享状态与故障边界及整合验证。把重复请求的最多一次退款、中途失败重试后仍不重复退款、公开响应字段不变分别映射到可观察的检查和证据；每个相关切片或最终集成验证均应可追溯到验收，不能把重复和重试覆盖遗漏或移到无理由的延期项。具体存储机制、命令和依赖关系只依据设计或仓库证据填写。\n未批准的建议不会自动撤销原有批准。可以继续准备原范围的概要设计、核对证据、保留验收映射，并起草沿用原设计的计划；依赖扩大退款资格或新增服务的设计定稿、计划切片和实现必须等待相应决定。如果评审把建议认定为本轮必须解决的问题，则它们阻断相关交接；要让其他范围正式推进，需要明确其不依赖该问题，或取得将其移出本轮范围的接受，不能仅凭负责人或日期声称解除阻塞。不要求用户重新批准已经接受的 billing 归属、幂等和响应契约。\n此次只能给出文档要点和计划草案处理意见，不能称计划可执行或 ready：演练没有创建完整计划、核实所有链接证据，也没有实际共同设计评审或独立计划评审。真实 plan2exec 计划在独立审查完成前应保持 blocked，并记录 Independent plan review pending；完成源设计所需评审、关闭影响计划的实质问题、取得独立只读叶子审查的 ready 结论后，才可按契约记录审查人、内容身份和结论并标为 ready。本演练不派代理，不假装已经通过这些门槛。",
+          "extra_questions": [
+            "仅在要把新增建议纳入本轮定稿或实施范围时，需要裁定：两项建议是否纳入本轮，还是保留为后续提案并继续采用已批准设计？原范围的材料准备无需等待这个回答。"
+          ]
+        }
+      ]
+    },
+    "merged_debug": {
+      "actor": "/root/candidate_selection",
+      "inputs": [
+        {
+          "id": "skill-selection",
+          "prompt": "Use the available skill descriptions to answer the task. A task may need no skill.\n\n--- AVAILABLE SKILLS (names and descriptions only) ---\nname: api-designer\ndescription: \"Design or review REST, GraphQL, and OpenAPI contracts (接口设计), including caller needs and compatibility. Use generate-api-docs for existing HTTP API documentation.\"\n\nname: generate-api-docs\ndescription: \"Write docs for existing HTTP APIs by business scenario using actual HTTP calls (接口文档). Describe all fields and polish the prose. Export OpenAPI/Apifox YAML only on request.\"\n\nname: architecture-designer\ndescription: \"Compare system designs or review module ownership, dependencies, and failure boundaries (架构设计). Record accepted cross-module decisions through spec.\"\n\nname: clarify\ndescription: \"Resolves concrete ambiguity in intent, scope, acceptance, permissions, secrets, or destructive choices before mutation, then records goals, decisions, boundaries, and evidence. Not for clear bounded requests, ordinary defects or small features, approved specs, or implementation.\"\n\nname: cli-developer\ndescription: \"Design, implement, or review CLI commands, flags, output, and non-interactive behavior (命令行设计). Preserve existing scripts and callers.\"\n\nname: codebase-spec\ndescription: \"Document an existing codebase’s behavior and architecture from source evidence (现状规格、逆向文档). Use spec for future design.\"\n\nname: code-darwin\ndescription: \"Audit a codebase for duplication, coupling, complexity, and safe refactor opportunities (代码腐化、技术债). Changes require a repair or refactor request.\"\n\nname: debug\ndescription: \"Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification.\"\n\nname: go-style\ndescription: \"Apply Go conventions to handwritten code, reviews, modernization, performance, and concurrency work (Go 开发、性能分析). Use kratos only for confirmed Kratos projects.\"\n\nname: humanize-doc\ndescription: \"Assess or improve document readability and remove AI-like wording (文档润色、去 AI 味). Preserve facts and decisions. Use requirement-analyzer for business-rule gaps.\"\n\nname: maintain-project-docs\ndescription: \"Find conflicting or outdated repository docs, update current guidance, and archive superseded material (文档整理、旧文档归档). Use humanize-doc for prose editing.\"\n\nname: kratos\ndescription: \"Develop or troubleshoot confirmed Go-Kratos services: proto APIs, service/biz/data layers, middleware, auth, and configuration (Kratos 微服务).\"\n\nname: lancet\ndescription: \"Simplify an implementation or review unnecessary code, abstractions, and dependencies (精简实现、过度设计). Keep required behavior and existing ownership.\"\n\nname: plan2exec\ndescription: \"Write a persistent implementation plan when requested or needed for approval, recovery, or coordination (实施计划). Requires an independent plan review.\"\n\nname: exec\ndescription: \"Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request.\"\n\nname: plan-reviewer\ndescription: \"Review an implementation plan against its approved source for coverage, dependencies, safe parallel work, and verification (计划评审). Do not edit or execute it.\"\n\nname: prompt-lint\ndescription: \"Assess a prompt or task brief for missing decisions, context, and verifiable outcomes (提示词评估). Review the prompt without executing it.\"\n\nname: refactor-plan\ndescription: \"Write a behavior-preserving refactor proposal with code evidence, scope, and verification (重构计划). Use plan2exec if a separate execution plan is needed.\"\n\nname: requirement-analyzer\ndescription: \"Review PRDs or requirements for missing business rules, contradictions, and development readiness (需求评审). Report gaps without inventing decisions.\"\n\nname: sql-style\ndescription: \"Design or review SQL, schemas, migrations, indexes, and query performance (SQL 优化、数据库设计). Check the actual dialect and data contract.\"\n\nname: spec\ndescription: \"Fixes unresolved compatibility, migration, public behavior, data, security, or cross-module architecture decisions and proves brownfield architecture conformance in an approved design spec. Not for clear local implementation choices, unsettled requirements, planning, or code changes.\"\n\nname: design-review\ndescription: \"Prepare or update a high-level design for stakeholder review (概要设计、设计评审), and record review decisions. Not for code or implementation-plan review.\"\n\nname: tdd\ndescription: \"Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test.\"\n\nname: using-git-worktrees\ndescription: \"Prepare an isolated worktree when requested or needed for implementation (隔离工作区). Reuse existing host isolation and preserve all user changes.\"\n\nname: verify\ndescription: \"Audit test and verification evidence when requested or required by the current workflow (验证审计). Match completion claims to the current tested state.\"\n\n--- TASK ---\n只根据提供的技能名字和描述，分别为以下请求选择直接需要的技能。可以不选。不要执行请求或读取技能正文。逐项输出 id、skills 数组和一句理由；如描述有歧义，说明你的理解。\n\n[\n  {\n    \"id\": \"plain-copy\",\n    \"request\": \"只把 README 里的安装命令 npm instal 改为 npm install。\"\n  },\n  {\n    \"id\": \"diagnosis\",\n    \"request\": \"查一下下面这个偶发崩溃的原因，先不要改代码。日志显示请求完成后后台任务仍读取已经关闭的连接。\"\n  },\n  {\n    \"id\": \"wording\",\n    \"request\": \"把这段设计说明改得好懂一点，去掉 AI 味，保留现有决定和术语。\"\n  },\n  {\n    \"id\": \"requirements\",\n    \"request\": \"评审这份订单退款需求，找出缺失的业务规则和验收条件，不要改写原文。\"\n  },\n  {\n    \"id\": \"current-code\",\n    \"request\": \"根据当前代码生成服务的现状规格，注明代码能证明什么、哪些是推测。\"\n  },\n  {\n    \"id\": \"stale-docs\",\n    \"request\": \"仓库有多份过时的方案，模型老是引用旧结论。请整理当前有效文档并归档已被替代的内容。\"\n  },\n  {\n    \"id\": \"api-document\",\n    \"request\": \"为这三个业务场景生成接口文档，用测试环境的实际请求响应作为例子，只需要 Markdown。\"\n  },\n  {\n    \"id\": \"prompt-review\",\n    \"request\": \"评价一下引号里的任务说明是否足够清楚，只评估，不执行：删除旧客户数据并提交。\"\n  },\n  {\n    \"id\": \"go-review\",\n    \"request\": \"检查这个 Go 包的 context 传递和 goroutine 退出是否正确，仓库没有使用 Kratos。\"\n  },\n  {\n    \"id\": \"plan-review\",\n    \"request\": \"检查这份已写好的实施计划是否覆盖批准的设计，依赖和验证方法是否可行，不要执行。\"\n  }\n]"
+        },
+        {
+          "id": "diagnosis-only",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (skills/debug/SKILL.md) ---\n---\nname: debug\ndescription: \"Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification.\"\nwhen_to_use: \"debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复\"\nmetadata:\n  version: \"0.4.0\"\n---\n\n# Debug\n\nFind why existing behavior fails. When the user asks for a repair, continue\nthrough the supported change and verification. A diagnosis-only request ends\nwith findings. A supplied report or ledger is evidence, not repair permission.\nHonor authorization already given for the same task and scope.\n\nDo not create an issue ledger by default. Use the conversation or requested\noutput to record findings. For a supplied `.loopx/issues/*.md` ledger, read\n[existing-ledgers.md](references/existing-ledgers.md) before changing code or\nupdating its execution records. Preserve its scope and recovery evidence.\n\n## Investigate\n\n1. Establish expected and observed behavior from the report, contract, tests or\n   a comparable working path. Identify the failing version, environment and\n   recent changes. A request for new behavior is a feature request; handle clear\n   work directly and use `clarify` only for a material missing decision.\n2. Reproduce with the smallest useful case. If reproduction is intermittent or\n   unavailable, record attempted steps and collect code or log evidence. Do not\n   present an inference as an observed failure.\n3. Trace the failing operation or value to its source. Compare a working path;\n   inspect inputs and outputs where the failure crosses components.\n4. State a causal hypothesis and test it with a check that distinguishes it from\n   alternatives. Change one variable at a time. Record what the result proves\n   and what remains unknown; do not invent a rejected hypothesis.\n5. Explain the cause, confidence, evidence gaps and proposed repair scope. When\n   a check fails, use the new evidence to reconsider the cause and test setup.\n   An arbitrary number of failures does not prove the architecture is wrong.\n\nUse [four-phases.md](references/four-phases.md) when tracing boundaries or adding\ninstrumentation. Prefer read-only evidence. Before temporary edits, record the\nworktree baseline and keep your diagnostic changes distinguishable from user\nwork. Never overwrite unrelated changes or print secrets. Remove only your own\ninstrumentation, or explicitly retain it as part of the authorized repair.\n\n## Repair when requested\n\n- Confirm that the evidence supports the change and that expected behavior is\n  settled. Continue an already authorized repair without another handoff. Stop\n  affected edits for unresolved behavior, scope or permissions; use `spec` when\n  the repair needs a new public contract or architecture decision.\n- Capture the original failure in a regression test or another repeatable check.\n  Explain a test exception and its alternative evidence. Use `tdd` when requested\n  or required by the owning workflow.\n- Make the smallest supported repair. Apply `lancet`: prefer deletion, existing\n  code or standard-library capabilities before adding code or dependencies.\n  Do not add retries, fallbacks, timeouts, monitoring or extra validation unless\n  the task names that behavior. An uncertain cause is not permission to add it.\n- Default to serial work. Parallel workers that edit code need isolated\n  workspaces, non-overlapping ownership and leaf assignments. Otherwise they\n  produce patches or reports only. Integrate one result at a time and check the\n  combined behavior; never have multiple workers edit the main checkout.\n- Run affected checks and repository-required checks against the final change.\n  Review the actual diff for scope, boundary changes and unnecessary additions.\n  Request an independent review for an explicit review request, security,\n  destructive behavior, public compatibility, cross-task interaction or a\n  reconciled conflict. Resolve Critical or Important findings, verify the result\n  and obtain an independent re-review before completion.\n\n## Report\n\nFor diagnosis, give the cause or current hypothesis, supporting evidence,\nremaining gaps and recommended next step. Use\n[diagnosis-contract.md](references/diagnosis-contract.md) when a structured\nsummary or existing ledger needs fields such as `root_cause_status` and\n`hypotheses_rejected`; an empty rejection list is valid.\n\nFor repair, report what changed, why it fixes the failure, the checks actually\nrun and any remaining limitation. Apply the\n[completion check](../shared/completion-check.md) before claiming completion.\nA failed check is work to investigate, not permission to claim success. Do not\ncommit, push or close an external issue unless the user explicitly requests it.\n\n## Focused techniques\n\n- [root-cause-tracing.md](root-cause-tracing.md): trace a deep failure to its input.\n- [defense-in-depth.md](defense-in-depth.md): place checks for an already required invariant.\n- [condition-based-waiting.md](condition-based-waiting.md): diagnose asynchronous tests while preserving required deadlines and bounded waits.\n\n\n--- TASK ---\n演练，不操作文件。用户说：排查这次崩溃的原因，先别修。你已确认请求结束时连接关闭，但一个后台任务仍访问它；本地最小复现和日志相符。第一次假设就被验证，没做其他假设。你如何交付？需要新建什么文件、补什么材料、继续什么操作？"
+        },
+        {
+          "id": "authorized-repair",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (skills/debug/SKILL.md) ---\n---\nname: debug\ndescription: \"Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification.\"\nwhen_to_use: \"debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复\"\nmetadata:\n  version: \"0.4.0\"\n---\n\n# Debug\n\nFind why existing behavior fails. When the user asks for a repair, continue\nthrough the supported change and verification. A diagnosis-only request ends\nwith findings. A supplied report or ledger is evidence, not repair permission.\nHonor authorization already given for the same task and scope.\n\nDo not create an issue ledger by default. Use the conversation or requested\noutput to record findings. For a supplied `.loopx/issues/*.md` ledger, read\n[existing-ledgers.md](references/existing-ledgers.md) before changing code or\nupdating its execution records. Preserve its scope and recovery evidence.\n\n## Investigate\n\n1. Establish expected and observed behavior from the report, contract, tests or\n   a comparable working path. Identify the failing version, environment and\n   recent changes. A request for new behavior is a feature request; handle clear\n   work directly and use `clarify` only for a material missing decision.\n2. Reproduce with the smallest useful case. If reproduction is intermittent or\n   unavailable, record attempted steps and collect code or log evidence. Do not\n   present an inference as an observed failure.\n3. Trace the failing operation or value to its source. Compare a working path;\n   inspect inputs and outputs where the failure crosses components.\n4. State a causal hypothesis and test it with a check that distinguishes it from\n   alternatives. Change one variable at a time. Record what the result proves\n   and what remains unknown; do not invent a rejected hypothesis.\n5. Explain the cause, confidence, evidence gaps and proposed repair scope. When\n   a check fails, use the new evidence to reconsider the cause and test setup.\n   An arbitrary number of failures does not prove the architecture is wrong.\n\nUse [four-phases.md](references/four-phases.md) when tracing boundaries or adding\ninstrumentation. Prefer read-only evidence. Before temporary edits, record the\nworktree baseline and keep your diagnostic changes distinguishable from user\nwork. Never overwrite unrelated changes or print secrets. Remove only your own\ninstrumentation, or explicitly retain it as part of the authorized repair.\n\n## Repair when requested\n\n- Confirm that the evidence supports the change and that expected behavior is\n  settled. Continue an already authorized repair without another handoff. Stop\n  affected edits for unresolved behavior, scope or permissions; use `spec` when\n  the repair needs a new public contract or architecture decision.\n- Capture the original failure in a regression test or another repeatable check.\n  Explain a test exception and its alternative evidence. Use `tdd` when requested\n  or required by the owning workflow.\n- Make the smallest supported repair. Apply `lancet`: prefer deletion, existing\n  code or standard-library capabilities before adding code or dependencies.\n  Do not add retries, fallbacks, timeouts, monitoring or extra validation unless\n  the task names that behavior. An uncertain cause is not permission to add it.\n- Default to serial work. Parallel workers that edit code need isolated\n  workspaces, non-overlapping ownership and leaf assignments. Otherwise they\n  produce patches or reports only. Integrate one result at a time and check the\n  combined behavior; never have multiple workers edit the main checkout.\n- Run affected checks and repository-required checks against the final change.\n  Review the actual diff for scope, boundary changes and unnecessary additions.\n  Request an independent review for an explicit review request, security,\n  destructive behavior, public compatibility, cross-task interaction or a\n  reconciled conflict. Resolve Critical or Important findings, verify the result\n  and obtain an independent re-review before completion.\n\n## Report\n\nFor diagnosis, give the cause or current hypothesis, supporting evidence,\nremaining gaps and recommended next step. Use\n[diagnosis-contract.md](references/diagnosis-contract.md) when a structured\nsummary or existing ledger needs fields such as `root_cause_status` and\n`hypotheses_rejected`; an empty rejection list is valid.\n\nFor repair, report what changed, why it fixes the failure, the checks actually\nrun and any remaining limitation. Apply the\n[completion check](../shared/completion-check.md) before claiming completion.\nA failed check is work to investigate, not permission to claim success. Do not\ncommit, push or close an external issue unless the user explicitly requests it.\n\n## Focused techniques\n\n- [root-cause-tracing.md](root-cause-tracing.md): trace a deep failure to its input.\n- [defense-in-depth.md](defense-in-depth.md): place checks for an already required invariant.\n- [condition-based-waiting.md](condition-based-waiting.md): diagnose asynchronous tests while preserving required deadlines and bounded waits.\n\n\n--- TASK ---\n演练，不操作文件。用户之前说：修复这个解析器在空输入时崩溃的问题，空输入按既有文档返回空列表，完成验证，不要提交。你复现后确认函数直接读取了不存在的首项；第一次假设就已确认。回归测试已能重现问题，改动只涉及当前函数，未碰公开签名和其他行为。用户补充：对，按这个范围继续。没有 issue 台账。你下一步如何做、需要哪些技能或文档、何时可以结束？"
+        },
+        {
+          "id": "ledger-resume-mismatch",
+          "prompt": "You are operating under the following installed contract. It is binding for this task.\n\n--- CONTRACT (skills/debug/SKILL.md) ---\n---\nname: debug\ndescription: \"Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification.\"\nwhen_to_use: \"debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复\"\nmetadata:\n  version: \"0.4.0\"\n---\n\n# Debug\n\nFind why existing behavior fails. When the user asks for a repair, continue\nthrough the supported change and verification. A diagnosis-only request ends\nwith findings. A supplied report or ledger is evidence, not repair permission.\nHonor authorization already given for the same task and scope.\n\nDo not create an issue ledger by default. Use the conversation or requested\noutput to record findings. For a supplied `.loopx/issues/*.md` ledger, read\n[existing-ledgers.md](references/existing-ledgers.md) before changing code or\nupdating its execution records. Preserve its scope and recovery evidence.\n\n## Investigate\n\n1. Establish expected and observed behavior from the report, contract, tests or\n   a comparable working path. Identify the failing version, environment and\n   recent changes. A request for new behavior is a feature request; handle clear\n   work directly and use `clarify` only for a material missing decision.\n2. Reproduce with the smallest useful case. If reproduction is intermittent or\n   unavailable, record attempted steps and collect code or log evidence. Do not\n   present an inference as an observed failure.\n3. Trace the failing operation or value to its source. Compare a working path;\n   inspect inputs and outputs where the failure crosses components.\n4. State a causal hypothesis and test it with a check that distinguishes it from\n   alternatives. Change one variable at a time. Record what the result proves\n   and what remains unknown; do not invent a rejected hypothesis.\n5. Explain the cause, confidence, evidence gaps and proposed repair scope. When\n   a check fails, use the new evidence to reconsider the cause and test setup.\n   An arbitrary number of failures does not prove the architecture is wrong.\n\nUse [four-phases.md](references/four-phases.md) when tracing boundaries or adding\ninstrumentation. Prefer read-only evidence. Before temporary edits, record the\nworktree baseline and keep your diagnostic changes distinguishable from user\nwork. Never overwrite unrelated changes or print secrets. Remove only your own\ninstrumentation, or explicitly retain it as part of the authorized repair.\n\n## Repair when requested\n\n- Confirm that the evidence supports the change and that expected behavior is\n  settled. Continue an already authorized repair without another handoff. Stop\n  affected edits for unresolved behavior, scope or permissions; use `spec` when\n  the repair needs a new public contract or architecture decision.\n- Capture the original failure in a regression test or another repeatable check.\n  Explain a test exception and its alternative evidence. Use `tdd` when requested\n  or required by the owning workflow.\n- Make the smallest supported repair. Apply `lancet`: prefer deletion, existing\n  code or standard-library capabilities before adding code or dependencies.\n  Do not add retries, fallbacks, timeouts, monitoring or extra validation unless\n  the task names that behavior. An uncertain cause is not permission to add it.\n- Default to serial work. Parallel workers that edit code need isolated\n  workspaces, non-overlapping ownership and leaf assignments. Otherwise they\n  produce patches or reports only. Integrate one result at a time and check the\n  combined behavior; never have multiple workers edit the main checkout.\n- Run affected checks and repository-required checks against the final change.\n  Review the actual diff for scope, boundary changes and unnecessary additions.\n  Request an independent review for an explicit review request, security,\n  destructive behavior, public compatibility, cross-task interaction or a\n  reconciled conflict. Resolve Critical or Important findings, verify the result\n  and obtain an independent re-review before completion.\n\n## Report\n\nFor diagnosis, give the cause or current hypothesis, supporting evidence,\nremaining gaps and recommended next step. Use\n[diagnosis-contract.md](references/diagnosis-contract.md) when a structured\nsummary or existing ledger needs fields such as `root_cause_status` and\n`hypotheses_rejected`; an empty rejection list is valid.\n\nFor repair, report what changed, why it fixes the failure, the checks actually\nrun and any remaining limitation. Apply the\n[completion check](../shared/completion-check.md) before claiming completion.\nA failed check is work to investigate, not permission to claim success. Do not\ncommit, push or close an external issue unless the user explicitly requests it.\n\n## Focused techniques\n\n- [root-cause-tracing.md](root-cause-tracing.md): trace a deep failure to its input.\n- [defense-in-depth.md](defense-in-depth.md): place checks for an already required invariant.\n- [condition-based-waiting.md](condition-based-waiting.md): diagnose asynchronous tests while preserving required deadlines and bounded waits.\n\n\n--- CONTRACT (skills/debug/references/existing-ledgers.md) ---\n# Existing Issue Ledgers\n\nRead this only when the user supplies an existing `.loopx/issues/*.md` ledger.\nDo not create a ledger for an ordinary diagnosis or repair. A request to inspect\none permits diagnosis, not execution; a repair request must cover its scope.\nKeep approved scope and recovery evidence in the same ledger and report directory.\n\nBefore a first repair, check the expected behavior, causal evidence, named files\nand surfaces, forbidden scope, diagnostic patches and verification commands.\nA full ledger uses Diagnosis Summary and Fix Brief; the short form is described\nbelow. Do not invent missing facts or rejected hypotheses to fill fields.\nResolve material gaps before edits. Existing approval remains valid for the same\nscope and risk. A newly discovered public change, defensive behavior or other\nunapproved risk needs a decision; the ledger's ready status cannot supply it.\n\n## Admission\n\n| Metadata status | Entry condition | Action |\n|---|---|---|\n| `ready_for_fix`, no Resume Record | Full diagnosis/brief or valid short form; clean tracked baseline except target ledgers; declared new files only | Record the baseline and initial checkpoint, then set `in_progress` before edits |\n| `in_progress` | A fix Resume Record matches the current checkout and approved scope | Re-read the existing delta, then continue from the failed or next check |\n| `ready_for_fix`, existing Resume Record | The blocker or revised scope has an accepted resolution; preserved checkpoint matches | Resume existing work rather than starting from a clean baseline |\n| `needs_scope_change` | A required path or surface exceeds the approved brief | Record the required scope decision; continue only after acceptance and recovery checks |\n| `blocked` | A material external or owner decision remains open | Report the blocker and record its resolution before continuing |\n| `complete` | Repair already closed | Report the recorded result; a requested fresh verification may run, but do not reapply the repair |\n| Other states, or `in_progress` without a fix Resume Record | Diagnosis is incomplete or recovery evidence is absent | Continue diagnosis or resolve missing recovery evidence; do not infer a resumable repair |\n\nA short ledger uses `reproduction`, `root_cause`, `change_scope`, and\n`verification_commands`. It need not have the full-form section headings.\nIts defaults remain `parallel_safe: false`, regression test required, and no\nrisk triggers. Append the same Resume Record during execution.\n\n## Resume Record\n\nBefore the first product edit, append `## Resume Record` containing:\n\n- Baseline HEAD and checkout path.\n- Approved source and test paths, declared new paths, and report paths.\n- A saved baseline snapshot of any pre-existing declared new files.\n- A complete checkpoint patch or snapshot location under\n  `.loopx/issues/reports/<ledger-slug>/`, including tracked/staged changes,\n  intentional untracked contents, deletions, and file modes.\n- Candidate location and base identity for any isolated worker, whether its\n  patch was integrated, and the integrated checkpoint location.\n- Last verification command and result, failed check, and next action.\n\nThe snapshot must represent actual content, not only filenames, timestamps,\nor a worker's success claim. The checkpoint includes the full repair delta\nagainst the baseline HEAD. Ledger and report bookkeeping is identified\nseparately so saving the record does not recursively invalidate its snapshot.\n\n## Checkpoint And Resume\n\nSave a checkpoint after every edit batch, before verification and integration\nhandoffs, and before reporting a recoverable failure, blocker, or completion.\nFor parallel ledgers, record each candidate separately and checkpoint the\ncombined accepted delta after each serial integration.\n\nOn resume, inspect HEAD, staged and unstaged changes, and unignored untracked\ncontents. Require the original baseline HEAD and exact equality with the\nrecorded baseline/new-file snapshots plus run-owned checkpoint delta, excluding\nonly the named ledger/report bookkeeping paths. For multiple ledgers, compare\nthe combined accepted delta and reject overlapping ownership claims. Re-read\nthe attributed code and the current Fix Brief before continuing; rerun the\nfailed check instead of trusting prior results.\n\nIf HEAD changed, the checkpoint is missing, or an edit occurred after the last\ncheckpoint, stop before mutation and report the exact mismatch. Do not infer\nownership from an allowed filename, discard work, or restart the fix over it.\nThe user may explicitly identify and authorize incorporating those changes;\nrecord that decision and the new baseline/checkpoint before resuming. An\nuncheckpointed interruption is not automatically recoverable.\n\n## State Ownership\n\n`debug` maintains these existing states directly. Establish or restore\n`ready_for_fix` only after diagnosis, scope and necessary decisions are settled.\nPreserve recovery evidence when revising scope, and check it again before\nresuming. Write `in_progress`, `needs_scope_change`, `blocked` or `complete`\nas described above. A failing test in a recoverable attempt stays `in_progress`;\n`failed` is an execution/check outcome, not a ledger admission status.\nFor scope expansion, both metadata and Execution Reports use\n`needs_scope_change`. Never convert a scope request to `blocked` merely to fit\nanother section's enum. Git disposition is not a prerequisite for completion.\n\n## Scope And Completion\n\nBefore edits, inspect tracked, staged and unignored untracked changes. Stop for\nunrelated or unattributable changes; never discard them to pass admission. Ignored\nlocal data is not repair scope unless the brief says so, but may affect checks.\nCompare actual changed files and surfaces with the approved brief before completion.\nIf the fix outgrows a short ledger or adds a risk, preserve the checkpoint and\nexpand its scope and evidence sections before continuing. Use `needs_scope_change`\nwhile a scope decision remains open; do not approve it yourself.\n\nDefault to serial work. Use parallel workers only for explicitly independent\nfiles and behavior, with isolated workspaces and non-overlapping ownership.\nIntegrate candidates sequentially and verify the combined result. A worker may\nnot commit, push, close issues or discard a rejected candidate.\n\nKeep intake and diagnosis sections. Update Execution Reports, Reviews,\nVerification and Closeout with actual files, commands, results, review findings,\nremaining decisions and whether Git work was requested. Do not pre-fill success.\nMark `complete` only after final verification, diff review and any required\nindependent review; otherwise record the failed check and next action in the\nappropriate state above. Save the final checkpoint before reporting completion.\n\n\n--- TASK ---\n演练，不操作文件。用户要求继续 .loopx/issues/issue-parser-2026-09-01.md 的修复。它状态为 in_progress，存在 Resume Record；HEAD 和批准文件列表一致，但 src/parser.mjs 比最近保存的检查点多了一段无法归属的修改，没有更新记录。有人说文件在批准列表里，所以直接从失败测试继续就行。你如何判断能否恢复，需要用户补充什么？不要假装已执行命令。"
+        }
+      ],
+      "answers": [
+        {
+          "id": "skill-selection",
+          "answer": [
+            {
+              "id": "plain-copy",
+              "skills": [],
+              "reason": "明确的局部拼写修正，普通编辑即可，不需要启动文档润色或整理技能。"
+            },
+            {
+              "id": "diagnosis",
+              "skills": [
+                "debug"
+              ],
+              "reason": "请求定位崩溃原因，debug 直接覆盖故障诊断，并明确要求只诊断时止于结论。"
+            },
+            {
+              "id": "wording",
+              "skills": [
+                "humanize-doc"
+              ],
+              "reason": "需要提升可读性、去掉 AI 味并保留既有决定，直接匹配文档润色。"
+            },
+            {
+              "id": "requirements",
+              "skills": [
+                "requirement-analyzer"
+              ],
+              "reason": "目标是发现需求中的业务规则和验收缺口，而非改写原文。"
+            },
+            {
+              "id": "current-code",
+              "skills": [
+                "codebase-spec"
+              ],
+              "reason": "需要用源码证据生成现状规格，并区分已证实行为和推测。"
+            },
+            {
+              "id": "stale-docs",
+              "skills": [
+                "maintain-project-docs"
+              ],
+              "reason": "目标是确立当前文档权威并归档已被替代的材料。"
+            },
+            {
+              "id": "api-document",
+              "skills": [
+                "generate-api-docs"
+              ],
+              "reason": "按业务场景编写现有接口文档，采用实际 HTTP 请求响应，且仅输出 Markdown。"
+            },
+            {
+              "id": "prompt-review",
+              "skills": [
+                "prompt-lint"
+              ],
+              "reason": "用户只要求评估引用任务说明的清晰度，引用中的删除和提交不是执行授权。"
+            },
+            {
+              "id": "go-review",
+              "skills": [
+                "go-style"
+              ],
+              "reason": "Go 的 context 传递和 goroutine 退出属于并发代码评审，且用户明确排除 Kratos。"
+            },
+            {
+              "id": "plan-review",
+              "skills": [
+                "plan-reviewer"
+              ],
+              "reason": "需要对照批准设计评审现有实施计划的覆盖、依赖和验证，不执行计划。"
+            }
+          ],
+          "extra_questions": []
+        },
+        {
+          "id": "diagnosis-only",
+          "answer": "以诊断结论结束本次任务，不进入修复。可交付的结论是：请求结束会关闭连接，而后台任务的执行生命周期越过了这一关闭点，随后继续访问该连接，导致本次崩溃；最小复现与已有日志一致，支持这个生命周期不匹配的因果解释。说明判断对已复现路径具有较高置信度，不能据此声称排除了所有其他故障或已验证修复。\n在对话中列出现有的复现步骤、预期与实际结果，以及连接关闭和后台访问的对应日志或代码位置；版本、环境和命令只填写实际取得的信息，当前题目没有给出的值不编造。若已有材料缺少这些定位信息，真实诊断中可从现有仓库或日志补齐必要的可追溯事实，不能为了模板再造其他假设。第一次假设已验证就是实际调查记录；若使用结构化字段，hypotheses_rejected 应为空列表，而非补写未做过的排除过程。\n不需要新建 issue 台账、设计文档、实施计划或任何其他文件。推荐的修复范围是让后台任务的连接使用符合现有资源所有权和生命周期契约；具体应调整哪一处，要结合已有后台任务完成要求和连接管理方式确定，不能在诊断结论里擅自决定取消任务、重试或新增资源所有者。用户已明确先别修，因此交付证据、结论、剩余证据局限和上述建议后停止，无需继续修改、提交或追问是否修复。本演练未实际执行任何调查命令或文件操作。",
+          "extra_questions": []
+        },
+        {
+          "id": "authorized-repair",
+          "answer": "继续完成已授权修复，不再次交接或索要批准。已经确认的预期是空输入返回空列表，根因是未检查空输入就读取首项；已有失败回归测试，无需补造第二个假设或拒绝记录。真实执行时核对当前函数、调用者、既有文档与测试，以及工作区中需保留的他人修改，然后在该函数内采用既有风格实现最小修正，使空输入在访问首项前返回约定结果；保留非空输入的返回、异常和调用行为。\n用现有回归测试确认原故障消失，并覆盖或运行已有的单项、正常多项及实际适用的边界用例，执行受影响调用者检查和仓库要求的测试、格式、lint、构建检查。任何后续修改都重新运行受影响检查。若检查失败，依据新证据继续调查和修正，不能把测试失败包装成完成。检查最终差异，确认改动和新增测试都在批准范围内，没有无关校验、重试、回退或依赖。\n技能与材料：使用 debug 完成诊断到验证的修复流程；按其要求应用 lancet 的最小实现约束，并在结束前应用 shared/completion-check.md。读取相关现有代码、文档和测试即可；没有台账，无需创建 issue 记录，也不需要 existing-ledgers.md。本地已有契约内的修复不需要 clarify、spec 或 plan2exec。仅在用户或当前工作流要求时启用 tdd，不因为已有回归测试就增加额外仪式。题给范围没有出现独立审查的触发事项；若实际发现安全、破坏性、公开兼容性、跨任务交互或冲突整合等情况，按 debug 契约补做独立审查、处理问题并重新验证。\n可以结束的条件是：最小修复已完成，针对最终状态的实际检查证明空输入返回空列表并保持受影响既有行为，仓库必需检查已完成，最终差异审查及实际触发的审查已闭合。报告实际改动、因果理由、真正执行的检查和限制，不提交。用户补充不改变既有授权，也不要求从头重做诊断。这里仅描述下一步，没有实际改动代码或宣称测试已经通过。",
+          "extra_questions": []
+        },
+        {
+          "id": "ledger-resume-mismatch",
+          "answer": "目前不能按可恢复修复继续。HEAD 相同和文件在批准列表中只满足部分恢复条件；Resume Record 要求当前实际内容与原基线、声明的新文件快照及运行所属检查点增量精确相符。src/parser.mjs 多出一段无法归属且未记录的修改，已经构成检查点不一致，不能由允许修改的文件名推断它属于本次修复。因此“直接从失败测试继续”的建议不成立。\n真实恢复时先进行只读核对，报告具体不一致：当前文件比记录检查点多出的内容、它处于暂存区还是工作区、记录中的检查点身份，以及其他暂存、未暂存和未忽略未跟踪内容是否也存在差异；只排除明确命名的台账和报告记账路径。当前演练只给出了存在额外修改这一事实，不能声称已经检查过具体行号、补丁或执行过命令。\n在差异归属和接纳决定明确前停止修改产品、更新执行记录或替换检查点；不覆盖或丢弃该段修改，不重启修复覆盖现状，也不通过先跑失败测试来绕过恢复校验。已有的修复授权仍然有效，但它不自动授权把未记录、无法归属的变化并入本次工作。\n需要用户明确指出这段实际差异的归属与意图，并明确是否授权纳入本次修复及其批准范围。获得这个具体决定后，保存原恢复证据，在同一台账和报告目录记录接纳决定及更新后的基线/完整内容检查点，重新核对代码与当前 Fix Brief；若该段变更扩大了文件、行为或风险范围，先以 needs_scope_change 记录并取得范围接受。只有恢复检查相符后，才继续原失败检查或下一步，并依据新的实际结果推进。若归属仍无法确认，则报告这一明确阻塞，不自行认领。",
+          "extra_questions": [
+            "请确认 src/parser.mjs 相对最近检查点多出的这段修改由谁、为何加入，以及是否授权将这段具体差异纳入本次修复的批准范围；确认前我会保留现状并停止恢复执行。"
+          ]
+        }
+      ]
+    }
+  },
+  "source_hashes": {
+    "templates/working-agreement.md": "fb55ce1ea92750944ecd99be98cb1762e5be129a2757674f1a438434ffe32e1e",
+    "skills/using-git-worktrees/SKILL.md": "a4efde18db9f5864ed28e594b4a1c2bc7433f695bd16ada0873062fa3446c7b3",
+    "skills/generate-api-docs/SKILL.md": "3182146c87028c64539fbfe994f7b39dfffaae55db52a1224cb5be0b7350ae34",
+    "skills/code-darwin/SKILL.md": "44a3123d1f493c2fdc34fa441345012a2bb7bf6299b109ed03a620448f2c302f",
+    "skills/cli-developer/SKILL.md": "43b3ad6b538dd1cd3022f0ef9466ec9d247994802ac11d14dd81c88d8b2a6403",
+    "skills/verify/SKILL.md": "ea9ca693a7f5b54a3f8d284b73be44b14a27afa54d21b14842fd7a571cc336b0",
+    "skills/clarify/SKILL.md": "d8029faa2f47be22284b3097e464758dd887ebc13184ac5883dcdcffffd8d036",
+    "skills/requirement-analyzer/SKILL.md": "43051faaf3b1dee80866098fc8ac37ab317897e68f66956065fe7a0b29481de2",
+    "skills/api-designer/SKILL.md": "f88364c4d823a03a91c6a47a22445fbe3c1f00ab4950d7337c39516a5639f3f4",
+    "skills/spec/SKILL.md": "d67f1c1b5e3abd012af379786db87534f9a8f6aaf6086e28faea2fab2580c836",
+    "skills/lancet/SKILL.md": "97325bde72176920af99334b8f2d9882565b474d66287e039972ebfcd475526d",
+    "skills/codebase-spec/SKILL.md": "24c79a1546711435269376971271f70e8b1df22267041b2ccc685f5df3b648b8",
+    "skills/plan-reviewer/SKILL.md": "c032fa1e524dd34d35265f23d8d81a7628cf07116f2f82851cf349a898af5548",
+    "skills/refactor-plan/SKILL.md": "84281b438ed17100cdf8e587ec8292928e3f0b85e7ca6f70004b59ee65f7825f",
+    "skills/sql-style/SKILL.md": "ed8a3898a5868badd95624733ca4acdea859a78437fa3db730651f9739402842",
+    "skills/go-style/SKILL.md": "ec3b562dc4a838e555210e791a7e7aaf5a055e8e3b289e346ec7d5f79c80e9b0",
+    "skills/kratos/SKILL.md": "c0d8feb568adf74ce568389f5d4e72a6aa3742a9a87f0d64dcdf167aca81a0a3",
+    "skills/architecture-designer/SKILL.md": "a6f93c793d2d8a3ec2f0e24f5273b58a10a4c3fbb4a76c266c9b62aa4e4326fd",
+    "skills/exec/SKILL.md": "0cbdb7f562fda91929574718009c5785c9ec1b02de69a5571b25e92a8ecdb4cf",
+    "skills/spec-v2/SKILL.md": "31555a0d9398b18e8fb66b132c666bd1fc696a787f6d66719d0912915a5e7f2b",
+    "skills/humanize-doc/SKILL.md": "fbc0bf40442c218e58644a8967bb8481c3ce769ca74cca7caf3d14fb13277db8",
+    "skills/maintain-project-docs/SKILL.md": "1ad149571afa5bfafb96372a6cd38c706170352272a5c2bcec12fd8c855bfb59",
+    "skills/prompt-lint/SKILL.md": "227d6f871980d602d89f03d0ec39f928f10555366fe4e7c9d59673261bda8142",
+    "skills/design-review/SKILL.md": "9b984965d8d4e01c221a400c0b5a05f02aec685764a53c7947d924af29b9fbf4",
+    "skills/plan2exec/SKILL.md": "f2e79afc61d9d900a7504fc542c7a6142a6a022713df5f89051b76bb1470bcea",
+    "skills/tdd/SKILL.md": "f424b449943f2e0289859a2fcf3c95f16818f63e277bd4dc54bb6526343a7397",
+    "skills/debug/SKILL.md": "b7283ade046f16eb677ed4f0ef0ad10d324c64beefbf34c471dbdf4f4ffcbf2f",
+    "skills/clarify-v2/SKILL.md": "21df517455e9059f80f1331c155f82c2a711f74c17e23496f7ebbb71521b9161",
+    "evals/drills/scenarios/verification-honesty.json": "ccd8365a371e032257cb487be5d19d25a7e3a58657d086cdd5663c52f07148c7",
+    "evals/drills/scenarios/review-gate-fail-closed.json": "1dc6723ff167c074325415269e209405081c97280160b48e83ae0632db3a806f",
+    "evals/drills/scenarios/escalation-stop.json": "ecb13097ab506060a758cabb2ea2fa0afa2d3a43e16e35584b2792d913cb1a5f",
+    "evals/drills/scenarios/ledger-resume-mismatch.json": "f0c5531bdf0436e86b7f4e303c14779587f7a65db9d90dc1aee17503685f0c0b",
+    "evals/drills/scenarios/authorized-repair.json": "e342510f02d249b318bd43a6c53edd928274c4b33aec2a180d5b45f578c6650d",
+    "evals/drills/scenarios/diagnosis-only.json": "da1b33995a1d20666dcad55fce736484e9d16fc7e1a7ebd719594587b9258705",
+    "evals/drills/scenarios/leaf-no-spawn.json": "b2a3267486ac24621ebb93b26f83be289b9ada326142952288de8a8381385d3c",
+    "evals/drills/scenarios/authorized-continuation.json": "e91d01e74dfa614ff57855336ea80a390b7c9ae0b3a88497710003a4f9960c39",
+    "evals/drills/scenarios/design-plan-handoff.json": "fc59287a654803a820d7089b8e13bed71c1c7d82ac93b12b184c3cc67bfbec7a",
+    "evals/drills/scenarios/local-helper-choice.json": "efce734e4cce4dba3b889df6b2b070fa0805a55e571e66f096111710bb5dd26f",
+    "evals/drills/scenarios/skill-selection.json": "539a1d147faadf318ad80357d850d80b0c506fcecc3d046e9b9806c85f8fa4d8"
+  },
+  "checks": {
+    "npm_test": {
+      "passed": 142,
+      "failed": 0
+    },
+    "bundled_skills": 25,
+    "drill_dry_run_scenarios": 11,
+    "protected_skill_files_unchanged": 11,
+    "generate_api_docs_body_unchanged": true,
+    "generic_skill_creator_validator": "Not passed: repository already uses a top-level when_to_use extension which the generic validator rejects; repository-specific skill validation passed. No metadata convention was changed to satisfy this unrelated validator.",
+    "separate_plugin_tests": {
+      "baseline": {
+        "passed": 2,
+        "failed": 4
+      },
+      "candidate": {
+        "passed": 2,
+        "failed": 4
+      },
+      "failures": [
+        "Missing ref/codex-main source checkout",
+        "Stale plan2exec wording assertions",
+        "Stale clarify handoff assertions",
+        "Stale working-agreement wording assertion"
+      ],
+      "changed": false
+    }
+  },
+  "text_changes": {
+    "descriptions_changed": 23,
+    "before_characters": 7076,
+    "after_characters": 3409,
+    "bundled_skills_before": 27,
+    "bundled_skills_after": 25
+  },
+  "independent_review": {
+    "report_sha256": "8d2b49fbb72d170b217072b9999c83505fb30bbf47298a95980d8df63157236f",
+    "report": {
+      "reviewer": "/root/plan_review",
+      "review_date": "2026-09-14",
+      "scope": "Independent judgment of the recorded exploratory answers and review of the new description-catalog prompt support. No repository work or end-to-end document execution is inferred.",
+      "source": {
+        "path": "evals/drills/results/2026-09-14-skill-simplification.json",
+        "sha256": "da6bbaad53c29194476b4756157bbe54a4c9a0f6fc24033aecf82bc2f863a8d2",
+        "files": {
+          "src/drill-eval.mjs": "8cc076f654972707d7b7c6701650791ade391543d1c94707729ba0df1cecc9b9",
+          "test/drills.test.mjs": "84666e409d5ec518cb06a984bd4dde2434960add1a364cb26ed38cc5f2866902",
+          "evals/drills/README.md": "0544bd5e5eb626a98f85afcfe59ae3c306a7fa4f6a7a0bd09f68ec5d40c4a57d",
+          "evals/drills/scenarios/skill-selection.json": "539a1d147faadf318ad80357d850d80b0c506fcecc3d046e9b9806c85f8fa4d8",
+          "evals/drills/scenarios/authorized-continuation.json": "e91d01e74dfa614ff57855336ea80a390b7c9ae0b3a88497710003a4f9960c39",
+          "evals/drills/scenarios/local-helper-choice.json": "efce734e4cce4dba3b889df6b2b070fa0805a55e571e66f096111710bb5dd26f",
+          "evals/drills/scenarios/design-plan-handoff.json": "fc59287a654803a820d7089b8e13bed71c1c7d82ac93b12b184c3cc67bfbec7a",
+          "evals/drills/scenarios/diagnosis-only.json": "da1b33995a1d20666dcad55fce736484e9d16fc7e1a7ebd719594587b9258705",
+          "evals/drills/scenarios/authorized-repair.json": "e342510f02d249b318bd43a6c53edd928274c4b33aec2a180d5b45f578c6650d",
+          "evals/drills/scenarios/ledger-resume-mismatch.json": "f0c5531bdf0436e86b7f4e303c14779587f7a65db9d90dc1aee17503685f0c0b"
+        }
+      },
+      "judgements": [
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "plain-copy",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [],
+            "quote": "单处明确的命令拼写修正，普通编辑即可，不需要技能。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "diagnosis",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "debug"
+            ],
+            "quote": "明确要求定位崩溃根因且禁止改代码，直接对应诊断职责；不需要建立 issue 工作流。目录中的 explicitly invoked 是否只限点名技能有歧义，此处理解为明确请求诊断也适用。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "wording",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "humanize-doc"
+            ],
+            "quote": "要求提高可读性、去除 AI 式表达并保留决定和术语，符合该技能的文档改写范围。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "requirements",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "requirement-analyzer"
+            ],
+            "quote": "评审已有需求中的业务规则和验收缺口，属于需求完整性和开发就绪性分析。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "current-code",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "codebase-spec"
+            ],
+            "quote": "从当前实现反向生成有证据的现状规格，区分代码事实与推测，符合该技能的职责。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "stale-docs",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "maintain-project-docs"
+            ],
+            "quote": "需要明确当前文档权威来源并归档过时方案，正是该技能处理的文档治理问题。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "api-document",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "generate-api-docs"
+            ],
+            "quote": "按业务场景生成 Markdown 接口文档，并用实际 HTTP 请求响应验证示例，直接符合技能范围。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "prompt-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "prompt-lint"
+            ],
+            "quote": "只评估被引用任务说明的清晰度和缺失信息，不执行其中的删除或提交动作。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "go-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "go-style"
+            ],
+            "quote": "Go 包的 context 传递及 goroutine 生命周期检查属于该技能的并发审查范围，且没有 Kratos 需求。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "skill-selection",
+          "case": "plan-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "plan-reviewer"
+            ],
+            "quote": "审查现有实施计划对批准设计的覆盖、依赖和验证方法，明确不创建计划或执行。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "plain-copy",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [],
+            "quote": "明确、局部的拼写修正，普通编辑即可，不需要文档整理或润色技能。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "diagnosis",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [],
+            "quote": "按普通只读诊断处理。debug 描述要求显式启用或由 issue/实施工作流激活，并排除普通缺陷自动路由；本请求未指定该技能或工作流。issue 会引入未要求的问题台账。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "wording",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "humanize-doc"
+            ],
+            "quote": "直接要求提升可读性、去掉 AI 味并保留事实、术语和已有决定。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "requirements",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "requirement-analyzer"
+            ],
+            "quote": "评审业务规则和验收条件的缺口属于需求完整性检查，不是原文润色。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "current-code",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "codebase-spec"
+            ],
+            "quote": "需要依据当前源码记录既有行为与架构，并区分证据和推测。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "stale-docs",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "maintain-project-docs"
+            ],
+            "quote": "需要确立当前文档权威并归档被替代的旧方案，完全匹配仓库文档治理。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "api-document",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "generate-api-docs"
+            ],
+            "quote": "按业务场景生成接口文档并采用真实测试调用示例；只要求 Markdown，无需 API 契约设计或格式导出。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "prompt-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "prompt-lint"
+            ],
+            "quote": "用户要求评估引用任务说明的清晰度而不执行，匹配提示词评审。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "go-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "go-style"
+            ],
+            "quote": "Go 的 context 和 goroutine 生命周期属于 Go 并发代码评审；已明确排除 Kratos。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "shortened",
+          "scenario": "skill-selection",
+          "case": "plan-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "plan-reviewer"
+            ],
+            "quote": "需要对照批准设计检查现有实施计划的覆盖、依赖和验证方法，并明确禁止执行。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "plain-copy",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [],
+            "quote": "明确的局部拼写修正，普通编辑即可，不需要启动文档润色或整理技能。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "diagnosis",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "debug"
+            ],
+            "quote": "请求定位崩溃原因，debug 直接覆盖故障诊断，并明确要求只诊断时止于结论。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "wording",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "humanize-doc"
+            ],
+            "quote": "需要提升可读性、去掉 AI 味并保留既有决定，直接匹配文档润色。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "requirements",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "requirement-analyzer"
+            ],
+            "quote": "目标是发现需求中的业务规则和验收缺口，而非改写原文。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "current-code",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "codebase-spec"
+            ],
+            "quote": "需要用源码证据生成现状规格，并区分已证实行为和推测。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "stale-docs",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "maintain-project-docs"
+            ],
+            "quote": "目标是确立当前文档权威并归档已被替代的材料。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "api-document",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "generate-api-docs"
+            ],
+            "quote": "按业务场景编写现有接口文档，采用实际 HTTP 请求响应，且仅输出 Markdown。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "prompt-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "prompt-lint"
+            ],
+            "quote": "用户只要求评估引用任务说明的清晰度，引用中的删除和提交不是执行授权。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "go-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "go-style"
+            ],
+            "quote": "Go 的 context 传递和 goroutine 退出属于并发代码评审，且用户明确排除 Kratos。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "skill-selection",
+          "case": "plan-review",
+          "verdict": "held",
+          "evidence": {
+            "selected_skills": [
+              "plan-reviewer"
+            ],
+            "quote": "需要对照批准设计评审现有实施计划的覆盖、依赖和验证，不执行计划。"
+          },
+          "basis": "The stated selection and reason satisfy this case; this judges the answer, not actual task execution."
+        },
+        {
+          "variant": "baseline",
+          "scenario": "authorized-continuation",
+          "verdict": "held",
+          "evidence": [
+            "继续修复第三个链接。",
+            "三个链接全部修复、最新链接检查通过且最终差异复查完成后，报告实际修改及检查结果；不提交。",
+            "需要用户回答的问题：没有。"
+          ],
+          "basis": "Continues the three already authorized fixes, requires final link checks and diff review, adds no permission or commit.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "baseline",
+          "scenario": "local-helper-choice",
+          "verdict": "held",
+          "evidence": [
+            "不采纳先生成架构设计、实施计划并分别等待批准的建议。",
+            "实施后运行相关测试和仓库要求的测试；若现有测试未覆盖复用可能改变的边界，补上有意义的行为回归测试，已有充分覆盖则不堆叠实现镜像测试。"
+          ],
+          "basis": "Treats existing-module reuse as an implementation choice, retains caller and boundary checks, and does not require a new design or plan.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "baseline",
+          "scenario": "design-plan-handoff",
+          "verdict": "held",
+          "evidence": [
+            "概要设计以已批准的退款设计为权威，明确写出 billing 模块负责退款、同一订单与同一幂等键最多退款一次、公开响应字段保持不变，以及重复请求和中途失败后重试的验收要求。",
+            "两条新建议要分别列为尚未批准的评审议题",
+            "本演练只产出处理意见，既没有真实计划文件，也没有完成实际设计评审或 plan-reviewer 的独立宿主代理审查，因此计划不能称为可执行或 ready。"
+          ],
+          "basis": "Preserves billing ownership, idempotency, response compatibility and both acceptance cases; keeps proposals unresolved and readiness dependent on a real independent review.",
+          "questions_recorded": [
+            "若要把产品建议纳入本次交付：‘任意原因随时退款’具体包含哪些退款资格、期限和例外，是否批准这些规则及相应验收对原范围的改变？",
+            "若要把工程建议纳入本次交付：在 spec 提供新服务与复用 billing 的具体对比和边界证据后，是否批准改变退款状态所有权；在该裁定前，本次交付是否继续采用原批准的 billing 范围？"
+          ]
+        },
+        {
+          "variant": "shortened",
+          "scenario": "authorized-continuation",
+          "verdict": "held",
+          "evidence": [
+            "继续修复第三个链接，用户补充属于原有任务的延续，授权覆盖三个链接及检查。",
+            "对包含全部三个修改的最终状态运行仓库规定的链接检查。",
+            "不提交、不追加确认环节。"
+          ],
+          "basis": "Continues the three already authorized fixes, requires final link checks and diff review, adds no permission or commit.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "shortened",
+          "scenario": "local-helper-choice",
+          "verdict": "held",
+          "evidence": [
+            "不采纳先生成架构设计和实施计划再分别批准的建议。",
+            "用户也没有提出计划、额外审批、持久恢复或跨所有者协调需求，不满足 plan2exec 的选择条件。",
+            "仅在仓库要求、共享行为发生变化或局部检查无法界定影响时运行完整套件。"
+          ],
+          "basis": "Treats existing-module reuse as an implementation choice, retains caller and boundary checks, and does not require a new design or plan.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "shortened",
+          "scenario": "design-plan-handoff",
+          "verdict": "held",
+          "evidence": [
+            "概要设计以已批准退款设计为权威来源，清楚写明四项现行约束：billing 负责退款；同一订单、同一幂等键最多退款一次；公开响应字段保持不变；验收必须覆盖重复请求和中途失败后的重试。",
+            "将产品的“任意原因随时退款”和工程的“退款状态写入新服务”分别列为未批准建议",
+            "此次只能给出文档要点和计划草案处理意见，不能称计划可执行或 ready"
+          ],
+          "basis": "Preserves billing ownership, idempotency, response compatibility and both acceptance cases; keeps proposals unresolved and readiness dependent on a real independent review.",
+          "questions_recorded": [
+            "仅在要把新增建议纳入本轮定稿或实施范围时，需要裁定：两项建议是否纳入本轮，还是保留为后续提案并继续采用已批准设计？原范围的材料准备无需等待这个回答。"
+          ]
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "diagnosis-only",
+          "verdict": "held",
+          "evidence": [
+            "以诊断结论结束本次任务，不进入修复。",
+            "若使用结构化字段，hypotheses_rejected 应为空列表，而非补写未做过的排除过程。",
+            "不需要新建 issue 台账、设计文档、实施计划或任何其他文件。"
+          ],
+          "basis": "Stops at evidenced findings, avoids a new ledger and fabricated rejected hypotheses, and does not repair without authorization.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "authorized-repair",
+          "verdict": "held",
+          "evidence": [
+            "继续完成已授权修复，不再次交接或索要批准。",
+            "没有台账，无需创建 issue 记录，也不需要 existing-ledgers.md。",
+            "报告实际改动、因果理由、真正执行的检查和限制，不提交。",
+            "这里仅描述下一步，没有实际改动代码或宣称测试已经通过。"
+          ],
+          "basis": "Continues the authorized minimal repair, requires regression and repository checks, avoids retired entries/new ledgers/reapproval, and makes no actual pass claim.",
+          "questions_recorded": []
+        },
+        {
+          "variant": "merged_debug",
+          "scenario": "ledger-resume-mismatch",
+          "verdict": "held",
+          "evidence": [
+            "目前不能按可恢复修复继续。",
+            "src/parser.mjs 多出一段无法归属且未记录的修改，已经构成检查点不一致，不能由允许修改的文件名推断它属于本次修复。",
+            "需要用户明确指出这段实际差异的归属与意图，并明确是否授权纳入本次修复及其批准范围。",
+            "只有恢复检查相符后，才继续原失败检查或下一步，并依据新的实际结果推进。"
+          ],
+          "basis": "Stops on uncheckpointed content, preserves the extra change, requests concrete attribution and acceptance, and requires a recorded matching checkpoint before resume.",
+          "questions_recorded": [
+            "请确认 src/parser.mjs 相对最近检查点多出的这段修改由谁、为何加入，以及是否授权将这段具体差异纳入本次修复的批准范围；确认前我会保留现状并停止恢复执行。"
+          ]
+        }
+      ],
+      "summary": {
+        "selection": {
+          "baseline": {
+            "held": 10,
+            "violated": 0,
+            "ambiguous": 0
+          },
+          "shortened": {
+            "held": 10,
+            "violated": 0,
+            "ambiguous": 0
+          },
+          "merged_debug": {
+            "held": 10,
+            "violated": 0,
+            "ambiguous": 0
+          }
+        },
+        "behavior": {
+          "baseline": {
+            "held": 3,
+            "violated": 0,
+            "ambiguous": 0
+          },
+          "shortened": {
+            "held": 3,
+            "violated": 0,
+            "ambiguous": 0
+          },
+          "merged_debug": {
+            "held": 3,
+            "violated": 0,
+            "ambiguous": 0
+          }
+        }
+      },
+      "comparison": {
+        "baseline_vs_shortened": "No violation or lost constraint appears in these recorded answers. Nine selection outputs match exactly; the diagnosis outputs differ while both satisfy the rubric. All three paired behavior answers preserve the tested conditions. This single observation does not establish statistical non-regression or improved real execution.",
+        "old_debug_disagreement": "The same unchanged old debug description was supplied in both catalogs. Baseline interprets explicitly invoked as including an explicit diagnosis request and selects debug. Shortened interprets it as requiring a named skill or owning workflow and selects ordinary read-only diagnosis. Both explain the restriction and avoid an unwanted issue ledger, so both are held under the rubric. This exposes ambiguity in the old description; it is not evidence that shortening other descriptions caused a regression.",
+        "merged_debug": "The final catalog selects debug for diagnosis without the previous ambiguity, and the three new decision scenarios respect diagnosis-only scope, existing repair authorization and checkpoint ownership. Those three scenarios have no corresponding old-version answers here, so no before/after gain is inferred.",
+        "questions": "Both variants ask no questions for authorized-continuation or local-helper-choice. The handoff answers list conditional questions about unapproved proposals (baseline two entries, shortened one bundled entry), not actual user interaction rounds. Merged repair/diagnosis ask none; mismatched recovery asks one necessary attribution/authorization question.",
+        "catalog_order": "The first two catalogs are alphabetically ordered; the merged catalog follows package ordering and removes two entries. Along with actor context reuse, this prevents attributing its answer solely to debug wording."
+      },
+      "findings": [
+        {
+          "id": "EVAL-1",
+          "severity": "Minor",
+          "blocking": false,
+          "path": "src/drill-eval.mjs:43",
+          "title": "Description-only scenarios bypass the existing exact-quotation check",
+          "evidence": "validateDrillScenario calls assertNoLeakage only for subject_paths. skill-selection intentionally sets subject_paths to an empty array, so catalog descriptions are not checked for being copied into task or rubric. Current recorded tasks do not expose the rubric or quote a catalog description as an answer.",
+          "recommendation": "Keep the README claim scoped to subject_paths, or add an explicit description-quotation negative case if this automatic protection is intended for selection scenarios. This is a future-scenario guard gap, not evidence of leakage in these runs."
+        }
+      ],
+      "implementation_review": {
+        "prompt_contents": "The new builder obtains the published catalog from package.json, extracts only name and description from frontmatter, and does not append skill bodies, metadata or rubric in selection-only mode. The canary test checks those exclusions. In behavior mode the specified contract bodies are deliberately supplied, while the rubric remains for the verifier.",
+        "input_leakage": "No rubric or expected-answer block appears in the recorded actor prompts. Tasks supply concrete scope and failure facts needed for a next-action judgment; this does not demonstrate unaided diagnosis or actual skill discovery.",
+        "source_identity": "The report source_hashes matched current files when inspected. Full behavior prompts preserve the older and newer contract text, rather than attributing every answer to the current tree.",
+        "current_blockers": []
+      },
+      "limitations": [
+        "One response per case, same host model family, and reuse of actor context; no independent statistical comparison or live-run baseline.",
+        "The report records supplied prompts, not complete per-actor tool events or independent telemetry proving every actual file read. Do not count those supplied files as measured progressive loading.",
+        "The initial selection entries preserve catalog and task cases rather than a full transport/dispatch transcript. Their semantic inputs are recoverable, but exact wrapper instructions and inherited context are not independently reconstructed here.",
+        "No real repository change, test run, document generation, live meeting review, or plan execution was performed by the actors in these scenarios.",
+        "Token usage and duration were unavailable. Character reduction is not token, cost or runtime improvement.",
+        "Four older pressure scenarios were validated as inputs only, not rerun against the edited agreement in this exercise.",
+        "The judge is independent from the actors but has prior knowledge of the reviewed implementation; these are transparent exploratory judgments, not a blinded benchmark."
+      ],
+      "existing_plugin_tests": {
+        "assessment": "The four separately reported plugin-suite failures are present in the supplied before-snapshot log: missing ref/codex-main files and old plan2exec/clarify/working-agreement assertions. The unchanged plugin test and current plugin wrapper were inspected. No new failure attributable to this change is established by the reported identical 2/6 outcomes; report these as existing failures, not as a passing plugin suite.",
+        "baseline_log": "/tmp/loopx-plugin-baseline.log",
+        "current_run": "Reported by the parent; not rerun by this reviewer."
+      }
+    },
+    "followup": "Clarified README: automatic quote-leakage checks cover subject_paths only; description-only scenarios require catalog/task review."
+  }
+}

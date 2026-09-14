@@ -1,9 +1,9 @@
 ---
 name: using-git-worktrees
-description: "Sets up or verifies an isolated workspace for implementation work using native worktree support first and git worktree fallback only when needed. Not for ordinary read-only tasks, existing isolated worktrees, issue-ledger fix parallel worktrees, Git branch placement, or committing workflow changes."
+description: "Prepare an isolated worktree when requested or needed for implementation (隔离工作区). Reuse existing host isolation and preserve all user changes."
 when_to_use: "using-git-worktrees, isolated workspace, git worktree, worktree setup, feature branch isolation, implementation workspace, 隔离工作区"
 metadata:
-  version: "0.1.6"
+  version: "0.1.7"
 ---
 
 # Using Git Worktrees
@@ -11,7 +11,6 @@ metadata:
 Prepare an isolated workspace when implementation needs isolation or the user
 requests it. This support skill can precede `exec` or host-native work; it does
 not execute the task or authorize commits. Read-only work needs no new worktree.
-`fix` owns its per-ledger parallel worktrees.
 
 ## Detect and reuse isolation
 

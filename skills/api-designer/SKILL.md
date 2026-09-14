@@ -1,10 +1,10 @@
 ---
 name: api-designer
-description: "Applies loopx API design discipline for REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, compatibility, and error models. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions."
+description: "Design or review REST, GraphQL, and OpenAPI contracts (接口设计), including caller needs and compatibility. Use generate-api-docs for existing HTTP API documentation."
 when_to_use: "api-designer, API design, REST, GraphQL, OpenAPI, resource modeling, pagination, versioning, API errors, compatibility, 接口设计"
 license: MIT
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/api-designer
   maintained_by: loopx
 ---

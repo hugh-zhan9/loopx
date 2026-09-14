@@ -404,12 +404,14 @@ components:
 });
 
 describe('generate-api-docs runtime dependency', () => {
-  it('reports Ruby availability and fails closed when PATH cannot resolve Ruby', () => {
+  it('reports missing Ruby as optional for OpenAPI pair validation', () => {
     assert.equal(inspectRuntimeDependencies().ruby.available, true);
     assert.deepEqual(inspectRuntimeDependencies({ ...process.env, PATH: '' }).ruby, {
       available: false,
       version: null,
       requiredBy: ['generate-api-docs'],
+      optional: true,
+      purpose: 'OpenAPI pair validation',
     });
   });
 });

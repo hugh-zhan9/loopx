@@ -1,6 +1,8 @@
 # Evidence Checklist
 
-Use this checklist for Standard and Deep codebase specs. Omit areas that do not apply, but note important absences.
+Use relevant sections when a complex module or several runtime surfaces need
+investigation. These are places to look for evidence, not required document
+chapters. Skip unrelated areas and report gaps that affect the requested scope.
 
 ## Repository Identity
 

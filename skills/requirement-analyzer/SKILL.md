@@ -1,9 +1,9 @@
 ---
 name: requirement-analyzer
-description: "Use when reviewing existing requirements, PRDs, specs, or feature briefs for ambiguity, missing business closure, state/workflow behavior, data mutations, traceability, implementation fit, feasibility, or development readiness. Not for changing workflow state, inventing business decisions, writing implementation plans, or editing code."
+description: "Review PRDs or requirements for missing business rules, contradictions, and development readiness (需求评审). Report gaps without inventing decisions."
 when_to_use: "requirement-analyzer, PRD review, requirement gaps, feasibility review, ambiguity analysis, development readiness, 需求分析, 需求缺口, 需求评审, 状态机分析, 行为模型"
 metadata:
-  version: "0.3.7"
+  version: "0.3.8"
 ---
 
 # Requirement Analyzer

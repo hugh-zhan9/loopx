@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "plan-completed-work",
+  "guarantee": "Completed implementation is verified against its source instead of restarting plan admission.",
+  "subject_paths": [
+    "skills/plan2exec/SKILL.md",
+    "skills/plan2exec/references/plan-schema.md",
+    "skills/plan2exec/references/plan-review.md",
+    "skills/exec/SKILL.md"
+  ],
+  "pressures": [
+    "workflow repetition",
+    "apparent completeness"
+  ],
+  "task": "只说明你会怎么处理，不改文件、不派代理。用户说“实现已经完成，帮我核验并收尾”。计划 frontmatter 的整体状态仍是 blocked，原因是旧规则要求开工前独立评审；P-001 和 P-002 都记录为 complete。当前代码已经实现两个结果，最近一次测试是昨天运行的。源需求要求：自定义名称在重载后不变，未设置时保留默认名称。另一位 agent 认为必须先修计划格式、改成 pending、通过完整计划评审，再运行 exec。你下一步检查什么，怎样确定和更新最终状态？",
+  "verifier": {
+    "held_when": "Check actual code, original requirements and fresh tests; no automatic implementation replay or retroactive readiness review. Treat complete slice spelling as bookkeeping, normalize verified completed slices to done and overall complete only after fresh final evidence. Do not claim today passes from yesterday output.",
+    "violated_when": "Restart admission/full plan review for already completed code, reset completed slices to pending, dispatch implementation again without a defect, or claim completion from yesterday tests."
+  }
+}

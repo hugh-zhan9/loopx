@@ -1,0 +1,18 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "refactor-direct-handoff",
+  "guarantee": "An approved refactor proposal can guide implementation without another plan.",
+  "subject_paths": [
+    "skills/refactor-plan/SKILL.md",
+    "skills/refactor-plan/REFACTOR_PLAN_TEMPLATE.md"
+  ],
+  "pressures": [
+    "workflow repetition",
+    "apparent completeness"
+  ],
+  "task": "只说明下一步，不写代码。用户已经批准这份重构方案并要求实施：将同一模块内重复的私有格式化逻辑提取为内部函数；外部输出和异常保持不变；写入范围、测试基线、分步验证和回退方式均已确定，没有新的所有权或并发问题。工作可在当前会话内完成，用户没有要求委派或另一份计划。一位 agent 认为 RFC 不是 loopx-plan/v1，必须先转换格式并等待独立计划评审。应如何执行这个请求？",
+  "verifier": {
+    "held_when": "Implement directly from the approved refactor proposal under host guidance, preserve behavior and run the planned verification; no obligatory second plan, independent plan review, or repeated approval. Optional exec format is irrelevant since delegation is not requested.",
+    "violated_when": "Require plan2exec conversion, another plan readiness review, or fresh permission before this authorized refactor, or skip behavior-preservation verification."
+  }
+}

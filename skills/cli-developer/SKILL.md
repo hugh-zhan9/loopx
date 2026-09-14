@@ -1,10 +1,10 @@
 ---
 name: cli-developer
-description: "Applies loopx CLI design discipline for commands, flags, human and JSON output, errors, interactivity, help text, shell behavior, and cross-platform UX. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions."
+description: "Design, implement, or review CLI commands, flags, output, and non-interactive behavior (命令行设计). Preserve existing scripts and callers."
 when_to_use: "cli-developer, CLI, command design, flags, JSON output, stdout stderr, interactive prompt, help text, shell completion, 命令行"
 license: MIT
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/cli-developer
   maintained_by: loopx
 ---

@@ -1,141 +1,47 @@
-# Codebase Spec Template
+# Write current-state documentation
 
-Use applicable sections at the requested depth unless the user provides another
-format. Overview output needs only the summary, scope, main surfaces, and gaps.
-Standard/Deep output preserves all material evidence areas; label missing evidence
-`Unknown` with the inspected scope. Omit irrelevant sections rather than filling
-a complete template for a small request.
+Organize the document around the requested system, module or interface. Follow an
+existing useful structure when updating it; a new document needs no fixed chapter
+count or numbering. Do not copy this reference as a form with empty sections.
+
+For a small module, a useful document often contains:
 
 ```markdown
-# <Project Or Module> Codebase Spec
+# <Module or interface>
 
-Generated from repository evidence on YYYY-MM-DD.
+<What it does and the callers it serves. State the inspected version and scope.>
 
-## Provenance
+## Current behavior
+<Inputs, observable outputs, important rules, errors and boundaries.>
 
-- Inspected commit/hash:
-- Generation timestamp:
-- Commands and tools used:
-- Sampling coverage and known omissions:
-- Secret-redaction rule applied:
+## Relevant implementation
+<Owners, entry points and dependencies that explain the behavior, with source links.>
 
-## 1. Executive Summary
-
-### 1.1 Current Purpose
-
-### 1.2 Primary Users Or Callers
-
-### 1.3 Key Capabilities
-
-### 1.4 Evidence Confidence
-
-| Area | Confidence | Notes |
-|---|---|---|
-
-## 2. Scope
-
-### 2.1 Included
-
-### 2.2 Excluded
-
-### 2.3 Evidence Sources
-
-| Source | Role |
-|---|---|
-
-## 3. Repository Map
-
-### 3.1 Top-Level Structure
-
-### 3.2 Canonical Sources And Generated Artifacts
-
-### 3.3 Ownership And Module Boundaries
-
-## 4. Runtime Surfaces
-
-### 4.1 CLI Surface
-
-| Command | Purpose | Inputs | Outputs | Evidence |
-|---|---|---|---|---|
-
-### 4.2 API Surface
-
-### 4.3 Library Or Package Surface
-
-### 4.4 Hooks, Jobs, And Plugin Surfaces
-
-## 5. Core Behavior
-
-### 5.1 Main Workflows
-
-### 5.2 State Machines
-
-| State | Meaning | Valid Next States | Evidence |
-|---|---|---|---|
-
-### 5.3 Validation Gates And Invariants
-
-### 5.4 Error Handling And Diagnostics
-
-### 5.5 Idempotency, Concurrency, And Recovery
-
-## 6. Data Model And Persistence
-
-### 6.1 Persisted Files Or Tables
-
-### 6.2 Schemas And Serialized Formats
-
-### 6.3 Migration And Compatibility Behavior
-
-## 7. Configuration
-
-| Name | Required | Default | Effect | Evidence |
-|---|---:|---|---|---|
-
-## 8. External Dependencies
-
-| Dependency | Purpose | Failure Impact | Evidence |
-|---|---|---|---|
-
-## 9. Security, Privacy, And Safety
-
-### 9.1 Trust Boundaries
-
-### 9.2 Secret Handling
-
-### 9.3 Destructive Operation Controls
-
-### 9.4 User Data And Local State
-
-## 10. Testing And Verification
-
-### 10.1 Test Strategy
-
-### 10.2 Behavior Proven By Tests
-
-### 10.3 Important Untested Areas
-
-## 11. Operations
-
-### 11.1 Build, Test, And Release
-
-### 11.2 Install, Uninstall, And Repair
-
-### 11.3 Observability And Troubleshooting
-
-## 12. Contradictions And Gaps
-
-| Type | Summary | Evidence | Impact |
-|---|---|---|---|
-
-## 13. Rebuild Notes
-
-Describe the minimum behavior, contracts, data, and operational requirements a replacement implementation would need to preserve. Do not include a task plan.
-
-## Appendix A. Evidence Index
-
-| Claim Area | Representative Evidence |
-|---|---|
-
-## Appendix B. Glossary
+## Verification and gaps
+<Checks actually run, what they establish, and unresolved source conflicts or unknowns.>
 ```
+
+Adapt or omit those headings. Keep evidence beside the claim when practical rather
+than maintaining a second full explanation in an appendix. Distinguish observation,
+inference and unknowns in ordinary prose; confidence scores are not required.
+
+Expand only the areas needed to explain the requested subject:
+
+- Public CLI/API/library contracts: exact commands or routes, fields, defaults,
+  validation, permissions and failure behavior.
+- Stateful behavior: persisted data, transitions, concurrency, idempotency,
+  recovery and compatibility rules actually implemented.
+- Configuration and operations: relevant defaults, dependencies, install/deploy
+  behavior and the effects of failures.
+- Architecture: actual owners, dependencies and canonical/generated sources.
+
+A whole-repository request needs an overview of its major surfaces and their
+relationships; state any sampled or inaccessible areas. A reconstruction or
+migration brief also needs the behavior a replacement must preserve, when requested.
+None of these topics requires a separate chapter if it fits clearly in the main text.
+
+Identify the inspected commit and relevant uncommitted state, when available,
+and the evidence date and scope. Link significant claims to files, symbols, tests
+or configuration. A test file proves neither that it passed nor that production
+matches it. State actual checks, important unknowns and contradictions without
+silently rewriting approved requirements to match current code. Redact secrets.

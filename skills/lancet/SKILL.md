@@ -1,14 +1,14 @@
 ---
 name: lancet
-description: "Applies loopx implementation-layer minimization discipline for over-engineering, reuse checks, stdlib and native alternatives, and smallest-correct-diff review. Not for replacing clarify, spec, workflow planning, or creating a new workflow state."
+description: "Simplify an implementation or review unnecessary code, abstractions, and dependencies (精简实现、过度设计). Keep required behavior and existing ownership."
 when_to_use: "lancet, over-engineering, YAGNI, unnecessary dependency, simplest diff, implementation minimization, review minimization, Codex implementation discipline"
 metadata:
-  version: "0.1.5"
+  version: "0.1.6"
 ---
 
 # Lancet
 
-`lancet` is a support lens, not a workflow state. Apply it inside `exec`, `fix`,
+`lancet` is a support lens, not a workflow state. Apply it inside `exec`, `debug`,
 host-native implementation, or review when choosing implementation details.
 Product, API, schema, and architecture decisions remain with their source owners.
 

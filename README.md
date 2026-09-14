@@ -32,9 +32,10 @@ The three canonical workflow intents produce documents:
 - `exec` optionally executes one ready plan through leaf subagents while the
   top-level model owns review, sequential integration, conflicts, and verification.
 
-Issue-driven workflows remain available: `$issue` diagnoses a bug-class report
-and writes a local ledger; `$fix` executes a ledger marked `ready_for_fix`.
-Support skills such as `tdd`, `debug`, `verify`, `plan-reviewer`,
+`debug` diagnoses failures and completes repairs when requested. It replaces
+`issue` and `fix`, without creating a ledger by default. Existing ledgers remain
+readable, with their approved scope and recovery checks preserved.
+Support skills such as `tdd`, `debug`,
 `api-designer`, `generate-api-docs`, `architecture-designer`, `sql-style`,
 `cli-developer`, `lancet`, and `prompt-lint` remain lenses, not workflow
 states. `prompt-lint` assesses task-definition quality without executing the

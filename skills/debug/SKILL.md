@@ -1,61 +1,87 @@
 ---
 name: debug
-description: "Applies root-cause diagnosis when explicitly invoked or activated by an issue or implementation workflow for a bug, failing test, build failure, regression, or unexpected behavior. Not for automatic routing of ordinary prompt-first defects, new feature planning, routine code review, or unauthorized fixes."
-when_to_use: "explicit debug invocation, issue workflow diagnosis, owning implementation workflow requests root-cause investigation, regression or failure diagnosis, 根因排查"
+description: "Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification."
+when_to_use: "debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复"
 metadata:
-  version: "0.3.7"
+  version: "0.4.0"
 ---
 
 # Debug
 
-Investigate a reported failure when explicitly invoked or activated by `issue`
-or an owning implementation workflow. A diagnosis-only request stops at the
-findings; it does not authorize a lasting fix.
+Find why existing behavior fails. When the user asks for a repair, continue
+through the supported change and verification. A diagnosis-only request ends
+with findings. A supplied report or ledger is evidence, not repair permission.
+Honor authorization already given for the same task and scope.
 
-## Investigation
+Do not create an issue ledger by default. Use the conversation or requested
+output to record findings. For a supplied `.loopx/issues/*.md` ledger, read
+[existing-ledgers.md](references/existing-ledgers.md) before changing code or
+updating its execution records. Preserve its scope and recovery evidence.
 
-1. Establish expected versus observed behavior from the report, contract, or
-   existing tests. Read the full relevant error and identify the failing version,
-   environment, and recent changes.
-2. Reproduce the failure with the smallest useful case. If it is intermittent or
-   unavailable locally, record attempted steps and collect equivalent code or
-   log evidence without presenting inference as reproduction.
-3. Trace the failing value or operation to its source. Compare a relevant working
-   path; for multi-component failures, inspect inputs and outputs at boundaries.
-4. State a specific causal hypothesis and test it with the smallest discriminating
-   check. Change one variable at a time; record what each result rules out.
-5. Record the cause, confidence, remaining gaps, and proposed repair scope. Failed
-   attempts are new evidence: reconsider the hypothesis, test setup, and coupling.
+## Investigate
+
+1. Establish expected and observed behavior from the report, contract, tests or
+   a comparable working path. Identify the failing version, environment and
+   recent changes. A request for new behavior is a feature request; handle clear
+   work directly and use `clarify` only for a material missing decision.
+2. Reproduce with the smallest useful case. If reproduction is intermittent or
+   unavailable, record attempted steps and collect code or log evidence. Do not
+   present an inference as an observed failure.
+3. Trace the failing operation or value to its source. Compare a working path;
+   inspect inputs and outputs where the failure crosses components.
+4. State a causal hypothesis and test it with a check that distinguishes it from
+   alternatives. Change one variable at a time. Record what the result proves
+   and what remains unknown; do not invent a rejected hypothesis.
+5. Explain the cause, confidence, evidence gaps and proposed repair scope. When
+   a check fails, use the new evidence to reconsider the cause and test setup.
    An arbitrary number of failures does not prove the architecture is wrong.
 
-Use [four-phases.md](references/four-phases.md) for boundary tracing and diagnostic
-instrumentation. Prefer read-only evidence. Temporary edits must be attributable,
-respect the owning workflow's worktree rules, and never overwrite user changes.
-Do not print secrets or leave diagnostic patches unrecorded.
+Use [four-phases.md](references/four-phases.md) when tracing boundaries or adding
+instrumentation. Prefer read-only evidence. Before temporary edits, record the
+worktree baseline and keep your diagnostic changes distinguishable from user
+work. Never overwrite unrelated changes or print secrets. Remove only your own
+instrumentation, or explicitly retain it as part of the authorized repair.
 
-## Diagnosis contract
+## Repair when requested
 
-Use [diagnosis-contract.md](references/diagnosis-contract.md) for direct diagnosis
-and `issue`/`fix` handoffs. It owns the structured fields and their meanings,
-including `root_cause_status`, `hypotheses_rejected`, evidence, and test exceptions.
-Use `unknown` or an empty list when evidence is missing; never invent a rejected
-hypothesis to satisfy a downstream readiness gate.
+- Confirm that the evidence supports the change and that expected behavior is
+  settled. Continue an already authorized repair without another handoff. Stop
+  affected edits for unresolved behavior, scope or permissions; use `spec` when
+  the repair needs a new public contract or architecture decision.
+- Capture the original failure in a regression test or another repeatable check.
+  Explain a test exception and its alternative evidence. Use `tdd` when requested
+  or required by the owning workflow.
+- Make the smallest supported repair. Apply `lancet`: prefer deletion, existing
+  code or standard-library capabilities before adding code or dependencies.
+  Do not add retries, fallbacks, timeouts, monitoring or extra validation unless
+  the task names that behavior. An uncertain cause is not permission to add it.
+- Default to serial work. Parallel workers that edit code need isolated
+  workspaces, non-overlapping ownership and leaf assignments. Otherwise they
+  produce patches or reports only. Integrate one result at a time and check the
+  combined behavior; never have multiple workers edit the main checkout.
+- Run affected checks and repository-required checks against the final change.
+  Review the actual diff for scope, boundary changes and unnecessary additions.
+  Request an independent review for an explicit review request, security,
+  destructive behavior, public compatibility, cross-task interaction or a
+  reconciled conflict. Resolve Critical or Important findings, verify the result
+  and obtain an independent re-review before completion.
 
-## Repair handoff
+## Report
 
-When a fix is already authorized, continue through the owning implementation
-workflow with a regression check and the smallest supported repair. Use `tdd`
-when that workflow requires test-first evidence; use `verify` when it requests an
-evidence audit. A direct fix request does not require creating an issue ledger.
-When `issue` owns the work, its readiness and `fix` handoff contract still apply.
+For diagnosis, give the cause or current hypothesis, supporting evidence,
+remaining gaps and recommended next step. Use
+[diagnosis-contract.md](references/diagnosis-contract.md) when a structured
+summary or existing ledger needs fields such as `root_cause_status` and
+`hypotheses_rejected`; an empty rejection list is valid.
 
-A retry, fallback, timeout, extra validation layer, or monitoring change needs a
-named scenario and expected behavior in the authorized task. An uncertain cause
-does not authorize defensive behavior. Report an unsupported option as a finding
-and identify any owner decision that blocks a safe repair.
+For repair, report what changed, why it fixes the failure, the checks actually
+run and any remaining limitation. Apply the
+[completion check](../shared/completion-check.md) before claiming completion.
+A failed check is work to investigate, not permission to claim success. Do not
+commit, push or close an external issue unless the user explicitly requests it.
 
 ## Focused techniques
 
-- [root-cause-tracing.md](root-cause-tracing.md): trace a deep failure back to the triggering input.
-- [defense-in-depth.md](defense-in-depth.md): place checks for an already required invariant; do not add every layer by default.
-- [condition-based-waiting.md](condition-based-waiting.md): investigate asynchronous tests; preserve required deadlines and bounded waits.
+- [root-cause-tracing.md](root-cause-tracing.md): trace a deep failure to its input.
+- [defense-in-depth.md](defense-in-depth.md): place checks for an already required invariant.
+- [condition-based-waiting.md](condition-based-waiting.md): diagnose asynchronous tests while preserving required deadlines and bounded waits.

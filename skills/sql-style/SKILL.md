@@ -1,10 +1,10 @@
 ---
 name: sql-style
-description: "Applies loopx SQL and database-change discipline for queries, schemas, indexes, migrations, dialects, and performance-sensitive data access. Not for replacing clarify, spec, implementation planning, code review, or workflow state transitions."
+description: "Design or review SQL, schemas, migrations, indexes, and query performance (SQL 优化、数据库设计). Check the actual dialect and data contract."
 when_to_use: "sql-style, SQL, database schema, migration, index, query optimization, EXPLAIN, PostgreSQL, MySQL, SQLite, 数据库, 索引"
 license: MIT
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/sql-pro
   maintained_by: loopx
 ---

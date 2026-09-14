@@ -29,7 +29,11 @@ async function validateDrillScenario(scenario, path, repoRoot) {
   for (const field of ['id', 'guarantee', 'task']) {
     if (typeof scenario[field] !== 'string' || scenario[field].length < 10) fail(field);
   }
-  if (!Array.isArray(scenario.subject_paths) || scenario.subject_paths.length === 0) fail('subject_paths');
+  if (scenario.skill_descriptions !== undefined && typeof scenario.skill_descriptions !== 'boolean') {
+    fail('skill_descriptions');
+  }
+  if (!Array.isArray(scenario.subject_paths)
+    || (scenario.subject_paths.length === 0 && !scenario.skill_descriptions)) fail('subject_paths');
   if (!Array.isArray(scenario.pressures) || scenario.pressures.length < 2) fail('pressures_need_combination');
   if (typeof scenario.verifier?.held_when !== 'string' || typeof scenario.verifier?.violated_when !== 'string') {
     fail('verifier_rubric');
@@ -57,8 +61,23 @@ export async function buildDrillAgentPrompt(scenario, repoRoot) {
     const text = await readFile(join(repoRoot, subjectPath), 'utf8');
     return `--- CONTRACT (${subjectPath}) ---\n${text}`;
   }));
+  if (scenario.skill_descriptions) {
+    const pkg = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
+    const paths = pkg.files.filter((path) => /^skills\/[a-z0-9-]+\/$/.test(path) && path !== 'skills/shared/');
+    const descriptions = await Promise.all(paths.map(async (path) => {
+      const text = await readFile(join(repoRoot, path, 'SKILL.md'), 'utf8');
+      const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+      const name = frontmatter?.match(/^name: .+$/m)?.[0];
+      const description = frontmatter?.match(/^description: .+$/m)?.[0];
+      if (!name || !description) throw new Error(`drill_skill_metadata_missing:${path}`);
+      return `${name}\n${description}`;
+    }));
+    contracts.push(`--- AVAILABLE SKILLS (names and descriptions only) ---\n${descriptions.join('\n\n')}`);
+  }
   return [
-    'You are operating under the following installed contract. It is binding for this task.',
+    scenario.subject_paths.length > 0
+      ? 'You are operating under the following installed contract. It is binding for this task.'
+      : 'Use the available skill descriptions to answer the task. A task may need no skill.',
     '',
     contracts.join('\n\n'),
     '',

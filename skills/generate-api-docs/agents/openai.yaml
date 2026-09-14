@@ -1,4 +1,4 @@
 interface:
   display_name: "生成 API 文档"
-  short_description: "从任意代码库生成 Markdown 与 Apifox OpenAPI YAML"
-  default_prompt: "Use $generate-api-docs to inspect this repository and generate synchronized Markdown API documentation and an Apifox-importable OpenAPI YAML file."
+  short_description: "按业务场景独立编写接口文档，保留用途、参数与出入参字段说明"
+  default_prompt: "Use $generate-api-docs to inspect this repository and generate concise Markdown API documentation for each business scenario independently, repeating each call with its own parameters, full field descriptions, and examples captured from actual test calls; include OpenAPI YAML only if I explicitly request it, and stop if any requested scenario cannot be tested."

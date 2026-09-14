@@ -1,9 +1,9 @@
 ---
 name: tdd
-description: "Applies failing-test-first and red-green-refactor discipline when explicitly invoked or activated by an owning implementation workflow. Not for automatic routing of ordinary prompt-first work, generated files, throwaway prototypes, or deleting existing user-owned implementation to recreate a red phase."
+description: "Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test."
 when_to_use: "explicit TDD invocation, owning workflow requests failing-test-first discipline, red green refactor, characterization or regression evidence, 测试先行"
 metadata:
-  version: "0.3.6"
+  version: "0.3.7"
 ---
 
 # Test-Driven Development

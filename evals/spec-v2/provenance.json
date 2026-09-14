@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-07",
+  "comparison": "One controlled fixture, independently generated baseline, intermediate and final candidate; informed reader comparison; no population-level claim",
+  "model_settings": "Parent-inherited; no model/settings override. Exact runtime model version, seed and sampling parameters not exposed in tool receipts.",
+  "runs": [
+    {
+      "id": "baseline",
+      "skill": "spec 0.4.7",
+      "original_directory": "/tmp/loopx-spec-baseline-xJrXVI",
+      "collected_directory": "results/baseline"
+    },
+    {
+      "id": "candidate-intermediate",
+      "skill": "spec-v2 0.2.0 before adaptable templates",
+      "original_directory": "/tmp/loopx-spec-candidate-hddnar_g",
+      "collected_directory": "results/candidate-intermediate"
+    },
+    {
+      "id": "candidate-final",
+      "skill": "spec-v2 0.2.0 adaptable templates",
+      "original_directory": "/tmp/loopx-spec-flexible-ekxlgwy1",
+      "collected_directory": "results/candidate",
+      "revision": "After generation, author preserved exact source event identifiers in overview after reviewer feedback; this is a revised sample. Two final skill review fixes affect proposal alternatives and sources without TC IDs, paths not exercised by this RPC fixture."
+    },
+    {
+      "id": "boundary-trials",
+      "original_directory": "/tmp/loopx-spec-boundaries-gmw7gfn9",
+      "collected_directory": "results/boundaries",
+      "scope": "Before final template relaxation; compact record rerun after entrypoint correction"
+    }
+  ],
+  "fixture_sha256": "c3b93794d44c459c9051c35644a659e06795a9f6d627bae3d5a64fef8ab496f5",
+  "current_skill_resource_sha256": {
+    "skills/spec/DESIGN_SPEC_TEMPLATE.md": "6303db08a5b9b2036be2f58746bd195385484833ba27c33674d58e56ea74d81a",
+    "skills/spec/SKILL.md": "13f4e336971e726ccd070816e61c353d8218dc6a41ad9232b995a728f8ec55d0",
+    "skills/spec/references/design-proposal.md": "f2103c827947e5b45002103fa55392b241b03ec5a6c2d91e8d16fd899e8818ee",
+    "skills/spec-v2/DESIGN_SPEC_TEMPLATE.md": "051358d0e0c8a8c8ac23830f5441e34f94b2962d47995e1539d44e23ed901957",
+    "skills/spec-v2/REVIEW_BRIEF_TEMPLATE.md": "b78c973357595848a29c695725dcd13fa9e8d6aae90884e2c771aa4e3775ebbf",
+    "skills/spec-v2/SKILL.md": "b4e9f455eb16ae139c1692c89259920c5183793e7497d1a2f91b2c1cd990f36e",
+    "skills/spec-v2/references/design-diagrams.md": "54e0c9d70e2a74b8b801e9a86685c6011f1f14c8201dc17d2daf6f77fc3c33ff",
+    "skills/spec-v2/references/design-proposal.md": "799840865f37c134a223a807617522488080f207beeaf5a72b67d7b01d67884f",
+    "skills/spec-v2/references/design-quality.md": "2584612d62be64d842d046786a68720b7e674ff0f750ac311b2b5c288bc398bc",
+    "skills/shared/architecture-conformance.md": "5e0ea906fffe402bd14c519e6e7d63870196e53598781127c6e62e54f316aa33",
+    "skills/shared/completion-check.md": "7ac01306f3ab7f6bc89e389cae336139f37b5419c40fe9482cb55302a9b6f876",
+    "skills/shared/database-concurrency.md": "6b96b7f67366d26f3962563f8f4a107aa6e156bdb692b3541edefd4ba5757ce4",
+    "skills/shared/evidence-contract.md": "c8d019b6c519b7b1639b8a17d61d402ada2bc898ede80024d739983a00309cdd",
+    "skills/design-review/REVIEW_BRIEF_TEMPLATE.md": "da2acf72e4df0818c15dc28a609d642a9e37a48708f6477e6d62de27eaa8d426",
+    "skills/design-review/SKILL.md": "5af97fd06b8218fa989877a11ba9393606aa9439a0730e6134ab3739eb68d7ea"
+  },
+  "artifact_sha256": {
+    "evals/spec-v2/results/baseline/CHECKS.md": "bedeacd823cb85bde2e94f45cb30c18db2a7e50d2edd458ac2ea8ef9bca1e31c",
+    "evals/spec-v2/results/baseline/check_documents.py": "306b1a396fe8dca7c12cab6944920a5ccd3d7879bcbee77ef80c3bd057009762",
+    "evals/spec-v2/results/baseline/document-check-results.json": "5c7ef42b2fb6c99ddc0ecccf3a6cee2c9663ef462bb78c10d5d2568d0cc4b52b",
+    "evals/spec-v2/results/baseline/source.md": "c3b93794d44c459c9051c35644a659e06795a9f6d627bae3d5a64fef8ab496f5",
+    "evals/spec-v2/results/baseline/概要设计.md": "93d8c7009767a1034d4bc0dfe4ae416efa11a7c2a7ad0cca8461690580940d3e",
+    "evals/spec-v2/results/baseline/需求设计文档.md": "da1e6f4994cec7b7fb050c307c97cd6b405e8c141a1f742f3560fb456f15823b",
+    "evals/spec-v2/results/boundaries/case-1-display-label/before/source.md": "2a5e850484dd8802ec928f9fcae146e41d5ae364b6e2fe7a604342ee47d77802",
+    "evals/spec-v2/results/boundaries/case-1-display-label/before/需求设计文档.md": "88fb51a38c61c0c6e9b26c846f5db62ecbf525614e0abcb5bc1f9d0463ed7c06",
+    "evals/spec-v2/results/boundaries/case-1-display-label/rerun-validation.json": "e41f3e30bf869c1bb59b3bebe2c97e0b7a0c35ba3122bd9037084ee2b54e0314",
+    "evals/spec-v2/results/boundaries/case-1-display-label/决策记录.md": "d227b286aa6290ac2f22458ca3c76c0de6dbd95512f6e388a6ba5d5c2b4b91d0",
+    "evals/spec-v2/results/boundaries/case-2-reconcile-fragments/source.md": "f32103f865f23e41a79e8df63a9317b9f6216d4b74805b8336154a07109cde28",
+    "evals/spec-v2/results/boundaries/case-2-reconcile-fragments/设计提案.md": "9fa8cbde1be1e0ac3d769611902ad6440fb9b696c7a1e907b67951c5c32dc065",
+    "evals/spec-v2/results/boundaries/validation.txt": "0f77e9550bccd52c4e2437014a0a54f7aa5cff74e7356acc8b54339748911edb",
+    "evals/spec-v2/results/candidate/source.md": "c3b93794d44c459c9051c35644a659e06795a9f6d627bae3d5a64fef8ab496f5",
+    "evals/spec-v2/results/candidate/概要设计.md": "efb5a6c5e27a86340fdffbc70b24b675d424c30996e4891846115353bd12d6ad",
+    "evals/spec-v2/results/candidate/需求设计文档.md": "38185155cc77e319d199ce274df8cb14b38197baae115acbbfa5f701df9ab384",
+    "evals/spec-v2/results/candidate-intermediate/source.md": "c3b93794d44c459c9051c35644a659e06795a9f6d627bae3d5a64fef8ab496f5",
+    "evals/spec-v2/results/candidate-intermediate/概要设计.md": "35ec30be2178f5041ffdeaac41bc797c75623f24debf33959dfde649c7ecc699",
+    "evals/spec-v2/results/candidate-intermediate/需求设计文档.md": "06fb8b97e4a8257631de6e27491acd9f2dc8a7b3b1b9e18365b66f2988fcc416",
+    "evals/spec-v2/results/final-reader-review.md": "4413f63d90d5de972bdf190e18f126952a9f43431359e40f44169f23523711f0",
+    "evals/spec-v2/results/intermediate-reader-review.md": "fc0c1c592ba3f9b3e08903326acee7d80803f111e94922e9cfb1b7a4db6fa51c",
+    "evals/spec-v2/results/skill-review.md": "f5528b8869831b89442d05eb511d8093367c469ff263cee6f6258f525aac35b2"
+  },
+  "verification": {
+    "baseline_repository_tests": 116,
+    "final_repository_tests": 117,
+    "failed": 0,
+    "bundled_skill_validator": 28,
+    "trial_skill_validator": "passed",
+    "rendering": "not performed",
+    "implementation_tests": "not performed; fixture prohibits implementation"
+  }
+}

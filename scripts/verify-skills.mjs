@@ -121,7 +121,8 @@ function assertSkillDescription(skillName, description) {
   assert.ok(description, `${skillName} missing description`);
   assert.ok(description.length >= 40, `${skillName} description is too short`);
   assert.ok(description.length <= 500, `${skillName} description is too long`);
-  assert.match(description, /not for/i, `${skillName} description must include a Not for exclusion`);
+  // Trigger quality is checked with realistic requests in evals/drills.
+  // A required phrase cannot establish whether the model selects this skill.
 }
 
 async function assertMarkdownStructure(relativePath) {

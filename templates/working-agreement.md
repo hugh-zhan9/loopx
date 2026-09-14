@@ -1,79 +1,99 @@
 # Engineering Working Agreement
 
-You are working in a repository that uses loopx. Follow this discipline for
-every task.
+Use the repository's existing code and contracts to complete the requested work.
+Keep changes and verification proportional to their effect.
 
-## Before changing anything
+## Before changing code
 
-- Read the task twice. Restate the goal and the smallest change that satisfies it.
-- Read the code you are about to change and every caller that depends on it.
+- Establish the requested outcome and protected behavior. Read the affected code,
+  callers and tests; widen the search when a shared or public contract changes.
 - For brownfield work, identify the owning module, applicable architecture rules,
   and the closest existing extension or reuse points before adding a new path.
-- Run the existing test suite first so you know the baseline is green.
-- If intent, scope, acceptance, permissions, or a destructive choice is
-  materially ambiguous, run the `clarify` skill before mutation instead of
-  guessing.
+- Run relevant baseline checks before changing behavior. Record existing failures
+  separately; do not assume the baseline is green or fix unrelated failures.
+- Resolve discoverable facts from the repository. Use `clarify` only when missing
+  intent, scope, acceptance, permission or a destructive choice could materially
+  change the result.
 
 ## While changing
 
-- Make the smallest correct change. Do not restructure code the task does not
-  require.
-- Preserve module ownership and dependency direction. Do not create a parallel
-  service, store, workflow, source of truth, or cross-boundary helper that changes
-  ownership, dependencies, shared state, or fault boundaries unless an approved
-  design records the reason before mutation.
-- If a change needs a new architecture decision — such as a new service, store,
-  workflow, source of truth, cross-module dependency, state owner, dependency
-  direction, or fault boundary — stop before mutation and use `spec`; do not
-  justify it after coding. A local module or helper that follows an established
-  owner, extension point, dependency direction, and boundary remains an
-  implementation choice; record the evidence and continue prompt-first.
-- Keep shared state and failures inside the established boundary, and leave a
-  clear test, diagnostic, ownership, and removal path. Do not introduce a generic
-  abstraction for hypothetical reuse.
-- Check boundary conditions explicitly: empty input, single element, off-by-one
-  at loop limits, partial final batches.
-- When two changes touch the same shared file or shared state, integrate them
-  sequentially and re-read the merged result; never let one edit overwrite
-  another.
-- When you parallelize with subagents, give each an independent assignment and
-  integrate results one at a time; a subagent completes its own assignment and
-  never spawns helpers of its own.
-- Keep public APIs and observable behavior stable unless the task explicitly
-  asks to change them.
-- Never add fallback, retry, degraded-mode, or compatibility-shim behavior that
-  no requirement names; fail fast instead.
+- Make the smallest correct change. Preserve unrelated work and existing public
+  behavior unless the request changes it.
+- Keep responsibilities, dependency direction, shared state and failures within
+  their established modules. Reuse existing capabilities before adding another.
+- If a new service, store, workflow, source of truth or cross-module dependency
+  changes ownership, state or failure boundaries, stop before mutation and use
+  `spec`; do not justify it after coding. An approved design records the reason
+  before mutation. A local module or helper that follows existing boundaries
+  remains an implementation choice; continue prompt-first.
+- Check relevant empty, single-item, limit and partial-batch cases. Keep a clear
+  way to test, diagnose and later change or remove the affected behavior.
+- Integrate changes to the same file or shared state sequentially and inspect the
+  combined result. Do not overwrite another worker's changes.
+- Give subagents independent assignments. Each is a leaf worker and must not
+  spawn helpers. Review and integrate their results one at a time.
+- Do not add fallback, retry, degraded-mode or compatibility-shim behavior unless
+  a requirement names the scenario and expected behavior. Preserve existing
+  required error behavior.
 
-## Verification and review
+## Verification and completion
 
-- Run the repository test suite after your change and fix what you broke.
-- Add a test that would have caught the defect or that pins the new behavior.
-- Review the final diff for unjustified duplication, boundary violations, widened
-  failure blast radius, and avoidable maintenance burden.
-- Only claim completion from fresh command output, never from memory.
-- For security-sensitive, destructive, or public-compatibility changes, have an
-  independent subagent review the exact diff before you conclude. Reviewers
-  only report findings; a review prompt never pre-judges severity or restricts
-  what may be reported; Critical or Important findings are fixed and freshly
-  re-verified before completion.
+- Test the changed behavior and affected callers. Add a regression test for a
+  defect or new behavior where practical; use an appropriate repeatable check
+  for documents, configuration or generated output.
+- Run the full test suite when repository instructions require it, when shared
+  behavior changes, or when focused checks cannot establish the affected scope.
+  Run required formatting, lint and build checks. Rerun affected checks after edits.
+- Review the final diff for unjustified duplication, boundary violations, wider
+  failure impact and avoidable maintenance work.
+- Only claim completion from fresh command output for the final state. State
+  unverified scope and existing failures. A new message alone does not invalidate
+  evidence when code, inputs and environment have not changed.
+- Check command completion, exit status and tested scope. A focused test does not
+  prove the full suite passes, and a worker's report does not prove its integrated
+  changes work. Use the installed `shared/evidence-contract.md` for a requested
+  evidence audit or durable handoff; ordinary verification needs no extra document.
+- Do not weaken checks or discard user changes to obtain passing evidence. Once
+  applicable checks pass, repeat or broaden them only for changed state, uncovered
+  requirements, failures or a repository requirement.
+- For security-sensitive, destructive or public-compatibility changes, have an
+  independent subagent review the exact diff. Reviewers report findings without
+  editing or receiving a preferred verdict. Fix Critical or Important findings,
+  then verify and independently review the changes again.
+- Continue authorized work through implementation, verification and corrections.
+  Do not stop at a first draft or ask again for routine steps already authorized.
 
-## When to stop and ask
+## When a decision is missing
 
-- If the task requires a decision that is not specified — especially anything
-  that can break compatibility for existing consumers (public formats, schemas,
-  APIs) — do not guess and do not write code. Stop, state the unresolved
-  decision, and ask for an explicit ruling before making any repository change.
-- Record durable product, data, security, or architecture rulings with the
-  `spec` skill so later work inherits them.
+- Stop the affected work when intent, scope, permissions, compatibility, data or
+  ownership has a material unresolved choice. Explain the concrete decision;
+  do not guess and do not write code that depends on it. Continue independent
+  work already authorized. Local implementation details remain yours to choose.
+- Record durable product, data, security or architecture rulings through `spec`.
+  Keep already accepted decisions settled.
 
 ## Git
 
 - Never commit, push, merge, or discard work unless the user explicitly asks.
-- Before any destructive Git action, confirm the exact target.
+- Before any destructive Git action, confirm the exact target. Existing
+  authorization for that target remains valid.
 
 ## Larger work
 
-- For work that must survive interruption or coordinate several owners, write
-  one plan document with the `plan2exec` skill, then execute it slice by slice,
-  directly or through an explicitly selected `$exec`, verifying each slice before
-  starting its dependents.
+- When work needs a durable plan for approval, interruption recovery or several
+  owners, use `plan2exec`. Execute its verified slices directly or through an
+  explicitly selected `$exec`. Ordinary bounded tasks need no plan document.
+
+## Requirements and plans
+
+- Read the original approved requirements before implementation and final checks,
+  even when a design or plan exists. Compare expected behavior, not just IDs.
+- Do not weaken or defer required acceptance without explicit authorization.
+- Use a persistent plan only when requested or needed for approval, recovery, or
+  coordination. An accepted design or refactor proposal can guide work directly.
+- Plan review is required only for an explicit request or a concrete risk in
+  destructive changes, public compatibility, security, migration ordering, or
+  shared-resource coordination. Fix ordinary formatting directly. Recheck fixes
+  and affected content; do not restart full review for local implementation details.
+- If implementation is complete, check its results against the source and fresh
+  evidence. Do not send it back through pre-implementation plan review.

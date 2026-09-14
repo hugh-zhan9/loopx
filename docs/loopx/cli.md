@@ -72,6 +72,11 @@ loopx doctor
 To remove loopx-managed user-level artifacts, see
 [Installation And CLI Onboarding Spec](./specs/installation.md).
 
+`doctor` reports Ruby as optional for `generate-api-docs` OpenAPI pair validation.
+Missing Ruby does not make the installation unhealthy; default Markdown generation
+does not require it. JSON dependency entries expose `optional` and `purpose` for
+this capability while retaining availability and version information.
+
 ## Maintainer Commands
 
 Benchmark and drill evidence remains in the source repository and is not shipped

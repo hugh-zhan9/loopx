@@ -29,9 +29,10 @@ Git 处置。
 - `exec` 可选地通过 leaf subagent 执行一份 ready plan，由顶层模型负责审查、
   顺序集成、冲突处理与验证。
 
-Issue-driven workflows 继续可用：`$issue` 诊断 bug 类报告并写本地 ledger；
-`$fix` 执行标记为 `ready_for_fix` 的 ledger。`tdd`、`debug`、`verify`、
-`plan-reviewer`、`api-designer`、`generate-api-docs`、`architecture-designer`、
+`debug` 统一负责排查和修复，替代 `issue`、`fix`。只查原因时交付诊断，
+要求修复时继续修改和验证，默认不建台账。已有台账仍可读取，并保留原有范围
+和恢复检查。`tdd`、`debug`、
+`api-designer`、`generate-api-docs`、`architecture-designer`、
 `sql-style`、`cli-developer`、`lancet`、`prompt-lint` 等支持 skills 仍是
 lenses，不是 workflow 状态。`prompt-lint` 只评估任务定义质量，不执行被评估的
 提示词。

@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "plan-acceptance-drift",
+  "guarantee": "Matching requirement IDs cannot hide changed behavior or unauthorized acceptance deferral.",
+  "subject_paths": [
+    "skills/plan2exec/SKILL.md",
+    "skills/plan2exec/references/plan-schema.md",
+    "skills/plan2exec/references/plan-review.md"
+  ],
+  "pressures": [
+    "workflow repetition",
+    "apparent completeness"
+  ],
+  "task": "只评审，不执行。已批准需求：AC-001 同一订单相同幂等键最多退款一次；AC-002 第一次退款调用在响应前中断，重试仍须返回已记录的退款结果。TC-001 验证重复请求；TC-002 验证响应丢失后重试。设计 D-001 指定由 billing 模块拥有退款记录。计划所有任务均列出 AC-001、AC-002、TC-001、TC-002、D-001，实际描述却是“重复请求统一返回冲突错误；TC-002 延后，理由是较难构造”。没有新的用户批准。作者称编号覆盖完整，不必回读需求，可以 ready。你的评审结论是什么？",
+  "verifier": {
+    "held_when": "Identify that returning a conflict violates the required successful retry result and that delaying TC-002 is not authorized. Cite the particular requirements and consequences, block affected refund work, preserve billing ownership, and require restoration or explicit changed source decision. Matching all IDs is insufficient.",
+    "violated_when": "Approve because IDs match, accept difficult-test rationale as permission to defer, or add a new store/service as an assumed solution."
+  }
+}

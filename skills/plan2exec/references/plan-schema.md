@@ -16,7 +16,7 @@ not repeat either in the body.
 ---
 schema: loopx-plan/v1
 source: <approved request, intake package, requirements, or design path>
-status: blocked          # ready only after independent plan review
+status: ready            # ready | blocked | complete
 slices:
   - id: P-001
     status: pending      # pending | in_progress | done | blocked
@@ -28,13 +28,17 @@ slices:
 ```
 
 The executing agent updates each slice `status` as work proceeds, so an
-interrupted handoff resumes from the frontmatter instead of re-deriving
-progress from prose.
+interrupted handoff resumes from recorded progress, checked against actual code
+and verification evidence. `done` is the only completed slice status. Overall
+`ready` allows runnable unaffected slices; it does not permit a `blocked` slice.
+Use overall `blocked` when no remaining work can safely proceed. Set overall
+`complete` only after every slice is `done` and final verification passes.
+A completed plan is an execution record; do not reopen it for a readiness review.
 
 `schema: loopx-plan/v1` identifies the current contract, including the required
-per-slice `architecture` line. An unversioned plan is legacy input: revise it
-through `plan2exec`, preserve existing `P-*` identifiers, and add the current
-schema and architecture evidence before execution. Do not infer that a
+per-slice `architecture` line. An unversioned plan is legacy input: preserve existing `P-*` identifiers and add the current schema from settled
+source and repository evidence before delegated execution. Clear mechanical
+corrections need no new approval. Unknown meaning or unsafe ordering must be resolved. Do not infer that a
 malformed current plan is legacy merely because a required field is absent.
 
 ## Body template
@@ -59,7 +63,7 @@ statements a reviewer can check, not as a separate form field.
 End every slice with one meta block:
 
 > writes: `<repository-relative paths this slice may modify>`
-> anchors: `<AC-*, D-*, TC-*, a summarized requirement, or deferred-with-rationale>`
+> anchors: `<AC-*, D-*, TC-*, a summarized requirement, or explicitly approved deferred-with-rationale>`
 > architecture: `<reuse/extension target or justified new capability; owner and dependency direction; state/fault boundary; maintenance check, or evidence-backed not_applicable>`
 > verify: `<exact known commands, or the required check and its observable evidence>`
 > review: `<contract or regression risk an independent reviewer must check — high-risk slices only>`
@@ -76,17 +80,22 @@ plan revision and append new ones instead of renumbering.
 
 ## Handoff And Residual Risks
 
-- Review evidence: `<independent reviewer, reviewed plan/source content identity, verdict; pending before review>`
-- Blockers: `<Independent plan review pending, none after approval, or concrete blocker>`
+- Review: `<author check; or concrete risk/request, affected slices, independent reviewer, reviewed content and resolutions>`
+- Blockers: `<none, or concrete consequence and affected slices>`
 - Residual risks: `<none known or concrete remaining risk>`
 - Resume note: `<none before execution; during execution, failed/next action and
   references to the baseline, accepted content checkpoint, and candidate state>`
 
 ## Execution rules for the consuming agent
 
-- Begin only with `status: ready` and independent review evidence for the current
-  substantive plan/source content, as required by [plan2exec](../SKILL.md).
-  Substantive revisions require renewed review; progress updates alone do not.
+- Check completed work first: verify its actual results against the original
+  requirements; do not run pre-implementation review again.
+- Begin an unfinished slice only with overall `status: ready`, its own status
+  `pending` (or an attributed recovery from `in_progress`), and satisfied
+  dependencies. Required independent review must cover that slice's material
+  risks, as defined by [plan2exec](../SKILL.md); ordinary plans need no such review.
+- Read the original approved requirement before editing and final verification.
+  IDs and plan wording alone cannot justify weaker behavior or deferred acceptance.
 - Execute slices in frontmatter dependency order; verify each slice with its
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.
@@ -101,7 +110,8 @@ plan revision and append new ones instead of renumbering.
 - Keep the frontmatter and body consistent: every frontmatter slice id has
   exactly one body section, every slice declares `depends` explicitly (an
   empty list asserts independence), and dependencies appear only in the
-  frontmatter.
+  frontmatter. Fix clear bookkeeping in place; stop affected work only when its
+  meaning or ordering is unsafe or unknown.
 - Follow the installed working agreement for verification, review, stop, and
   Git discipline throughout.
 

@@ -1,10 +1,10 @@
 ---
 name: architecture-designer
-description: "Applies loopx architecture discipline for existing-capability reuse, ownership and isolation boundaries, maintainability, ADRs, NFRs, failure modes, and technology tradeoffs. Not for replacing clarify, spec, planning, code review, or workflow state transitions."
+description: "Compare system designs or review module ownership, dependencies, and failure boundaries (架构设计). Record accepted cross-module decisions through spec."
 when_to_use: "architecture-designer, architecture, system design, ADR, NFR, scalability, failure modes, technology tradeoff, 架构设计"
 license: MIT
 metadata:
-  version: "0.3.10"
+  version: "0.3.11"
   forked_from: https://github.com/Jeffallan/claude-skills/tree/main/skills/architecture-designer
   maintained_by: loopx
 ---

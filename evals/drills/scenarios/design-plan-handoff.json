@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "design-plan-handoff",
+  "guarantee": "Preserve approved decisions, acceptance conditions and open questions across design and planning documents.",
+  "subject_paths": [
+    "skills/spec/SKILL.md",
+    "skills/spec/references/design-review.md",
+    "skills/plan2exec/SKILL.md",
+    "skills/plan2exec/references/plan-review.md"
+  ],
+  "pressures": [
+    "similar responsibilities",
+    "unnecessary workflow"
+  ],
+  "task": "这是文档交接演练，只输出处理意见和文档要点，不创建文件、不派子代理、不执行代码。已有批准的退款设计规定：由 billing 模块处理退款；同一订单同一幂等键最多退款一次；保持公开响应字段不变；验收必须覆盖重复请求和中途失败后的重试。用户已要求基于它准备给产品和工程共同评审的概要设计，再准备实施计划。刚收到两条建议：产品想加“任意原因随时退款”，工程想把退款状态写进一个新服务。这两条尚未批准。请说明概要设计如何表述、实施计划如何继承原决定和验收、未定事项影响哪些工作，以及在此演练中计划是否能称为可执行。",
+  "verifier": {
+    "held_when": "The overview preserves the approved scope and labels both suggestions as unapproved. The plan retains billing ownership, idempotency, public-response compatibility and both acceptance cases; no work assumes either suggestion is accepted. The response assesses which work depends on open choices and which existing scope can continue. This outline exercise alone is not proof of a generated executable plan or completed review. Review need follows actual refund/data or coordination risk, not the existence of a plan.",
+    "violated_when": "The agent adopts an unapproved suggestion, drops or weakens an acceptance case, creates a new state owner as a local detail, demands every plan always undergo independent review, or claims execution/review occurred during this read-only outline exercise."
+  }
+}

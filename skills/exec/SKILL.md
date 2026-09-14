@@ -1,34 +1,39 @@
 ---
 name: exec
-description: "Executes one ready plan2exec plan through host-native leaf subagents while rechecking architecture conformance. The controller schedules, reviews, integrates, resolves conflicts, and verifies; independent slices may run in parallel. Not for planning, blocked plans, prompt-first work, issue ledgers owned by fix, or Git disposition."
+description: "Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.0.4"
+  version: "1.1.0"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
 # Exec
 
-Execute exactly one ready `plan2exec` document. Implementation belongs to leaf
-subagents. The top-level agent is the controller and does not author feature code
-or tests.
+Execute one ready `plan2exec` document through leaf subagents. The controller
+does not author feature code or tests.
 
 ## Admission
 
-- Require one plan path with `schema: loopx-plan/v1`, `status: ready`, a non-empty
-  acyclic slice graph, explicit `depends`, `writes`, `architecture`, acceptance,
-  and `verify` entries, and matching frontmatter/body slice IDs. Reject unknown
-  schemas. Treat an unversioned plan as legacy and return it to `plan2exec` for
-  an explicit in-place schema and architecture-evidence upgrade before dispatch.
-- Require independent plan review evidence for the current substantive plan/source
-  content in Handoff; return missing/stale evidence to `plan2exec`. Progress alone does not invalidate it.
+- Check actual progress before admission. For `status: complete` or work already
+  implemented, compare code and fresh verification with the original requirements.
+  Correct the execution record when authorized; do not dispatch completed slices
+  or require a new pre-implementation review. Incomplete or failing results still
+  need the concrete repair and verification they are missing.
+- Require one active plan with `schema: loopx-plan/v1`, overall `status: ready`, a
+  non-empty acyclic slice graph, explicit `depends`, `writes`, `architecture`,
+  acceptance, and `verify`, and matching slice IDs. Reject unknown schemas before
+  dispatch. Correct clear missing labels or legacy fields in place from settled
+  evidence; ask only when their meaning or required decision is unresolved.
+- Check required review only for the slice's concrete risks or an explicit review
+  request, following [plan review](../plan2exec/references/plan-review.md). Ordinary
+  plans need no independent readiness review. Stale review matters only when a
+  substantive change affects the reviewed risk; progress and formatting do not.
 - Read the plan source and linked authoritative `概要设计.md` decisions, current user constraints, repository instructions, relevant
   specs and code, and the tracked/untracked baseline before dispatch.
 - Read [the architecture conformance contract](../shared/architecture-conformance.md)
   and recheck the plan's reuse, ownership, dependency, isolation, and maintenance
-  evidence against the current tree. Missing current-schema evidence is invalid,
-  not a legacy compatibility signal, and never authorizes a new architecture
-  decision.
+  evidence against the current tree. Find missing facts in the repository; do not
+  invent evidence or authorize a new architecture decision by filling a field.
 - Preserve existing user changes. Treat overlap with planned `writes` as run-owned
   only when the slice status and Resume note match the prior run's baseline and
   complete content checkpoint; otherwise stop before mutation and report the paths.
@@ -38,12 +43,12 @@ or tests.
   explicit model and effort values through the host API to every worker and reviewer;
   if unsupported, stop instead of substituting them. Count all active subagents
   against `max_workers`.
-- Leave ready `.loopx/issues` ledgers to `$fix`. Plain work without a plan remains
-  prompt-first.
+- Use `debug` for a supplied `.loopx/issues` repair ledger. Plain work without
+  a plan remains prompt-first.
 
 ## Controller And Workers
 
-Only the controller may update plan state, compute the ready frontier, dispatch
+Only the controller may update plan state, identify runnable slices, dispatch
 workers, review exact diffs, integrate results, resolve conflicts, run verification,
 and decide whether execution is complete or blocked.
 
@@ -65,7 +70,9 @@ candidate that the controller cannot locate or tie to its declared base.
 
 ## Schedule
 
-A pending slice is runnable only when all dependencies are `done`. Mark it
+A pending slice is runnable only when all dependencies are `done` and any required
+review for that slice has resolved its blockers. Never dispatch a `blocked` or
+`done` slice. Mark it
 `in_progress` immediately before dispatch.
 
 Run runnable slices in parallel only when all of these are true:
@@ -101,32 +108,25 @@ Critical or Important findings must be fixed, freshly verified, and re-reviewed.
 
 If a candidate conflicts with the latest integrated state, stop integrating the
 remaining candidates and dispatch one serial leaf worker to reconcile the affected
-slice against that state. Continue when it resolves the conflict within existing
-`writes` and decisions. If resolution needs new paths, dependencies, or write scope,
-mark the slice and plan `blocked` and return to `plan2exec`. Route a new product,
+slice against that state. Continue when it resolves the conflict within approved behavior and ownership.
+For necessary local paths, check overlaps and extend `writes` before redispatch;
+update dependencies and serialize shared writes. These ordinary implementation
+choices do not require another approval or a full plan review. Block affected
+slices if safe ordering or scope cannot be established; block the whole plan only
+when no remaining work can safely proceed. Route a new product,
 compatibility, data, security, or architecture decision to `clarify` or `spec`.
 An unexplained parallel capability, boundary bypass, widened blast radius, or
 new source of truth is architecture drift, not a local cleanup.
 
 ## Finish Or Block
 
-Keep recoverable failures `in_progress` and the plan `ready`; do not unlock
-dependents. Before dispatch and after each integration or controller-owned edit,
-save a content checkpoint and identify it in the Resume note: baseline HEAD and
-checkout, baseline user delta, complete tracked/staged/untracked run delta (including
-new files, deletions, and modes), candidate identity/integration state, failed check,
-and next action. Store artifacts at a named host-local location; exclude only named
-plan/checkpoint bookkeeping from its own snapshot. No new execution runtime is needed.
+For interrupted or recoverable work, follow [recovery](references/recovery.md).
+Do not unlock dependents until verification and required review pass.
 
-On resume, require the same baseline HEAD and exact content equality with baseline
-plus accepted run delta. Paths alone never establish ownership. A missing checkpoint,
-changed HEAD, or uncheckpointed edit stops mutation; preserve the changes and obtain
-explicit attribution before recording a replacement baseline and redispatching.
-Use `blocked` for a material decision, scope/dependency change, invalid independence
-claim, or unattributable contamination; record the exact blocker and recovery point.
-
-After every slice is `done`, run `Integration And Final Verification` and any
-required whole-diff review. Claim completion only from fresh passing evidence. The
+After every slice is `done`, read the original requirements again, run
+`Integration And Final Verification` and any required whole-diff review. Check
+expected behavior, not just AC/D/TC presence. Set overall `status: complete` only
+from fresh passing evidence. Never use `complete` as a slice status. The
 run delta must stay within declared slice `writes`, apart from controller-owned plan
 state edits, and pre-existing unrelated user changes must remain intact.
 

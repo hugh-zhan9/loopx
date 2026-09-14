@@ -1,8 +1,8 @@
 ---
 name: humanize-doc
-description: "Assesses document readability and rewrites documents into accurate, plain language, including removing AI-like prose. Use for unclear viewpoints, dense specs, PRDs, procedures, meeting notes, and document editing. Preserves facts, domain terms, decision status, boundaries, and evidence. Not for systematic requirement readiness analysis, code review, implementation planning, or file-format conversion."
+description: "Assess or improve document readability and remove AI-like wording (文档润色、去 AI 味). Preserve facts and decisions. Use requirement-analyzer for business-rule gaps."
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   when_to_use: "humanize-doc, document readability, readability assessment, unclear viewpoint, rewrite AI draft, de-AI a document, invented jargon, over-compressed tables, telegraphic docs, PRD assessment, 文档可读性, 需求文档评估, 去AI味, 说人话, 改稿, 文档重写, 设计文档改写, 电报体"
 ---
 

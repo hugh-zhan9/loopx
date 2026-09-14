@@ -1,9 +1,9 @@
 ---
 name: kratos
-description: "Supports Go-Kratos microservices, proto/buf APIs, service/biz/data layers, middleware, auth, config, and troubleshooting. Not for generic Go style alone."
-when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
+description: "Develop or troubleshoot confirmed Go-Kratos services: proto APIs, service/biz/data layers, middleware, auth, and configuration (Kratos 微服务)."
 metadata:
-  version: "0.3.6"
+  version: "0.3.8"
+  when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
 ---
 
 # Kratos
@@ -60,8 +60,9 @@ schemas solely because the framework skill was loaded.
 Trace middleware registration order, error conversion, serialization, and auth
 checks when behavior depends on them. Resolve public API, permission, migration,
 or rollout decisions through `clarify` or `spec` when not already settled.
-Use `debug`, `tdd`, or `verify` when explicitly invoked or activated by the owning
-workflow; framework membership alone does not mandate those extra steps.
+Use `debug` or `tdd` when explicitly invoked or needed by the current task;
+framework membership alone does not mandate extra steps. Check completion
+evidence under the working agreement.
 
 Regenerate using the repository's documented command and run relevant lint,
 generation-drift, test, and vet checks. Common commands include `buf lint`,

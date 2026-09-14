@@ -1,9 +1,9 @@
 ---
 name: codebase-spec
-description: "Reverse-engineers a detailed, evidence-backed specification from an existing codebase, including behavior, architecture, contracts, data, operations, tests, and gaps. Not for writing a forward design from unresolved requirements, planning implementation, or changing code."
-when_to_use: "codebase-spec, reverse spec, reverse-engineer spec, code to spec, document existing project, extract architecture from code, 逆向规格, 生成现状规格, 从代码生成规格文档"
+description: "Document an existing codebase’s behavior and architecture from source evidence (现状规格、逆向文档). Use spec for future design."
 metadata:
-  version: "0.1.3"
+  version: "0.1.5"
+  when_to_use: "codebase-spec, reverse spec, reverse-engineer spec, code to spec, document existing project, extract architecture from code, 逆向规格, 生成现状规格, 从代码生成规格文档"
 ---
 
 # Codebase Spec
@@ -11,7 +11,8 @@ metadata:
 Document what an existing repository or module currently does, with traceable
 behavior, architecture, contracts, data, operations, tests, and gaps. Do not change
 code, invent product intent, or turn the result into an implementation plan.
-Use `spec` for future design.
+Use `spec` for future design. Ordinary code reading during implementation does
+not require a separate current-state document.
 
 ## Scope and evidence
 
@@ -20,14 +21,11 @@ cover its major surfaces and disclose sampling; do not silently substitute one
 module because the repository is large. Start with a repository map and ask only
 when the intended target is materially ambiguous.
 
-| Depth | Coverage |
-| --- | --- |
-| Overview | Purpose, components, primary interfaces, major gaps |
-| Standard | Applicable behavior, contracts, data, configuration, operations, tests, risks |
-| Deep | Standard plus internal flows, state machines, invariants, dependency boundaries, failure cases, source conflicts |
-
-Default to Standard. Rich evidence may require a long specification; preserve
-traceable completeness without filling irrelevant sections to satisfy a template.
+Choose the structure and depth from the requested subject. A module explanation
+may need only its purpose, inputs, outputs, important behavior and evidence.
+Expand into data, state, operations or failure handling only when relevant to that
+subject. A requested whole-repository survey still covers all major surfaces and
+states its sampling limits; brevity is not permission to omit required scope.
 
 Record the inspected commit, relevant working-tree changes, timestamp, commands,
 and sampling limits. A commit alone does not identify uncommitted behavior.
@@ -53,12 +51,17 @@ A source read is not proof that its test passed or a runtime path was exercised.
 
 For large repositories, index candidate evidence and read the relevant paths
 instead of opening every file. Read [evidence-checklist.md](references/evidence-checklist.md)
-for Standard/Deep or multiple-runtime-surface work.
+when documenting several runtime surfaces or a complex module. Read only the
+relevant sections; it is not an output checklist.
 
 ## Write and deliver
 
-Use [output-template.md](references/output-template.md) at the selected depth.
-Follow a requested format or existing documentation convention. Otherwise write
+Use [output-template.md](references/output-template.md) as guidance, not a required
+chapter list. Follow the requested format or existing documentation convention.
+Update the relevant maintained document when one exists, preserving useful content
+outside the inspected scope. Do not create a second current description just to
+use this skill. If documenting only a requested explanation in chat, answer there.
+For a new persistent document without a specified path, write
 `docs/loopx/codebase-specs/<project-or-module-or-interface>-codebase-spec.md`.
 
 Lead with current behavior. Keep exact command, field, state, and API names; preserve

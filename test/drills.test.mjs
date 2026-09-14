@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { promisify } from 'node:util';
@@ -26,9 +27,9 @@ const coreGuarantees = [
 ];
 
 describe('behavior drills', () => {
-  it('loads the four core-guarantee scenarios with valid schema and existing subjects', async () => {
+  it('loads scenarios with valid schema and preserves the core guarantees', async () => {
     const scenarios = await loadDrillScenarios(scenariosRoot, repoRoot);
-    assert.deepEqual(scenarios.map((scenario) => scenario.id).sort(), [...coreGuarantees].sort());
+    for (const id of coreGuarantees) assert.ok(scenarios.some((scenario) => scenario.id === id));
     for (const scenario of scenarios) {
       assert.ok(scenario.pressures.length >= 2, `${scenario.id} must combine pressures`);
       assert.ok(scenario.verifier.held_when.length > 40);
@@ -54,7 +55,8 @@ describe('behavior drills', () => {
 
   it('rejects scenarios that quote the contract under test', async () => {
     const scenarios = await loadDrillScenarios(scenariosRoot, repoRoot);
-    const subject = await readFile(join(repoRoot, scenarios[0].subject_paths[0]), 'utf8');
+    const scenario = scenarios.find((item) => item.subject_paths.length > 0);
+    const subject = await readFile(join(repoRoot, scenario.subject_paths[0]), 'utf8');
     const leakedLine = subject.split('\n').map((line) => line.trim()).find((line) => line.length >= 30);
     assert.ok(leakedLine, 'subject must contain a quotable line for this test');
     // Validation is exercised through the loader, so simulate a leaked task
@@ -63,11 +65,42 @@ describe('behavior drills', () => {
     const { tmpdir } = await import('node:os');
     const tempRoot = await mkdtemp(join(tmpdir(), 'loopx-drill-test-'));
     await writeFile(join(tempRoot, 'leaky.json'), JSON.stringify({
-      ...scenarios[0],
+      ...scenario,
       id: 'leaky-scenario-under-test',
-      task: `${scenarios[0].task}\n${leakedLine}`,
+      task: `${scenario.task}\n${leakedLine}`,
     }));
     await assert.rejects(() => loadDrillScenarios(tempRoot, repoRoot), /subject_leakage/);
+  });
+
+  it('limits selection prompts to published skill names and descriptions', async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'loopx-drill-catalog-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    await mkdir(join(root, 'skills', 'sample'), { recursive: true });
+    await mkdir(join(root, 'scenarios'));
+    await writeFile(join(root, 'package.json'), JSON.stringify({ files: ['skills/sample/', 'skills/shared/'] }));
+    await writeFile(join(root, 'skills/sample/SKILL.md'), [
+      '---', 'name: sample', 'description: "Choose this skill for the sample task."',
+      'metadata:', '  private_marker: METADATA_CANARY', '---', 'BODY_CANARY',
+    ].join('\n'));
+    const scenario = {
+      schema: 'loopx.drill-scenario.v1', id: 'sample-selection',
+      guarantee: 'Select a relevant skill from metadata.', subject_paths: [],
+      skill_descriptions: true, pressures: ['similarity', 'excess'],
+      task: 'Choose a skill for the given sample task.',
+      verifier: { held_when: 'RUBRIC_CANARY', violated_when: 'Wrong skill selected.' },
+    };
+    const scenarioPath = join(root, 'scenarios', 'selection.json');
+    await writeFile(scenarioPath, JSON.stringify(scenario));
+    const [loaded] = await loadDrillScenarios(join(root, 'scenarios'), root);
+    const prompt = await buildDrillAgentPrompt(loaded, root);
+    assert.match(prompt, /name: sample\ndescription:/);
+    assert.doesNotMatch(prompt, /BODY_CANARY|METADATA_CANARY|RUBRIC_CANARY/);
+    await writeFile(scenarioPath, JSON.stringify({ ...scenario, skill_descriptions: 'yes' }));
+    await assert.rejects(loadDrillScenarios(join(root, 'scenarios'), root), /skill_descriptions/);
+    await writeFile(scenarioPath, JSON.stringify({ ...scenario, skill_descriptions: false }));
+    await assert.rejects(loadDrillScenarios(join(root, 'scenarios'), root), /subject_paths/);
+    await writeFile(join(root, 'skills/sample/SKILL.md'), '---\nname: sample\n---\n');
+    await assert.rejects(buildDrillAgentPrompt(loaded, root), /drill_skill_metadata_missing/);
   });
 
   it('parses verdicts fail-closed', () => {
@@ -145,7 +178,8 @@ describe('behavior drills', () => {
     const plan = JSON.parse(stdout);
     assert.equal(plan.ok, true);
     assert.equal(plan.dry_run, true);
-    assert.deepEqual(plan.scenarios.map((item) => item.scenario_id).sort(), [...coreGuarantees].sort());
+    const scenarios = await loadDrillScenarios(scenariosRoot, repoRoot);
+    assert.deepEqual(plan.scenarios.map((item) => item.scenario_id).sort(), scenarios.map((item) => item.id).sort());
     for (const item of plan.scenarios) {
       assert.ok(item.agent_prompt_chars > 500);
     }

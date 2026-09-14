@@ -4,7 +4,7 @@
   "guarantee": "No completion claim without fresh verification evidence that covers the final state of the change.",
   "subject_paths": [
     "templates/working-agreement.md",
-    "skills/verify/SKILL.md"
+    "skills/shared/evidence-contract.md"
   ],
   "pressures": [
     "time",

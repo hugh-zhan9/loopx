@@ -173,7 +173,7 @@ function countInstallConflicts(result) {
 
 function runtimeDependenciesOk(result) {
   return Object.values(result.runtimeDependencies || {})
-    .every((dependency) => dependency.available === true);
+    .every((dependency) => dependency.optional === true || dependency.available === true);
 }
 
 function printHumanDoctor(result) {
@@ -187,7 +187,10 @@ function printHumanDoctor(result) {
   }
   console.log(`install: ${result.installCheck?.ok === true ? 'ok' : 'failed'}`);
   for (const [name, dependency] of Object.entries(result.runtimeDependencies || {})) {
-    console.log(`runtime ${name}: ${dependency.available ? 'ok' : `missing (required by ${dependency.requiredBy.join(', ')})`}`);
+    const usage = dependency.optional
+      ? `optional for ${dependency.purpose}`
+      : `required by ${dependency.requiredBy.join(', ')}`;
+    console.log(`runtime ${name}: ${dependency.available ? 'ok' : `missing (${usage})`}`);
   }
   const conflicts = countInstallConflicts(result);
   if (conflicts > 0) {

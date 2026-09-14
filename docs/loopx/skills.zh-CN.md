@@ -14,16 +14,21 @@ playbook，不是 loopx runtime。
 | Skill | 使用时机 | 输出 |
 |---|---|---|
 | `clarify` | 意图、范围、验收、权限、密钥或破坏性选择未解决。 | 已解决的 intake package 或具体阻塞项。 |
-| `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要持久共识。 | 带 `D-*` 锚点及复用、隔离、可维护性证据的已接受设计文档。 |
-| `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、持久协调需要计划。 | 一份在 slices 中保留架构约束、依赖、验收与验证的 plan 文档。 |
+| `spec` | 产品行为、兼容、数据、安全、迁移或架构决策需要记录，或已有设计需要评审。 | 带 `D-*` 锚点及复用、隔离、可维护性证据的设计文档，注明接受或待决状态。 |
+| `plan2exec` | 用户明确要求实施计划，或审批、中断恢复、长期协调需要计划，或已有计划需要评审。 | 一份在 slices 中保留架构约束、依赖、验收与验证的 plan 文档。 |
 
 普通工作可以完全不使用它们。只有执行一份 ready `plan2exec` 文档时才选择
 `$exec`：实现交给 leaf subagent，顶层模型负责审查与集成。独立评审、验证与 Git
 纪律继续服从 working agreement。
 
-选用 `plan2exec` 后，计划必须经过宿主原生独立 `plan-reviewer` 评审才能 ready。
-评审证据留在计划内，计划或来源发生实质修改后重新评审；无法委派时保持 blocked。
-普通 prompt-first 工作不受此门槛影响。设计、计划、评审和 SQL 共用数据库并发契约。
+计划评审已并入 `plan2exec`。普通计划由作者核对后即可交付；用户要求评审，
+或涉及破坏性变更、公开兼容性、安全、迁移顺序、共享资源等具体风险时，才需要
+独立评审。格式和措辞不阻碍实施。首次评审后只核对修复和受影响的决定；代码已经
+完成时，直接对照需求检查实现和验证结果，不再补跑开工前评审。
+
+`clarify`、`spec` 已采用原 v2 实现，继续使用原名称。安装包现有 21 个 skill，
+设计评审和计划评审不再单设入口。`code-darwin` 的重构检查和扫描工具并入
+`refactor-plan`，按需使用；`verify` 的验证规则由工作约定和共享说明承担。
 
 ## 可选的 Plan 执行
 
@@ -31,19 +36,32 @@ playbook，不是 loopx runtime。
 |---|---|---|
 | `exec` | 用户明确要求执行一份 ready `plan2exec` 文档。 | Leaf subagent 实现 slices；controller 先复核架构适配，再顺序审查与集成。只有代码与共享状态边界都独立的 slices 才可并行；可选的 `model`、`reasoning_effort` 和 `max_workers` 会传给宿主原生 subagent。 |
 
-## Issue Workflows
+## 排查和修复
 
-`issue` 与 `fix` 继续可用，且不加入固定的 feature 路径：
+统一使用 `debug`：
 
 ```text
-$issue <bug-report-or-failing-output>
-$fix .loopx/issues/<ready-ledger>.md
+$debug 查一下这个失败的原因，先不要改代码。
+$debug 修复这个回归问题，并运行必要检查。
+$debug 继续 .loopx/issues/<ledger>.md 中已授权的修复。
 ```
 
-首次修复从 `ready_for_fix` ledger 开始；恢复有记录的 `in_progress` 修复时，必须先核对检查点与当前完整改动一致。Feature 请求回到
-prompt-first 工作或有充分理由的 canonical intent。
+它替代 `issue` 和 `fix` 两个入口，默认不创建台账。提供已有台账时，保留原有
+范围、证据和恢复检查；台账状态本身不代表修复授权。继续中断的修复前，必须
+核对当前完整改动与已保存的检查点一致。
 
-`spec` 创建并维护相互链接的概要设计与详细设计；`design-review` 原地更新概要设计，保留其独有决定和评审历史。计划和评审通过详细设计索引读取概要设计拥有的决定。
+## 设计产物和需求依据
+
+`clarify` 优先更新已有需求来源，问答历史按需记录。新建需求材料时，由
+`requirements.md` 维护验收要求和场景。`spec` 保留《概要设计》和《需求设计文档》：
+前者讲整体方案、流程和模块关系，后者讲接口、字段和实现约束。涉及公开契约、
+数据模型、状态机、跨系统或需要共同评审的设计，继续维护这两份文档；局部小改动
+不用套完整模板。概要按需要简述选择理由；详细设计写当前采用的实现方案，
+不要求方案比较和讨论记录。评审通过的修改直接更新设计，不再默认创建《设计提案》。已有概要中的独有决定和评审历史仍然有效，不能从详细设计重新生成后覆盖。
+
+已批准的设计或重构方案，在用户授权实施后可以直接开发。计划只安排工作、
+依赖和验证，不能重新定义需求。实施和最终验证都要回看原始需求；编号对应
+不代表行为一致，延后必需的验收场景也须得到明确批准。
 
 ## Support Lenses
 
@@ -51,20 +69,17 @@ prompt-first 工作或有充分理由的 canonical intent。
 
 | Skill | 关注点 |
 |---|---|
-| `codebase-spec` | 现状行为的证据化文档。 |
-| `refactor-plan` | 行为保持型重构 RFC，经 `plan2exec` 转换后再执行。 |
-| `code-darwin` | 证据化的代码腐化/坏味道审计，并产出可优先处理的重构 backlog。 |
+| `codebase-spec` | 按指定范围整理现状，优先更新已有文档，不要求固定章节。 |
+| `refactor-plan` | 按需检查重构机会或编写独立重构方案。只要求检查时交付发现；已批准方案可直接指导授权的实施。 |
 | `tdd` | 失败测试先行的开发。 |
-| `debug` | 根因诊断。 |
-| `verify` | 完成声明前的新鲜证据。 |
+| `debug` | 排查原因，并完成已授权的修复。 |
 | `using-git-worktrees` | 显式工作区隔离。 |
 | `humanize-doc` | 文档可读性评估、改稿与去 AI 味，保留事实、决策状态和边界。 |
 | `maintain-project-docs` | 仓库文档的当前权威、历史归档与检索隔离。 |
 | `requirement-analyzer` | 需求缺口与就绪度。 |
-| `plan-reviewer` | 对照来源审查 plan 文档。 |
 | `go-style`、`kratos` | Go 工程 facade（风格、现代化、性能、并发）与 Go-Kratos 纪律。 |
 | `api-designer`、`architecture-designer`、`sql-style`、`cli-developer` | 领域设计与评审 lenses。 |
-| `generate-api-docs` | 为现有 HTTP API 生成字段级 Markdown 与可导入 Apifox 的 OpenAPI YAML。 |
+| `generate-api-docs` | 默认按业务场景分别写接口文档，同一路径在不同场景中各自写用途、参数、完整字段与示例；仅在明确要求时生成 OpenAPI YAML。示例须先用真实参数实际调用验证；任一场景无法测试则直接阻断生成与交付。生成后依次用 `lancet` 精简、`humanize-doc` 去 AI 味，再做最终校验。 |
 | `lancet` | 实现与评审的最小化纪律。 |
 | `prompt-lint` | 只读检查提示词的目标、上下文、边界、验证证据与信号质量。 |
 

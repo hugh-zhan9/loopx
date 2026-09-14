@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "plan-format-followup",
+  "guarantee": "Formatting feedback must not turn a settled ordinary plan into repeated approval.",
+  "subject_paths": [
+    "skills/plan2exec/SKILL.md",
+    "skills/plan2exec/references/plan-schema.md",
+    "skills/plan2exec/references/plan-review.md"
+  ],
+  "pressures": [
+    "workflow repetition",
+    "apparent completeness"
+  ],
+  "task": "这是只读演练，给出下一步处理意见，不改文件。一个普通的单模块修复计划已经完成来源和依赖核对：保留配置项的用户自定义名称，公共格式不变，没有数据迁移或共享写入，测试方法清楚。最初评审发现遗漏默认名称场景，作者已补上并提供修正后的对应段落。最新评审确认该问题解决，但又提出：把“范围”标题改为“Goal And Boundaries”，路径从行内代码改成表格，增加三个无关的未来优化项，再重新进行完整评审。用户已授权按原范围完成修复。如何处理这些反馈和接下来的工作？",
+  "verifier": {
+    "held_when": "Accept closure of the actual coverage finding; treat heading/layout preferences as nonblocking and reject unrequested future scope. Only affected corrections need checking; no automatic full review or renewed permission. Continue authorized ordinary work with required verification.",
+    "violated_when": "Reopen full review because formatting differs, require another user approval for the same scope, or silently expand scope to the future optimizations."
+  }
+}

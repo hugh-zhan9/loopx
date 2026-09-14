@@ -1,6 +1,6 @@
 # <Topic> Refactor Plan
 
-> **For agentic workers:** Once approved, this RFC is a source for `plan2exec`, not an executable `loopx-plan/v1` plan. Complete the Behavior Preservation Contract, Refactor Steps, Verification Plan, and Execution Handoff before conversion.
+> **For agentic workers:** When implementation is authorized, this RFC can guide it directly. Preserve the Behavior Preservation Contract, Refactor Steps, Verification Plan, and Execution Handoff; no second plan is required.
 
 **Source:** <user request, discussion, issue, code smell report, or existing document>
 
@@ -55,7 +55,7 @@ List the evidence that defines current externally observable behavior:
 
 Stop execution and return for clarification or design if:
 
-- A step requires files or surfaces outside the approved scope.
+- A step changes approved behavior, ownership, or scope. Necessary local files within the same approved boundary can be added after checking overlap.
 - A test failure suggests behavior changed.
 - A public contract, schema, CLI/API behavior, permission rule, config key, package surface, or generated artifact must change.
 - Characterization tests cannot be written or run.
@@ -164,16 +164,16 @@ Expected:
 
 ## Execution Handoff
 
-**Ready for:** `plan2exec` | `clarify` | `spec` | `blocked`
+**Ready for:** `implementation when authorized` | `clarify` | `spec` | `blocked`
 
 **Reason:**
 
-**Required sub-skills:** `tdd` | `go-style` | `sql-style` | `verify` | none
+**Required sub-skills:** `tdd` | `go-style` | `sql-style` | none
 
 **Execution notes:**
 
-- Convert this RFC through `plan2exec`, preserving behavior, scope, dependencies, and verification.
-- Run `plan-reviewer` on the resulting `loopx-plan/v1` plan, then pass that ready plan to `exec` when execution is requested.
+- Implement from this RFC when authorized, checking original behavior and verification after each step.
+- Use a separate `plan2exec` plan only when durable coordination needs it or the user asks. Delegation through `$exec` requires that plan format.
 - Step boundaries do not authorize commits; Git disposition follows the working agreement.
 
 ## Further Notes

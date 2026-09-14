@@ -1,8 +1,8 @@
 ---
 name: maintain-project-docs
-description: "Audits and reconciles repository documentation so current authority is explicit, complex modules have at most one maintained current document, and superseded plans, designs, reviews, or memory are archived and excluded from default retrieval. Use when agents are being misled by stale or conflicting docs, documentation has accumulated dated duplicates, or a repository needs source-of-truth cleanup. Not for prose polishing, current-state spec generation, future design, or implementation planning."
+description: "Find conflicting or outdated repository docs, update current guidance, and archive superseded material (文档整理、旧文档归档). Use humanize-doc for prose editing."
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
   when_to_use: "stale docs, conflicting documentation, source-of-truth cleanup, archive superseded documents, AGENTS.md current decisions, one current doc per module, 文档收敛, 旧文档归档, 文档权威整理"
 ---
 

@@ -1,9 +1,9 @@
 ---
 name: go-style
-description: "Applies loopx Go engineering discipline and routes Go work to focused modernization, performance, or concurrency references. Use for .go edits, reviews, tests, package/API design, idiomatic cleanup, Go upgrades, benchmarks, pprof, races, locks, channels, and goroutine lifecycle. Not for non-Go code or Kratos-specific architecture by itself."
+description: "Apply Go conventions to handwritten code, reviews, modernization, performance, and concurrency work (Go 开发、性能分析). Use kratos only for confirmed Kratos projects."
 when_to_use: "go-style, Go, golang, .go files, Go review, idiomatic Go, modernize Go, go fix, benchmark, pprof, performance, race, deadlock, goroutine, mutex, channel, context"
 metadata:
-  version: "0.4.1"
+  version: "0.4.2"
 ---
 
 # Go Style

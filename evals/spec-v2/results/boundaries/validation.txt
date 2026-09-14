@@ -1,0 +1,5 @@
+case-2-reconcile-fragments/source.md: links, explicit anchors, fence balance OK
+case-2-reconcile-fragments/设计提案.md: links, explicit anchors, fence balance OK
+case-1-display-label/source.md: links, explicit anchors, fence balance OK
+case-1-display-label/需求设计文档.md: links, explicit anchors, fence balance OK
+Document structure checks only; no Mermaid rendering or implementation tests.

@@ -2,7 +2,11 @@
 
 ## Iron Law
 
-**Skill frontmatter descriptions are required for discovery, but skill bodies should stay operational, clear, and bounded. Avoid vague narrative, broad promises, and ambiguous handoffs. Keep each skill focused: versatile enough to be useful, not a universal key.**
+Skill descriptions should say what the skill does and when to use it. Keep the
+body focused on the task, its real limits, and the evidence needed to finish.
+Use familiar words and concrete actions. Do not invent labels for ordinary ideas
+or repeat generic advice. Preserve established technical terms and decisions
+when simplifying the text.
 
 ## Docs-First Product Boundary
 
@@ -17,9 +21,13 @@ Execution tools and agent lifecycle remain owned by the model and host.
 The docs-first boundary does not prohibit operational instructions in documents.
 It prohibits a loopx execution runtime: do not add scheduler/controller services,
 executable orchestration graphs, workflow-state hooks, separate runtime state, or
-mandatory default review pipelines for ordinary work. A selected `plan2exec`
-plan requires an independent host-native readiness review; this bounded document
-gate does not add an execution runtime. The model interprets plans and recovery
+mandatory default review pipelines for ordinary work. Plan review is part of
+`plan2exec` and is required only when requested or justified by a concrete risk,
+such as destructive migration, public compatibility, security, or unsafe parallel
+work. Formatting and routine implementation choices do not block readiness.
+Review fixes in the affected scope; completed work is checked against its source
+and implementation evidence, not sent back through pre-implementation review.
+The model interprets plans and recovery
 records using host-native capabilities. Git disposition still requires an
 explicit user request.
 
@@ -66,7 +74,7 @@ Keep source changes close to the owning module. When changing bundled skill docs
 
 ## Build, Test, and Development Commands
 
-- `npm test` runs all repository tests with `node --test test/*.test.mjs`.
+- `npm test` validates bundled skills, then runs `node --test test/*.test.mjs`.
 - `node --test test/workflow.test.mjs` runs the main workflow contract suite.
 - `node --test test/trellis-hardening.test.mjs` runs context and template-governance hardening tests.
 - `node src/cli.mjs <command>` runs the local CLI without installing globally.

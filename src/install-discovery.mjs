@@ -22,18 +22,12 @@ export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
 const LOOPX_SKILLS = [
   'clarify',
   'spec',
-  'design-review',
   'codebase-spec',
   'plan2exec',
   'exec',
-  'plan-reviewer',
-  'issue',
-  'fix',
   'refactor-plan',
-  'code-darwin',
   'debug',
   'tdd',
-  'verify',
   'using-git-worktrees',
   'humanize-doc',
   'maintain-project-docs',
@@ -49,6 +43,17 @@ const LOOPX_SKILLS = [
   'prompt-lint',
 ];
 const LOOPX_RETIRED_SKILLS = Object.freeze([
+  // Refactoring audits share refactor-plan; verification belongs to the agreement.
+  'code-darwin',
+  'verify',
+  // Review is part of the design or plan; trial implementations use canonical names.
+  'design-review',
+  'plan-reviewer',
+  'clarify-v2',
+  'spec-v2',
+  // Diagnosis and requested repairs now share debug.
+  'issue',
+  'fix',
   // Readability assessment and rewriting now share the humanize-doc entrypoint.
   'doc-readability',
   'plan',
@@ -62,6 +67,19 @@ const LOOPX_RETIRED_SKILLS = Object.freeze([
   'final-review',
   'fix-review',
   'finish',
+]);
+const RETIRED_SKILL_LAYOUTS = new Map([
+  ['code-darwin', ['SKILL.md', 'agents/openai.yaml', 'references/governance-rules.md',
+    'references/smell-patterns.md', 'scripts/audit_codebase.py']],
+  ['verify', ['SKILL.md']],
+  ['design-review', ['REVIEW_BRIEF_TEMPLATE.md', 'SKILL.md']],
+  ['plan-reviewer', ['SKILL.md']],
+  ['clarify-v2', ['SKILL.md']],
+  ['spec-v2', ['DESIGN_SPEC_TEMPLATE.md', 'REVIEW_BRIEF_TEMPLATE.md', 'SKILL.md',
+    'references/design-diagrams.md', 'references/design-proposal.md', 'references/design-quality.md']],
+  ['doc-readability', ['SKILL.md', 'references/prd.md']],
+  ['issue', ['SKILL.md', 'references/ledger-template.md']],
+  ['fix', ['SKILL.md', 'references/report-contract.md', 'references/resume-contract.md']],
 ]);
 const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 // Pristine 0.8.9/0.9.0 shared files predate per-file baselines. Exact historical
@@ -551,7 +569,8 @@ async function removeRetiredOwnedSkills(skillRows, env, { skipped, baselineItems
     if (!isLoopxOwnedRow(skillName, row, env)) {
       continue;
     }
-    const retiredStat = skillName === 'doc-readability'
+    const expectedFiles = RETIRED_SKILL_LAYOUTS.get(skillName);
+    const retiredStat = expectedFiles
       ? await lstat(row.installedPath).catch((error) => {
         if (error.code === 'ENOENT') return null;
         throw error;
@@ -571,8 +590,8 @@ async function removeRetiredOwnedSkills(skillRows, env, { skipped, baselineItems
         const files = (await listRelativeFiles(row.installedPath)).sort();
         // The old hash did not include file names or link types. Require the
         // retired skill's known layout before using it as deletion evidence.
-        const knownLayout = files.length === 2
-          && files[0] === 'SKILL.md' && files[1] === 'references/prd.md';
+        const knownLayout = files.length === expectedFiles.length
+          && files.every((file, index) => file === expectedFiles[index]);
         const regularFiles = knownLayout && (await Promise.all(files.map((file) =>
           lstat(join(row.installedPath, file))))).every((stat) => stat.isFile());
         pristine = regularFiles && await fileHash(row.installedPath, sourceDir) === row.skillFolderHash;

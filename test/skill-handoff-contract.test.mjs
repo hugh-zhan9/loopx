@@ -18,7 +18,7 @@ async function markdownFiles(directory) {
 }
 
 test('skill instructions and references contain no callable retired skills', async () => {
-  const retired = /\$(?:review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)(?![\w-])|skills\/(?:review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)\/SKILL\.md/g;
+  const retired = /\$(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)(?![\w-])|skills\/(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)\/SKILL\.md/g;
   const findings = [];
   for (const path of await markdownFiles(join(root, 'skills'))) {
     const text = await readFile(path, 'utf8');
@@ -27,12 +27,13 @@ test('skill instructions and references contain no callable retired skills', asy
   assert.deepEqual(findings, []);
 });
 
-test('the refactor RFC hands off to the producer of the schema accepted by exec', async () => {
+test('the refactor RFC can guide implementation while delegated exec retains its schema', async () => {
   const template = await source('skills/refactor-plan/REFACTOR_PLAN_TEMPLATE.md');
   const readiness = template.match(/^\*\*Ready for:\*\* (.+)$/m)?.[1];
   assert.ok(readiness, 'RFC must identify its next consumer');
   const consumers = [...readiness.matchAll(/`([^`]+)`/g)].map((match) => match[1]);
-  assert.ok(consumers.includes('plan2exec'));
+  assert.ok(consumers.includes('implementation when authorized'));
+  assert.ok(!consumers.includes('plan2exec'), 'a second plan is not mandatory');
   assert.ok(!consumers.includes('exec'), 'an RFC without a slice graph cannot enter exec');
   const producer = await source('skills/plan2exec/references/plan-schema.md');
   const executor = await source('skills/exec/SKILL.md');
@@ -42,19 +43,18 @@ test('the refactor RFC hands off to the producer of the schema accepted by exec'
 });
 
 test('review inputs include the document that owns overview-only decisions', async () => {
-  const review = await source('skills/design-review/SKILL.md');
-  const inputs = review.split('## Inputs')[1]?.split('## Output')[0];
-  assert.ok(inputs?.includes('概要设计.md'), 'the maintained overview must be an input to its next revision');
-  for (const name of ['plan2exec', 'plan-reviewer', 'exec']) {
-    assert.ok((await source(`skills/${name}/SKILL.md`)).includes('概要设计.md'), `${name} must consume linked overview decisions`);
+  const review = await source('skills/spec/references/design-review.md');
+  assert.ok(review.includes('概要设计.md'), 'preserve overview-only decisions before revision');
+  for (const path of ['plan2exec/SKILL.md', 'plan2exec/references/plan-review.md', 'exec/SKILL.md']) {
+    assert.ok((await source(`skills/${path}`)).includes('概要设计.md'), `${path} must consume linked overview decisions`);
   }
 });
 
 test('repair recovery has distinct admission states and content attribution', async () => {
-  const fix = await source('skills/fix/SKILL.md');
-  const reference = fix.match(/\]\((references\/[^)]+)\)/)?.[1];
+  const debug = await source('skills/debug/SKILL.md');
+  const reference = debug.match(/\]\((references\/existing-ledgers\.md)\)/)?.[1];
   assert.ok(reference, 'recovery must have a discoverable contract');
-  const recovery = await source(`skills/fix/${reference}`);
+  const recovery = await source(`skills/debug/${reference}`);
   const states = [...recovery.matchAll(/^\| `([^`]+)`/gm)].map((match) => match[1]);
   for (const state of ['ready_for_fix', 'in_progress', 'needs_scope_change', 'blocked', 'complete']) {
     assert.ok(states.includes(state), `${state} needs an entry rule`);
@@ -63,5 +63,5 @@ test('repair recovery has distinct admission states and content attribution', as
   assert.match(recovery, /untracked\s+contents/);
   assert.match(recovery, /exact equality/);
   assert.match(recovery, /uncheckpointed interruption is not automatically recoverable/);
-  assert.doesNotMatch(fix, /set ledger metadata `status: blocked`.*revise the Fix Brief/);
+  assert.doesNotMatch(debug, /set ledger metadata `status: blocked`.*revise the Fix Brief/);
 });

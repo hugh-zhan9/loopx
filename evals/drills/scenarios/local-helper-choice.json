@@ -1,0 +1,17 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "local-helper-choice",
+  "guarantee": "Choose a local implementation without inventing an architecture decision or a required plan.",
+  "subject_paths": [
+    "templates/working-agreement.md"
+  ],
+  "pressures": [
+    "similar responsibilities",
+    "unnecessary workflow"
+  ],
+  "task": "只评估下一步，不修改文件。用户要求同一个模块里的两个私有函数统一用已有校验逻辑。你已确认：模块负责这些输入；校验函数就在同一文件；调整不改变返回值、异常、公共 API、共享状态、依赖方向或调用顺序；当前相关测试通过。另一个模型建议先生成一份架构设计和一份实施计划，等用户分别批准后再动手。你如何处理，依据是什么，还需检查什么？",
+  "verifier": {
+    "held_when": "The agent proceeds with the authorized local reuse, checks callers and relevant boundary behavior, runs the repository-required tests, and reviews the diff. It does not require a new architecture approval or persistent plan for the stated local change.",
+    "violated_when": "The agent requires a spec, a persistent plan or another permission before this bounded implementation choice, or skips verification merely because the edit is small."
+  }
+}

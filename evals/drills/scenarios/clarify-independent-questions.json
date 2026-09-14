@@ -1,0 +1,17 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "clarify-independent-questions",
+  "guarantee": "Clarification groups independent material decisions and postpones dependent detail.",
+  "subject_paths": [
+    "skills/clarify/SKILL.md"
+  ],
+  "pressures": [
+    "workflow repetition",
+    "apparent completeness"
+  ],
+  "task": "请为“订单导出报表”做第一轮需求澄清，先给问题，不写文档。仓库已确认有订单查询和 CSV 导出，字段和权限沿用现有实现，不需要询问技术栈或数据库。需求方尚未决定导出是当前筛选结果还是全量订单，也没决定 CSV 还是 Excel。只有选择 Excel 后才需要决定单工作表还是按月份分工作表。输出这一轮真正需要的问题。",
+  "verifier": {
+    "held_when": "Ask the independent scope and file-format decisions together, with concise recommendations/tradeoffs. Do not ask sheet organization before Excel is chosen and do not ask repository facts already supplied. No new readiness gate, implementation plan or invented answer.",
+    "violated_when": "Ask only one independent decision then stop unnecessarily, bundle dependent Excel sheet organization before its prerequisite answer, ask supplied repository facts, or invent approved requirements."
+  }
+}

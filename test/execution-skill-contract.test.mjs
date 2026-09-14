@@ -14,7 +14,7 @@ test('plan2exec produces a document contract without selecting an execution runt
   const [plan, schema, reviewer] = await Promise.all([
     source('skills/plan2exec/SKILL.md'),
     source('skills/plan2exec/references/plan-schema.md'),
-    source('skills/plan-reviewer/SKILL.md'),
+    source('skills/plan2exec/references/plan-review.md'),
   ]);
 
   assert.match(plan, /plan is a\s+document contract/i);
@@ -26,8 +26,8 @@ test('plan2exec produces a document contract without selecting an execution runt
   assert.match(schema, /^> verify:/m);
   assert.match(plan, /reuse, ownership, dependency direction,\s+isolation, and maintainability/i);
   assert.match(reviewer, /schema: loopx-plan\/v1/i);
-  assert.match(reviewer, /architecture conformance assessment/i);
-  assert.match(reviewer, /new architecture decision routes back to `spec`/i);
+  assert.match(reviewer, /owning modules, dependency direction/i);
+  assert.match(reviewer, /new architecture\s+decision belongs in `spec`/i);
   assert.match(schema, /Execution rules for the consuming agent/i);
   assert.doesNotMatch(schema, /selected_profile|loopx\.execution-graph/);
   assert.match(reviewer, /does not edit the plan/i);
@@ -44,8 +44,7 @@ test('exec delegates implementation and keeps integration under the controller',
   assert.match(normalized, /Never let concurrent workers edit the controller workspace directly/i);
   assert.match(normalized, /Review and integrate parallel results one at a time/i);
   assert.match(normalized, /architecture-conformance evidence/i);
-  assert.match(normalized, /unversioned plan as legacy.*return it to `plan2exec`/i);
-  assert.match(normalized, /Missing current-schema evidence is invalid.*not a legacy compatibility signal/i);
+  assert.match(normalized, /Reject unknown schemas before dispatch/i);
   assert.match(normalized, /reuse of the owning capability, dependency and state boundaries, fault isolation, and maintenance surface/i);
   assert.match(normalized, /dispatch one serial leaf worker to reconcile/i);
   assert.match(normalized, /Route a new product.*decision to `clarify` or `spec`/i);
@@ -67,10 +66,10 @@ test('architecture conformance is preserved from design through execution', asyn
     assert.match(contract, new RegExp(`^### ${concern}$`, 'm'));
   }
   assert.match(spec, /architecture conformance contract/i);
-  assert.match(spec, /parallel capability, owning module, dependency direction, or state boundary/i);
-  assert.match(template, /现有能力与复用判断/);
-  assert.match(template, /边界与隔离/);
-  assert.match(template, /可维护性/);
+  assert.match(spec, /parallel capability, owning module, dependency direction,\s+or state boundary/i);
+  assert.match(template, /现有能力、复用判断/);
+  assert.match(template, /状态\/故障边界/);
+  assert.match(template, /维护代价/);
   assert.match(architecture, /Existing capability reuse/i);
   assert.match(plan, /architecture.*line names reused or extended capabilities/is);
   assert.match(exec, /architecture drift/i);

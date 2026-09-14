@@ -1,9 +1,9 @@
 ---
 name: prompt-lint
-description: "Lints a prompt or task brief for goal clarity, necessary context, boundaries, verifiable evidence, and signal quality before execution. Use for prompt assessment, task-definition readiness, missing-context analysis, or a requested prompt score. Not for executing the checked prompt, inventing missing requirements, general document review, or replacing requirement-analyzer for full PRDs and specs."
+description: "Assess a prompt or task brief for missing decisions, context, and verifiable outcomes (提示词评估). Review the prompt without executing it."
 when_to_use: "prompt-lint, prompt assessment, prompt score, prompt quality, task-definition readiness, missing context, 提示词评估, 提示词评分, 任务定义检查"
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Prompt Lint

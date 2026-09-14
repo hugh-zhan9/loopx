@@ -1,0 +1,120 @@
+{
+  "passed_checks": 28,
+  "checks": [
+    {
+      "check": "D-001 through D-010 each have exactly one owner",
+      "passed": true
+    },
+    {
+      "check": "Contract index links every D anchor",
+      "passed": true
+    },
+    {
+      "check": "TC-001 through TC-007 have coverage rows",
+      "passed": true
+    },
+    {
+      "check": "AC-001 through AC-008 have requirement rows",
+      "passed": true
+    },
+    {
+      "check": "概要设计.md: code fences balanced",
+      "passed": true
+    },
+    {
+      "check": "概要设计.md: link source.md",
+      "passed": true
+    },
+    {
+      "check": "概要设计.md: link 需求设计文档.md",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: code fences balanced",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link source.md",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#1-背景与范围",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#2-总体设计",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#D-001",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#D-001",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#D-001",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link 概要设计.md#D-002",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-003",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-004",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-005",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-006",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-007",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-008",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-009",
+      "passed": true
+    },
+    {
+      "check": "需求设计文档.md: link #D-010",
+      "passed": true
+    },
+    {
+      "check": "Detailed design required numbered sections",
+      "passed": true
+    },
+    {
+      "check": "Module 4.1 has five required subsections",
+      "passed": true
+    },
+    {
+      "check": "Module 4.2 has five required subsections",
+      "passed": true
+    },
+    {
+      "check": "Module 4.3 has five required subsections",
+      "passed": true
+    },
+    {
+      "check": "Draft review status explicit in both documents",
+      "passed": true
+    }
+  ],
+  "source_sha256": "c3b93794d44c459c9051c35644a659e06795a9f6d627bae3d5a64fef8ab496f5",
+  "rendered": false,
+  "implementation_tests_run": false
+}

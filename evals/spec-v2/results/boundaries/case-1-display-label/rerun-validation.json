@@ -1,0 +1,11 @@
+{
+  "scope": "Case 1 rerun only",
+  "skill": "spec-v2 0.2.0 entrypoint with compact-record instruction",
+  "before_lines": 88,
+  "after_lines": 27,
+  "examples": 9,
+  "checks": "source wording, nine examples, no template architecture/planning/index sections, original artifacts retained",
+  "validation_note": "initial validation script double-counted table cells; corrected to count example rows; artifact unchanged",
+  "implementation_tests": "not run",
+  "renderer": "not used"
+}

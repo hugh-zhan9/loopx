@@ -1,0 +1,48 @@
+{
+  "design-review": {
+    "files": {
+      "REVIEW_BRIEF_TEMPLATE.md": "Legacy design-review: REVIEW_BRIEF_TEMPLATE.md\n",
+      "SKILL.md": "Legacy design-review: SKILL.md\n"
+    },
+    "hash": "e7690eceea364813bd04e256007c157af9a7f37a"
+  },
+  "plan-reviewer": {
+    "files": {
+      "SKILL.md": "Legacy plan-reviewer: SKILL.md\n"
+    },
+    "hash": "5254f731c66836d0bc2e66357e503da1b020a74a"
+  },
+  "clarify-v2": {
+    "files": {
+      "SKILL.md": "Legacy clarify-v2: SKILL.md\n"
+    },
+    "hash": "b60b3bdcd74b5b7a71c2c4ba82ba48eea7e00a82"
+  },
+  "spec-v2": {
+    "files": {
+      "DESIGN_SPEC_TEMPLATE.md": "Legacy spec-v2: DESIGN_SPEC_TEMPLATE.md\n",
+      "REVIEW_BRIEF_TEMPLATE.md": "Legacy spec-v2: REVIEW_BRIEF_TEMPLATE.md\n",
+      "SKILL.md": "Legacy spec-v2: SKILL.md\n",
+      "references/design-diagrams.md": "Legacy spec-v2: references/design-diagrams.md\n",
+      "references/design-proposal.md": "Legacy spec-v2: references/design-proposal.md\n",
+      "references/design-quality.md": "Legacy spec-v2: references/design-quality.md\n"
+    },
+    "hash": "4491ecf283e687841172985d8c2e35727132ec76"
+  },
+  "code-darwin": {
+    "files": {
+      "SKILL.md": "Legacy code-darwin: SKILL.md\n",
+      "agents/openai.yaml": "Legacy code-darwin: agents/openai.yaml\n",
+      "references/governance-rules.md": "Legacy code-darwin: references/governance-rules.md\n",
+      "references/smell-patterns.md": "Legacy code-darwin: references/smell-patterns.md\n",
+      "scripts/audit_codebase.py": "Legacy code-darwin: scripts/audit_codebase.py\n"
+    },
+    "hash": "758338fba6c0133acdaff61f5d31ea11bfd9d6ed"
+  },
+  "verify": {
+    "files": {
+      "SKILL.md": "Legacy verify: SKILL.md\n"
+    },
+    "hash": "ed9af98e3279ea6815514c1699d4128a1b654e58"
+  }
+}

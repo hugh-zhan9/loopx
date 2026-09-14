@@ -16,19 +16,25 @@ not form a required sequence.
 | Skill | Use when | Output |
 |---|---|---|
 | `clarify` | Intent, scope, acceptance, permissions, secrets, or a destructive choice is unresolved. | A resolved intake package or a concrete blocker. |
-| `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement. | An accepted design document with `D-*` anchors and evidence-backed reuse, isolation, and maintainability decisions. |
-| `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one. | One plan document whose slices preserve architecture constraints alongside dependencies, acceptance, and verification. |
+| `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement, or an existing design needs review. | A design document with explicit decision status with `D-*` anchors and evidence-backed reuse, isolation, and maintainability decisions. |
+| `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one, or an existing plan needs review. | One plan document whose slices preserve architecture constraints alongside dependencies, acceptance, and verification. |
 
 Ordinary work can use none of these. `$exec` is selected only to execute one ready
 `plan2exec` document; it delegates implementation while the top-level model reviews
 and integrates. Independent review, verification, and Git discipline continue to
 follow the working agreement.
 
-A selected `plan2exec` plan requires independent host-native `plan-reviewer`
-approval before readiness. Keep review evidence in the plan and renew it after
-substantive plan/source changes. Without delegation the plan stays blocked;
-ordinary prompt-first work remains unaffected. Concurrency design, planning,
-review, and SQL share the database concurrency contract.
+Plan review is included in `plan2exec`. Ordinary plans need an author check;
+independent review applies to an explicit request or a concrete risk involving
+destructive changes, public compatibility, security, migration ordering, or shared
+resources. Formatting does not block work. After the initial review, recheck fixes
+and affected decisions. Completed implementations are checked against their source
+and actual verification, without restarting a readiness review.
+
+`clarify` and `spec` now use the former v2 implementations under their existing
+names. There are 21 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
+`code-darwin` are part of `refactor-plan`. Verification follows the working
+agreement and shared evidence guidance; there is no separate `verify` entry.
 
 ## Optional Plan Execution
 
@@ -36,21 +42,39 @@ review, and SQL share the database concurrency contract.
 |---|---|---|
 | `exec` | The user explicitly asks to execute one ready `plan2exec` document. | Leaf subagents implement slices; the controller rechecks architecture fit, then reviews and integrates sequentially. Independent slices may run in parallel only when their code and state boundaries are disjoint. Optional `model`, `reasoning_effort`, and `max_workers` values are forwarded to host-native subagents. |
 
-## Issue Workflows
+## Diagnosis And Repair
 
-`issue` and `fix` remain available without joining a fixed feature path:
+Use `debug` for both diagnosis and requested repairs:
 
 ```text
-$issue <bug-report-or-failing-output>
-$fix .loopx/issues/<ready-ledger>.md
+$debug Investigate this failure; do not change code.
+$debug Fix this regression and run the required checks.
+$debug Continue the authorized repair in .loopx/issues/<ledger>.md
 ```
 
-Start `fix` after the ledger is `ready_for_fix`; resume a recorded `in_progress` repair only after its checkpoint matches the current delta. Feature requests route back
-to prompt-first work or a justified canonical intent.
+It replaces the `issue` and `fix` entries. Ordinary work needs no new ledger.
+A supplied ledger retains its approved scope, evidence and recovery checks;
+its status alone does not authorize code changes. For an interrupted repair,
+check the current contents against the recorded checkpoint before continuing.
 
-`spec` creates and maintains the overview and detailed design as linked authorities.
-`design-review` updates the overview in place, preserving its decisions and review history.
-Plans and reviewers follow the detailed design index to overview-owned decisions.
+## Design documents and requirements
+
+`clarify` updates the existing requirement source when possible; question history
+is optional. For a new intake, `requirements.md` owns acceptance and scenarios.
+`spec` keeps `概要设计.md` for the overall solution, flows and modules, and
+`需求设计文档.md` for interfaces, fields and implementation constraints. Material
+public, data, state-machine or cross-system designs and stakeholder reviews use
+both; small local corrections need no full templates. An overview may briefly explain necessary rationale. Detail describes the current
+implementation design, without mandatory alternatives or discussion history.
+Accepted review changes update the design. There is no default separate
+`设计提案.md`. Existing overview-only decisions and history remain maintained
+authority and must be read before updates.
+
+An approved design or refactor proposal can guide authorized implementation
+directly. A plan records implementation work, dependencies and verification only;
+it cannot redefine the requirement. Implementation and final checks read the
+original source as well as downstream documents. Matching AC/D/TC IDs is not proof
+of coverage, and a required scenario cannot be deferred without explicit approval.
 
 ## Support Lenses
 
@@ -58,20 +82,17 @@ Support skills remain directly invocable and composable with canonical intents:
 
 | Skill | Focus |
 |---|---|
-| `codebase-spec` | Evidence-backed documentation of current behavior. |
-| `refactor-plan` | Behavior-preserving RFCs, converted through `plan2exec` before execution. |
-| `code-darwin` | Evidence-backed codebase rot and smell audit with a prioritized refactor backlog. |
+| `codebase-spec` | Current behavior documented at the requested scope, preferably by updating existing documentation. |
+| `refactor-plan` | Optional code audits and independent refactor proposals; audit-only requests end with findings, and approved proposals can guide authorized implementation directly. |
 | `tdd` | Failing-test-first development. |
-| `debug` | Root-cause diagnosis. |
-| `verify` | Fresh evidence before completion claims. |
+| `debug` | Failure diagnosis and requested repair. |
 | `using-git-worktrees` | Explicit workspace isolation. |
 | `humanize-doc` | Readability assessment, document editing, and removing AI-like prose while preserving meaning. |
 | `maintain-project-docs` | Repository-wide current authority, archival, and retrieval hygiene. |
 | `requirement-analyzer` | Requirement gaps and readiness. |
-| `plan-reviewer` | Ad-hoc review of a plan document against its source. |
 | `go-style`, `kratos` | Go engineering facade (style, modernization, performance, concurrency) and Go-Kratos discipline. |
 | `api-designer`, `architecture-designer`, `sql-style`, `cli-developer` | Domain-specific design and review lenses. |
-| `generate-api-docs` | Synchronized field-level Markdown and Apifox-importable OpenAPI YAML for existing HTTP APIs. |
+| `generate-api-docs` | Separate Markdown call descriptions for each business scenario, including repeated routes, scenario parameters, and complete field descriptions; OpenAPI YAML only on explicit request. Examples require actual calls with real scenario inputs; any untestable scenario blocks generation and delivery. Applies `lancet` and then `humanize-doc` before final validation. |
 | `lancet` | Implementation and review simplification. |
 | `prompt-lint` | Read-only lint of prompt goals, context, boundaries, evidence, and signal quality. |
 

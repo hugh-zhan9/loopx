@@ -80,34 +80,23 @@ describe('loopx plugin shell', () => {
     const planSkill = await readFile(join(ROOT_SKILLS_DIR, 'plan2exec', 'SKILL.md'), 'utf8');
     const planSchema = await readFile(join(ROOT_SKILLS_DIR, 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
 
-    assert.match(planSkill, /optional lean implementation plan/i);
-    assert.match(planSkill, /traceable handoff/i);
-    assert.match(planSchema, /Source And Goal/);
-    assert.match(planSchema, /Boundaries And Global Constraints/);
-    assert.match(planSchema, /Execution Slices/);
-    assert.match(planSchema, /Acceptance/);
-    assert.match(planSchema, /Verification/);
+    assert.ok(LOOPX_SKILLS.includes('plan2exec'));
+    assert.match(planSchema, /^schema: loopx-plan\/v1$/m);
     assert.match(planSkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
-    assert.doesNotMatch(planSkill, /Bite-Sized Task Granularity|loopx-parallel-plan|max_parallel/);
+    for (const retired of ['plan-reviewer', 'design-review', 'clarify-v2', 'spec-v2', 'code-darwin', 'verify']) {
+      assert.ok(!LOOPX_SKILLS.includes(retired));
+      assert.equal(existsSync(join(ROOT_SKILLS_DIR, retired)), false);
+    }
     assert.equal(existsSync(join(ROOT_SKILLS_DIR, 'plan')), false);
     assert.equal(existsSync(join(ROOT_SKILLS_DIR, 'plan-to-exec')), false);
   });
 
-  it('locks clarify to use the conditional spec or plan handoff gate', async () => {
+  it('publishes clarify intake fields without a forced downstream gate', async () => {
     const clarifySkill = await readFile(join(ROOT_SKILLS_DIR, 'clarify', 'SKILL.md'), 'utf8');
-
-    assert.match(clarifySkill, /needs_spec/);
-    assert.match(clarifySkill, /direct_to_plan/);
-    assert.match(clarifySkill, /docs\/loopx\/design\/YYYY-MM-DD-<kebab-slug>\/需求设计文档\.md/);
-    assert.match(clarifySkill, /docs\/loopx\/plans\/YYYY-MM-DD-<feature-slug>\.md/);
-    assert.match(clarifySkill, /\.loopx\/intake\/YYYY-MM-DD-<slug>\//);
-    assert.doesNotMatch(clarifySkill, /Recommended invocation: `\$spec/);
-    assert.doesNotMatch(clarifySkill, /Default handoff after normal loopx clarify: `\$plan2exec <slug>`/);
-    assert.doesNotMatch(clarifySkill, /hand off to `build` only/i);
-    assert.doesNotMatch(clarifySkill, /direct execution/i);
-    assert.doesNotMatch(clarifySkill, /direct implementation/i);
-    assert.doesNotMatch(clarifySkill, /directly to implementation/i);
-    assert.doesNotMatch(clarifySkill, /Proceed directly to implementation/i);
+    for (const field of ['clarification.md', 'requirements.md', 'AC-*', 'TC-*']) {
+      assert.ok(clarifySkill.includes(field));
+    }
+    assert.doesNotMatch(clarifySkill, /needs_spec|direct_to_plan/);
   });
 
   it('reuses the shared install core while materializing skills from the package root', async () => {
@@ -138,14 +127,17 @@ describe('loopx plugin shell', () => {
 
     const codexGuidance = await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8');
     assert.match(codexGuidance, /loopx:managed:block prompt-first-routing/);
-    assert.match(codexGuidance, /clear, bounded.*ordinary model work/is);
+    const agreement = await readFile(join(REPO_ROOT, 'templates/working-agreement.md'), 'utf8');
+    assert.ok(codexGuidance.includes(agreement.trim()));
     assert.doesNotMatch(codexGuidance, /skills\/RESOLVER\.md/);
 
     const installedSpecTemplate = await readFile(join(home, '.agents', 'skills', 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
     const rootSpecTemplate = await readFile(join(ROOT_SKILLS_DIR, 'spec', 'DESIGN_SPEC_TEMPLATE.md'), 'utf8');
-    const installedSpecProposal = await readFile(join(home, '.agents', 'skills', 'spec', 'references', 'design-proposal.md'), 'utf8');
-    const rootSpecProposal = await readFile(join(ROOT_SKILLS_DIR, 'spec', 'references', 'design-proposal.md'), 'utf8');
     assert.equal(installedSpecTemplate, rootSpecTemplate);
-    assert.equal(installedSpecProposal, rootSpecProposal);
+    for (const file of ['REVIEW_BRIEF_TEMPLATE.md', 'references/design-review.md', 'references/design-quality.md', 'references/design-diagrams.md']) {
+      assert.equal(await readFile(join(home, '.agents/skills/spec', file), 'utf8'),
+        await readFile(join(ROOT_SKILLS_DIR, 'spec', file), 'utf8'));
+    }
+    assert.equal(existsSync(join(home, '.agents/skills/spec/references/design-proposal.md')), false);
   });
 });

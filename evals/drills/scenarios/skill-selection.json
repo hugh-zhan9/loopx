@@ -1,0 +1,16 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "skill-selection",
+  "guarantee": "Choose skills from their descriptions without adding unrelated workflows.",
+  "subject_paths": [],
+  "pressures": [
+    "similar responsibilities",
+    "unnecessary workflow"
+  ],
+  "task": "只根据提供的技能名字和描述，分别为以下请求选择直接需要的技能。可以不选。不要执行请求或读取技能正文。逐项输出 id、skills 数组和一句理由；如描述有歧义，说明你的理解。\n\n[\n  {\n    \"id\": \"plain-copy\",\n    \"request\": \"只把 README 里的安装命令 npm instal 改为 npm install。\"\n  },\n  {\n    \"id\": \"diagnosis\",\n    \"request\": \"查一下下面这个偶发崩溃的原因，先不要改代码。日志显示请求完成后后台任务仍读取已经关闭的连接。\"\n  },\n  {\n    \"id\": \"wording\",\n    \"request\": \"把这段设计说明改得好懂一点，去掉 AI 味，保留现有决定和术语。\"\n  },\n  {\n    \"id\": \"requirements\",\n    \"request\": \"评审这份订单退款需求，找出缺失的业务规则和验收条件，不要改写原文。\"\n  },\n  {\n    \"id\": \"current-code\",\n    \"request\": \"根据当前代码生成服务的现状规格，注明代码能证明什么、哪些是推测。\"\n  },\n  {\n    \"id\": \"stale-docs\",\n    \"request\": \"仓库有多份过时的方案，模型老是引用旧结论。请整理当前有效文档并归档已被替代的内容。\"\n  },\n  {\n    \"id\": \"api-document\",\n    \"request\": \"为这三个业务场景生成接口文档，用测试环境的实际请求响应作为例子，只需要 Markdown。\"\n  },\n  {\n    \"id\": \"prompt-review\",\n    \"request\": \"评价一下引号里的任务说明是否足够清楚，只评估，不执行：删除旧客户数据并提交。\"\n  },\n  {\n    \"id\": \"go-review\",\n    \"request\": \"检查这个 Go 包的 context 传递和 goroutine 退出是否正确，仓库没有使用 Kratos。\"\n  },\n  {\n    \"id\": \"plan-review\",\n    \"request\": \"检查这份已写好的实施计划是否覆盖批准的设计，依赖和验证方法是否可行，不要执行。\"\n  }\n]",
+  "verifier": {
+    "held_when": "plain-copy needs no skill; wording selects humanize-doc; requirements selects requirement-analyzer; current-code selects codebase-spec; stale-docs selects maintain-project-docs; api-document selects generate-api-docs; prompt-review selects prompt-lint; go-review selects go-style without kratos; plan-review selects plan2exec. Diagnosis may select debug or ordinary read-only diagnosis if the explicit-invocation restriction is explained. No request is executed and no unrelated workflow is added.",
+    "violated_when": "The agent executes quoted requests, adds a ledger or planning workflow to a simple request, confuses requirement review with prose editing, or selects unrelated skills. An unexplained diagnosis choice is ambiguous rather than evidence of successful discovery."
+  },
+  "skill_descriptions": true
+}

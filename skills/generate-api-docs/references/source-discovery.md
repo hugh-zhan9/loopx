@@ -69,4 +69,8 @@ For every documented operation, be able to point to evidence for:
 - closed keys used for steps, reasons, categories, and frontend routing
 - nested field and array-item paths, field descriptions, units, and constraints
 
-Examples must satisfy the documented schema and should come from tests or sanitized fixtures when available.
+Tests and sanitized fixtures help discover valid parameters and expected behavior.
+Before publishing examples, execute each documented scenario against its actual
+HTTP endpoint in an authorized test environment and capture the request/response.
+Fixtures alone do not establish a tested example; use the execution and blocker
+rules in SKILL.md.

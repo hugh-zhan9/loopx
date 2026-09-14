@@ -68,6 +68,10 @@ loopx doctor
 如需移除 loopx 管理的用户级 artifacts，请查看
 [Installation And CLI Onboarding Spec](./specs/installation.md)。
 
+`doctor` 将 Ruby 标为 `generate-api-docs` 的 OpenAPI 配对校验所需的可选依赖。
+缺少 Ruby 不影响安装健康状态，默认生成 Markdown 也不依赖它。
+JSON 依赖信息通过 `optional`、`purpose` 标明用途，并保留可用性和版本信息。
+
 ## 维护命令
 
 benchmark 与 drill 证据保留在源码仓库中，不进入 npm runtime 包。发布前运行确定性

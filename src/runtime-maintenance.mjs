@@ -35,6 +35,8 @@ export function inspectRuntimeDependencies(env = process.env) {
       available: rubyProbe.status === 0,
       version: rubyProbe.status === 0 ? rubyProbe.stdout.trim() : null,
       requiredBy: ['generate-api-docs'],
+      optional: true,
+      purpose: 'OpenAPI pair validation',
     },
   };
 }

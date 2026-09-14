@@ -1,6 +1,7 @@
 # Diagnosis Contract
 
-`debug` produces this summary for direct diagnosis and `issue`/`fix` consumers:
+Use these fields when a structured diagnosis or an existing ledger needs them.
+For ordinary findings, plain prose with the same evidence is sufficient.
 
 ```yaml
 diagnosis:
@@ -23,9 +24,8 @@ diagnosis:
   mechanism. A symptom alone is insufficient; use `likely` for an evidenced but
   unconfirmed cause and `unknown` when the cause is not established.
 - `not_reproduced` includes attempted steps and remaining evidence gaps.
-- `hypotheses_rejected` may be empty during investigation. Do not fabricate an
-  entry. The `issue` full-ledger readiness gate requires an evidence-backed
-  rejection; its short-form exception is defined in that skill.
+- `hypotheses_rejected` may be empty, including when the first hypothesis is
+  confirmed. Do not fabricate an entry to make a diagnosis or repair look ready.
 - `defensive_fix` requires that risk trigger and a reason a root-cause repair is
   unavailable. It describes an option, not permission to implement it.
 - `regression_test_required: false` requires a concrete exception reason and the

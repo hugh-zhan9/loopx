@@ -53,6 +53,31 @@ async function simulateLegacySharedContractBaseline(home) {
 }
 
 describe('loopx docs-first document shell', () => {
+  it('doctor stays healthy without optional Ruby and still reports installation failures', async (t) => {
+    const home = await mkdtemp(join(tmpdir(), 'loopx-doctor-optional-'));
+    t.after(() => rm(home, { recursive: true, force: true }));
+    const env = { ...loopxEnv(home), PATH: '' };
+    assert.equal((await installBundledSkills(env, { yes: true })).ok, true);
+
+    const runDoctor = (args = []) => execFileAsync(process.execPath, [cliPath, 'doctor', ...args], { cwd: home, env });
+    const { stdout: json } = await runDoctor(['--json']);
+    const result = JSON.parse(json);
+    assert.equal(result.ok, true);
+    assert.equal(result.runtimeDependencies.ruby.available, false);
+    assert.equal(result.runtimeDependencies.ruby.optional, true);
+    const { stdout: human } = await runDoctor();
+    assert.match(human, /^loopx doctor: ok$/m);
+    assert.match(human, /ruby: missing \(optional for OpenAPI pair validation\)/);
+    assert.doesNotMatch(human, /repair-install/);
+
+    await rm(join(home, '.agents', 'skills', 'generate-api-docs'), { recursive: true });
+    const { stdout: broken } = await runDoctor(['--json']);
+    assert.equal(JSON.parse(broken).ok, false);
+    const { stdout: brokenHuman } = await runDoctor();
+    assert.match(brokenHuman, /^loopx doctor: attention needed$/m);
+    assert.match(brokenHuman, /repair-install/);
+  });
+
   it('initializes workspace metadata and a document set', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'loopx-init-'));
     const result = await initWorkspace(wd, { slug: 'Demo Init' });
@@ -364,19 +389,16 @@ describe('loopx docs-first document shell', () => {
     assert.ok(codexRouting, 'Codex guidance must contain prompt-first routing');
     assert.equal(claudeRouting, codexRouting, 'Codex and Claude routing must be byte-consistent');
 
-    assert.match(codexRouting, /smallest change that satisfies it/i);
-    assert.match(codexRouting, /Only claim completion from fresh command output/i);
-    assert.match(codexRouting, /materially ambiguous.*clarify/is);
-    assert.match(codexRouting, /public APIs and observable behavior stable/i);
-    assert.match(codexRouting, /Never commit, push, merge, or discard work unless the user explicitly asks/i);
+    const agreement = await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8');
+    assert.equal(codexRouting, agreement.trim(), 'installed rules must match the canonical agreement');
     for (const forbidden of [/\$direct/i, /direct mode/i, /risk score/i, /Golden[- ]path/i, /skills\/RESOLVER\.md/i]) {
       assert.doesNotMatch(codexRouting, forbidden);
     }
 
     const clarifySkill = await readFile(join(home, '.agents', 'skills', 'clarify', 'SKILL.md'), 'utf8');
     const specSkill = await readFile(join(home, '.agents', 'skills', 'spec', 'SKILL.md'), 'utf8');
-    assert.match(clarifySkill, /description:.*concrete ambiguity.*Not for clear bounded requests/i);
-    assert.match(specSkill, /description:.*unresolved compatibility.*architecture decisions.*Not for clear local implementation/i);
+    assert.equal(clarifySkill, await readFile(join(repoRoot, 'skills/clarify/SKILL.md'), 'utf8'));
+    assert.equal(specSkill, await readFile(join(repoRoot, 'skills/spec/SKILL.md'), 'utf8'));
   });
 
   it('installs plan2exec as a traceable document contract', async () => {
@@ -391,7 +413,7 @@ describe('loopx docs-first document shell', () => {
     const planSchema = await readFile(join(home, '.agents', 'skills', 'plan2exec', 'references', 'plan-schema.md'), 'utf8');
     const fixture = await readFile(join(repoRoot, 'test', 'fixtures', 'lean-plan.md'), 'utf8');
 
-    assert.match(planSkill, /explicit planning.*approval boundar.*interruption recovery.*durable coordination/is);
+    assert.equal(planSkill, await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8'));
     assert.match(planSkill, /clear, bounded request.*prompt-first/is);
     for (const heading of [
       'Goal And Boundaries',
@@ -404,7 +426,7 @@ describe('loopx docs-first document shell', () => {
     }
     assert.match(planSchema, /^## P-001 <coherent outcome>$/m);
     assert.match(fixture, /^## P-001 /m);
-    for (const line of ['schema: loopx-plan/v1', 'source:', 'status: blocked', 'slices:', '- id: P-001', 'status: pending']) {
+    for (const line of ['schema: loopx-plan/v1', 'source:', 'status: ready', 'slices:', '- id: P-001', 'status: pending']) {
       assert.match(planSchema, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
       assert.match(fixture, new RegExp(`^\\s*${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
     }
@@ -449,6 +471,12 @@ describe('loopx docs-first document shell', () => {
       'review',
       'final-review',
       'fix-review',
+      'code-darwin',
+      'verify',
+      'design-review',
+      'plan-reviewer',
+      'clarify-v2',
+      'spec-v2',
       'finish',
     ]) {
       assert.equal(existsSync(join(installedRoot, removed, 'SKILL.md')), false, removed);

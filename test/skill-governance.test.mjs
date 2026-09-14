@@ -19,22 +19,26 @@ describe('loopx docs-first governance', () => {
   });
 
   it('keeps the working agreement explicit about stop, verification, review, and Git discipline', async () => {
-    const agreement = await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8');
-    assert.match(agreement, /Run the repository test suite after your change/);
+    const agreement = (await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8')).replace(/\s+/g, ' ');
+    assert.match(agreement, /Run the full test suite when repository instructions require it/);
     assert.match(agreement, /closest existing extension or reuse points/);
-    assert.match(agreement, /approved\s+design records the reason before mutation/i);
+    assert.match(agreement, /approved\s+design records the reason\s+before mutation/i);
     assert.match(agreement, /stop before mutation and use `spec`; do not\s+justify it after coding/i);
     assert.match(agreement, /local module or helper.*remains an\s+implementation choice.*continue prompt-first/is);
-    assert.match(agreement, /unjustified duplication.*boundary violations.*failure blast radius/is);
+    assert.match(agreement, /unjustified duplication.*boundary violations.*failure impact/is);
     assert.match(agreement, /Only claim completion from fresh command output/);
     assert.match(agreement, /independent subagent review the exact diff/);
     assert.match(agreement, /do not guess and do not write code/);
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/);
   });
 
-  it('keeps issue and fix workflows beside support lenses', () => {
-    for (const skillName of ['issue', 'fix', 'debug', 'tdd', 'verify', 'plan-reviewer', 'lancet', 'prompt-lint']) {
+  it('uses debug as the single diagnosis and repair entry', () => {
+    for (const skillName of ['debug', 'tdd', 'lancet', 'prompt-lint']) {
       assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, skillName);
+    }
+    for (const name of ['issue', 'fix']) {
+      assert.equal(LOOPX_BUNDLED_SKILLS.includes(name), false);
+      assert.equal(existsSync(join(repoRoot, 'skills', name, 'SKILL.md')), false);
     }
   });
 

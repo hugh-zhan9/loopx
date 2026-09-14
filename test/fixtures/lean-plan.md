@@ -1,7 +1,7 @@
 ---
 schema: loopx-plan/v1
 source: docs/loopx/design/2026-07-20-custom-export-names/requirements.md
-status: blocked
+status: ready
 slices:
   - id: P-001
     status: pending
@@ -26,7 +26,7 @@ else about loading changes.
 > anchors: AC-001, TC-001
 > architecture: extend the existing config loader; keep configuration ownership and reload behavior inside that module; verify one source of naming policy through focused tests
 > verify: run the focused configuration-loader tests and observe both custom-name and default-name cases passing
-> review: reload compatibility and preservation of the default-name behavior
+> review: author checks the local reload fix; no independent review risk identified
 
 ## Integration And Final Verification
 
@@ -36,14 +36,14 @@ else about loading changes.
 
 ## Handoff And Residual Risks
 
-- Review evidence: pending.
-- Blockers: Independent plan review pending.
+- Review: author checked source coverage, local ownership and verification.
+- Blockers: none.
 - Residual risks: none known.
 - Resume note: none.
 
 ## Execution rules for the consuming agent
 
-- Begin only after independent plan review permits `status: ready`.
+- Begin pending slices with `status: ready` and their required dependencies done.
 - Execute slices in frontmatter dependency order; verify each slice with its
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.
