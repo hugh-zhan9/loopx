@@ -14,13 +14,15 @@ host guidance（`AGENTS.md` / `CLAUDE.md`）的简短 working agreement，加上
 流水线或每轮 hook；可选的 `$exec` 只是消费 ready `plan2exec` 文档的宿主原生
 subagent playbook。
 
-日常工作在 working agreement 之下保持 prompt-first：先读后改、最小正确改动、
-显式边界条件、新鲜验证、遇到未指明的实质决策就停下来问、没有明确请求绝不做
-Git 处置。
+日常工作在 working agreement 之下保持 prompt-first：先检查需求和相关代码，
+主动找出缺失的实质决策，明确后再开始依赖这些决定的实现。清楚且边界明确的
+请求不需要额外确认。保持最小正确改动，检查边界条件并完成新鲜验证，
+没有明确请求绝不做 Git 处置。
 
 三个 canonical workflow intents 都产出文档：
 
-- `clarify` 一次一问地访谈，产出带可测试 `AC-*` / `TC-*` 锚点的需求契约。
+- `clarify` 在实现前找出需求缺口，集中询问独立决定，依赖问题等前提明确后追问，
+  产出带可测试 `AC-*` / `TC-*` 锚点的需求契约。
 - `spec` 把长期有效的产品、兼容、数据、安全或架构决策固化为带 `D-*` 锚点的
   设计文档。
 - `plan2exec` 只在明确要求计划、审批边界、中断恢复或持久协调时写一份 lean

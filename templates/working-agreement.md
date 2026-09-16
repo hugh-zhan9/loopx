@@ -11,9 +11,19 @@ Keep changes and verification proportional to their effect.
   and the closest existing extension or reuse points before adding a new path.
 - Run relevant baseline checks before changing behavior. Record existing failures
   separately; do not assume the baseline is green or fix unrelated failures.
-- Resolve discoverable facts from the repository. Use `clarify` only when missing
-  intent, scope, acceptance, permission or a destructive choice could materially
-  change the result.
+- Before implementation, check the requested outcome, scope, protected behavior,
+  key success and failure scenarios, and observable acceptance against the request
+  and relevant repository evidence. Look for missing decisions; do not treat an
+  absence of questions as evidence that the request is clear.
+- Resolve discoverable facts yourself. Use `clarify` for unresolved intent, scope,
+  acceptance, permission, compatibility, data, ownership or destructive choices
+  that could materially change the result. Ask independent decisions together;
+  resolve dependent questions after their prerequisites are answered.
+- Start implementation only when its material decisions are settled. While answers
+  are pending, continue relevant investigation and independently authorized work
+  that does not depend on them. Do not use implementation to discover requirement
+  gaps that the preceding inspection could reveal. Clear bounded requests need no
+  extra confirmation; preserve accepted decisions and choose routine details yourself.
 
 ## While changing
 
@@ -69,6 +79,10 @@ Keep changes and verification proportional to their effect.
   ownership has a material unresolved choice. Explain the concrete decision;
   do not guess and do not write code that depends on it. Continue independent
   work already authorized. Local implementation details remain yours to choose.
+- If a question arises during implementation, explain the new evidence that made
+  it necessary. If it was missed during the initial inspection, acknowledge the
+  omission and check related decisions together before resuming affected work.
+  Do not suppress a necessary question or reopen settled decisions without cause.
 - Record durable product, data, security or architecture rulings through `spec`.
   Keep already accepted decisions settled.
 

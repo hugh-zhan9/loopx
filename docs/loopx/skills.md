@@ -4,8 +4,12 @@
 
 The installed product is docs-first. The primary deliverable is the working
 agreement installed into host guidance; execution belongs to the model and its
-host runtime. Clear bounded work is implemented and freshly verified directly
-under that agreement. The optional `exec` skill is a host-native subagent
+host runtime. Before implementation, inspect the request and relevant evidence
+for missing decisions about goals, boundaries, key scenarios, and acceptance.
+Settle material questions before implementing behavior that depends on them;
+investigation can continue while answers are pending. Clear bounded work needs
+no extra confirmation and is implemented and freshly verified directly under
+that agreement. The optional `exec` skill is a host-native subagent
 playbook for an already-ready plan, not a loopx runtime.
 
 ## Canonical Workflow Intents
@@ -61,6 +65,11 @@ check the current contents against the recorded checkpoint before continuing.
 
 `clarify` updates the existing requirement source when possible; question history
 is optional. For a new intake, `requirements.md` owns acceptance and scenarios.
+Ask independent material decisions together and dependent questions after their
+prerequisites are answered. Before finishing, check whether the answers leave any
+affected scenario undecided; unanswered questions remain pending. Keep accepted
+decisions settled and resolve repository facts and routine details yourself.
+
 `spec` keeps `概要设计.md` for the overall solution, flows and modules, and
 `需求设计文档.md` for interfaces, fields and implementation constraints. Material
 public, data, state-machine or cross-system designs and stakeholder reviews use

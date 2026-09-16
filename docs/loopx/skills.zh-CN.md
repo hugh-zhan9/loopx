@@ -3,9 +3,11 @@
 [English](./skills.md)
 
 安装后的产品采用 docs-first。核心交付物是安装进 host guidance 的 working
-agreement；执行属于模型和宿主运行时。清晰且边界明确的工作在该 agreement 之下
-直接实现并完成新鲜验证。可选的 `exec` 是消费 ready plan 的宿主原生 subagent
-playbook，不是 loopx runtime。
+agreement；执行属于模型和宿主运行时。实现前先检查需求和相关证据，主动找出
+目标、边界、关键场景和验收中的缺失决定。实质问题明确后，才能实现依赖这些
+决定的行为；等待回答时可继续调查。清晰且边界明确的工作不需要额外确认，
+在该 agreement 之下直接实现并完成新鲜验证。可选的 `exec` 是消费 ready plan 的
+宿主原生 subagent playbook，不是 loopx runtime。
 
 ## Canonical Workflow Intents
 
@@ -53,7 +55,11 @@ $debug 继续 .loopx/issues/<ledger>.md 中已授权的修复。
 ## 设计产物和需求依据
 
 `clarify` 优先更新已有需求来源，问答历史按需记录。新建需求材料时，由
-`requirements.md` 维护验收要求和场景。`spec` 保留《概要设计》和《需求设计文档》：
+`requirements.md` 维护验收要求和场景。独立的实质问题集中问，依赖问题等前提
+明确后再问；结束前检查回答是否仍留下未明确的相关场景，未回答的问题保持待决。
+已接受的决定不重复确认，仓库事实和常规实现细节由模型自行解决。
+
+`spec` 保留《概要设计》和《需求设计文档》：
 前者讲整体方案、流程和模块关系，后者讲接口、字段和实现约束。涉及公开契约、
 数据模型、状态机、跨系统或需要共同评审的设计，继续维护这两份文档；局部小改动
 不用套完整模板。概要按需要简述选择理由；详细设计写当前采用的实现方案，

@@ -1,8 +1,8 @@
 ---
 name: clarify
-description: "Resolve unclear goals, scope, acceptance, or permissions (需求澄清). Ask independent decisions together and record confirmed requirements."
+description: "Find and resolve material gaps in goals, scope, scenarios, acceptance, or permissions before implementation (需求澄清). Ask independent decisions together and record confirmed requirements."
 metadata:
-  version: "0.5.0"
+  version: "0.5.1"
   when_to_use: "clarify, unresolved intent, unclear scope, acceptance criteria, permission decision, 需求澄清, 分轮提问"
 ---
 
@@ -14,7 +14,11 @@ bounded request.
 
 ## Method
 
-1. Read the current request and only the repository evidence relevant to it.
+1. Read the current request, accepted requirements, and relevant repository
+   evidence. Check the outcome, scope, protected behavior, key success and failure
+   scenarios, and observable acceptance for missing or conflicting decisions.
+   Check permissions, compatibility, data and ownership where the task affects
+   them. Do not wait for implementation to expose gaps discoverable here.
 2. Answer questions from repository evidence when possible. Facts about the
    codebase, tools, or environment are yours to find; only decisions go to the
    user.
@@ -23,9 +27,11 @@ bounded request.
    lookup is pending, ask the questions that do not depend on it now.
 4. Number questions when useful. Give a recommendation and its tradeoff when
    there is a real choice; use the host's question tool when available.
-5. After each answer, ask only the remaining questions it makes possible.
-   Finish when material decisions are settled; record unanswered items as
-   `[PENDING]` without treating them as accepted.
+5. After each answer, check its effect on the requirements and ask the remaining
+   questions it makes possible together. Finish when material decisions are
+   settled across the affected scenarios, not merely when the last question has
+   an answer. Record unanswered items as `[PENDING]` with the behavior they leave
+   undecided; do not treat them as accepted or the affected requirements as complete.
 6. Record confirmed facts and decisions without prescribing how the model must
    decompose, schedule, delegate, review, or execute the work.
 
@@ -75,6 +81,9 @@ a decision. Keep observed evidence separate from inference.
   or execution policy.
 - Do not ask the user for a fact the repository or tools can supply.
 - Do not pad a round with questions that cannot change the outcome.
+- Keep accepted decisions settled unless new evidence or a changed request
+  challenges them. A clear bounded request needs no extra confirmation, and
+  routine implementation details do not belong in the user questionnaire.
 - Do not invent answers or acceptance criteria to make the document appear
   complete.
 - End with the documents produced and the concrete open questions, if any.

@@ -15,15 +15,18 @@ Execution belongs to the model and its host runtime: loopx ships no execution
 runtime, review pipeline, or per-turn hook. The optional `$exec` skill is a thin
 host-native subagent playbook for an already-ready `plan2exec` document.
 
-Day-to-day work stays prompt-first under the working agreement: read first,
-smallest correct change, boundary conditions, fresh verification, stop and ask
-when a material decision is unspecified, no Git disposition without an
-explicit request.
+Day-to-day work stays prompt-first under the working agreement: inspect the
+request and relevant code, identify missing material decisions, and settle them
+before the implementation that depends on them. Clear bounded requests need no
+extra confirmation. Make the smallest correct change, check boundary conditions,
+verify it freshly, and perform no Git disposition without an explicit request.
 
 The three canonical workflow intents produce documents:
 
-- `clarify` interviews one question at a time and produces a requirements
-  contract with testable `AC-*` / `TC-*` anchors.
+- `clarify` finds requirement gaps before implementation, asks independent
+  decisions together, and follows up on dependent questions after their
+  prerequisites are answered. It produces a requirements contract with testable
+  `AC-*` / `TC-*` anchors.
 - `spec` fixes durable product, compatibility, data, security, or architecture
   decisions as a design document with `D-*` anchors.
 - `plan2exec` writes one lean plan document for explicit planning, approval
