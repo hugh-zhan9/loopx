@@ -32,6 +32,23 @@ describe('loopx docs-first governance', () => {
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/);
   });
 
+  it('requires a mutation check when unproven tests are the main evidence', async () => {
+    const agreement = (await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8')).replace(/\s+/g, ' ');
+    assert.match(agreement, /never seen failing for that logic, check that they fail when it is broken/);
+    assert.match(agreement, /installed `tdd\/references\/mutation-check\.md`/);
+    const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
+    assert.match(tdd, /\(references\/mutation-check\.md\)/);
+  });
+
+  it('keeps the mutation check independent of any specific tool', async () => {
+    const contract = await readFile(join(repoRoot, 'skills', 'tdd', 'references', 'mutation-check.md'), 'utf8');
+    assert.match(contract, /The repository decides the tool, command, and configuration/);
+    assert.match(contract.replace(/\s+/g, ' '), /documented tool is missing or cannot run, use targeted manual mutations only/);
+    for (const tool of [/gremlins/i, /mutago/i, /go-mutesting/i, /ooze/i, /pitest/i, /stryker/i, /mutmut/i, /cargo-mutants/i]) {
+      assert.doesNotMatch(contract, tool);
+    }
+  });
+
   it('uses debug as the single diagnosis and repair entry', () => {
     for (const skillName of ['debug', 'tdd', 'lancet', 'prompt-lint']) {
       assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, skillName);

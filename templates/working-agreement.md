@@ -51,6 +51,9 @@ Keep changes and verification proportional to their effect.
 - Test the changed behavior and affected callers. Add a regression test for a
   defect or new behavior where practical; use an appropriate repeatable check
   for documents, configuration or generated output.
+- When tests are the main evidence for changed calculations, conditions, state
+  changes or error handling and were never seen failing for that logic, check that
+  they fail when it is broken. Use the installed `tdd/references/mutation-check.md`.
 - Run the full test suite when repository instructions require it, when shared
   behavior changes, or when focused checks cannot establish the affected scope.
   Run required formatting, lint and build checks. Rerun affected checks after edits.

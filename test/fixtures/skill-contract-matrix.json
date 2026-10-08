@@ -197,9 +197,10 @@
       ],
       "required_references": [
         "references/red-green-refactor.md",
-        "testing-anti-patterns.md"
+        "testing-anti-patterns.md",
+        "references/mutation-check.md"
       ],
-      "version": "0.3.7"
+      "version": "0.3.8"
     },
     {
       "skill": "using-git-worktrees",
