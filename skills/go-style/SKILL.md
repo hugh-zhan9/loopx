@@ -3,7 +3,7 @@ name: go-style
 description: "Apply Go conventions to handwritten code, reviews, modernization, performance, and concurrency work (Go 开发、性能分析). Use kratos only for confirmed Kratos projects."
 when_to_use: "go-style, Go, golang, .go files, Go review, idiomatic Go, modernize Go, go fix, benchmark, pprof, performance, race, deadlock, goroutine, mutex, channel, context"
 metadata:
-  version: "0.4.2"
+  version: "0.4.3"
 ---
 
 # Go Style
@@ -47,8 +47,11 @@ ordinary Go work to a separate Go skill.
 
 ## Package And API Design
 
-- Keep packages cohesive and domain-focused. Follow the repository's layout;
-  do not impose `pkg/`, `internal/`, or another house structure.
+- Keep packages cohesive and domain-focused. Follow the repository's layering;
+  do not impose `pkg/`, `internal/`, or another house structure. A package that
+  already mixes unrelated flows is not the default home for new code: put a new
+  flow in its own package. If that requires moving or exporting existing code,
+  report the needed split and ask before restructuring.
 - Keep application entry points focused on wiring, lifecycle, and process-level
   policy. Put reusable logic in testable packages.
 - Make dependencies explicit. Prefer the standard library when it is clear and

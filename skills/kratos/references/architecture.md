@@ -2,6 +2,8 @@
 
 Guide for confirmed Kratos projects. Preserve existing layer and injection
 conventions; the fx examples below apply only when the project already uses fx.
+The flat `package biz` and `package data` examples show layer roles only; put
+real code in domain subpackages as the skill's project-boundary rules describe.
 
 ## When to Use
 

@@ -2,7 +2,7 @@
 name: kratos
 description: "Develop or troubleshoot confirmed Go-Kratos services: proto APIs, service/biz/data layers, middleware, auth, and configuration (Kratos 微服务)."
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
   when_to_use: "kratos, Go-Kratos, proto, buf, service layer, biz layer, data layer, middleware, auth, config, Kratos 微服务"
 ---
 
@@ -40,6 +40,17 @@ Keep protocol handling in service, use cases in biz, and persistence/external
 clients in data where the project follows that layering. Avoid leaking proto
 types into biz unless this is the established contract. Inspect nearby callers
 before moving responsibilities or adopting a new layer structure.
+
+Within each layer, group code by business domain. Put a new use case, repo, or
+adapter in the subpackage that owns its flow, such as `internal/biz/<domain>` or
+`internal/biz/<domain>/<flow>` with a matching path under `internal/data`. Do not
+add it to a package that already mixes unrelated flows; file names that cluster
+into several flows, such as `pull_*`, `clearing_*`, and `review_*`, show that mix.
+Define each repo interface in the biz subpackage that uses it. The flat
+`package biz` examples in the references show layer roles, not a layout to grow.
+A small change to an existing flow stays with that flow's code. If a new flow
+cannot get its own subpackage without moving or exporting existing code, report
+the needed split and ask before restructuring.
 
 Use the existing dependency-injection and startup style. `fx` examples apply only
 when the project uses `fx`; they do not justify replacing its current framework.

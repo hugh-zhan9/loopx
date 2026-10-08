@@ -290,7 +290,7 @@
         "references/performance.md",
         "references/concurrency.md"
       ],
-      "version": "0.4.2"
+      "version": "0.4.3"
     },
     {
       "skill": "kratos",
@@ -306,7 +306,7 @@
         "go-style"
       ],
       "required_references": [],
-      "version": "0.3.8"
+      "version": "0.3.9"
     },
     {
       "skill": "api-designer",
