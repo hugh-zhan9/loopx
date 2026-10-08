@@ -220,6 +220,11 @@ function countInstallSkipped(result) {
     .reduce((sum, target) => sum + (Array.isArray(target.skipped) ? target.skipped.length : 0), 0);
 }
 
+function countInstallRemoved(result) {
+  return Object.values(result.results || {})
+    .reduce((sum, target) => sum + (Array.isArray(target.removed) ? target.removed.length : 0), 0);
+}
+
 function installTargetArgument(result) {
   const targets = installTargetNames(result);
   return targets.length === 2 && targets.includes('codex') && targets.includes('claude') ? 'all' : targets[0];
@@ -244,7 +249,11 @@ function printHumanInstall(result, { dryRun = false } = {}) {
   console.log(`conflicts: ${conflicts}`);
   const skipped = countInstallSkipped(result);
   if (skipped > 0) {
-    console.log(`skipped user-modified: ${skipped}`);
+    console.log(`skipped (preserved): ${skipped}`);
+  }
+  const removed = countInstallRemoved(result);
+  if (removed > 0) {
+    console.log(`removed retired: ${removed}`);
   }
   console.log('paths:');
   for (const target of installTargetNames(result)) {
@@ -404,6 +413,7 @@ async function main() {
           installed: codex.installed || [],
           conflicts: codex.conflicts || [],
           skipped: codex.skipped || [],
+          removed: codex.removed || [],
           templateGovernance: codex.templateGovernance,
           inspection: codex.inspection,
         }, null, 2));

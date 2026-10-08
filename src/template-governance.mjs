@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 
 export const TEMPLATE_BASELINE_SCHEMA_VERSION = 1;
@@ -12,10 +12,19 @@ export const TEMPLATE_DRIFT_STATUSES = [
   'unknown',
 ];
 
-async function sha256File(path) {
+export async function sha256File(path) {
   const hash = createHash('sha256');
   hash.update(await readFile(path));
   return hash.digest('hex');
+}
+
+// Like existsSync, treat any stat failure (missing, link loop, no access) as absent.
+export async function isRegularFile(path) {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function sha256Text(text) {
@@ -68,10 +77,14 @@ export async function createTemplateBaseline(root, items, options = {}) {
   for (const item of items) {
     const targetPath = resolve(item.path);
     const sourcePath = resolve(item.sourcePath || item.path);
-    const currentHash = existsSync(targetPath) ? await sha256File(targetPath) : null;
-    const registryHash = existsSync(sourcePath) ? await sha256File(sourcePath) : currentHash;
-    const targetText = existsSync(targetPath) ? await readFile(targetPath, 'utf8') : '';
-    const sourceText = existsSync(sourcePath) ? await readFile(sourcePath, 'utf8') : targetText;
+    // Only regular files have content to record; a directory or link loop has none.
+    const targetIsFile = await isRegularFile(targetPath);
+    const sourceIsFile = await isRegularFile(sourcePath);
+    // An unreadable target has no recordable content; callers keep it as a conflict.
+    const currentHash = targetIsFile ? await sha256File(targetPath).catch(() => null) : null;
+    const registryHash = sourceIsFile ? await sha256File(sourcePath) : currentHash;
+    const targetText = targetIsFile ? await readFile(targetPath, 'utf8').catch(() => '') : '';
+    const sourceText = sourceIsFile ? await readFile(sourcePath, 'utf8') : targetText;
     const managedBlockId = item.managedBlockId || null;
     baselineItems.push({
       path: normalizePath(resolvedRoot, targetPath),
@@ -118,16 +131,23 @@ export async function classifyTemplateDrift(item, options = {}) {
   }
   const targetPath = resolveItemPath(item.path, options.targetPath, options.root);
   const sourcePath = resolveItemPath(item.source_path || item.path, options.sourcePath, options.root);
-  if (!existsSync(targetPath)) {
-    return { status: 'unknown', reason: 'missing_target' };
+  if (!await isRegularFile(targetPath)) {
+    return { status: 'unknown', reason: existsSync(targetPath) ? 'non_file_target' : 'missing_target' };
   }
 
-  const currentHash = await sha256File(targetPath);
+  let currentHash;
+  try {
+    currentHash = await sha256File(targetPath);
+  } catch {
+    // Callers overwrite only current or outdated-pristine targets; keep unreadable ones.
+    return { status: 'conflict', reason: 'unreadable_target' };
+  }
   const baselineHash = item.hash;
-  const registryHash = existsSync(sourcePath) ? await sha256File(sourcePath) : (item.registry_hash || baselineHash);
+  const sourceIsFile = await isRegularFile(sourcePath);
+  const registryHash = sourceIsFile ? await sha256File(sourcePath) : (item.registry_hash || baselineHash);
   if (item.managed_block_id || (Array.isArray(item.managed_block_hashes) && item.managed_block_hashes.length > 0)) {
     const targetText = await readFile(targetPath, 'utf8');
-    const sourceText = existsSync(sourcePath) ? await readFile(sourcePath, 'utf8') : targetText;
+    const sourceText = sourceIsFile ? await readFile(sourcePath, 'utf8') : targetText;
     const currentBlocks = managedBlockSnapshot(targetText, item.managed_block_id);
     const registryBlocks = managedBlockSnapshot(sourceText, item.managed_block_id);
     const baselineBlocks = Array.isArray(item.managed_block_hashes) ? item.managed_block_hashes : [];

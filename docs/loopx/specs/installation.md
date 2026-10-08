@@ -54,6 +54,35 @@ decisions, boundaries, and evidence. Execution belongs to the model and host;
   installation without those baselines, exact known pristine 0.8.9/0.9.0
   completion/evidence contracts may upgrade by their recorded content hashes.
   Different or unknown contents remain preserved and reported as conflicts.
+- When a package stops shipping a shared contract, remove the installed copy
+  only when its baseline records it, it is a regular file with no symbolic link
+  at the shared root or an intermediate directory, and its whole contents equal
+  the recorded installed or package hash; remove directories it leaves empty.
+  Any non-directory entry still at the package path counts as shipped, including
+  a case-only rename on a case-insensitive filesystem. Preserve modified, linked
+  or unrecorded files, report kept files as skipped, and keep recorded baselines
+  so a later install can remove them once they match. A preserved file does not
+  fail the install by itself; one that blocks a newly shipped path is reported
+  as a conflict. If the package has no shared directory, remove nothing.
+  Shared files retired before baselines existed are removed only in a root
+  loopx already installed skills into, and only when their contents equal one
+  of their known shipped versions.
+- A directory, a link to one or a broken link where a shipped shared contract or
+  `SKILL.md` belongs is user content: preserve it and report the shared contract
+  as a conflict and the skill as skipped, on every install, instead of replacing
+  it or recording it as a baseline.
+- On a case-insensitive filesystem, a shared contract renamed only by letter case
+  keeps its baseline by file identity and upgrades like any other contract.
+- A loopx-owned skill without a baseline item is preserved and reported as
+  skipped. Record a baseline for a later upgrade only when the installed copy
+  still matches the folder hash recorded at install; never record a user's edits
+  as loopx content. A regular file where a skill directory belongs is a conflict
+  and is never removed.
+- When the skills root changes, remove the copy at the previous location only
+  when it still matches the folder hash recorded at install or is a symlink to a
+  skill source; otherwise leave it in place and report it as skipped. A link at
+  a skill path, even a dangling one, is user content unless loopx's lock records
+  that skill at that path.
 - Shared-contract writes must not traverse a symbolic link at the shared root
   or an intermediate directory. Preserve those links and report a conflict
   instead of replacing files in the linked source or another user directory.

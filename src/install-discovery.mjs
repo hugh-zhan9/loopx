@@ -1,14 +1,16 @@
-import { cp, lstat, mkdir, readFile, readdir, readlink, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, readdir, readlink, rm, rmdir, stat, symlink, unlink, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   classifyTemplateDrift,
   createTemplateBaseline,
   inspectTemplateGovernance,
+  isRegularFile,
   readTemplateBaseline,
+  sha256File,
   writeTemplateBaseline,
 } from './template-governance.mjs';
 
@@ -88,6 +90,30 @@ const LOOPX_INSTALLATION_IDENTITY = 'loopx';
 const LEGACY_SHARED_CONTRACT_HASHES = new Map([
   ['completion-check.md', '7ae1c0bd9493cfb30de394c8823033ddff331144'],
   ['evidence-contract.md', 'bc6754464fa18f61926d5c89389fec7750575dae'],
+]);
+// SHA-256 of every shipped version of shared files retired before baselines
+// tracked them. In a root loopx already installed into, a copy whose contents
+// equal one of these versions is treated as loopx-installed and removed;
+// anything else stays. Fixtures: test/fixtures/legacy-shared-contracts/retired/.
+const LEGACY_RETIRED_SHARED_CONTRACT_HASHES = new Map([
+  ['agent-topology.md', [
+    '2a5a10c84ccf674b25aaae93ace51f390750d3415c695392eb2e1215870b15f2',
+    '357c359c53c5d98528ad99a69454c2d9c258fedb7d55210721538606a1e9bfbb',
+    '35afcf783f664db1c685e68f446ded9aa1e7897f82f91f165a2c20dbd5611ed8',
+    '556628e3e5f7984e47d9697f11c5a7d5596d9f0de3d1cfced4b7b35b164d4246',
+    '7e9559a998b50f85b61cc06d08c7aa11549ea532ea94fa03d12406ff6bdc2f3c',
+  ]],
+  ['parallel-plan-contract.md', [
+    '9aac27bbd9cf95104707cdd7946821e7982fa51f3e72115871ef1c51c269e56b',
+  ]],
+  ['review-contract.md', [
+    '21df186b4929422a2b64f1254aa01c193002cf0d13137967e3988673830f101b',
+    '5b67dd54e0d876b1b0660ae42d2e54ecd13235b37c7034eb5702a6f96b8112c7',
+    'd183891cba4c6f9ddd36ec2229b4f99261b2b7c3861ec15db99c4c9fe9469af7',
+  ]],
+  ['scripts/parallel-plan-contract.mjs', [
+    '4839a659513eb464f79aac8a49ba33b71a94e88ae78856bf760c150dfdf672f6',
+  ]],
 ]);
 const LOOPX_MANAGED_SCRIPT_ITEMS = [
   // v0.8 docs-first: no per-turn workflow hooks. The working agreement is the
@@ -325,10 +351,11 @@ async function readJsonFile(path, fallback) {
 }
 
 async function removeInstalledSkill(path) {
-  if (!existsSync(path)) {
+  // lstat, not existsSync: a dangling symlink from a moved source must be unlinked.
+  const stat = await lstatOrNull(path);
+  if (!stat) {
     return;
   }
-  const stat = await lstat(path);
   if (stat.isSymbolicLink()) {
     await unlink(path);
     return;
@@ -373,6 +400,17 @@ function installTemplateRoot(env = process.env) {
 
 function templateItemKey(item) {
   return `${item.kind || 'file'}:${item.path}`;
+}
+
+// Keep the first item per key so a path reached twice is recorded once.
+function uniqueTemplateItems(items) {
+  const byKey = new Map();
+  for (const item of items) {
+    if (!byKey.has(templateItemKey(item))) {
+      byKey.set(templateItemKey(item), item);
+    }
+  }
+  return [...byKey.values()];
 }
 
 function skillTemplatePaths(skillName, env = process.env, options = {}) {
@@ -474,9 +512,18 @@ async function templateGovernanceBeforeInstall(skillName, baselineItemsByPath, c
   const { targetPath, sourcePath } = skillTemplatePaths(skillName, env, options);
   const probe = await createSkillTemplateItem(skillName, env, options);
   const existing = baselineItemsByPath.get(templateItemKey(probe));
+  // Installing replaces the whole skill directory, so a directory or link where
+  // SKILL.md belongs must stop the install every run, before any baseline logic.
+  if (await lstatOrNull(targetPath) && !await isRegularFile(targetPath)) {
+    return { action: 'skip-user-modified', drift: { status: 'unknown', reason: 'non_file_target' }, item: existing ?? null };
+  }
   if (!existing) {
     if (currentRow && existsSync(targetPath)) {
-      return { action: 'skip-user-modified', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null };
+      // Record a baseline for a later upgrade only when the copy still matches
+      // what loopx installed; otherwise a user's edits would read as loopx content.
+      const recordBaseline = await installedSkillMatchesRecordedFolder(dirname(targetPath), currentRow,
+        skillSourceDir(skillName, env, options.skillSourceRoot));
+      return { action: 'skip-user-modified', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null, recordBaseline };
     }
     return { action: 'install', drift: { status: 'unknown', reason: 'missing_baseline_item' }, item: null };
   }
@@ -615,8 +662,170 @@ async function removeRetiredOwnedSkills(skillRows, env, { skipped, baselineItems
   return removed;
 }
 
+// Remove shared contracts that the package no longer ships. Delete only regular
+// files whose whole contents equal a hash loopx recorded or shipped: the per-file
+// baseline, or the known versions of files retired before baselines existed.
+// Keep modified, linked or unknown files; recorded ones keep their baseline item
+// so a later install can retry.
+async function removeRetiredSharedContracts(baselineItems, env, { skipped, skillSourceRoot, legacyCleanup }) {
+  const sharedItems = baselineItems.filter((item) => item.kind === 'shared-contract');
+  const sharedSource = sharedContractsSourceDir(env, skillSourceRoot);
+  // Without a readable package shared directory nothing can be judged retired.
+  if (!(await stat(sharedSource).catch(() => null))?.isDirectory()) {
+    return { removed: [], retained: sharedItems };
+  }
+  const sharedTarget = installedSharedContractsDir(env);
+  const candidates = [];
+  for (const item of sharedItems) {
+    if (typeof item.path !== 'string') {
+      continue;
+    }
+    const targetPath = resolve(installTemplateRoot(env), item.path);
+    const relativePath = relative(sharedTarget, targetPath).split(sep).join('/');
+    if (!relativePath || relativePath === '..' || relativePath.startsWith('../') || isAbsolute(relativePath)) {
+      continue;
+    }
+    candidates.push({ item, relativePath, targetPath, knownHashes: [item.hash, item.registry_hash] });
+  }
+  for (const [relativePath, knownHashes] of legacyCleanup ? LEGACY_RETIRED_SHARED_CONTRACT_HASHES : []) {
+    if (!candidates.some((candidate) => candidate.relativePath === relativePath)) {
+      candidates.push({ item: null, relativePath, targetPath: join(sharedTarget, relativePath), knownHashes });
+    }
+  }
+  const removed = [];
+  const retained = [];
+  for (const { item, relativePath, targetPath, knownHashes } of candidates) {
+    const skillName = `shared/${relativePath}`;
+    let outcome;
+    try {
+      outcome = await retireSharedContract(knownHashes, { sharedSource, sharedTarget, relativePath, targetPath });
+    } catch (error) {
+      // Earlier installs never touched retired paths, so an unreadable or locked
+      // one must not fail the install; keep it for a later retry.
+      outcome = { action: 'keep', reason: `unreadable:${error.code || 'error'}` };
+    }
+    if (outcome.action === 'keep') {
+      skipped.push({ skillName, reason: outcome.reason, installedPath: targetPath });
+      if (item) retained.push(item);
+    } else if (outcome.action === 'removed') {
+      removed.push({ skillName, installedPath: targetPath });
+    }
+  }
+  return { removed, retained };
+}
+
+// Returns 'shipped' or 'gone' (drop the baseline item), 'keep' or 'removed'.
+async function retireSharedContract(knownHashes, { sharedSource, sharedTarget, relativePath, targetPath }) {
+  // A non-directory entry at the source path is shipped, as in the install
+  // loop, including a case-only rename on a case-insensitive filesystem.
+  // A directory there replaces the old file.
+  const sourceEntry = await lstatOrNull(join(sharedSource, relativePath));
+  if (sourceEntry && !sourceEntry.isDirectory()) {
+    return { action: 'shipped' };
+  }
+  const directoryConflict = await sharedDirectoryConflict(sharedTarget, relativePath);
+  if (directoryConflict === 'symlinked_shared_contract_directory') {
+    return await lstatOrNull(targetPath).catch(() => null)
+      ? { action: 'keep', reason: directoryConflict }
+      : { action: 'gone' };
+  }
+  const targetEntry = directoryConflict ? null : await lstatOrNull(targetPath);
+  // Nothing loopx installed remains when a file replaced a parent directory or
+  // a real directory replaced the file.
+  if (!targetEntry || targetEntry.isDirectory()) {
+    return { action: 'gone' };
+  }
+  // Compare whole files: managed-block drift checks ignore text outside blocks.
+  const currentHash = targetEntry.isFile() ? await sha256File(targetPath) : null;
+  if (currentHash === null || !knownHashes.includes(currentHash)) {
+    return { action: 'keep', reason: currentHash === null ? 'unknown' : 'user-modified' };
+  }
+  await removeInstalledFile(targetPath);
+  // The file is gone; a directory that cannot be listed or removed only stays behind.
+  await removeEmptySharedDirectories(dirname(targetPath), sharedTarget).catch(() => {});
+  return { action: 'removed' };
+}
+
+function sharedContractItemAt(items, targetPath, env) {
+  return items.find((item) => item.kind === 'shared-contract'
+    && typeof item.path === 'string'
+    && resolve(installTemplateRoot(env), item.path) === resolve(targetPath));
+}
+
+// On a case-insensitive filesystem a case-only rename reaches the same installed
+// file through a baseline path spelled differently; match only such a path, and
+// only when both names resolve to the same file.
+async function sharedContractItemForSameFile(items, targetPath, env) {
+  const resolvedTarget = resolve(targetPath);
+  const target = await lstat(resolvedTarget, { bigint: true }).catch(() => null);
+  if (!target) {
+    return undefined;
+  }
+  for (const item of items) {
+    if (item.kind !== 'shared-contract' || typeof item.path !== 'string') {
+      continue;
+    }
+    const itemPath = resolve(installTemplateRoot(env), item.path);
+    if (itemPath === resolvedTarget || itemPath.toLowerCase() !== resolvedTarget.toLowerCase()) {
+      continue;
+    }
+    const entry = await lstat(itemPath, { bigint: true }).catch(() => null);
+    if (entry && entry.dev === target.dev && entry.ino === target.ino) {
+      return item;
+    }
+  }
+  return undefined;
+}
+
+// Proves an installed skill is still what loopx installed. A symlink install
+// is loopx's when it points at a source directory. A copied folder hash includes
+// the source directory path, so hash the copy as if it lived at the recorded
+// source or the current source root (they differ for plugin or custom roots).
+async function installedSkillMatchesRecordedFolder(installedDir, row, currentSourceDir) {
+  if (typeof row?.skillFolderHash !== 'string') {
+    return false;
+  }
+  const sources = [
+    typeof row.sourceUrl === 'string' && typeof row.skillPath === 'string'
+      ? resolve(row.sourceUrl, dirname(row.skillPath))
+      : null,
+    currentSourceDir ? resolve(currentSourceDir) : null,
+  ].filter(Boolean);
+  const entry = await lstatOrNull(installedDir).catch(() => null);
+  if (entry?.isSymbolicLink()) {
+    const linkTarget = await readlink(installedDir).catch(() => null);
+    return linkTarget !== null && sources.includes(resolve(dirname(installedDir), linkTarget));
+  }
+  if (!entry?.isDirectory()) {
+    return false;
+  }
+  for (const source of sources) {
+    if (await fileHash(installedDir, source).catch(() => null) === row.skillFolderHash) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function lstatOrNull(path) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+    throw error;
+  }
+}
+
+async function removeEmptySharedDirectories(directory, sharedTarget) {
+  let current = directory;
+  while (current.startsWith(`${sharedTarget}${sep}`) && (await readdir(current)).length === 0) {
+    await rmdir(current);
+    current = dirname(current);
+  }
+}
+
 async function removeStaleOwnedInstall(currentRow) {
-  if (!currentRow?.installedPath || !existsSync(currentRow.installedPath)) {
+  if (typeof currentRow?.installedPath !== 'string') {
     return;
   }
   await removeInstalledSkill(currentRow.installedPath);
@@ -724,11 +933,11 @@ export async function installAgentGuidance(env = process.env, options = {}) {
 async function canonicalTargetOwnership(skillName, env = process.env, options = {}) {
   const targetDir = installedSkillDir(skillName, env);
   const sourceDir = skillSourceDir(skillName, env, options.skillSourceRoot);
-  if (!existsSync(targetDir)) {
+  const stat = await lstatOrNull(targetDir);
+  if (!stat) {
     return { exists: false, owned: false };
   }
 
-  const stat = await lstat(targetDir);
   if (stat.isSymbolicLink()) {
     const linkTarget = await readlink(targetDir);
     const resolvedLink = resolve(dirname(targetDir), linkTarget);
@@ -775,7 +984,13 @@ async function canonicalFileOwnership(targetPath, sourcePath) {
 
 async function assertLoopxOwnedTarget(skillName, currentRow, env = process.env, options = {}) {
   const targetDir = installedSkillDir(skillName, env);
-  const dirExists = existsSync(targetDir);
+  // Installing removes the target recursively, so never treat a file there as a skill.
+  const targetEntry = await lstatOrNull(targetDir);
+  if (targetEntry && !targetEntry.isDirectory() && !targetEntry.isSymbolicLink()) {
+    return { allowed: false, targetDir, reason: 'non_directory_skill_target' };
+  }
+  // A dangling link is still user content at the target, not an empty slot.
+  const dirExists = targetEntry !== null;
   const rowExists = currentRow !== null && currentRow !== undefined;
 
   if (!dirExists && !rowExists) {
@@ -792,11 +1007,22 @@ async function assertLoopxOwnedTarget(skillName, currentRow, env = process.env, 
           reason: 'canonical_target_occupied',
         };
       }
-      await removeStaleOwnedInstall(currentRow);
+      // Remove the copy at the old location only when it is provably loopx's;
+      // otherwise leave it in place and report it.
+      let staleKept = null;
+      if (await lstatOrNull(currentRow.installedPath).catch(() => null)) {
+        const sourceDir = skillSourceDir(skillName, env, options.skillSourceRoot);
+        if (await installedSkillMatchesRecordedFolder(currentRow.installedPath, currentRow, sourceDir)) {
+          await removeStaleOwnedInstall(currentRow);
+        } else {
+          staleKept = currentRow.installedPath;
+        }
+      }
       return {
         allowed: true,
         targetDir,
         staleOwned: true,
+        staleKept,
       };
     }
     return { allowed: true, targetDir };
@@ -821,11 +1047,12 @@ export async function inspectInstallState(env = process.env) {
   for (const skillName of LOOPX_SKILLS) {
     const targetDir = installedSkillDir(skillName, env);
     const registryRow = data.skills?.[skillName] ?? null;
+    const isSkillDirectory = Boolean((await stat(targetDir).catch(() => null))?.isDirectory());
     bySkill[skillName] = {
-      installedDirExists: existsSync(targetDir),
+      installedDirExists: isSkillDirectory,
       registryRowExists: registryRow !== null,
       registryRow,
-      discovered: existsSync(targetDir) && isLoopxOwnedRow(skillName, registryRow, env),
+      discovered: isSkillDirectory && isLoopxOwnedRow(skillName, registryRow, env),
       loopxOwned: isLoopxOwnedIdentity(skillName, registryRow, env),
     };
   }
@@ -865,7 +1092,7 @@ export async function inspectInstallState(env = process.env) {
   for (const relativePath of sharedFiles) {
     const sourcePath = join(sharedSource, relativePath);
     const targetPath = join(sharedTarget, relativePath);
-    if (!existsSync(targetPath) || await fileHash(sourcePath) !== await fileHash(targetPath)) {
+    if (!await isRegularFile(targetPath) || await fileHash(sourcePath) !== await fileHash(targetPath).catch(() => null)) {
       driftedSharedFiles.push(relativePath);
     }
   }
@@ -950,6 +1177,15 @@ export async function installBundledSkills(env = process.env, options = {}) {
   });
   const nextTemplateItems = (existingBaseline?.items || []).filter((item) => skipped.some(({ installedPath }) =>
     resolve(installTemplateRoot(env), item.path) === join(installedPath, 'SKILL.md')));
+  // Clear retired shared files first so a shipped directory can replace one.
+  const retiredShared = await removeRetiredSharedContracts(existingBaseline?.items || [], env, {
+    skipped,
+    skillSourceRoot: installOptions.skillSourceRoot,
+    // Content-only evidence is enough only where loopx already installed skills.
+    legacyCleanup: Object.entries(data.skills || {}).some(([name, row]) => isLoopxOwnedIdentity(name, row, env)),
+  });
+  removed.push(...retiredShared.removed);
+  nextTemplateItems.push(...retiredShared.retained);
   const sharedSource = sharedContractsSourceDir(env, installOptions.skillSourceRoot);
   const sharedTarget = installedSharedContractsDir(env);
   if (existsSync(sharedSource)) {
@@ -962,14 +1198,25 @@ export async function installBundledSkills(env = process.env, options = {}) {
           reason: directoryConflict,
           installedPath: targetPath,
         });
-        const existing = (existingBaseline?.items || []).find((item) =>
-          item.kind === 'shared-contract'
-          && resolve(installTemplateRoot(env), item.path) === resolve(targetPath));
+        const existing = sharedContractItemAt(existingBaseline?.items || [], targetPath, env);
+        if (existing) nextTemplateItems.push(existing);
+        continue;
+      }
+      // A directory, a link to one or a broken link where a shipped contract
+      // belongs is user content; report it instead of replacing it.
+      if (await lstatOrNull(targetPath) && !await isRegularFile(targetPath)) {
+        conflicts.push({
+          skillName: `shared/${relativePath}`,
+          reason: 'non_file_shared_contract_target',
+          installedPath: targetPath,
+        });
+        const existing = sharedContractItemAt(existingBaseline?.items || [], targetPath, env);
         if (existing) nextTemplateItems.push(existing);
         continue;
       }
       const probe = await createSharedContractTemplateItem(relativePath, env, installOptions);
-      const existing = baselineItemsByPath.get(templateItemKey(probe));
+      const existing = baselineItemsByPath.get(templateItemKey(probe))
+        ?? await sharedContractItemForSameFile(existingBaseline?.items || [], targetPath, env);
       let preserve = false;
       let reason = null;
       if (existsSync(targetPath)) {
@@ -982,7 +1229,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
           preserve = drift.status === 'user-modified' || drift.status === 'conflict';
           reason = drift.status;
         } else {
-          const installedHash = await fileHash(targetPath);
+          const installedHash = await fileHash(targetPath).catch(() => null);
           preserve = installedHash !== await fileHash(sourcePath)
             && installedHash !== LEGACY_SHARED_CONTRACT_HASHES.get(relativePath);
           reason = preserve ? 'unknown' : null;
@@ -1017,6 +1264,9 @@ export async function installBundledSkills(env = process.env, options = {}) {
       });
       continue;
     }
+    if (ownership.staleKept) {
+      skipped.push({ skillName, reason: 'stale_install_unverified', installedPath: ownership.staleKept });
+    }
     const governance = await templateGovernanceBeforeInstall(skillName, baselineItemsByPath, current, env, installOptions);
     if (governance.action === 'skip-user-modified') {
       skipped.push({
@@ -1024,7 +1274,11 @@ export async function installBundledSkills(env = process.env, options = {}) {
         reason: governance.drift.status,
         installedPath: ownership.targetDir,
       });
-      nextTemplateItems.push(await mergedSkippedTemplateItem(skillName, governance.item, env, installOptions));
+      // Without a baseline item, record one only for a copy proven to be loopx's;
+      // a fabricated baseline would let the next install overwrite user content.
+      if (governance.item || governance.recordBaseline) {
+        nextTemplateItems.push(await mergedSkippedTemplateItem(skillName, governance.item, env, installOptions));
+      }
       continue;
     }
     const record = await materializeSkill(skillName, env, installOptions);
@@ -1088,7 +1342,7 @@ export async function installBundledSkills(env = process.env, options = {}) {
     schema_version: TEMPLATE_BASELINE_SCHEMA_VERSION,
     generated_by: 'loopx',
     registry_revision: installOptions.sourceUrl || 'local',
-    items: nextTemplateItems,
+    items: uniqueTemplateItems(nextTemplateItems),
   });
   const templateGovernance = await inspectTemplateGovernance(baselinePath);
   const agentGuidance = await installAgentGuidance(env, {

@@ -40,6 +40,7 @@ async function main() {
         installed: result.installed,
         conflicts: result.conflicts ?? [],
         skipped: result.skipped ?? [],
+        removed: result.removed ?? [],
         inspection: result.inspection,
         distributionChannel: DISTRIBUTION_CHANNEL,
         pluginRoot: PLUGIN_ROOT,

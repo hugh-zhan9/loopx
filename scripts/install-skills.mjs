@@ -32,7 +32,10 @@ function printSummary(result, { checkOnly = false } = {}) {
     console.log(`installed skills: ${count(result, 'installed')}`);
   }
   console.log(`conflicts: ${count(result, 'conflicts')}`);
-  console.log(`skipped user-modified: ${count(result, 'skipped')}`);
+  console.log(`skipped (preserved): ${count(result, 'skipped')}`);
+  if (!checkOnly) {
+    console.log(`removed retired: ${count(result, 'removed')}`);
+  }
   console.log('repair: loopx repair-install');
   console.log('opt out: LOOPX_SKIP_POSTINSTALL=1');
   console.log('disable hooks for one process: LOOPX_HOOKS=0');
