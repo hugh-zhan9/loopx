@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Readiness"
+  short_description: "Prepare release runbooks and follow authorized rollouts"
+  default_prompt: "Use $release-readiness to prepare this release runbook or follow it for an authorized rollout with verified results."

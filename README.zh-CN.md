@@ -39,6 +39,10 @@ subagent playbook。
 lenses，不是 workflow 状态。`prompt-lint` 只评估任务定义质量，不执行被评估的
 提示词。
 
+`release-readiness` 为上线维护准备文档，记录分支范围、环境前置、操作顺序、
+验收和回退条件；上线时模型按文档执行已授权操作并回填证据。详见
+[上线准备与执行](./docs/loopx/skills.zh-CN.md#上线准备与执行)。
+
 ## 为什么 docs-first
 
 支撑这个设计的四臂 benchmark（`evals/benchmark/RESULTS.md`）表明：对前沿模型，

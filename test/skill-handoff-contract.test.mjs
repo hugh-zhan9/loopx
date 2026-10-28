@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import test from 'node:test';
 
 const root = resolve(import.meta.dirname, '..');
@@ -25,6 +25,28 @@ test('skill instructions and references contain no callable retired skills', asy
     for (const match of text.matchAll(retired)) findings.push(`${path}: ${match[0]}`);
   }
   assert.deepEqual(findings, []);
+});
+
+test('focused skill guidance is reachable through packaged relative references', async () => {
+  const pkg = JSON.parse(await source('package.json'));
+  const references = new Map([
+    ['skills/clarify/SKILL.md', ['../shared/domain-language.md', 'references/owner-questions.md']],
+    ['skills/spec/SKILL.md', ['../shared/domain-language.md', 'references/design-quality.md']],
+    ['skills/debug/SKILL.md', ['references/four-phases.md']],
+    ['skills/tdd/SKILL.md', ['testing-anti-patterns.md']],
+  ]);
+  for (const [path, targets] of references) {
+    const text = await source(path);
+    const links = [...text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]);
+    for (const target of targets) {
+      assert.ok(links.includes(target), `${path} must expose ${target}`);
+      const resolved = resolve(root, dirname(path), target);
+      const resource = relative(root, resolved);
+      assert.ok(pkg.files.some((entry) => entry.endsWith('/') && resource.startsWith(entry)),
+        `${resource} must ship with its consumer`);
+      assert.ok((await readFile(resolved, 'utf8')).trim(), `${resource} must contain guidance`);
+    }
+  }
 });
 
 test('the refactor RFC can guide implementation while delegated exec retains its schema', async () => {

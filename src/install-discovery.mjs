@@ -28,6 +28,7 @@ const LOOPX_SKILLS = [
   'plan2exec',
   'exec',
   'refactor-plan',
+  'release-readiness',
   'debug',
   'tdd',
   'using-git-worktrees',

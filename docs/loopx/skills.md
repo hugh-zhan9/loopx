@@ -36,7 +36,7 @@ and affected decisions. Completed implementations are checked against their sour
 and actual verification, without restarting a readiness review.
 
 `clarify` and `spec` now use the former v2 implementations under their existing
-names. There are 21 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
+names. There are 22 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
 `code-darwin` are part of `refactor-plan`. Verification follows the working
 agreement and shared evidence guidance; there is no separate `verify` entry.
 
@@ -45,6 +45,28 @@ agreement and shared evidence guidance; there is no separate `verify` entry.
 | Skill | Use when | Behavior |
 |---|---|---|
 | `exec` | The user explicitly asks to execute one ready `plan2exec` document. | Leaf subagents implement slices; the controller rechecks architecture fit, then reviews and integrates sequentially. Independent slices may run in parallel only when their code and state boundaries are disjoint. Optional `model`, `reasoning_effort`, and `max_workers` values are forwarded to host-native subagents. |
+
+## Release Preparation And Execution
+
+`release-readiness` creates or maintains an actionable runbook for each release,
+defaulting to `docs/releases/YYYY-MM-DD-<topic>.md` and updating existing documents
+in place. It covers source/target branch differences, per-environment prerequisites,
+operation order, success and stop conditions, business acceptance, and rollback
+compatibility. Small releases use a short checklist without unrelated migrations
+or configuration work.
+
+Preparation requests inspect evidence and write the document; review-only requests
+report findings. For rollout or resumption, recheck the candidate and target, then
+perform authorized operations and record results and evidence. Existing permission
+remains valid; a runbook grants no Git, database, configuration, or deployment
+permission. Record prepared, deployed, and accepted outcomes separately, and do not
+treat historical snapshots as current environment state. Execution uses the model
+and host tools, with no new loopx CLI command, runtime, or prerequisite `plan2exec`.
+
+```text
+$release-readiness Prepare production rollout of feature/example into main.
+$release-readiness Follow docs/releases/2026-10-21-example.md for the authorized QA rollout and record acceptance.
+```
 
 ## Diagnosis And Repair
 

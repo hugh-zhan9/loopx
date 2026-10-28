@@ -1,6 +1,6 @@
 # Testing Anti-Patterns
 
-**Load this reference when:** writing or changing tests, adding mocks, or tempted to add test-only methods to production code.
+**Load this reference when:** choosing assertions, writing or changing tests, adding mocks, or considering test-only methods in production code.
 
 ## Overview
 
@@ -8,7 +8,32 @@ Tests must verify real behavior, not mock behavior. Mocks are a means to isolate
 
 **Core principle:** Test what the code does, not what the mocks do.
 
-**Following strict TDD prevents these anti-patterns.**
+A red-green cycle alone does not prove the assertion is correct or that it covers
+the reported behavior. Check the expected result and the path exercised.
+
+## Copied expectations
+
+An assertion cannot independently check a rule if its expected value comes from
+the same implementation or repeats the same unverified algorithm. A failing test
+can still encode the wrong requirement, and a mutation check can show sensitivity
+without proving the expected value is right.
+
+Use an accepted rule, an independently worked example or a known-good fixture.
+For example, suppose the contract charges 125 basis points and rounds any
+fractional cent upward. On 100 cents, the fee before rounding is 1.25 cents,
+so the expected result is 2 cents:
+
+```typescript
+// Expected value follows the stated rounding rule, not the fee implementation.
+expect(feeInCents(100, 125)).toBe(2);
+```
+
+Recomputing the expectation with the implementation's `Math.round` formula would
+hide the same rounding defect on both sides. Keep the source or derivation near
+non-obvious expectations. Check snapshots against that source before accepting
+updates; regenerating a snapshot from changed code is not acceptance evidence.
+This does not forbid independent reference implementations or property tests:
+their oracle or invariant must be justified independently of the code under test.
 
 ## The Iron Laws
 
@@ -235,9 +260,10 @@ BEFORE creating mock responses:
 ```
 
 **Why this is wrong:**
-- Testing is part of implementation, not optional follow-up
-- TDD would have caught this
-- Can't claim complete without tests
+- Verification is part of completion, not an unspecified later task.
+- Run checks that cover the required integration, not just isolated mocks.
+- When automation is impractical, name the repeatable alternative and its limits;
+  do not claim strict TDD or unverified integration.
 
 **The fix:**
 ```
@@ -260,32 +286,30 @@ TDD cycle:
 
 **Consider:** Integration tests with real components often simpler than complex mocks
 
-## TDD Prevents These Anti-Patterns
+## Check what the evidence establishes
 
-**Why TDD helps:**
-1. **Write test first** → Forces you to think about what you're actually testing
-2. **Watch it fail** → Confirms test tests real behavior, not mocks
-3. **Minimal implementation** → No test-only methods creep in
-4. **Real dependencies** → You see what the test actually needs before mocking
-
-**If you're testing mock behavior, you violated TDD** - you added mocks without watching test fail against real code first.
+Observing red confirms that an assertion can fail in that state. Inspect why it
+failed and which real path it exercised. Observing green establishes only the
+behavior covered by that check. Neither observation alone establishes that the
+assertion matches the requirement or that all affected callers work.
 
 ## Quick Reference
 
 | Anti-Pattern | Fix |
 |--------------|-----|
+| Copied expected calculation | Derive the result independently from the accepted rule |
 | Assert on mock elements | Test real component or unmock it |
 | Test-only methods in production | Move to test utilities |
 | Mock without understanding | Understand dependencies first, mock minimally |
 | Incomplete mocks | Mirror real API completely |
-| Tests as afterthought | TDD - tests first |
+| Tests as afterthought | Verify affected integration before completion |
 | Over-complex mocks | Consider integration tests |
 
 ## Red Flags
 
 - Assertion checks for `*-mock` test IDs
 - Methods only called in test files
-- Mock setup is >50% of test
+- Mock setup obscures the behavior being tested
 - Test fails when you remove mock
 - Can't explain why mock is needed
 - Mocking "just to be safe"

@@ -1,8 +1,8 @@
 ---
 name: clarify
-description: "Find and resolve material gaps in goals, scope, scenarios, acceptance, or permissions before implementation (需求澄清). Ask independent decisions together and record confirmed requirements."
+description: "Resolve missing requirements or conflicting domain meanings before implementation (需求澄清). Use for material gaps in goals, scope, scenarios, acceptance, or permissions; record confirmed requirements."
 metadata:
-  version: "0.5.1"
+  version: "0.5.2"
   when_to_use: "clarify, unresolved intent, unclear scope, acceptance criteria, permission decision, 需求澄清, 分轮提问"
 ---
 
@@ -18,10 +18,14 @@ bounded request.
    evidence. Check the outcome, scope, protected behavior, key success and failure
    scenarios, and observable acceptance for missing or conflicting decisions.
    Check permissions, compatibility, data and ownership where the task affects
-   them. Do not wait for implementation to expose gaps discoverable here.
+   them. When terminology could change behavior, apply
+   [domain language checks](../shared/domain-language.md) before treating two
+   terms as equivalent. Do not wait for implementation to expose these gaps.
 2. Answer questions from repository evidence when possible. Facts about the
    codebase, tools, or environment are yours to find; only decisions go to the
-   user.
+   user. When an answer depends on another stakeholder, use
+   [questions for another owner](references/owner-questions.md) to prepare a
+   focused handoff instead of asking the current user to guess.
 3. Ask independent decisions together in one round. A question whose answer
    depends on another question still open belongs to a later round. If a fact
    lookup is pending, ask the questions that do not depend on it now.
@@ -35,7 +39,7 @@ bounded request.
 6. Record confirmed facts and decisions without prescribing how the model must
    decompose, schedule, delegate, review, or execute the work.
 
-Format each round as:
+If the host has no question tool, a round can use this form:
 
 ```text
 Q1. <title>

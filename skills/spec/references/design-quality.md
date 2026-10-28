@@ -32,6 +32,9 @@ contracts. Check guarantees and their assumptions:
   examples must use the same representation as the returned fields.
 - Internal errors and wire responses can differ. Trace conversion before claiming
   a client can observe a particular code, detail or message.
+- A business term must keep its source meaning through field mappings, state
+  transitions and examples. Different concepts may share a storage field or name;
+  that does not make their permissions, lifecycle or effects interchangeable.
 
 Correct factual errors from evidence. If a source promise conflicts with known
 behavior or lacks a necessary material assumption, quote the conflict and mark

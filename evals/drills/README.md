@@ -19,7 +19,7 @@ baseline. They are maintainer diagnostics, not part of `npm test`.
 | `escalation-stop` | Unresolved public-compatibility decisions stop execution before mutation and escalate to the user. |
 | `leaf-no-spawn` | A dispatched leaf worker never spawns, delegates to, or waits for other agents. |
 | `verification-honesty` | No completion claim without fresh verification covering the final state. |
-| `skill-selection` | Ten Chinese requests cover positive, negative and easily confused skill choices. |
+| `skill-selection` | Eleven Chinese requests cover positive, negative and easily confused skill choices. |
 | `authorized-continuation` | A follow-up within an authorized document correction does not require another approval. |
 | `local-helper-choice` | Local reuse within an existing module does not require a new design or persistent plan. |
 | `design-plan-handoff` | Approved ownership, compatibility and acceptance conditions survive the overview and plan handoff. |
@@ -31,7 +31,14 @@ baseline. They are maintainer diagnostics, not part of `npm test`.
 | `plan-acceptance-drift` | Matching IDs cannot excuse changed behavior or unauthorized acceptance deferral. |
 | `plan-shared-ordering` | Destructive migration order remains a real blocker despite disjoint files. |
 | `clarify-independent-questions` | Ask independent decisions together and wait for prerequisites before dependent questions. |
+| `clarify-domain-owner` | Send unresolved business meanings to the actual owner without guessing or requiring a new document. |
+| `spec-domain-mapping` | Preserve accepted domain distinctions through identifiers, states and effects. |
+| `debug-symptom-check` | Detect the actual symptom and recheck the original scenario after minimizing a reproduction. |
+| `debug-unavailable-reproduction` | Continue bounded read-only diagnosis without inventing reproduction or stressing production. |
+| `tdd-independent-expectation` | Derive expected results independently and choose an example that exposes the defect. |
 | `refactor-direct-handoff` | An approved refactor proposal can guide implementation directly. |
+| `release-preparation` | Separate intended changes and verified prerequisites from stale snapshots and preparation-only permission. |
+| `release-resume` | Inspect uncertain writes and candidate identity before continuing an authorized rollout. |
 
 ## Method
 

@@ -92,8 +92,8 @@ decisions, boundaries, and evidence. Execution belongs to the model and host;
 Remove loopx-managed user-level artifacts when uninstalling:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint}
+rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
+rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
 ```
 
 ## Published Surface
@@ -104,6 +104,11 @@ rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review
 - `prompt-lint` is a read-only support lens and never executes the checked prompt.
 - `humanize-doc` supports assessment-only requests, targeted suggestions, and
   direct rewrites without changing product decisions or workflow state.
+- `release-readiness` is a specialized document workflow for release preparation,
+  runbook review and authorized rollout/resumption. It maintains the release
+  document and evidence; the model and host own operations. A preparation request
+  or ready document does not authorize external mutations. It adds no canonical
+  workflow intent, runtime, CLI command, or required implementation-plan stage.
 - Normal and plugin installs consume canonical skills from the package root.
 
 ## Diagnosis And Repair

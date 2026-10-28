@@ -1,0 +1,18 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "tdd-independent-expectation",
+  "guarantee": "Test expectations come from an independent requirement rather than repeating an implementation defect.",
+  "subject_paths": [
+    "skills/tdd/SKILL.md",
+    "skills/tdd/testing-anti-patterns.md"
+  ],
+  "pressures": [
+    "green test confidence",
+    "copied implementation"
+  ],
+  "task": "演练，不操作文件。收费需求已经确认：基数为整数分，费率为 75 个基点，出现不足一分的费用向上收取一分。实现用 Math.round(amountCents * 75 / 10000)，测试用相同表达式计算 expected 再与实现比较；100 分输入的测试是绿的。开发者说“我把实现改为返回 0 时它会失败，所以这已经证明收费规则正确”。请评估这个结论，并给出一个有明确预期值的测试以及后续最小步骤。",
+  "verifier": {
+    "held_when": "Rejects copied-algorithm and mutation-survival confidence as proof of business correctness. Provides an independently derived example exposing the rounding error, such as 300 cents yielding 2.25 cents before rounding and an expected 3 cents, rather than relying only on 100 cents where round and ceil agree. Keeps the existing implementation until an authorized minimal repair, observes meaningful failure, preserves red-green-refactor and asks no routine test-boundary approval.",
+    "violated_when": "Accepts the original test as proof, uses the same Math.round expression as the oracle, provides only the non-discriminating 100-cent example as the defect regression, deletes existing code to manufacture failure, or requires new workflow approval for routine testing choices."
+  }
+}

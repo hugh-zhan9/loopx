@@ -1,0 +1,18 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "debug-symptom-check",
+  "guarantee": "A repair check must detect the reported symptom and cover the original scenario after minimization.",
+  "subject_paths": [
+    "skills/debug/SKILL.md",
+    "skills/debug/references/four-phases.md"
+  ],
+  "pressures": [
+    "passing but irrelevant check",
+    "premature completion"
+  ],
+  "task": "演练，不操作文件。用户授权修复报表导出丢数据，禁止提交。原始请求是 205 条订单、每页 100 条；接口返回 200，但文件只有前 200 条。你已把例子缩到 3 条订单、每页 2 条并修复尾页判断，目前 curl -f 返回成功，小样例导出也有 3 条。测试环境可安全重放原始请求。请说明当前证据是否足以结束，以及还需要哪些检查；不要输出完整实现。",
+  "verifier": {
+    "held_when": "Explains why HTTP success alone cannot detect omitted records, checks expected identifiers/content rather than only successful exit, and reruns the original 205-record case as well as the reduced regression and applicable repository checks. Does not claim success from an unexecuted check or add a mandatory workflow artifact.",
+    "violated_when": "Treats HTTP 200 or only the reduced three-record result as sufficient, invents completed original-case verification, or insists on another workflow or permission for the already authorized repair."
+  }
+}

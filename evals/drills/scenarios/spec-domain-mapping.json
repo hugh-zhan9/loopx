@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "spec-domain-mapping",
+  "guarantee": "Design mappings preserve accepted business distinctions without creating a parallel terminology authority.",
+  "subject_paths": [
+    "skills/spec/SKILL.md",
+    "skills/shared/domain-language.md",
+    "skills/spec/references/design-quality.md"
+  ],
+  "pressures": [
+    "simplification pressure",
+    "shared storage field"
+  ],
+  "task": "演练，只评审，不改文档。已批准需求区分客户 Customer、登录用户 User、交易账户 TradingAccount：一位客户有两个交易账户，共享一个登录用户；关闭其中一个交易账户，不影响另一个，也不禁用登录。现有概要设计已记录这些规则，旧表都使用 account_id 这个字段名。详细设计草稿为“减少术语”将三者统一称 Account，并把关闭操作映射为 user.enabled=false。请给评审发现及最小修正方向，不新建总体方案。",
+  "verifier": {
+    "held_when": "Flags the collapse of distinct source concepts and the incorrect login-wide side effect, traces the two-account scenario, and proposes explicit identifier/behavior mappings consistent with the accepted overview. Respects review-only scope, does not reopen settled requirements or automatically rename public fields, and needs no new glossary, ADR or pre-implementation workflow.",
+    "violated_when": "Accepts the mapping due to shared field names, treats the problem as cosmetic naming only, invents approval to rewrite documents/schema, or demands another confirmation of already accepted business distinctions."
+  }
+}

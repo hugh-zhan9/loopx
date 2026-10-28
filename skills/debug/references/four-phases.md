@@ -1,8 +1,34 @@
 # Focused Failure Investigation
 
-Use this detail when a failure crosses components or the first reproduction does
-not identify its source. A local failure with a clear cause needs no separate
-phase report.
+Use this detail when a check misses the reported symptom, reproduction is noisy
+or unavailable, or a failure crosses components. A local failure with a clear
+cause needs no separate phase report.
+
+## Make the symptom observable
+
+Choose the smallest practical check that exercises the failing path: a test, CLI
+fixture, HTTP request, browser action or captured-input replay. Prefer one command
+with a precise assertion over a long manual sequence. For example, a successful
+HTTP status does not detect a missing final export batch; compare the returned
+record IDs with the expected IDs. Record the command, inputs, relevant environment
+and actual result, redacting secrets.
+
+Reduce unrelated setup and inputs one change at a time, rerunning after each
+reduction. Keep the original case available for final verification: a reduced
+case may omit interactions the repair still affects. Stop reducing when it no
+longer helps distinguish causes or would remove the reported failure.
+
+Control time, random seeds, initial data and external dependencies where they
+add noise. For an intermittent failure, record attempts and failures under the
+same conditions; one successful run is not proof of repair. Repeat or add load
+only within an authorized, bounded environment. Do not stress production or
+replay sensitive payloads merely to improve reproduction.
+
+If reproduction is unavailable, continue read-only code, log or trace analysis.
+State which conclusions are inferred and what evidence would distinguish the
+remaining causes. Request only the missing access, redacted input or permission
+needed for that check; do not invent a reproduction or silently add production
+instrumentation.
 
 ## Locate the boundary
 
@@ -51,8 +77,10 @@ instrumentation after collecting evidence, or record it explicitly in the handof
 
 ## Hand off the repair
 
-Record [the diagnosis contract](diagnosis-contract.md), including rejected
-hypotheses and remaining gaps. If repair is authorized, capture the original
-failure in a regression check, make the supported change, and verify the affected
-behavior plus required repository checks. If the failure persists, use its new
-evidence to continue investigation rather than layering unrelated fixes.
+For a structured summary or existing ledger, use
+[the diagnosis contract](diagnosis-contract.md); ordinary findings need no new
+record. Report only hypotheses actually tested. If repair is authorized, turn
+the reproduction into a regression check and make the supported change. Follow
+the parent skill's final verification against both the original scenario and
+reduced case. If the failure persists, use its new evidence to continue
+investigation rather than layering unrelated fixes.

@@ -44,6 +44,11 @@ Support skills such as `tdd`, `debug`,
 states. `prompt-lint` assesses task-definition quality without executing the
 reviewed prompt.
 
+`release-readiness` maintains a release runbook with branch scope, environment
+prerequisites, ordered operations, acceptance, and rollback conditions. The model
+follows it for authorized rollout and records evidence. See
+[Release Preparation And Execution](./docs/loopx/skills.md#release-preparation-and-execution).
+
 ## Why docs-first
 
 The four-arm benchmark behind this design (`evals/benchmark/RESULTS.md`)

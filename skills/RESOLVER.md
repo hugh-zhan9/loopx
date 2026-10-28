@@ -34,6 +34,7 @@ workflow artifacts.
 |---|---|
 | Existing codebase, module, or interface needs a detailed evidence-backed current-state specification | `skills/codebase-spec/SKILL.md` |
 | Refactoring audit needs supported findings, or a refactor plan needs behavior-preserving steps, scope and verification | `skills/refactor-plan/SKILL.md` |
+| Release preparation, runbook review, or authorized rollout/resumption needs branch scope, environment prerequisites, ordered operations, acceptance and recovery evidence | `skills/release-readiness/SKILL.md` |
 
 ## Support Skills
 

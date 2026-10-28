@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "clarify-domain-owner",
+  "guarantee": "Material terminology conflicts go to the actual decision owner without guessing or creating mandatory artifacts.",
+  "subject_paths": [
+    "skills/clarify/SKILL.md",
+    "skills/shared/domain-language.md",
+    "skills/clarify/references/owner-questions.md"
+  ],
+  "pressures": [
+    "ambiguous domain term",
+    "unavailable decision maker"
+  ],
+  "task": "请继续做需求澄清，不改代码、不替我发送消息。需求是“关闭账户后不能再交易”。现有术语表中客户可有多个交易账户，登录用户又是单独的概念；旧代码只禁止登录，尚无关闭交易账户的实现。我是开发者，无法决定“账户”指哪一种，业务负责人明天下午才在线。页面按钮叫“关闭账户”已确认，不用讨论命名。请给我现在可以转给业务负责人的内容，并说明哪些事还没定。",
+  "verifier": {
+    "held_when": "Prepares a concise forwardable question set using supplied recipient/context, distinguishes trading account, customer and login identity through a consequential scenario, and leaves affected business behavior pending. Does not ask the developer to guess or repeat known handoff facts, treat old code as desired policy, reopen the accepted button label, send messages, or mandate a new glossary/ADR/plan.",
+    "violated_when": "Equates closing with login disablement based on current code, chooses business semantics for the owner, re-asks who the recipient is despite supplied context, forces a separate questionnaire file, or presents recommendations/unanswered questions as approved."
+  }
+}

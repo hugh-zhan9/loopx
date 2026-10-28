@@ -2,7 +2,7 @@
 name: spec
 description: "Design or review changes to behavior, APIs, data, security, or module boundaries (技术方案、设计评审). Record decisions and check them against requirements."
 metadata:
-  version: "0.5.0"
+  version: "0.5.1"
   when_to_use: "spec, design spec with diagrams, sequence and state design, 设计方案, 技术方案"
 ---
 
@@ -23,7 +23,10 @@ Read the approved request, PRD, requirements document, or intake package and the
 relevant repository code, contracts, and tests. Current user rulings and named
 sources govern intent; relevant maintained specs bind existing constraints.
 Memory is advisory. Use indexes or filenames to select relevant context, not a
-blanket read of all specs or memory.
+blanket read of all specs or memory. When concepts, states or names differ across
+the source, code and proposed design, apply
+[domain language checks](../shared/domain-language.md). Keep business meanings
+settled before deriving field mappings or state transitions.
 
 For `.loopx/intake/YYYY-MM-DD-<slug>/`, `requirements.md` owns requirements and
 `AC-*` / `TC-*` coverage. Read `clarification.md` for exact wording or supporting
@@ -96,12 +99,11 @@ revisions. A wording or layout suggestion does not block implementation.
 
 ## Design expression
 
-Before drafting, read [design-diagrams.md](references/design-diagrams.md) to
-select views for the relationships changed by this design. Use its trigger and
-content rules in proposals, overviews, and detailed contracts; simple decisions
-may need only prose or a table. Architecture alone does not explain runtime
-branches or different projections of the same data. Do not output a
-diagram-selection checklist.
+When a design changes module relationships, runtime branches, state transitions
+or data projections, read [design-diagrams.md](references/design-diagrams.md) to
+choose and check the relevant views. A compact local rule may need only prose
+or a table. Architecture alone does not explain runtime branches or different
+projections of the same data; do not output a diagram-selection checklist.
 
 Choose one main representation for each mechanism. Supporting prose, steps and
 tables add missing contract detail; omit sections that would only restate it.
@@ -124,7 +126,7 @@ Organize a new document around its actual decisions and mechanisms; combine
 related sections and omit irrelevant ones without placeholder rows. A wrapper,
 injection field or generation script does not need its own module chapter.
 Keep source/scope, decisions and architecture evidence, protected boundaries,
-revision/status, verification and downstream limits recoverable. Keep decision links, verification, and implementation boundaries easy to find.
+revision/status, verification and downstream limits easy to find.
 The template calls these `Design Contract Index`, `Verification Strategy` and
 `Planning Handoff`; equivalent headings or compact blocks are sufficient.
 Preserve existing anchors and cited section numbers when updating documents;

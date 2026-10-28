@@ -3,7 +3,7 @@ name: tdd
 description: "Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test."
 when_to_use: "explicit TDD invocation, owning workflow requests failing-test-first discipline, red green refactor, characterization or regression evidence, 测试先行"
 metadata:
-  version: "0.3.8"
+  version: "0.3.9"
 ---
 
 # Test-Driven Development
@@ -43,9 +43,11 @@ workflow or authorize production changes.
    checks. Record expected red and final green evidence, or the actual limits of
    the characterization or alternative path.
 
-Test changed behavior rather than every helper or function. Cover relevant
-boundaries and failure paths without inventing requirements or exhaustively
-retesting unrelated code after every small edit.
+Test changed behavior rather than every helper or function. Derive expected
+results from accepted requirements, independently worked examples or known-good
+fixtures, not from the implementation being tested. Cover relevant boundaries
+and failure paths without inventing requirements or exhaustively retesting
+unrelated code after every small edit.
 
 ## Test design
 
@@ -54,7 +56,9 @@ boundaries; assertions should establish the promised outcome, not merely that
 mock wiring was exercised. If setup is difficult, inspect the interface and the
 existing test seams before introducing production-only-for-test APIs.
 
-Read [red-green-refactor.md](references/red-green-refactor.md) for a worked
-example, and [testing-anti-patterns.md](testing-anti-patterns.md) when adding mocks
-or test utilities. Keep evidence relevant to the final integrated state; a test
-passing once does not establish all acceptance criteria.
+For an example of the failing-test cycle, read
+[red-green-refactor.md](references/red-green-refactor.md). When choosing assertions,
+adding mocks or test utilities, read [testing-anti-patterns.md](testing-anti-patterns.md)
+to check for copied expectations, mock-only evidence and missing integration
+coverage. Keep evidence relevant to the final integrated state; a test passing
+once does not establish all acceptance criteria.

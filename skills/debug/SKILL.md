@@ -3,7 +3,7 @@ name: debug
 description: "Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification."
 when_to_use: "debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复"
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Debug
@@ -24,9 +24,10 @@ updating its execution records. Preserve its scope and recovery evidence.
    a comparable working path. Identify the failing version, environment and
    recent changes. A request for new behavior is a feature request; handle clear
    work directly and use `clarify` only for a material missing decision.
-2. Reproduce with the smallest useful case. If reproduction is intermittent or
-   unavailable, record attempted steps and collect code or log evidence. Do not
-   present an inference as an observed failure.
+2. Reproduce the reported symptom with a repeatable check, then reduce the case
+   without losing that symptom. If reproduction is intermittent or unavailable,
+   record attempted steps and collect code or log evidence. Do not present an
+   inference as an observed failure.
 3. Trace the failing operation or value to its source. Compare a working path;
    inspect inputs and outputs where the failure crosses components.
 4. State a causal hypothesis and test it with a check that distinguishes it from
@@ -36,9 +37,11 @@ updating its execution records. Preserve its scope and recovery evidence.
    a check fails, use the new evidence to reconsider the cause and test setup.
    An arbitrary number of failures does not prove the architecture is wrong.
 
-Use [four-phases.md](references/four-phases.md) when tracing boundaries or adding
-instrumentation. Prefer read-only evidence. Before temporary edits, record the
-worktree baseline and keep your diagnostic changes distinguishable from user
+When a check misses the symptom, reproduction is noisy or unavailable, or a
+failure crosses components, read [focused investigation](references/four-phases.md)
+for check design, boundary tracing and safe instrumentation. Prefer read-only
+evidence. Before temporary edits, record the worktree baseline and keep your
+diagnostic changes distinguishable from user
 work. Never overwrite unrelated changes or print secrets. Remove only your own
 instrumentation, or explicitly retain it as part of the authorized repair.
 
@@ -59,8 +62,11 @@ instrumentation, or explicitly retain it as part of the authorized repair.
   workspaces, non-overlapping ownership and leaf assignments. Otherwise they
   produce patches or reports only. Integrate one result at a time and check the
   combined behavior; never have multiple workers edit the main checkout.
-- Run affected checks and repository-required checks against the final change.
-  Review the actual diff for scope, boundary changes and unnecessary additions.
+- Rerun the original reported scenario as well as the reduced regression check,
+  affected checks and repository-required checks against the final change. State
+  any original scenario that remains inaccessible; a smaller passing test does
+  not establish that it is fixed. Review the actual diff for scope, boundary
+  changes and unnecessary additions.
   Request an independent review for an explicit review request, security,
   destructive behavior, public compatibility, cross-task interaction or a
   reconciled conflict. Resolve Critical or Important findings, verify the result
