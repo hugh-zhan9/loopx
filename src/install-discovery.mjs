@@ -17,11 +17,13 @@ import {
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(MODULE_DIR, '..');
 export const LOOPX_CANONICAL_WORKFLOW_SKILLS = Object.freeze([
+  'task-split',
   'clarify',
   'spec',
   'plan2exec',
 ]);
 const LOOPX_SKILLS = [
+  'task-split',
   'clarify',
   'spec',
   'codebase-spec',

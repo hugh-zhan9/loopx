@@ -1,0 +1,68 @@
+{
+  "kind": "host-native-exploratory",
+  "replicates_per_revision": 1,
+  "baseline_git": "aa8e679",
+  "runs": {
+    "r1": {
+      "agent": "forward_task_split",
+      "artifacts": {
+        "T-03.md": {
+          "original_sha256": "1e30112372a108ac4ebf498c0b636608ffa9e705956fcbf655250ffece51ec35",
+          "portable_sha256": "080e9a9c4a6875df1b5a125bf7ae223651e1f1c6a9b94a73c8225bb16a8b15e4"
+        },
+        "T-02.md": {
+          "original_sha256": "bf9fed665171859ff2e1ebb19604ca89f64d175b8afaeb28e63556d19b12490a",
+          "portable_sha256": "e1b5d932fb1f2899ad3ce20c3890b69ad42014fcd46532bd20cd9c5a5117f71f"
+        },
+        "index.md": {
+          "original_sha256": "cee1b1fbbf3e851e299a4192527baf0be54c10239df3bebb5d1ee131c80c5b0a",
+          "portable_sha256": "e0060adc6f2ceab80c086bed55d7ed15062623955b08bd08059092e397a95e88"
+        },
+        "T-01.md": {
+          "original_sha256": "a60be39799e3319822969e40c20bc3b531fc35f4b4e2f4fd5589d2b7e160925c",
+          "portable_sha256": "677cf44344b4ca46bcf7dd21639168742c2bc3d8c108a66de722e38405ebe582"
+        }
+      }
+    },
+    "r2": {
+      "agent": "forward_task_split_r2",
+      "artifacts": {
+        "T-03.md": {
+          "original_sha256": "ee66e1d9e2e48b6a8a32b912ad3d49f41ad95629b752de105bc6ad466182ee51",
+          "portable_sha256": "33b4324bc41fe76b43e0df9c097ff109a13e467eab6e18fe811653e695581a4e"
+        },
+        "T-02.md": {
+          "original_sha256": "ff1dea90fa2b18a3089f83c9d5a77bdbb0e9f2390662e8049bbf358330e3682f",
+          "portable_sha256": "00392ed48884b35fc22407747bfb94730312c5b153530ccf8cbde161ed68e982"
+        },
+        "index.md": {
+          "original_sha256": "2b8e286b91478418df0caefee0556d702e09c09d5163f163964e8786b4f2f6b2",
+          "portable_sha256": "4b1cf8d9cb396ffda9def4453e76000ed823a2a2224f7a2ef6016e9134ed3849"
+        },
+        "T-01.md": {
+          "original_sha256": "8937ef2866276bdb8853eb84484e86bd8b60fbdd6e2a04641ce48103d75a0834",
+          "portable_sha256": "acd4a7f03b74e092c770134465b46b2753f41bb14cbf924a3e9a2a69205c5577"
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Not a repeated live-model benchmark",
+    "No token or duration improvement measured"
+  ],
+  "r1_subjects": {
+    "skills/task-split/SKILL.md": "b3bbd4b445c99ee6a88468c94d82026c2c7a9bcda1a6ca40b8e5645d6c54a5c3",
+    "skills/task-split/references/task-documents.md": "8566a9c6547919959800339f509d1c535f553278481bf1fc43e3f6aa6c846532",
+    "skills/shared/task-scope.md": "3b0c626a96be7aa833c591670873403854e496d217e40b2cd23a61f9718eb89a"
+  },
+  "r2_subjects": {
+    "skills/task-split/SKILL.md": "b3bbd4b445c99ee6a88468c94d82026c2c7a9bcda1a6ca40b8e5645d6c54a5c3",
+    "skills/task-split/references/task-documents.md": "8566a9c6547919959800339f509d1c535f553278481bf1fc43e3f6aa6c846532",
+    "skills/shared/task-scope.md": "63ac33f7fe7b53c09e64a35ba9de41fbb3342d9cccd9150e385e283b5609402e"
+  },
+  "final_subjects": {
+    "skills/task-split/SKILL.md": "0de1213be58e30939c4252a01ba3565ff035ef8b754d2134d7d2d9fd8fe2c848",
+    "skills/task-split/references/task-documents.md": "8566a9c6547919959800339f509d1c535f553278481bf1fc43e3f6aa6c846532",
+    "skills/shared/task-scope.md": "63ac33f7fe7b53c09e64a35ba9de41fbb3342d9cccd9150e385e283b5609402e"
+  }
+}

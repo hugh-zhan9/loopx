@@ -18,6 +18,7 @@ workflow artifacts.
 
 | Trigger | Skill |
 |---|---|
+| Broad requirements need bounded assignments and focused context, including serial handoffs, or an existing task breakdown needs refinement | `skills/task-split/SKILL.md` |
 | Unresolved intent, scope, acceptance, permission, secret handling, or destructive choice that must be settled before mutation | `skills/clarify/SKILL.md` |
 | Unresolved compatibility, migration, public behavior, data, security, reuse, isolation, maintainability, or cross-module architecture decision, or review of an existing design | `skills/spec/SKILL.md` |
 | Explicit planning, an approval boundary, interruption recovery, or durable coordination needs one plan document, or an existing plan needs review | `skills/plan2exec/SKILL.md` |
@@ -41,7 +42,7 @@ workflow artifacts.
 | Trigger | Skill |
 |---|---|
 | Feature or bugfix implementation should be covered by a failing test first | `skills/tdd/SKILL.md` |
-| Failure diagnosis or requested repair, including a supplied existing issue ledger | `skills/debug/SKILL.md` |
+| Reported bugs and debugging through code repair/verification, or explicit read-only diagnosis, including an existing issue ledger | `skills/debug/SKILL.md` |
 | Implementation work needs an isolated workspace, existing isolation must be detected, or git worktree setup is requested | `skills/using-git-worktrees/SKILL.md` |
 | Document readability assessment, targeted editing, document rewriting, or removing AI-like prose | `skills/humanize-doc/SKILL.md` |
 | Repository docs contain stale or conflicting decisions, dated duplicates, superseded process material, or unclear current authority | `skills/maintain-project-docs/SKILL.md` |
@@ -58,10 +59,16 @@ workflow artifacts.
 
 ## Disambiguation
 
+For broad work, establish overall intent and shared constraints before task splitting;
+resolve local questions when their task needs them. A task can have its own plan or
+be implemented directly. Read the installed [task scope](shared/task-scope.md) when
+using a brief. This adds no fixed workflow, multi-plan executor or runtime state.
+
+
 1. `clarify` stops before mutation when unresolved intent, scope, acceptance, permissions, secret handling, or destructive choices could change the safe result; new handoffs use `.loopx/intake/YYYY-MM-DD-<slug>/` intake package directories. Local implementation choices never trigger `spec`.
 2. Documenting what an existing repository currently does is `codebase-spec`, not `spec` or `plan2exec`. `plan2exec` (named to avoid confusion with an agent's built-in Plan mode) writes one lean plan document to `docs/loopx/plans/YYYY-MM-DD-<feature-slug>.md` only for its explicit triggers; clear work without a persistence trigger stays prompt-first.
 3. Ordinary execution, review, and Git disposition follow the installed working agreement. `$exec` is used only for an explicitly selected ready `plan2exec` document; it delegates implementation to host-native leaf subagents while the top-level model reviews and integrates. Git disposition still requires an explicit user request.
-4. `debug` diagnoses failures and completes repairs when requested. It does not create a ledger by default. Supplied ledgers keep their scope and recovery checks; a ledger status is not repair permission.
+4. `debug` normally diagnoses, repairs code within scope and verifies without a second repair approval; explicit diagnosis-only and document-review requests remain read-only. It does not create a ledger by default. Supplied ledgers keep their scope and recovery checks; a ledger status is not repair permission.
 5. `refactor-plan` stays independent. Its approved RFC can guide authorized implementation directly; a separate `plan2exec` plan is optional for coordination. Changed external behavior belongs in `clarify` or `spec`.
 6. `refactor-plan` includes optional code audits and a scanner. An audit ends with findings; a planning request gets an RFC. Scan only when it helps select candidates. Ordinary code reading does not require a report, and verification follows the working agreement without a separate skill or stage.
 7. `humanize-doc` assesses readability or rewrites documents according to the request. Review-only requests produce findings; editing preserves facts, domain terms, decision status, boundaries, and evidence. It includes focused guidance for removing AI-like prose. Systematic requirement readiness analysis belongs to `requirement-analyzer`.

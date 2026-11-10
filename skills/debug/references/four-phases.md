@@ -75,12 +75,13 @@ rules for dirty files. Keep the diagnostic diff distinguishable from user work.
 Use bounded, targeted logging without sensitive data. Remove only your own
 instrumentation after collecting evidence, or record it explicitly in the handoff.
 
-## Hand off the repair
+## Continue from cause to repair
 
 For a structured summary or existing ledger, use
 [the diagnosis contract](diagnosis-contract.md); ordinary findings need no new
-record. Report only hypotheses actually tested. If repair is authorized, turn
-the reproduction into a regression check and make the supported change. Follow
+record. Report only hypotheses actually tested. For ordinary debugging, turn
+the reproduction into a regression check and make the supported change within
+the requested scope; explicit diagnosis-only work ends with findings. Follow
 the parent skill's final verification against both the original scenario and
 reduced case. If the failure persists, use its new evidence to continue
 investigation rather than layering unrelated fixes.

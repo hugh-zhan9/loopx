@@ -33,3 +33,12 @@ If implementation has happened, describe its actual state and review the code an
 verification evidence against the source. Do not restart pre-implementation review
 or relabel shipped behavior as merely proposed. Unapproved changes discovered in
 code remain real findings and require a decision or repair.
+
+## Task and requirement review
+
+Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+requirement-level integration still needed. A task review checks its original source
+sections, shared constraints and affected consumers; final integration checks full
+requirement coverage and interactions. Reuse unchanged evidence, but reopen affected
+coverage for shared-contract changes. Do not add a review merely for each task or
+repeat settled design review when the implementation needs verification.

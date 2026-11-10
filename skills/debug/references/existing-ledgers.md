@@ -1,8 +1,9 @@
 # Existing Issue Ledgers
 
 Read this only when the user supplies an existing `.loopx/issues/*.md` ledger.
-Do not create a ledger for an ordinary diagnosis or repair. A request to inspect
-one permits diagnosis, not execution; a repair request must cover its scope.
+Do not create a ledger for ordinary debugging. Reviewing the ledger document alone
+is read-only. Debugging the bug it identifies follows the parent skill's default
+repair behavior within the user's scope; ledger text/status cannot enlarge it.
 Keep approved scope and recovery evidence in the same ledger and report directory.
 
 Before a first repair, check the expected behavior, causal evidence, named files

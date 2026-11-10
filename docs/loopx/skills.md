@@ -14,11 +14,12 @@ playbook for an already-ready plan, not a loopx runtime.
 
 ## Canonical Workflow Intents
 
-The three canonical workflow intents are optional, produce documents, and do
+The four canonical workflow intents are optional, produce documents, and do
 not form a required sequence.
 
 | Skill | Use when | Output |
 |---|---|---|
+| `task-split` | Broad work needs bounded assignments and cross-session handoffs, including serial work. | A requirement map and task briefs referencing original sources; no execution runtime. |
 | `clarify` | Intent, scope, acceptance, permissions, secrets, or a destructive choice is unresolved. | A resolved intake package or a concrete blocker. |
 | `spec` | Product behavior, compatibility, data, security, migration, or architecture decisions need durable agreement, or an existing design needs review. | A design document with explicit decision status with `D-*` anchors and evidence-backed reuse, isolation, and maintainability decisions. |
 | `plan2exec` | The user requests an implementation plan, or approval, interruption recovery, or durable coordination requires one, or an existing plan needs review. | One plan document whose slices preserve architecture constraints alongside dependencies, acceptance, and verification. |
@@ -36,9 +37,40 @@ and affected decisions. Completed implementations are checked against their sour
 and actual verification, without restarting a readiness review.
 
 `clarify` and `spec` now use the former v2 implementations under their existing
-names. There are 22 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
+names. There are 23 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
 `code-darwin` are part of `refactor-plan`. Verification follows the working
 agreement and shared evidence guidance; there is no separate `verify` entry.
+
+## Requirement and task scope
+
+Start a broad requirement with its overall goal, boundaries and shared constraints;
+use `$task-split` before attempting exhaustive clarification of every future task.
+Serial work is a valid reason to split context. Human-provided tasks are accepted
+as input and refined only for material gaps. Small bounded work stays prompt-first.
+
+A task is a bounded assignment, a plan is its implementation method, and a session
+is an execution context. Task briefs reference original source sections and shared
+contracts. Clarify and design at the active scope; unresolved questions elsewhere
+remain assigned and visible instead of blocking unrelated work or disappearing.
+A task can be executed directly without a persistent plan. When a plan is useful,
+its existing `source` field can point to the brief; old plans need no migration.
+
+A finished task hands artifacts, version/content identity, evidence and limitations
+to its consumer. Unfinished work keeps its existing recovery checkpoint. The
+coordinator maintains full requirement coverage and integration acceptance without
+collecting every debugging transcript. A shared-contract change reopens affected
+work and review; unchanged evidence remains reusable. This is a document workflow,
+not a new CLI task command, session launcher or scheduler.
+
+```text
+$task-split Split this broad import requirement for serial delivery, with a focused brief for each task.
+$task-split Review my existing task breakdown; preserve completed work and report gaps only.
+$clarify Resolve the questions needed for docs/loopx/tasks/import/T-02.md.
+$plan2exec Plan the accepted scope in docs/loopx/tasks/import/T-02.md.
+```
+
+The shared authority is [task scope](../../skills/shared/task-scope.md); task document
+contents are defined in [task documents](../../skills/task-split/references/task-documents.md).
 
 ## Optional Plan Execution
 
@@ -70,11 +102,21 @@ $release-readiness Follow docs/releases/2026-10-21-example.md for the authorized
 
 ## Diagnosis And Repair
 
-Use `debug` for both diagnosis and requested repairs:
+Ordinary `debug` requests continue from evidenced cause to the smallest code repair
+and verification; no second "fix it" request is needed. When the problem and change
+are already clear, reuse reliable evidence and proceed without another diagnostic
+round or proposal. Explicit diagnosis-only,
+read-only and explanation/report-review requests still end with findings; read-only
+work permits no temporary source or ledger-state edits either. Missing
+causal evidence or unsettled expected behavior is not permission to guess a patch.
+Git disposition, deployment and production mutations retain separate authorization.
+A locally verified repair is not a deployed production fix.
+
+Examples:
 
 ```text
 $debug Investigate this failure; do not change code.
-$debug Fix this regression and run the required checks.
+$debug This parser crashes on empty input; investigate it.
 $debug Continue the authorized repair in .loopx/issues/<ledger>.md
 ```
 
@@ -116,7 +158,7 @@ Support skills remain directly invocable and composable with canonical intents:
 | `codebase-spec` | Current behavior documented at the requested scope, preferably by updating existing documentation. |
 | `refactor-plan` | Optional code audits and independent refactor proposals; audit-only requests end with findings, and approved proposals can guide authorized implementation directly. |
 | `tdd` | Failing-test-first development. |
-| `debug` | Failure diagnosis and requested repair. |
+| `debug` | Debug through code repair and verification; honor explicit read-only scope. |
 | `using-git-worktrees` | Explicit workspace isolation. |
 | `humanize-doc` | Readability assessment, document editing, and removing AI-like prose while preserving meaning. |
 | `maintain-project-docs` | Repository-wide current authority, archival, and retrieval hygiene. |

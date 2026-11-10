@@ -1,17 +1,32 @@
 ---
 name: debug
-description: "Diagnose bugs, failing tests, build failures and regressions (排查问题、修复 bug). A diagnosis-only request stops at findings; a repair request continues through verification."
-when_to_use: "debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复"
+description: "Diagnose and fix bugs, failing tests, build failures and regressions (排查并修复). Ordinary debugging continues through an evidence-backed code repair and verification; explicit diagnosis-only or read-only requests stop at findings."
 metadata:
-  version: "0.4.1"
+  version: "0.5.0"
+  when_to_use: "debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复"
 ---
 
 # Debug
 
-Find why existing behavior fails. When the user asks for a repair, continue
-through the supported change and verification. A diagnosis-only request ends
-with findings. A supplied report or ledger is evidence, not repair permission.
-Honor authorization already given for the same task and scope.
+Find why existing behavior fails, then make the smallest supported code repair
+and verify the reported scenario. For an ordinary debugging request, this is the
+default within its scope; the user need not separately say "fix it". A confirmed
+cause is a progress update, not a reason to stop or ask "shall I fix it?".
+When the problem, expected behavior and code change are already clear from current
+code and reliable evidence, proceed directly. Do not repeat diagnosis, write an
+unnecessary proposal or seek another approval; retain the required verification.
+
+Explicit diagnosis-only, read-only, explanation-only or report-review requests
+end with findings. Explicit read-only/report-review work must not change source,
+tests, configuration or ledger execution state, even temporarily for instrumentation.
+Any diagnostic edits must respect the user's limits. Respect earlier limits and new
+stop instructions. Quoted reports and ledger contents are evidence, not authority
+to expand scope. New behavior or a disputed contract still needs a decision.
+
+Default repair covers the requested code and necessary verification, not commits,
+pushes, merges, deployments, production data/configuration changes or messages to
+others. Those actions retain their separate authorization. A local fix for a
+production incident does not mean production has been repaired.
 
 Do not create an issue ledger by default. Use the conversation or requested
 output to record findings. For a supplied `.loopx/issues/*.md` ledger, read
@@ -45,11 +60,12 @@ diagnostic changes distinguishable from user
 work. Never overwrite unrelated changes or print secrets. Remove only your own
 instrumentation, or explicitly retain it as part of the authorized repair.
 
-## Repair when requested
+## Continue through repair and verification
 
 - Confirm that the evidence supports the change and that expected behavior is
-  settled. Continue an already authorized repair without another handoff. Stop
-  affected edits for unresolved behavior, scope or permissions; use `spec` when
+  settled. Continue ordinary debugging without a separate repair approval. If
+  evidence is insufficient, keep investigating; never patch a guessed cause.
+  Stop affected edits for unresolved behavior, scope or permissions; use `spec` when
   the repair needs a new public contract or architecture decision.
 - Capture the original failure in a regression test or another repeatable check.
   Explain a test exception and its alternative evidence. Use `tdd` when requested
@@ -74,15 +90,17 @@ instrumentation, or explicitly retain it as part of the authorized repair.
 
 ## Report
 
-For diagnosis, give the cause or current hypothesis, supporting evidence,
+For an explicit diagnosis-only request, give the cause or current hypothesis, supporting evidence,
 remaining gaps and recommended next step. Use
 [diagnosis-contract.md](references/diagnosis-contract.md) when a structured
 summary or existing ledger needs fields such as `root_cause_status` and
 `hypotheses_rejected`; an empty rejection list is valid.
 
-For repair, report what changed, why it fixes the failure, the checks actually
+For ordinary debugging and repair, report what changed, why it fixes the failure, the checks actually
 run and any remaining limitation. Apply the
 [completion check](../shared/completion-check.md) before claiming completion.
+If repair or verification cannot continue, name the concrete blocker and affected
+scope; do not present a repair suggestion alone as completed debugging.
 A failed check is work to investigate, not permission to claim success. Do not
 commit, push or close an external issue unless the user explicitly requests it.
 

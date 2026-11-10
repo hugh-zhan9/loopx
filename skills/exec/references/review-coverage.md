@@ -21,3 +21,12 @@ interactions. Do not repeat every slice review solely because work has reached
 integration. A plan/design review never substitutes for required code review.
 Record reviewed content, scope, findings and remaining coverage in the existing
 plan so reuse is supported by evidence, not just an earlier pass verdict.
+
+## Task and requirement review
+
+Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+requirement-level integration still needed. A task review checks its original source
+sections, shared constraints and affected consumers; final integration checks full
+requirement coverage and interactions. Reuse unchanged evidence, but reopen affected
+coverage for shared-contract changes. Do not add a review merely for each task or
+repeat settled design review when the implementation needs verification.

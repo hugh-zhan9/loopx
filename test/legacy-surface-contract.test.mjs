@@ -19,8 +19,8 @@ const removedSkills = [
   'fix-review',
 ];
 
-test('discovery exposes three document intents plus optional exec', () => {
-  assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec']);
+test('discovery exposes four document intents plus optional exec', () => {
+  assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['task-split', 'clarify', 'spec', 'plan2exec']);
   for (const skillName of LOOPX_CANONICAL_WORKFLOW_SKILLS) {
     assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true);
   }
@@ -58,7 +58,7 @@ test('public docs describe the docs-first product surface', async () => {
     'docs/loopx/skills.zh-CN.md',
   ]) {
     const text = await readFile(join(repoRoot, path), 'utf8');
-    assert.match(text, /docs-first|three canonical workflow intents|三个 canonical\s+workflow intents/i, path);
+    assert.match(text, /docs-first|four canonical workflow intents|四个 canonical\s+workflow intents/i, path);
     assert.match(text, /working agreement/i, path);
     for (const skillName of LOOPX_CANONICAL_WORKFLOW_SKILLS) {
       assert.match(text, new RegExp(`\\b${skillName}\\b`), path);

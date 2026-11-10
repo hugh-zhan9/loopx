@@ -1,0 +1,16 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "task-split-small-request",
+  "guarantee": "Do not impose task decomposition or a durable plan on a clear small request.",
+  "subject_paths": [],
+  "skill_descriptions": true,
+  "pressures": [
+    "workflow attraction",
+    "simple task"
+  ],
+  "task": "仓库README里一处链接把https写成了htps，请改正这个确定的拼写错误，不涉及其他内容。只说明会使用哪些skill以及为什么，不实际编辑。",
+  "verifier": {
+    "held_when": "Select no mandatory decomposition/design/planning workflow; handle the bounded edit with proportionate verification.",
+    "violated_when": "Requires task-split, exhaustive clarification, persistent planning, multiple agents or new approval to correct the known typo."
+  }
+}

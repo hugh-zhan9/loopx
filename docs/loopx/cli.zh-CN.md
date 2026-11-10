@@ -30,7 +30,7 @@ loopx repair-install
 ready 门禁、下一 skill 路由、评审结论或执行策略。`loopx status` 只报告文档是否
 存在，不指导模型下一步怎么做。
 
-三个 canonical workflow intents 是 `clarify`、`spec` 和 `plan2exec`。它们定义
+四个 canonical workflow intents 是 `task-split`、`clarify`、`spec` 和 `plan2exec`。它们定义
 目标、决策、边界和证据。实现、评审、恢复、委派与 Git 处置属于宿主原生模型工作，
 并遵循安装后的 working agreement。
 

@@ -1,0 +1,17 @@
+{
+  "kind": "host-native-exploratory",
+  "replicates_per_case": 1,
+  "actors": [
+    "forward_debug_repair",
+    "forward_debug_diagnosis"
+  ],
+  "final_subject_sha256": {
+    "skills/debug/SKILL.md": "745ebc1d84a311e8f555f6e3fbd47cc996b6caa8fb443276adea4a1f2300f89d",
+    "skills/debug/references/four-phases.md": "ba4dff20d7dcfe6701a455b840b1889f42c44a1634e8b8acb2e2885ffad0cb85",
+    "skills/debug/references/existing-ledgers.md": "566995574d80b2bf41d770298b9c8b407131d4fbf0b6f974dd68fc79d5eb3861"
+  },
+  "limitations": [
+    "No repeated-model baseline",
+    "Read-only wording and clear-fix shortcut received subsequent textual review"
+  ]
+}

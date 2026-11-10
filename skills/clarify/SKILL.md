@@ -2,7 +2,7 @@
 name: clarify
 description: "Resolve missing requirements or conflicting domain meanings before implementation (需求澄清). Use for material gaps in goals, scope, scenarios, acceptance, or permissions; record confirmed requirements."
 metadata:
-  version: "0.5.2"
+  version: "0.6.0"
   when_to_use: "clarify, unresolved intent, unclear scope, acceptance criteria, permission decision, 需求澄清, 分轮提问"
 ---
 
@@ -11,6 +11,10 @@ metadata:
 Resolve only ambiguity that can materially change the requested outcome. Do not
 turn clarification into an execution workflow or require ceremony for a clear,
 bounded request.
+
+For a requirement or task brief, apply [task scope](../shared/task-scope.md).
+Clarify the active scope; retain other tasks' questions with owners and due points.
+Requirement-level understanding can support a split before exhaustive local detail.
 
 ## Method
 

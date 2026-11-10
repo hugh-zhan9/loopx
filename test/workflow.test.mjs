@@ -99,7 +99,11 @@ describe('loopx docs-first document shell', () => {
 
     assert.equal(result.workspaceRoot, resolveWorkspaceRoot(wd));
     assert.equal(result.config.product_contract, 'docs-first');
-    assert.deepEqual(result.config.document_intents, ['clarify', 'spec', 'plan2exec']);
+    assert.deepEqual(result.config.document_intents, ['task-split', 'clarify', 'spec', 'plan2exec']);
+    const workspaceReadme = await readFile(join(resolveWorkspaceRoot(wd), 'README.md'), 'utf8');
+    for (const intent of result.config.document_intents) {
+      assert.ok(workspaceReadme.includes('`' + intent + '`'), `Generated README must expose ${intent}`);
+    }
     assert.equal(existsSync(join(resolveWorkspaceRoot(wd), 'config.json')), true);
     assert.equal(existsSync(resolveWorkflowRoot(wd, 'demo-init')), true);
 

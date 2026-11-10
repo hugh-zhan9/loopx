@@ -239,7 +239,7 @@ async function assertPublicDocsAligned() {
   assertNoRemovedRuntimeCommandExposure(cliDoc, 'docs/loopx/cli.md');
   assertNoRemovedRuntimeCommandExposure(cliDocZh, 'docs/loopx/cli.zh-CN.md');
   assertContains(readme, 'Docs-first engineering discipline', 'README.md');
-  assertContains(readme, 'three canonical workflow intents', 'README.md');
+  assertContains(readme, 'four canonical workflow intents', 'README.md');
   assertContains(readme, 'prompt-first', 'README.md');
   assertContains(readme, './docs/loopx/cli.md', 'README.md');
   assertContains(readme, '$clarify', 'README.md');
@@ -253,7 +253,7 @@ async function assertPublicDocsAligned() {
   
   assert.doesNotMatch(readme, /Golden path|finish-audit|finish-start|finish-record|execution-start/i);
 
-  assertContains(readmeZh, '三个 canonical workflow intents', 'README.zh-CN.md');
+  assertContains(readmeZh, '四个 canonical workflow intents', 'README.zh-CN.md');
   assertContains(readmeZh, 'prompt-first', 'README.zh-CN.md');
   assertContains(readmeZh, './docs/loopx/cli.zh-CN.md', 'README.zh-CN.md');
   assertContains(readmeZh, '$clarify', 'README.zh-CN.md');
@@ -458,7 +458,7 @@ assert.deepEqual(
 assert.equal(packageJson.files.includes('skills/'), false, 'npm package must not include broad skills/ surface');
 assert.equal(packageJson.files.includes('skills/RESOLVER.md'), true, 'npm package must include skills/RESOLVER.md');
 assert.equal(packageJson.files.includes('skills/shared/'), true, 'npm package must include shared skill contracts');
-assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['clarify', 'spec', 'plan2exec']);
+assert.deepEqual(LOOPX_CANONICAL_WORKFLOW_SKILLS, ['task-split', 'clarify', 'spec', 'plan2exec']);
 for (const skillName of LOOPX_BUNDLED_SKILLS) {
   assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, `npm package missing bundled skill ${skillName}`);
 }

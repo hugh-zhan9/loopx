@@ -32,7 +32,7 @@ It has no workflow stage, readiness gate, next-skill route, review verdict, or
 execution policy. `loopx status` reports document presence without telling the
 model what to do next.
 
-The three canonical workflow intents are `clarify`, `spec`, and `plan2exec`.
+The four canonical workflow intents are `task-split`, `clarify`, `spec`, and `plan2exec`.
 They define goals, decisions, boundaries, and evidence. Implementation, review,
 recovery, delegation, and Git disposition remain host-native model work governed
 by the installed working agreement.

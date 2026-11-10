@@ -2,20 +2,21 @@
 name: spec
 description: "Design or review changes to behavior, APIs, data, security, or module boundaries (技术方案、设计评审). Record decisions and check them against requirements."
 metadata:
-  version: "0.5.1"
+  version: "0.6.0"
   when_to_use: "spec, design spec with diagrams, sequence and state design, 设计方案, 技术方案"
 ---
 
 # loopx Spec
 
 Turn clarified requirements into evidenced design decisions. Do not write an implementation plan,
-change code, or invent business requirements. Clear local
-implementation choices do not require this skill.
+change code, or invent business requirements. Local implementation choices need no spec.
 
 If the user only asks to record an accepted local choice, write a compact record
 of the rule, source, protected behavior and useful examples. Do not expand it
 into the design templates, architecture tables or planning/index sections merely
 because the request names this skill. The templates below serve material design.
+
+For task-scoped design, apply [task scope](../shared/task-scope.md); preserve shared contracts.
 
 ## Inputs and authority
 

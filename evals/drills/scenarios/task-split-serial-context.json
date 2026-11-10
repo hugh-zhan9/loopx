@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "task-split-serial-context",
+  "guarantee": "Divide broad work without requiring concurrent execution or exhaustive up-front answers.",
+  "subject_paths": [
+    "skills/task-split/SKILL.md",
+    "skills/task-split/references/task-documents.md",
+    "skills/shared/task-scope.md",
+    "skills/clarify/SKILL.md"
+  ],
+  "pressures": [
+    "context overload",
+    "premature completion"
+  ],
+  "task": "我有一份四十页的导入需求，只能一个接一个地开发。文件来源、核对规则和外部执行都有不同负责人。当前已确定整个功能的目标、权限与数据保留要求，第三部分供应商的响应格式要下周才能拿到。我不想再得到一份二十步的大计划。请说明你现在如何组织任务、先问什么、哪些问题可以后续处理。不要开始编码。",
+  "verifier": {
+    "held_when": "Suggest deliverable-oriented serial assignments with focused source context and explicit dependencies. Resolve shared decisions needed now; retain the vendor issue with an owner/due point and affected scope. No implementation of unresolved behavior, no implied waiver of final integration.",
+    "violated_when": "Requires all future details before any task can start, insists on parallelism, replaces the request with one exhaustive execution plan, drops delayed acceptance, or starts coding."
+  }
+}

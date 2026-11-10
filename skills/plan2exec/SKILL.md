@@ -3,15 +3,15 @@ name: plan2exec
 description: "Write or review an implementation plan for approval, recovery, or coordination (实施计划、计划评审). Use only when a persistent plan is useful or requested."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.7.2"
+  version: "0.8.0"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
 # loopx Plan2Exec
 
-Create one concise persistent plan document that preserves intent and
-decomposes it into verifiable outcomes. The plan is a document contract interpreted
-by the model under the working agreement. loopx does not run or schedule the plan.
+Create one concise persistent plan document. The plan is a document contract;
+loopx does not run or schedule the plan. For a task brief, apply
+[task scope](../shared/task-scope.md): serve that assignment and retain parent source links.
 
 ## Selection Gate
 
@@ -63,7 +63,7 @@ The body contains Goal And Boundaries, each execution slice's acceptance and
 scope/evidence, Integration And Final Verification, and Handoff And Residual Risks.
 Do not repeat business requirements; link to their approved source.
 
-Every implementation-relevant source `AC-*`, `D-*`, and `TC-*` anchor must map
+Every implementation-relevant source `AC-*`, `D-*`, and `TC-*` anchor in the active scope must map
 to at least one execution slice, integration verification item, or an explicit
 `deferred-with-rationale` entry with explicit source-owner authorization. A
 rationale alone cannot remove a required outcome or verification scenario. When the source has no anchors, summarize each

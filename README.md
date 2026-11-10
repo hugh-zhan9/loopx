@@ -10,7 +10,7 @@
 
 `loopx` compiles engineering discipline into documents and proves they work.
 Its primary deliverable is a short working agreement installed into host
-guidance (`AGENTS.md` / `CLAUDE.md`), plus three document-producing skills.
+guidance (`AGENTS.md` / `CLAUDE.md`), plus four document-producing skills.
 Execution belongs to the model and its host runtime: loopx ships no execution
 runtime, review pipeline, or per-turn hook. The optional `$exec` skill is a thin
 host-native subagent playbook for an already-ready `plan2exec` document.
@@ -21,8 +21,10 @@ before the implementation that depends on them. Clear bounded requests need no
 extra confirmation. Make the smallest correct change, check boundary conditions,
 verify it freshly, and perform no Git disposition without an explicit request.
 
-The three canonical workflow intents produce documents:
+The four canonical workflow intents produce documents:
 
+- `task-split` divides broad work into bounded assignments with focused context and
+  handoffs, including serial tasks; small clear work stays prompt-first.
 - `clarify` finds requirement gaps before implementation, asks independent
   decisions together, and follows up on dependent questions after their
   prerequisites are answered. It produces a requirements contract with testable
@@ -35,7 +37,8 @@ The three canonical workflow intents produce documents:
 - `exec` optionally executes one ready plan through leaf subagents while the
   top-level model owns review, sequential integration, conflicts, and verification.
 
-`debug` diagnoses failures and completes repairs when requested. It replaces
+`debug` diagnoses failures and normally continues through code repair and verification;
+explicit diagnosis-only or read-only requests stop at findings. It replaces
 `issue` and `fix`, without creating a ledger by default. Existing ledgers remain
 readable, with their approved scope and recovery checks preserved.
 Support skills such as `tdd`, `debug`,
@@ -79,6 +82,7 @@ Full CLI and installation details live in [CLI Reference](./docs/loopx/cli.md).
 ## Use In An Agent
 
 ```text
+$task-split <broad-requirement-or-existing-task-breakdown>
 $clarify <ambiguous-request>
 $spec <decision-heavy-change>
 $plan2exec <approved-source-or-planning-request>

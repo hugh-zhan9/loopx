@@ -13,6 +13,7 @@ when simplifying the text.
 loopx v0.8 and later are docs-first. The product turns human intent into documents
 that define four things: goals, decisions, boundaries, and evidence. Documents may
 state what must be true, what must not change, and how correctness will be judged.
+Task briefs define bounded assignments and source-linked handoffs.
 Plans may record dependency graphs, progress, verification order, and safe
 parallelism constraints. Skills may describe how the model consumes those
 documents, including issue repair and the optional host-native `exec` playbook.

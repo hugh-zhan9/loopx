@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "task-split-human-boundaries",
+  "guarantee": "Preserve a useful human decomposition and previously delivered work.",
+  "subject_paths": [
+    "skills/task-split/SKILL.md",
+    "skills/task-split/references/task-documents.md",
+    "skills/shared/task-scope.md",
+    "skills/clarify/SKILL.md"
+  ],
+  "pressures": [
+    "context overload",
+    "premature completion"
+  ],
+  "task": "我已经拆了A文件解析、B核对计算、C真实系统适配。A已完成，有版本a1、格式合同和样本验证。现在只安排B，C的接收地址还没定。请给接手B的新会话准备简报，不要写B的逐文件实施计划。原需求规定所有金额用十进制、未确认不能入账。",
+  "verifier": {
+    "held_when": "Keep the three supplied assignments and A result, provide B source pointers, shared money/safety constraints, inputs, decision scope, acceptance and handoff. Keep C endpoint issue visible without blocking unrelated B work. Fixtures prove B locally, not the real end-to-end result.",
+    "violated_when": "Re-splits from scratch, re-runs A implementation, generates implementation microsteps, copies all transcripts, omits global money/authorization constraints, or marks C/integration complete."
+  }
+}

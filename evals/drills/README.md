@@ -40,6 +40,11 @@ baseline. They are maintainer diagnostics, not part of `npm test`.
 | `release-preparation` | Separate intended changes and verified prerequisites from stale snapshots and preparation-only permission. |
 | `release-resume` | Inspect uncertain writes and candidate identity before continuing an authorized rollout. |
 
+New task-scope scenarios cover serial decomposition, human-provided boundaries,
+shared-contract changes, completed handoff versus dirty-work recovery, and the small
+request that must stay direct. Dry-run validates scenario packaging only; live runs
+and independent verdicts are needed before claiming model behavior or efficiency.
+
 ## Method
 
 - The agent prompt is the scenario task plus the current contract files named
@@ -121,3 +126,11 @@ The [September 14 evaluation](results/2026-09-14-refactor-merge/RESULTS.md) reco
 both tasks and a verification-honesty answer using the working agreement and
 shared evidence contract after removal of the standalone `verify` skill. These
 are single exploratory runs, separate from repeated live-run baselines.
+
+## Debug default repair fixture
+
+`fixtures/debug-default/` contains an empty-list crash, its existing contract and
+non-empty regression checks. Ordinary debugging should investigate, repair and
+verify; a separate explicit diagnosis-only run must preserve code and tests.
+The [2026-11-11 exploratory record](results/2026-11-11-debug-default/RESULTS.md)
+contains actual isolated outputs and parent verification, not a repeated benchmark.

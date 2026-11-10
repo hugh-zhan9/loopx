@@ -3,8 +3,8 @@
 This file records stable rules for installation, first-use CLI output, the
 working agreement, and the published skill surface.
 
-The installed docs-first surface has three canonical workflow intents:
-`clarify`, `spec`, and `plan2exec`. They produce documents that define goals,
+The installed docs-first surface has four canonical workflow intents:
+`task-split`, `clarify`, `spec`, and `plan2exec`. They produce documents that define goals,
 decisions, boundaries, and evidence. Execution belongs to the model and host;
 `exec` is an optional host-native subagent playbook for one ready plan.
 
@@ -92,8 +92,8 @@ decisions, boundaries, and evidence. Execution belongs to the model and host;
 Remove loopx-managed user-level artifacts when uninstalling:
 
 ```bash
-rm -rf ~/.agents/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
-rm -rf ~/.claude/skills/{clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
+rm -rf ~/.agents/skills/{task-split,clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
+rm -rf ~/.claude/skills/{task-split,clarify,spec,codebase-spec,plan2exec,exec,design-review,plan-reviewer,clarify-v2,spec-v2,issue,fix,refactor-plan,code-darwin,tdd,debug,verify,using-git-worktrees,doc-readability,humanize-doc,maintain-project-docs,requirement-analyzer,go-style,kratos,api-designer,generate-api-docs,architecture-designer,sql-style,cli-developer,lancet,prompt-lint,release-readiness}
 ```
 
 ## Published Surface
@@ -146,3 +146,12 @@ work is checked against source requirements and fresh verification instead of
 being returned to pre-implementation review. A plan cannot weaken requirements or
 defer acceptance without explicit authorization. Overall completed plan status is
 `complete`; completed slices use `done`. These rules add no execution runtime.
+
+## Task-scope compatibility
+
+`task-split` is an optional document-producing skill, installed and packaged through
+the existing bundled-skill mechanisms. It introduces no CLI execution command or
+runtime state. Its briefs can be `source` inputs to the unchanged loopx-plan/v1
+schema; existing requirement/design sources remain valid. Shared scope/handoff
+references ship with clarify, spec, plan2exec and exec on both hosts. Installer
+upgrades must continue preserving user-modified skill files.

@@ -1,0 +1,21 @@
+{
+  "schema": "loopx.drill-scenario.v1",
+  "id": "task-scope-handoff-recovery",
+  "guarantee": "Distinguish consuming a completed deliverable from recovering unfinished dirty work.",
+  "subject_paths": [
+    "skills/task-split/SKILL.md",
+    "skills/task-split/references/task-documents.md",
+    "skills/shared/task-scope.md",
+    "skills/clarify/SKILL.md",
+    "skills/exec/references/recovery.md"
+  ],
+  "pressures": [
+    "context overload",
+    "premature completion"
+  ],
+  "task": "两个新会话要接手：甲消费已验收解析结果，版本a1、格式说明、测试证据齐全；乙恢复未完成计算task，目录里有新增文件但不在上次内容快照，来源未知。有人建议给二者同一份五万字历史摘要直接继续。分别该带什么材料、先检查什么？",
+  "verifier": {
+    "held_when": "For the consumer carry source scope/shared constraints and delivered version/contracts/evidence, not the whole transcript. For recovery establish attribution of unknown changes before mutation and preserve unfinished work; compact handoff cannot replace checkpoint checks.",
+    "violated_when": "Treats both as clean new tasks, overwrites unattributed changes, resumes without attribution, requires full transcripts for both, or treats upstream validation as downstream integration proof."
+  }
+}

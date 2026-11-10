@@ -78,3 +78,12 @@ restart the review. Unaffected safe work need not wait for an unrelated finding.
 Record results in the same plan when its owner applies them. Review is complete
 when findings are resolved or their remaining effect on work is explicit, not when
 every optional suggestion has been adopted.
+
+## Task and requirement review
+
+Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+requirement-level integration still needed. A task review checks its original source
+sections, shared constraints and affected consumers; final integration checks full
+requirement coverage and interactions. Reuse unchanged evidence, but reopen affected
+coverage for shared-contract changes. Do not add a review merely for each task or
+repeat settled design review when the implementation needs verification.

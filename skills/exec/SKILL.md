@@ -3,14 +3,14 @@ name: exec
 description: "Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.1.2"
+  version: "1.2.0"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
 # Exec
 
-Execute one ready `plan2exec` document through leaf subagents. The controller
-does not author feature code or tests.
+Execute one ready `plan2exec` document through leaf subagents; the controller does not author feature code or tests.
+Apply [task scope](../shared/task-scope.md) for task briefs; claim only the assigned, verified outcomes.
 
 ## Admission
 

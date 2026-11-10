@@ -3,6 +3,21 @@
 Use the repository's existing code and contracts to complete the requested work.
 Keep changes and verification proportional to their effect.
 
+## Choose the work scope
+
+For a broad requirement, first establish its overall goal, boundaries and shared
+constraints. Use `task-split` when separate assignments would reduce context burden
+or create useful handoffs, including serial work; do this before trying to clarify
+every future task in detail. Preserve a useful human-provided breakdown. Clear,
+bounded work needs neither a task package nor a persistent plan.
+
+A task owns a deliverable; its plan owns implementation steps. Read the task's
+original source sections and all applicable shared constraints, retain other tasks'
+questions and acceptance at requirement level, and resolve material decisions before
+dependent implementation. Keep overall coverage and integration with the coordinator.
+Hand accepted artifacts and evidence to the next task; preserve recovery checkpoints
+for unfinished work. No task split grants additional action or Git permission.
+
 ## Before changing code
 
 - Establish the requested outcome and protected behavior. Read the affected code,

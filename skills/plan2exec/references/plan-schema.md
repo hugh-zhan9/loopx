@@ -7,6 +7,16 @@ consumes for ordering, isolation, and progress. loopx ships no execution
 runtime; the agent follows the document. The current repository remains
 authoritative for local implementation choices.
 
+## Task-scoped plans
+
+`source` may point to a task brief that preserves links to the original requirement
+and shared contracts. Apply [task scope](../../shared/task-scope.md); no new schema
+or mandatory field is introduced. Existing direct requirement/design sources keep
+working. P-* slices belong to this plan, not the requirement's task map. Map the
+active task's source acceptance and identify its downstream/integration handoff;
+other required tasks remain assigned in the parent map, not silently deferred or
+claimed complete here. Scope ambiguity blocks only work that depends on it.
+
 ## Frontmatter: slice graph and progress
 
 The frontmatter is the only record of dependencies and execution status. Do

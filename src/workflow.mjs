@@ -125,7 +125,7 @@ function buildWorkspaceReadme() {
     '',
     '## Document Intents',
     '',
-    '`clarify`, `spec`, and `plan2exec` produce documents. They do not control model execution.',
+    '`task-split`, `clarify`, `spec`, and `plan2exec` produce documents. They do not control model execution.',
     '',
     '## User Commands',
     '',
@@ -227,7 +227,7 @@ export async function initWorkspace(cwd, { slug } = {}) {
     schema_version: WORKSPACE_SCHEMA_VERSION,
     tool: 'loopx',
     product_contract: 'docs-first',
-    document_intents: ['clarify', 'spec', 'plan2exec'],
+    document_intents: ['task-split', 'clarify', 'spec', 'plan2exec'],
     source_of_truth_policy: projectConventions.source_of_truth_policy,
     project_conventions: {
       existing_ai_rules: projectConventions.existing_ai_rules,

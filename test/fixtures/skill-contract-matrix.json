@@ -22,9 +22,35 @@
     },
     "release-readiness": {
       "max": 140
+    },
+    "task-split": {
+      "max": 100
     }
   },
   "skills": [
+    {
+      "skill": "task-split",
+      "role": "workflow",
+      "boundary": "Do not write their implementation plans",
+      "required_outputs": [
+        "task brief",
+        "dependencies",
+        "acceptance"
+      ],
+      "safety_invariants": [
+        "no CLI runtime"
+      ],
+      "integrations": [
+        "clarify",
+        "spec",
+        "plan2exec"
+      ],
+      "required_references": [
+        "../shared/task-scope.md",
+        "references/task-documents.md"
+      ],
+      "version": "0.1.0"
+    },
     {
       "skill": "clarify",
       "role": "workflow",
@@ -43,9 +69,10 @@
       ],
       "required_references": [
         "../shared/domain-language.md",
-        "references/owner-questions.md"
+        "references/owner-questions.md",
+        "../shared/task-scope.md"
       ],
-      "version": "0.5.2"
+      "version": "0.6.0"
     },
     {
       "skill": "spec",
@@ -69,9 +96,10 @@
         "references/design-review.md",
         "references/design-quality.md",
         "references/design-diagrams.md",
-        "../shared/domain-language.md"
+        "../shared/domain-language.md",
+        "../shared/task-scope.md"
       ],
-      "version": "0.5.1"
+      "version": "0.6.0"
     },
     {
       "skill": "codebase-spec",
@@ -112,9 +140,10 @@
         "references/plan-schema.md",
         "../shared/architecture-conformance.md",
         "../shared/database-concurrency.md",
-        "references/plan-review.md"
+        "references/plan-review.md",
+        "../shared/task-scope.md"
       ],
-      "version": "0.7.2"
+      "version": "0.8.0"
     },
     {
       "skill": "exec",
@@ -139,9 +168,10 @@
       "required_references": [
         "../shared/architecture-conformance.md",
         "references/recovery.md",
-        "../plan2exec/references/plan-review.md"
+        "../plan2exec/references/plan-review.md",
+        "../shared/task-scope.md"
       ],
-      "version": "1.1.2"
+      "version": "1.2.0"
     },
     {
       "skill": "refactor-plan",
@@ -187,7 +217,7 @@
         "references/existing-ledgers.md",
         "../shared/completion-check.md"
       ],
-      "version": "0.4.1"
+      "version": "0.5.0"
     },
     {
       "skill": "tdd",
