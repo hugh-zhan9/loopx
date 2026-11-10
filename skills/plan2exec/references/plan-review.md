@@ -12,6 +12,22 @@ For an independent reviewer, include:
 > the plan. Report findings with evidence and consequences. Judge their importance
 > independently.
 
+## Review coverage
+
+Several slices may share one independent review of their integrated behavior.
+Name the risk, covered slices, and the point before which review must pass in the
+existing plan; do not add a reviewer for each `P-*` or a standalone review slice
+by default. Require an earlier review when later work would rely on an unsafe
+contract or perform an irreversible action, or when explicitly required by the
+user or repository. Design review covers decisions, not implementation. Reuse
+settled design findings while checking the plan's new ordering and coverage risks;
+implementation still needs any required code review.
+
+Give a required independent reviewer the plan, original source, and relevant
+evidence without a preferred verdict. Record its identity, reviewed content,
+findings and resolutions in the plan. Missing delegation blocks only affected
+work; independent safe work may continue within its dependencies and write scope.
+
 ## What to check
 
 - Compare each accepted outcome and applicable AC/D/TC scenario with the proposed
@@ -28,6 +44,11 @@ For an independent reviewer, include:
   output and migrations. Disjoint files do not prove independence. Serialize
   conflicting work when that preserves the approved result; do not force redesign
   merely because the initial plan claimed parallelism.
+- Check that slices have useful acceptance or coordination boundaries. Combine
+  tightly coupled layers that cannot be accepted independently; do not turn every
+  interface into a separate handoff. Group review coverage by the risk and the
+  point where it must be resolved, rather than counting slices. Preserve explicit
+  earlier review requirements and irreversible-action gates.
 - Check whether verification can detect a failure of the original requirement.
   Tests that restate the implementation do not establish acceptance. For persisted
   concurrent state, apply [the database concurrency contract](../../shared/database-concurrency.md).

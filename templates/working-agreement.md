@@ -104,7 +104,11 @@ scope changes. This check does not waive required acceptance or independent revi
 - For security-sensitive, destructive or public-compatibility changes, have an
   independent subagent review the exact diff. Reviewers report findings without
   editing or receiving a preferred verdict. Fix Critical or Important findings,
-  then verify and independently review the changes again.
+  then verify and independently review the fixes and affected behavior. Group
+  related changes into one review at the point their risk must be resolved; task
+  count does not determine review count. Reuse coverage of unchanged content and
+  check new interactions at integration. Preserve explicit earlier review gates
+  and do not substitute design review for implementation review.
 - Continue authorized work through implementation, verification and corrections.
   Do not stop at a first draft or ask again for routine steps already authorized.
 

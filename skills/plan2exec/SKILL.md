@@ -3,7 +3,7 @@ name: plan2exec
 description: "Write or review an implementation plan for approval, recovery, or coordination (实施计划、计划评审). Use only when a persistent plan is useful or requested."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.7.1"
+  version: "0.7.2"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
@@ -73,9 +73,12 @@ weaken source requirements. The implementation and final checks must read the
 original approved requirements as well as this plan.
 
 An execution slice is a coherent, independently verifiable outcome, not a
-minute-scale task. Split when outcomes have a real dependency, interface, or
-acceptance boundary. Fold setup, tests, documentation, and mechanical support
-into the outcome they enable. Preserve existing `P-*` identifiers when revising
+minute-scale task. Split when a boundary enables independent acceptance, safe
+parallel ownership, or a necessary migration or approval stop. An internal call
+dependency alone does not justify another slice. Keep tightly coupled protocol,
+storage, and adapter changes together when they establish one behavior and need
+joint acceptance; crossing files or repositories does not itself require a split.
+Fold setup, tests, docs, and support into that outcome. Preserve `P-*` identifiers when revising
 a plan and append new identifiers instead of renumbering prior slices. For an active legacy plan, add missing schema fields from settled source and
 repository evidence in place. Do not reopen accepted decisions to change format.
 An unknown schema needs an explicit interpretation before delegated execution.
@@ -105,19 +108,16 @@ or the plan contains a concrete risk in destructive changes, public compatibilit
 security, migration ordering, or coordination across shared resources. Record the
 risk and affected slices. Read-only review requests produce findings only.
 
-For required independent review, use a host-native read-only leaf subagent with
-no edits or helpers. Give it the plan, original source, and relevant evidence;
-do not pre-judge its findings. Record reviewer identity, reviewed content, findings
-and resolutions in the plan. If delegation is unavailable, keep only affected
-slices blocked and report the missing review. Unrelated reviewed or ordinary work
-may continue when its dependencies and write scopes permit it.
+Plan review coverage separately from implementation slices. Group related slices
+at the point their risk must be resolved; follow [review coverage](references/plan-review.md#review-coverage)
+for earlier gates, design/code distinctions, and reviewer handoff.
 
-Review the complete relevant plan once. After changes, recheck the findings and
-what the change affects; do not automatically restart a full review. New evidence
-of a material problem still requires action. Progress, formatting, and local
-implementation choices do not invalidate earlier review. A change to accepted
-behavior or architecture needs its source decision resolved and the affected plan
-reviewed when the risk calls for it.
+Required independent review uses a host-native read-only leaf subagent. If it is
+unavailable, block only affected work and report the missing review.
+
+Review the relevant plan once, then recheck fixes and affected decisions. Progress
+and local implementation choices do not invalidate earlier review. Resolve changed
+source decisions first and review their affected risks; do not restart by default.
 
 Fix unambiguous formatting, missing labels, and bookkeeping directly when editing
 is authorized. Missing source decisions, unsafe dependencies, or unknown ownership

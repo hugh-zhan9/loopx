@@ -3,7 +3,7 @@ name: exec
 description: "Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.1.1"
+  version: "1.1.2"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
@@ -14,11 +14,9 @@ does not author feature code or tests.
 
 ## Admission
 
-- Check actual progress before admission. For `status: complete` or work already
-  implemented, compare code and fresh verification with the original requirements.
-  Correct the execution record when authorized; do not dispatch completed slices
-  or require a new pre-implementation review. Incomplete or failing results still
-  need the concrete repair and verification they are missing.
+- Check completed work against original requirements and fresh evidence; correct
+  authorized records without redispatch or pre-implementation review. Incomplete
+  or failing results still need their missing repair and verification.
 - Require one active plan with `schema: loopx-plan/v1`, overall `status: ready`, a
   non-empty acyclic slice graph, explicit `depends`, `writes`, `architecture`,
   acceptance, and `verify`, and matching slice IDs. Reject unknown schemas before
@@ -32,19 +30,16 @@ does not author feature code or tests.
   specs and code, and the tracked/untracked baseline before dispatch.
 - Read [the architecture conformance contract](../shared/architecture-conformance.md)
   and recheck the plan's reuse, ownership, dependency, isolation, and maintenance
-  evidence against the current tree. Find missing facts in the repository; do not
-  invent evidence or authorize a new architecture decision by filling a field.
+  evidence against the current tree; find missing facts, never invent or authorize them.
 - Preserve existing user changes. Treat overlap with planned `writes` as run-owned
   only when the slice status and Resume note match the prior run's baseline and
   complete content checkpoint; otherwise stop before mutation and report the paths.
-- Require host-native leaf subagents. Never inline implementation when delegation is
-  unavailable.
+- Require host-native leaf subagents; never inline implementation without delegation.
 - Accept optional `model`, `reasoning_effort`, and positive `max_workers`. Pass
   explicit model and effort values through the host API to every worker and reviewer;
   if unsupported, stop instead of substituting them. Count all active subagents
   against `max_workers`.
-- Use `debug` for a supplied `.loopx/issues` repair ledger. Plain work without
-  a plan remains prompt-first.
+- Use `debug` for a `.loopx/issues` repair ledger; unplanned work remains prompt-first.
 
 ## Controller And Workers
 
@@ -73,8 +68,11 @@ the controller cannot locate or tie to its declared base.
 Apply [execution self-check](references/execution-check.md) at its defined checkpoints.
 
 A pending slice is runnable only when all dependencies are `done` and any required
-review for that slice has resolved its blockers. Never dispatch a `blocked` or
+review due before that slice has resolved its blockers. Never dispatch a `blocked` or
 `done` slice. Mark it `in_progress` immediately before dispatch.
+
+Read [review coverage](references/review-coverage.md) for scheduling and reuse.
+Reuse serial workers/workspaces only with clear ownership and accepted checkpoints.
 
 Run runnable slices in parallel only when all of these are true:
 
@@ -99,10 +97,11 @@ For each candidate, the controller:
    surface against the plan and repository evidence;
 3. integrates the candidate onto the latest accepted state;
 4. reruns the slice `verify` command in the integrated workspace;
-5. dispatches an independent read-only leaf reviewer when the plan `review` line or
-   repository working agreement requires one;
+5. dispatches an independent read-only leaf reviewer when a required review point
+   is reached, covering the related integrated slices together;
 6. marks the slice `done` only after scope, integration, verification, and required
-   review pass, then unlocks dependents.
+   reviews due at that point pass, then unlocks dependents. Reviews explicitly
+   scheduled later remain pending in the plan.
 
 Return implementation findings to a leaf worker; the controller does not patch them.
 Critical or Important findings must be fixed, freshly verified, and re-reviewed.
@@ -124,8 +123,9 @@ new source of truth is architecture drift, not a local cleanup.
 For interrupted or recoverable work, follow [recovery](references/recovery.md).
 
 After every slice is `done`, read the original requirements again, run
-`Integration And Final Verification` and any required whole-diff review. Check
-expected behavior, not just AC/D/TC presence. Set overall `status: complete` only
+`Integration And Final Verification` and any required whole-diff review, reusing
+unchanged coverage as described in the review reference. Check expected behavior,
+not just AC/D/TC presence. Set overall `status: complete` only
 from fresh passing evidence. Never use `complete` as a slice status. The
 run delta must stay within declared slice `writes`, apart from controller-owned plan
 state edits, and pre-existing unrelated user changes must remain intact.

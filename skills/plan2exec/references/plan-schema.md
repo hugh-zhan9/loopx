@@ -71,10 +71,18 @@ End every slice with one meta block:
 > anchors: `<AC-*, D-*, TC-*, a summarized requirement, or explicitly approved deferred-with-rationale>`
 > architecture: `<reuse/extension target or justified new capability; owner and dependency direction; state/fault boundary; maintenance check, or evidence-backed not_applicable>`
 > verify: `<exact known commands, or the required check and its observable evidence>`
-> review: `<contract or regression risk an independent reviewer must check — high-risk slices only>`
+> review: `<optional: concrete risk; review point and covered P-* slices, or reference to their shared review in Integration And Final Verification>`
 
-Add `P-*` slices only for coherent outcomes with distinct dependency,
-interface, or acceptance boundaries. Preserve existing identifiers during
+The optional `review` line describes coverage, not a separate reviewer per slice.
+Omit it for ordinary work. A shared review may cover several integrated slices;
+state when it must pass. Implementation slices can be `done` after their own
+acceptance and verification while that later review remains explicitly pending;
+the plan cannot be `complete` or cross the named review point until it passes.
+Never use a later review to bypass an explicit earlier gate or a known blocker.
+
+Add `P-*` slices only for coherent outcomes with independently useful acceptance,
+safe parallel ownership, or necessary migration/approval stops. Internal layers
+and file boundaries alone do not require separate slices. Preserve existing identifiers during
 plan revision and append new ones instead of renumbering.
 
 ## Integration And Final Verification
@@ -82,6 +90,7 @@ plan revision and append new ones instead of renumbering.
 - `<cross-slice behavior, regression checks, packaging, documentation, or final suite evidence>`
 - `<whole-diff architecture check: chosen reuse point, dependency and state boundaries, no parallel source of truth, maintenance tests and diagnostics>`
 - `<source anchors covered only at integration level, if any>`
+- `<required shared review, if any: risk, covered P-* slices, and the point before which it must pass>`
 
 ## Handoff And Residual Risks
 
@@ -97,8 +106,8 @@ plan revision and append new ones instead of renumbering.
   requirements; do not run pre-implementation review again.
 - Begin an unfinished slice only with overall `status: ready`, its own status
   `pending` (or an attributed recovery from `in_progress`), and satisfied
-  dependencies. Required independent review must cover that slice's material
-  risks, as defined by [plan2exec](../SKILL.md); ordinary plans need no such review.
+  dependencies. Required independent review must pass before its named review
+  point, as defined by [plan2exec](../SKILL.md); ordinary plans need no such review.
 - Read the original approved requirement before editing and final verification.
   IDs and plan wording alone cannot justify weaker behavior or deferred acceptance.
 - After each slice and before expanding or repeating work, briefly compare actual

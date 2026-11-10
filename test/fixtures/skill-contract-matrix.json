@@ -114,7 +114,7 @@
         "../shared/database-concurrency.md",
         "references/plan-review.md"
       ],
-      "version": "0.7.1"
+      "version": "0.7.2"
     },
     {
       "skill": "exec",
@@ -141,7 +141,7 @@
         "references/recovery.md",
         "../plan2exec/references/plan-review.md"
       ],
-      "version": "1.1.1"
+      "version": "1.1.2"
     },
     {
       "skill": "refactor-plan",
