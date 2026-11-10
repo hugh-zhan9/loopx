@@ -3,7 +3,7 @@ name: plan2exec
 description: "Write or review an implementation plan for approval, recovery, or coordination (实施计划、计划评审). Use only when a persistent plan is useful or requested."
 when_to_use: "plan2exec, explicit implementation planning request, approval boundary, interruption recovery, durable coordination, lean implementation plan, 实施计划, 执行计划"
 metadata:
-  version: "0.7.0"
+  version: "0.7.1"
 argument-hint: "<approved source path or clear planning request>"
 ---
 
@@ -98,6 +98,7 @@ and the installed working agreement govern how the plan is carried out.
 ## Review and handoff
 
 Check source coverage, dependencies, scope, acceptance, and verification yourself.
+Check scope in both directions and carry the schema's automatic self-check into the handoff.
 An ordinary plan may be `ready` after this check; it needs no independent review.
 Use [the review guidance](references/plan-review.md) when the user requests review
 or the plan contains a concrete risk in destructive changes, public compatibility,

@@ -9,6 +9,15 @@ Keep changes and verification proportional to their effect.
   callers and tests; widen the search when a shared or public contract changes.
 - For brownfield work, identify the owning module, applicable architecture rules,
   and the closest existing extension or reuse points before adding a new path.
+- Distinguish the requested outcome, necessary implementation steps and optional
+  enhancements before choosing a solution. An added behavior must follow from an
+  explicit requirement or existing contract, or be demonstrably necessary for the
+  requested outcome. Technical possibility or usefulness alone is not a requirement.
+  For example, moving configuration to Apollo does not by itself require adding
+  hot reload or automatic service restarts; preserve the existing loading lifecycle
+  unless the request changes it. Do not turn optional enhancements into acceptance
+  gaps, blockers or clarification questions. Choose routine implementation details
+  yourself; ask only when a real unresolved choice affects the requested outcome.
 - Run relevant baseline checks before changing behavior. Record existing failures
   separately; do not assume the baseline is green or fix unrelated failures.
 - Before implementation, check the requested outcome, scope, protected behavior,
@@ -45,6 +54,29 @@ Keep changes and verification proportional to their effect.
 - Do not add fallback, retry, degraded-mode or compatibility-shim behavior unless
   a requirement names the scenario and expected behavior. Preserve existing
   required error behavior.
+
+## During execution
+
+After a verifiable task unit, before expanding investigation, changes or
+verification, or when repeating work without new evidence, make one brief check:
+
+- Goal: compare the result and intended next action with the original request
+  and accepted decisions. Identify missed requirements or unrequested work.
+- Evidence: distinguish acceptance already supported by evidence from gaps still
+  open. Implementation or a focused test alone does not establish full acceptance.
+- Necessity: name the unresolved question, changed input, acceptance gap or required
+  check that the next action addresses, and trace it to the request or an applicable
+  contract rather than an assumption introduced by your own plan. Without one,
+  stop repeating investigation, reopening settled choices or rerunning checks
+  merely for reassurance.
+- Action: if aligned, continue the next required task or deliver when acceptance
+  is complete. Correct deviations only in the affected scope; ask the user only
+  for material decisions that cannot be resolved from available evidence.
+
+Keep this check brief, not per command. Use evidence already available; investigate
+only a concrete gap it reveals. Do not create a separate report, invoke a reviewer
+by default or recursively check the check. Report actual deviations, blockers or
+scope changes. This check does not waive required acceptance or independent review.
 
 ## Verification and completion
 

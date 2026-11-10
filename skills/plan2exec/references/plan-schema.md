@@ -53,6 +53,11 @@ explicit non-goals, protected behavior, compatibility rules, dependency
 limits, and approval boundaries. Use diagrams (for example mermaid) and
 repository file links where they carry real information.
 
+Check scope in both directions: cover every required outcome, and justify every
+planned outcome and acceptance condition from the approved source, an existing
+contract or a necessary implementation step. Optional enhancements do not belong
+in execution scope and must not become blockers or questions for the user.
+
 ## P-001 <coherent outcome>
 
 Each slice is a heading plus a few short paragraphs of prose: what this slice
@@ -96,6 +101,14 @@ plan revision and append new ones instead of renumbering.
   risks, as defined by [plan2exec](../SKILL.md); ordinary plans need no such review.
 - Read the original approved requirement before editing and final verification.
   IDs and plan wording alone cannot justify weaker behavior or deferred acceptance.
+- After each slice and before expanding or repeating work, briefly compare actual
+  results and the next action with the original source and current user decisions.
+  Trace any proposed extra behavior or acceptance gap to that source, an applicable
+  contract or a necessary implementation step, not merely this plan. Correct only
+  affected deviations; if aligned, continue the next required work without asking
+  again. Reuse valid evidence and stop redundant investigation or verification when
+  no concrete uncertainty, changed input or required check remains. Do not skip
+  required acceptance, create a separate self-review task or recursively recheck.
 - Execute slices in frontmatter dependency order; verify each slice with its
   `verify` line before starting dependents, and update its frontmatter
   `status` as work proceeds.

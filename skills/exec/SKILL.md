@@ -3,7 +3,7 @@ name: exec
 description: "Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
@@ -62,18 +62,19 @@ and verification. Include:
 > slice, modify only its declared writes, and do not edit the plan or perform Git
 > disposition. Preserve baseline and other workers' changes. Report changed paths,
 > architecture-conformance evidence, verification evidence, blockers, and residual risks.
+> Apply the brief source and necessity check in [execution self-check](references/execution-check.md).
 
 Require each worker to return its base identity and either an isolated-workspace
-locator plus candidate ref, or a complete unapplied patch. It must also report the
-exact changed paths, verification evidence, blockers, and residual risks. Reject a
-candidate that the controller cannot locate or tie to its declared base.
+locator plus candidate ref, or a complete unapplied patch. Reject a candidate that
+the controller cannot locate or tie to its declared base.
 
 ## Schedule
 
+Apply [execution self-check](references/execution-check.md) at its defined checkpoints.
+
 A pending slice is runnable only when all dependencies are `done` and any required
 review for that slice has resolved its blockers. Never dispatch a `blocked` or
-`done` slice. Mark it
-`in_progress` immediately before dispatch.
+`done` slice. Mark it `in_progress` immediately before dispatch.
 
 Run runnable slices in parallel only when all of these are true:
 
@@ -121,7 +122,6 @@ new source of truth is architecture drift, not a local cleanup.
 ## Finish Or Block
 
 For interrupted or recoverable work, follow [recovery](references/recovery.md).
-Do not unlock dependents until verification and required review pass.
 
 After every slice is `done`, read the original requirements again, run
 `Integration And Final Verification` and any required whole-diff review. Check
