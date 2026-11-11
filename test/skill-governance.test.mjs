@@ -32,9 +32,11 @@ describe('loopx docs-first governance', () => {
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/);
   });
 
-  it('requires a mutation check when unproven tests are the main evidence', async () => {
+  it('limits mandatory mutation checks to high-risk logic with no failure evidence', async () => {
     const agreement = (await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8')).replace(/\s+/g, ' ');
-    assert.match(agreement, /never seen failing for that logic, check that they fail when it is broken/);
+    assert.match(agreement, /main evidence for changed high-risk logic/);
+    assert.match(agreement, /never failed for that logic/);
+    assert.match(agreement, /ordinary changes leave this additional check to the agent's judgment/);
     assert.match(agreement, /installed `tdd\/references\/mutation-check\.md`/);
     const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
     assert.match(tdd, /\(references\/mutation-check\.md\)/);

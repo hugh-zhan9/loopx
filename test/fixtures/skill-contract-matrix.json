@@ -171,7 +171,7 @@
         "../plan2exec/references/plan-review.md",
         "../shared/task-scope.md"
       ],
-      "version": "1.2.0"
+      "version": "1.2.1"
     },
     {
       "skill": "refactor-plan",
@@ -217,7 +217,7 @@
         "references/existing-ledgers.md",
         "../shared/completion-check.md"
       ],
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "skill": "tdd",
@@ -237,7 +237,7 @@
         "testing-anti-patterns.md",
         "references/mutation-check.md"
       ],
-      "version": "0.3.9"
+      "version": "0.3.10"
     },
     {
       "skill": "using-git-worktrees",

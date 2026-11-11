@@ -3,7 +3,7 @@ name: exec
 description: "Execute a ready plan2exec plan through leaf subagents when requested (执行计划). Requires host delegation. Git actions need an explicit request."
 when_to_use: "$exec, execute a ready plan2exec plan, delegated plan execution, parallel plan slices, 执行 plan2exec 计划"
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 argument-hint: "<plan path> [model=<id>] [reasoning_effort=<level>] [max_workers=<n>]"
 ---
 
@@ -57,7 +57,7 @@ and verification. Include:
 > slice, modify only its declared writes, and do not edit the plan or perform Git
 > disposition. Preserve baseline and other workers' changes. Report changed paths,
 > architecture-conformance evidence, verification evidence, blockers, and residual risks.
-> Apply the brief source and necessity check in [execution self-check](references/execution-check.md).
+> Stay within [execution scope](references/execution-check.md).
 
 Require each worker to return its base identity and either an isolated-workspace
 locator plus candidate ref, or a complete unapplied patch. Reject a candidate that
@@ -65,7 +65,7 @@ the controller cannot locate or tie to its declared base.
 
 ## Schedule
 
-Apply [execution self-check](references/execution-check.md) at its defined checkpoints.
+Use [execution scope](references/execution-check.md) to judge further work.
 
 A pending slice is runnable only when all dependencies are `done` and any required
 review due before that slice has resolved its blockers. Never dispatch a `blocked` or
@@ -103,8 +103,8 @@ For each candidate, the controller:
    reviews due at that point pass, then unlocks dependents. Reviews explicitly
    scheduled later remain pending in the plan.
 
-Return implementation findings to a leaf worker; the controller does not patch them.
-Critical or Important findings must be fixed, freshly verified, and re-reviewed.
+Return confirmed implementation issues to a leaf worker; the controller does not
+patch them. Apply [review coverage](references/review-coverage.md) to findings and fixes.
 
 If a candidate conflicts with the latest integrated state, stop integrating the
 remaining candidates and dispatch one serial leaf worker to reconcile the affected

@@ -3,7 +3,7 @@ name: tdd
 description: "Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test."
 when_to_use: "explicit TDD invocation, owning workflow requests failing-test-first discipline, red green refactor, characterization or regression evidence, 测试先行"
 metadata:
-  version: "0.3.9"
+  version: "0.3.10"
 ---
 
 # Test-Driven Development
@@ -18,8 +18,8 @@ workflow or authorize production changes.
   before implementing it.
 - **Existing implementation:** Preserve it. Add characterization or regression
   evidence before changing it; a passing characterization test is valid evidence
-  of current behavior. Before a refactor relies on it, apply
-  [the mutation check](references/mutation-check.md). Do not delete user-owned
+  of current behavior. Use [the mutation check](references/mutation-check.md)
+  when its risk and evidence conditions apply. Do not delete user-owned
   code to manufacture a red phase or claim strict test-first development for code
   that predates the test.
 - **Generated output, configuration, prototypes, or impractical automation:** use

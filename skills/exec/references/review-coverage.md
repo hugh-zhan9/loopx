@@ -9,9 +9,14 @@ Never postpone review past an unsafe dependent action, an irreversible operation
 or an explicit user/repository requirement. Keep pending shared review visible
 even when its implementation slices are done; it still blocks plan completion.
 
-Batch findings from one review into a repair assignment when ownership permits.
-Critical or Important findings require correction, fresh affected verification,
-and independent re-review of the fixes and affected behavior. Do not restart a
+The controller checks findings against source requirements, code and concrete
+consequences; severity labels alone are not repair instructions. Explain rejected
+findings with evidence and resolve material disagreements with focused evidence.
+Optional improvements do not block completion.
+
+Batch confirmed findings into a repair assignment when ownership permits.
+Confirmed Critical or Important findings require correction, fresh affected
+verification and independent re-review of the fixes and affected behavior. Do not restart a
 full review for each finding. Reopen unaffected coverage only for new contradictory
 evidence; an unresolved finding cannot be waived to meet a review-count limit.
 

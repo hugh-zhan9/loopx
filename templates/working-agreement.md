@@ -72,35 +72,23 @@ for unfinished work. No task split grants additional action or Git permission.
 
 ## During execution
 
-After a verifiable task unit, before expanding investigation, changes or
-verification, or when repeating work without new evidence, make one brief check:
-
-- Goal: compare the result and intended next action with the original request
-  and accepted decisions. Identify missed requirements or unrequested work.
-- Evidence: distinguish acceptance already supported by evidence from gaps still
-  open. Implementation or a focused test alone does not establish full acceptance.
-- Necessity: name the unresolved question, changed input, acceptance gap or required
-  check that the next action addresses, and trace it to the request or an applicable
-  contract rather than an assumption introduced by your own plan. Without one,
-  stop repeating investigation, reopening settled choices or rerunning checks
-  merely for reassurance.
-- Action: if aligned, continue the next required task or deliver when acceptance
-  is complete. Correct deviations only in the affected scope; ask the user only
-  for material decisions that cannot be resolved from available evidence.
-
-Keep this check brief, not per command. Use evidence already available; investigate
-only a concrete gap it reveals. Do not create a separate report, invoke a reviewer
-by default or recursively check the check. Report actual deviations, blockers or
-scope changes. This check does not waive required acceptance or independent review.
+Choose the investigation, implementation and verification steps within the agreed
+scope. Expand or repeat work only for a concrete failure, changed input, uncovered
+requirement or applicable repository check. Reuse valid evidence and settled
+decisions. Deliver when required acceptance and checks are satisfied; no fixed
+self-check sequence, extra report or review round is needed for reassurance.
 
 ## Verification and completion
 
 - Test the changed behavior and affected callers. Add a regression test for a
   defect or new behavior where practical; use an appropriate repeatable check
   for documents, configuration or generated output.
-- When tests are the main evidence for changed calculations, conditions, state
-  changes or error handling and were never seen failing for that logic, check that
-  they fail when it is broken. Use the installed `tdd/references/mutation-check.md`.
+- When tests are the main evidence for changed high-risk logic (financial
+  calculations, security decisions, concurrent state or destructive data handling)
+  and have never failed for that logic, check that they detect a relevant defect.
+  Use the installed `tdd/references/mutation-check.md`. Reuse an observed relevant
+  failure; ordinary changes leave this additional check to the agent's judgment
+  unless the user or repository requires it.
 - Run the full test suite when repository instructions require it, when shared
   behavior changes, or when focused checks cannot establish the affected scope.
   Run required formatting, lint and build checks. Rerun affected checks after edits.
@@ -118,12 +106,18 @@ scope changes. This check does not waive required acceptance or independent revi
   requirements, failures or a repository requirement.
 - For security-sensitive, destructive or public-compatibility changes, have an
   independent subagent review the exact diff. Reviewers report findings without
-  editing or receiving a preferred verdict. Fix Critical or Important findings,
-  then verify and independently review the fixes and affected behavior. Group
-  related changes into one review at the point their risk must be resolved; task
+  editing or receiving a preferred verdict. Group related changes into one review
+  at the point their risk must be resolved; task
   count does not determine review count. Reuse coverage of unchanged content and
   check new interactions at integration. Preserve explicit earlier review gates
   and do not substitute design review for implementation review.
+- The primary agent checks each finding against requirements, code and concrete
+  consequences. Fix confirmed Critical or Important issues together, then verify
+  and independently re-review the fixes and affected behavior. Explain rejected
+  findings with evidence; a severity label alone does not justify a change.
+  Resolve material disagreements with focused evidence, not automatic acceptance
+  or dismissal. Optional improvements do not block completion. Do not waive an
+  unresolved required fix to meet a review-count limit.
 - Continue authorized work through implementation, verification and corrections.
   Do not stop at a first draft or ask again for routine steps already authorized.
 

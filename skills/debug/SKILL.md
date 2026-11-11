@@ -2,7 +2,7 @@
 name: debug
 description: "Diagnose and fix bugs, failing tests, build failures and regressions (排查并修复). Ordinary debugging continues through an evidence-backed code repair and verification; explicit diagnosis-only or read-only requests stop at findings."
 metadata:
-  version: "0.5.0"
+  version: "0.5.1"
   when_to_use: "debug, root cause, bug repair, failing test, build failure, regression, existing issue ledger, 根因排查, 修复bug, 继续修复"
 ---
 
@@ -85,8 +85,10 @@ instrumentation, or explicitly retain it as part of the authorized repair.
   changes and unnecessary additions.
   Request an independent review for an explicit review request, security,
   destructive behavior, public compatibility, cross-task interaction or a
-  reconciled conflict. Resolve Critical or Important findings, verify the result
-  and obtain an independent re-review before completion.
+  reconciled conflict. Check findings against the source and code; explain rejected
+  findings with evidence. Resolve confirmed Critical or Important issues together,
+  verify the affected behavior and obtain an independent re-review of those fixes
+  before completion. Reuse unchanged review coverage.
 
 ## Report
 

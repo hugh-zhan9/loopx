@@ -1,17 +1,13 @@
-# Execution self-check
+# Execution scope
 
-Before dispatch, after each slice is integrated, and when investigation or repair
-repeats without new evidence, the controller briefly compares results and the next
-action with the original source and current user decisions. Name the concrete
-requirement, acceptance gap or changed input the next action addresses; plan text
-alone cannot justify extra behavior. Correct unsupported plan scope within existing
-authorization and return code deviations to a leaf worker. Ask only for a material
-source decision that remains unresolved. When aligned, continue runnable work
-without another approval; when acceptance is complete, finish. Do not add a review
-agent, report or recurring polling loop for this check, or use it to skip required
-verification. Reuse valid evidence rather than repeating work for reassurance.
+The original source and current user decisions bound the work; plan text alone
+cannot justify extra behavior. The controller corrects unsupported plan scope
+within existing authorization and returns code deviations to a leaf worker.
+Workers report source conflicts without changing the plan or expanding scope.
 
-Workers apply the same source and necessity check before expanding or repeating
-work and before returning results. Report concrete source conflicts to the
-controller; do not change the plan or expand scope. Optional enhancements are
-not acceptance gaps. This check does not reopen settled user decisions.
+Expand or repeat work only for a concrete failure, changed input, uncovered
+requirement or required check. Optional improvements are not acceptance gaps.
+Reuse valid evidence and settled decisions; choose the investigation and checks
+needed for the remaining work. Continue authorized work and finish when acceptance
+is complete. This reference adds no fixed checkpoints, reports or review rounds
+and does not waive required verification.

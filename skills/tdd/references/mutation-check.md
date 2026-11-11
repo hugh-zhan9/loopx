@@ -6,11 +6,15 @@ file decides when the check is needed and what counts as evidence.
 
 ## When to apply
 
-Apply it before relying on tests as the main evidence for changed calculations,
-conditions and boundaries, state changes, error handling, or values passed to
-other components, when those tests were never seen failing for that logic. Typical
-cases are tests written after the code, characterization tests that protect a
-refactor, and generated tests.
+Require it when tests are the main evidence for changed high-risk logic (financial
+calculations, security decisions, concurrent state or destructive data handling)
+and have never failed for a relevant defect in that logic. An observed regression
+failure or red phase already supplies that evidence; do not manufacture it again.
+
+For ordinary changes, choose whether this check would resolve a concrete doubt
+about test sensitivity. Tests written after code, characterization tests and
+generated tests do not by themselves require mutation testing. Honor an explicit
+user or repository requirement for additional coverage.
 
 Skip it for documentation, configuration, generated code, pure wiring, and work
 the repository or the user excludes. Limit it to the changed lines or functions;
