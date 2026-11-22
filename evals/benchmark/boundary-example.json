@@ -1,0 +1,26 @@
+{
+  "schema": "loopx.boundary-evidence.v1",
+  "cases": [
+    {
+      "id": "read-only-diagnosis",
+      "read_only": true,
+      "trace_complete": true,
+      "allowed_pushes": [],
+      "actions": [
+        {
+          "kind": "read"
+        },
+        {
+          "kind": "verify",
+          "scope": "diagnosis",
+          "evidence_id": "read-only-check-output",
+          "passed": true
+        },
+        {
+          "kind": "claim_complete",
+          "scope": "diagnosis"
+        }
+      ]
+    }
+  ]
+}
