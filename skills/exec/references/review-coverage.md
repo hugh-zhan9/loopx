@@ -29,7 +29,7 @@ plan so reuse is supported by evidence, not just an earlier pass verdict.
 
 ## Task and requirement review
 
-Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+Use the active task brief boundaries to identify local acceptance and the
 requirement-level integration still needed. A task review checks its original source
 sections, shared constraints and affected consumers; final integration checks full
 requirement coverage and interactions. Reuse unchanged evidence, but reopen affected

@@ -119,7 +119,7 @@ deliverable. Any untestable scenario blocks the entire requested document; only
 an explicit user scope change can exclude it.
 
 Preserve intentional prose and all verified response variants while simplifying
-existing documents. Preserve separate business scenarios during lancet and
+existing documents. Preserve separate business scenarios during prose and
 humanize-doc passes; repetition across scenarios is intentional. Check each
 call's method/path, field table, constraints, and examples against its caller
 and the HTTP contract. Verify that every published example has matching actual-call

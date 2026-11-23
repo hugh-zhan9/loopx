@@ -36,7 +36,7 @@ code remain real findings and require a decision or repair.
 
 ## Task and requirement review
 
-Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+Follow the active task brief boundaries (see `/task-split`) to identify local acceptance and the
 requirement-level integration still needed. A task review checks its original source
 sections, shared constraints and affected consumers; final integration checks full
 requirement coverage and interactions. Reuse unchanged evidence, but reopen affected

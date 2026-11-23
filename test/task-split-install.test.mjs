@@ -22,7 +22,7 @@ test('task split installs with its scope/handoff references on both hosts and pr
   const installed = await installSkillsForTargets(env, { targets: ['codex', 'claude'] });
   assert.equal(installed.ok, true);
   for (const host of ['.agents', '.claude']) {
-    for (const file of ['task-split/SKILL.md', 'task-split/references/task-documents.md', 'shared/task-scope.md']) {
+    for (const file of ['task-split/SKILL.md', 'task-split/references/task-documents.md', 'task-split/agents/openai.yaml']) {
       assert.equal(await readFile(join(home, host, 'skills', file), 'utf8'),
         await readFile(join(root, 'skills', file), 'utf8'));
     }
@@ -39,7 +39,7 @@ test('published package includes task splitting and every shared scope consumer 
   const { stdout } = await exec('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: root });
   const paths = new Set(JSON.parse(stdout)[0].files.map(({ path }) => path));
   for (const path of ['skills/task-split/SKILL.md', 'skills/task-split/references/task-documents.md',
-    'skills/shared/task-scope.md', 'skills/exec/references/recovery.md']) {
+    'skills/task-split/agents/openai.yaml', 'skills/exec/references/recovery.md']) {
     assert.ok(paths.has(path), `Missing packaged dependency: ${path}`);
   }
 });

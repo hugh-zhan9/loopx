@@ -13,31 +13,29 @@ describe('loopx docs-first governance', () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     for (const skillName of LOOPX_BUNDLED_SKILLS) {
       assert.equal(existsSync(join(repoRoot, 'skills', skillName, 'SKILL.md')), true, skillName);
+      assert.equal(existsSync(join(repoRoot, 'skills', skillName, 'agents', 'openai.yaml')), true, skillName);
       assert.equal(packageJson.files.includes(`skills/${skillName}/`), true, skillName);
     }
     assert.equal(packageJson.files.includes('templates/working-agreement.md'), true);
   });
 
-  it('keeps the working agreement explicit about stop, verification, review, and Git discipline', async () => {
-    const agreement = (await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8')).replace(/\s+/g, ' ');
-    assert.match(agreement, /Run the full test suite when repository instructions require it/);
-    assert.match(agreement, /closest existing extension or reuse points/);
-    assert.match(agreement, /approved\s+design records the reason\s+before mutation/i);
-    assert.match(agreement, /stop before mutation and use `spec`; do not\s+justify it after coding/i);
-    assert.match(agreement, /local module or helper.*remains an\s+implementation choice.*continue prompt-first/is);
-    assert.match(agreement, /unjustified duplication.*boundary violations.*failure impact/is);
-    assert.match(agreement, /Only claim completion from fresh command output/);
-    assert.match(agreement, /independent subagent review the exact diff/);
-    assert.match(agreement, /do not guess and do not write code/);
+  it('keeps the working agreement concise and explicit about stop, verification, review, and Git discipline', async () => {
+    const raw = await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8');
+    const lines = raw.trimEnd().split('\n').length;
+    assert.ok(lines <= 65, `working-agreement.md should stay lean (<= 65 lines), got ${lines}`);
+
+    const agreement = raw.replace(/\s+/g, ' ');
+    assert.match(agreement, /Stop the affected work and ask only when a material decision is unresolved/);
+    assert.match(agreement, /Prefer existing owning modules and extension points/);
+    assert.match(agreement, /settle it in `\/spec` before editing/);
+    assert.match(agreement, /Verify every claim with fresh command output/);
+    assert.match(agreement, /Reserve independent subagent review \(`\/code-review`\)/);
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/);
   });
 
-  it('limits mandatory mutation checks to high-risk logic with no failure evidence', async () => {
-    const agreement = (await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8')).replace(/\s+/g, ' ');
-    assert.match(agreement, /main evidence for changed high-risk logic/);
-    assert.match(agreement, /never failed for that logic/);
-    assert.match(agreement, /ordinary changes leave this additional check to the agent's judgment/);
-    assert.match(agreement, /installed `tdd\/references\/mutation-check\.md`/);
+  it('keeps mutation checks scoped to explicit tdd instead of always-on working agreement', async () => {
+    const agreement = await readFile(join(repoRoot, 'templates', 'working-agreement.md'), 'utf8');
+    assert.doesNotMatch(agreement, /mutation-check\.md/);
     const tdd = await readFile(join(repoRoot, 'skills', 'tdd', 'SKILL.md'), 'utf8');
     assert.match(tdd, /\(references\/mutation-check\.md\)/);
   });
@@ -51,44 +49,48 @@ describe('loopx docs-first governance', () => {
     }
   });
 
-  it('uses debug as the single diagnosis and repair entry', () => {
-    for (const skillName of ['debug', 'tdd', 'lancet', 'prompt-lint']) {
-      assert.equal(LOOPX_BUNDLED_SKILLS.includes(skillName), true, skillName);
+  it('enforces dual-channel invocation split (only core autonomous disciplines are model-invoked)', async () => {
+    const modelInvoked = [];
+    const userInvoked = [];
+    for (const skillName of LOOPX_BUNDLED_SKILLS) {
+      const text = await readFile(join(repoRoot, 'skills', skillName, 'SKILL.md'), 'utf8');
+      if (/^disable-model-invocation:\s*true$/m.test(text)) {
+        userInvoked.push(skillName);
+      } else {
+        modelInvoked.push(skillName);
+      }
     }
-    for (const name of ['issue', 'fix']) {
-      assert.equal(LOOPX_BUNDLED_SKILLS.includes(name), false);
-      assert.equal(existsSync(join(repoRoot, 'skills', name, 'SKILL.md')), false);
+    assert.deepEqual(modelInvoked.sort(), ['debug', 'go-kratos', 'tdd']);
+    assert.ok(userInvoked.includes('code-review'));
+    assert.ok(userInvoked.includes('spec'));
+    assert.ok(userInvoked.includes('plan2exec'));
+    assert.ok(userInvoked.includes('clarify'));
+    assert.ok(userInvoked.includes('ask-loopx'));
+  });
+
+  it('retires redundant lenses and textbook skills cleanly', () => {
+    for (const retired of [
+      'issue', 'fix', 'lancet', 'api-designer', 'sql-style', 'cli-developer',
+      'architecture-designer', 'requirement-analyzer', 'using-git-worktrees',
+      'prompt-lint', 'maintain-project-docs', 'go-style', 'kratos',
+    ]) {
+      assert.equal(LOOPX_BUNDLED_SKILLS.includes(retired), false, retired);
+      assert.equal(existsSync(join(repoRoot, 'skills', retired, 'SKILL.md')), false, retired);
     }
   });
 
-  it('keeps prompt lint read-only and blocker-first', async () => {
-    const skill = await readFile(join(repoRoot, 'skills', 'prompt-lint', 'SKILL.md'), 'utf8');
-    const rubric = await readFile(join(repoRoot, 'skills', 'prompt-lint', 'references', 'rubric.md'), 'utf8');
-
-    assert.match(skill, /Do not execute the prompt under review/);
-    assert.match(skill, /Do not mutate files or external state/);
-    assert.match(skill, /Must supply/);
-    assert.match(skill, /Worth adding/);
-    assert.match(skill, /Agent can discover/);
-    assert.match(skill, /rewrite the prompt unless the user explicitly requests/);
-    assert.match(skill, /even when the\s+prompt does not name a file/);
-    assert.match(skill, /Insufficient input.*Do not score it/s);
-    assert.match(rubric, /Not ready.*at least one Must supply/s);
-    assert.match(rubric, /Never upgrade a\s+blocked prompt because its total crosses a threshold/);
-    assert.match(rubric, /100%.*75%.*50%.*25%.*0%/s);
-    assert.match(rubric, /do not deduct/i);
-  });
-
-  it('keeps benchmark and drill evidence in the repository but out of the runtime package', async () => {
+  it('keeps benchmark, skill-ab, and drill evidence in the repository but out of the runtime package', async () => {
     const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
     assert.equal(existsSync(join(repoRoot, 'evals', 'benchmark')), true);
+    assert.equal(existsSync(join(repoRoot, 'evals', 'skill-ab')), true);
     assert.equal(existsSync(join(repoRoot, 'evals', 'drills')), true);
     assert.equal(existsSync(join(repoRoot, 'scripts', 'run-benchmark-evals.mjs')), true);
+    assert.equal(existsSync(join(repoRoot, 'scripts', 'run-skill-ab-evals.mjs')), true);
     assert.equal(existsSync(join(repoRoot, 'scripts', 'run-drills.mjs')), true);
     assert.equal(packageJson.files.includes('evals/benchmark/'), false);
+    assert.equal(packageJson.files.includes('evals/skill-ab/'), false);
     assert.equal(packageJson.files.includes('evals/drills/'), false);
-    assert.equal(packageJson.files.includes('scripts/run-benchmark-evals.mjs'), false);
-    assert.equal(packageJson.files.includes('scripts/run-drills.mjs'), false);
+    assert.equal(packageJson.files.includes('scripts/run-skill-ab-evals.mjs'), false);
   });
 
   it('keeps superseded project documents outside current authority and default memory retrieval', async () => {

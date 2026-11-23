@@ -1,41 +1,28 @@
-# Database Concurrency Contract
+# Database Concurrency Policy
 
-Apply when designing, planning, reviewing, or implementing concurrent persisted
-state. This is loopx's engineering policy, not a claim that database locks are
-universally incorrect. Explicit user rulings and accepted repository exceptions
-remain authoritative; expose conflicts instead of silently changing existing
-behavior or expanding a bounded task into an unrelated concurrency rewrite.
+Default policy for concurrent persisted state. Explicit user rulings and
+documented repository exceptions take precedence.
 
-## Choose the coordination boundary
+## Preferred coordination (simplest sufficient invariant first)
 
-Do not introduce, recommend, or carry forward application-controlled database
-locks in a proposed concurrency design: `SELECT ... FOR UPDATE`,
-`SELECT ... FOR SHARE`, `LOCK TABLES`, row/table lock hints, and database advisory
-locks. Prefer the simplest sufficient invariant:
+1. **Uniqueness / idempotency key** for duplicate creation or repeated callbacks.
+2. **Conditional update / optimistic version / full-snapshot CAS** (`WHERE id = ? AND version = ?`) for stale writes and state transitions.
+3. **Append-only facts or single-writer ownership** when ordering is structural.
+4. **Distributed lock** only when the design proves 1–3 cannot protect the invariant; specify scope, lease/renewal, fencing token, timeout, and owner-failure recovery.
 
-- uniqueness or idempotency for duplicate creation;
-- conditional state updates, optimistic versions, or full-snapshot CAS for stale writes;
-- append-only facts or an established single-writer owner when appropriate.
+## Prohibited defaults
 
-Use transactions for atomicity; a transaction alone does not prove mutual
-exclusion or prevent stale decisions. Engines may acquire internal DML/DDL locks;
-account for their operational impact without relying on acquisition order, waiting,
-or timeouts for business correctness.
+Do not introduce application-controlled database locks (`SELECT ... FOR UPDATE`,
+`SELECT ... FOR SHARE`, `LOCK TABLES`, row/table lock hints, or database advisory
+locks) unless explicitly authorized. Use transactions for atomicity, not mutual
+exclusion.
 
-Allow a distributed lock only when the design explains why the simpler choices
-cannot protect the invariant. Specify scope, lease and renewal, fencing, timeout,
-owner failure, and recovery. Do not add a lock or retry merely as a fallback.
+## Required transition spec
 
-## Preserve and verify the invariant
+For each concurrent transition, state:
+- the invariant and CAS predicate (`expected state/version`);
+- zero-row conflict handling (reread, idempotent return, or rejection);
+- ABA protection if state can cycle;
+- bounded retry cap (excluding non-transactional external side effects from retries).
 
-For each affected transition, record the invariant, expected state/version or
-snapshot predicate, zero-row/conflict behavior, loser reread/idempotent return or
-rejection, and which writes roll back together. Address ABA when state can cycle.
-Any approved optimistic retry must be bounded and exclude non-transactional
-external side effects from the retried unit.
-
-`spec` owns these decisions; plans preserve their source anchors and bind them to
-acceptance, verification, and risk-focused review. SQL implementation and review
-check actual statements, including ORM output. Missing decisions or a prohibited
-locking dependency block readiness and return to `spec`; a reviewer reports the
-conflict rather than redesigning the source.
+Verify generated SQL (including ORM output) with `skills/code-review/scripts/check-guardrails.mjs`.

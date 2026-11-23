@@ -92,7 +92,7 @@ for (const scenario of ['pristine', 'modified', 'modified support file', 'suppor
         for (const path of ['clarify/SKILL.md', 'spec/SKILL.md', 'spec/REVIEW_BRIEF_TEMPLATE.md',
           'spec/references/design-review.md', 'plan2exec/references/plan-review.md',
           'refactor-plan/SKILL.md', 'refactor-plan/references/code-audit.md',
-          'refactor-plan/scripts/audit_codebase.py', 'shared/evidence-contract.md']) {
+          'refactor-plan/scripts/audit_codebase.py', 'shared/database-concurrency.md']) {
           assert.equal(await readFile(join(root, path), 'utf8'), await readFile(join(repoRoot, 'skills', path), 'utf8'));
         }
       }

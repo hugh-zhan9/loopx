@@ -1,0 +1,5 @@
+interface:
+  display_name: "Task Split"
+  short_description: "Split a broad requirement into bounded tasks and handoffs"
+policy:
+  allow_implicit_invocation: false

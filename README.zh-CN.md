@@ -33,13 +33,14 @@ subagent playbook。
 - `exec` 可选地通过 leaf subagent 执行一份 ready plan，由顶层模型负责审查、
   顺序集成、冲突处理与验证。
 
-`debug` 统一负责排查和修复，替代 `issue`、`fix`。普通排障默认在原因明确后
-继续修复代码并验证；明确只分析或只读时才停在诊断，默认不建台账。已有台账仍可读取，并保留原有范围
-和恢复检查。`tdd`、`debug`、
-`api-designer`、`generate-api-docs`、`architecture-designer`、
-`sql-style`、`cli-developer`、`lancet`、`prompt-lint` 等支持 skills 仍是
-lenses，不是 workflow 状态。`prompt-lint` 只评估任务定义质量，不执行被评估的
-提示词。
+`debug` 采用紧反馈环（先构造红命令再假设）统一负责排查与修复，显式只读/只诊断
+请求才停在发现且不改动任何文件。安装包精简为 15 个高信号 skill 并采用双通道
+调用分离：仅 3 个高频纪律（`debug`、`tdd`、`go-kratos`）常驻
+为 model-invoked；其余工作流、评审与专项 skill（`task-split`、`clarify`、`spec`、
+`plan2exec`、`exec`、`code-review`、`refactor-plan`、`release-readiness`、`generate-api-docs`、
+`humanize-doc`、`codebase-spec` 与 `/ask-loopx` 向导）全部设为 user-invoked
+（平时 0 上下文开销，显式调用时才加载），并配套确定性校验脚本
+`validate-plan.mjs` 与 `check-guardrails.mjs`。
 
 `release-readiness` 为上线维护准备文档，记录分支范围、环境前置、操作顺序、
 验收和回退条件；上线时模型按文档执行已授权操作并回填证据。详见
@@ -51,8 +52,9 @@ lenses，不是 workflow 状态。`prompt-lint` 只评估任务定义质量，�
 仅 working agreement 一份文档就在停下纪律上与完整的 v0.7 治理运行时打平
 （相对裸模型 +65pp），token 成本只有三分之一；而运行时没有带来能力增益。
 所以 loopx 交付文档本身，以及让文档保持诚实的证据流水线：`evals/drills/`
-对每条纪律条款做压力测试，`evals/benchmark/` 对照裸模型与 docs-only 对照组
-度量通过率与 token 经济。
+对纪律条款做压力测试，`evals/benchmark/` 度量基础通过率与 token 经济，
+`evals/skill-ab/` 针对 `debug` / `spec` / `plan2exec` 提供真实代码库端到端
+四臂 A/B 实测（含下游盲实现验证）。
 
 ## 安装
 

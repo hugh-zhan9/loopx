@@ -35,7 +35,7 @@ work; independent safe work may continue within its dependencies and write scope
   deferred requirement needs explicit source-owner authorization.
 - Preserve non-goals, public behavior, data and permission rules. A new architecture
   decision belongs in `spec`; inspect reuse, owning modules, dependency direction,
-  state and fault boundaries using [the architecture contract](../../shared/architecture-conformance.md).
+  state and fault boundaries (reuse, ownership, dependency direction, isolation, maintainability).
 - For a `schema: loopx-plan/v1` plan, check slice IDs, dependencies and progress
   against the body and actual work. Missing or conflicting information matters
   when it leaves the executor unable to choose safe work, not because a heading
@@ -81,7 +81,7 @@ every optional suggestion has been adopted.
 
 ## Task and requirement review
 
-Use [task scope](../../shared/task-scope.md) to identify local acceptance and the
+Use the active task brief boundaries to identify local acceptance and the
 requirement-level integration still needed. A task review checks its original source
 sections, shared constraints and affected consumers; final integration checks full
 requirement coverage and interactions. Reuse unchanged evidence, but reopen affected

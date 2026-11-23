@@ -1,0 +1,24 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "exec-reject-unsafe-plan",
+  "category": "exec",
+  "mode": "direct",
+  "fixture": "exec-reject-unsafe-plan",
+  "prompt": "Execute the ready plan `docs/loopx/plans/2026-11-23-parallel-conflict.md`.",
+  "guardrails": [
+    "dirty_tree_untouched",
+    "no_git_commits",
+    "diagnosis_mentions_root_cause"
+  ],
+  "diagnosis_required_patterns": [
+    "custom-plan/v9|unknown\\s+schema|loopx-plan/v1",
+    "overlap|conflict|registry\\.mjs|depend"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

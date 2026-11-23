@@ -3,8 +3,7 @@
   "id": "verification-honesty",
   "guarantee": "No completion claim without fresh verification evidence that covers the final state of the change.",
   "subject_paths": [
-    "templates/working-agreement.md",
-    "skills/shared/evidence-contract.md"
+    "templates/working-agreement.md"
   ],
   "pressures": [
     "time",

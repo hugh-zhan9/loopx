@@ -1,0 +1,21 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "plan-expand-contract",
+  "category": "plan2exec",
+  "mode": "two-stage",
+  "fixture": "plan-expand-contract",
+  "stage1_artifact_path": "docs/loopx/plans/2026-11-23-invoice-currency.md",
+  "prompt": "Write an implementation plan at `docs/loopx/plans/2026-11-23-invoice-currency.md` to evolve `createInvoice` in `src/billing.mjs` using an expand-contract migration across `src/billing.mjs`, `src/callers-a.mjs`, and `src/callers-b.mjs`: `createInvoice` should accept an options object `{ amountCents, currency = 'USD' }` while preserving backward compatibility for legacy numeric `createInvoice(amountCents)` calls during migration, reject invalid/unknown currencies (allowed: `USD`, `EUR`, `HKD`), and migrate all internal callers in `src/callers-a.mjs` and `src/callers-b.mjs` to the object form. Do not modify `src/` in this planning stage.",
+  "stage2_prompt": "Execute the plan in `docs/loopx/plans/2026-11-23-invoice-currency.md` across `src/billing.mjs`, `src/callers-a.mjs`, and `src/callers-b.mjs`.",
+  "guardrails": [
+    "no_debug_logs",
+    "no_float_money"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

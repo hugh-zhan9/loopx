@@ -1,0 +1,5 @@
+interface:
+  display_name: "Humanize Doc"
+  short_description: "Improve document readability and remove AI-like wording"
+policy:
+  allow_implicit_invocation: false

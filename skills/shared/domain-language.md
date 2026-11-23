@@ -1,28 +1,17 @@
-# Domain language checks
+# Domain Language & Glossary
 
-Use when competing names or meanings could change requirements, data selection,
-permissions, state transitions or caller-visible behavior. Ordinary wording
-changes do not require a terminology exercise.
+Use the repository's `GLOSSARY.md` (when present) and approved source vocabulary
+consistently across requirements, specs, code, and tests.
 
-Read relevant definitions in the approved source and any existing glossary,
-then compare them with code, schemas and examples. Distinguish the intended
-rule from current implementation: code is evidence of what happens, not automatic
-authority for what should happen.
+## Rules
 
-- Separate concepts that share a name. An account might mean a login identity
-  or a trading account; the difference matters if disabling one affects the other.
-- Check apparent synonyms with a concrete scenario. Does cancelling one order
-  item cancel the whole order? If the answer changes behavior and is not already
-  settled, ask the decision owner rather than choosing the shorter term.
-- Preserve legitimate context-specific meanings. Map them explicitly at the
-  interface instead of renaming every domain to one global vocabulary.
-- Distinguish business concepts from technical identifiers. Keep established API
-  names, enum values and fields; explain their mapping without silently changing
-  a public contract.
-
-Record resolved meanings in their existing authoritative home and link from the
-requirements or design that uses them. If no definition exists, a short definition
-beside the affected rule is enough; no new glossary or ADR is required. Keep
-implementation details out of a glossary. Unsettled business meaning remains a
-pending requirement; a recommendation or code observation is not an approved
-change. Ask only about the affected meaning, not settled unrelated decisions.
+1. **Separate overloaded names.** If one term (e.g., "account") refers to two
+   distinct concepts (login identity vs trading account), name both explicitly.
+2. **Test apparent synonyms with a scenario.** When two terms might imply
+   different behavior (e.g., cancelling an item vs cancelling the whole order),
+   ask the decision owner instead of collapsing them.
+3. **Map across boundaries instead of renaming public contracts.** Preserve
+   established API, schema, and enum names; document how business concepts map
+   to wire identifiers.
+4. **Keep definitions local and lean.** Update `GLOSSARY.md` when a project uses
+   one, or define a new term once beside the rule that uses it.

@@ -1,39 +1,38 @@
 {
   "schema_version": 1,
   "workflow_root_line_limits": {
+    "task-split": {
+      "max": 80
+    },
     "clarify": {
-      "max": 160
+      "max": 90
     },
     "spec": {
-      "max": 200
+      "max": 110
     },
     "codebase-spec": {
-      "max": 160
+      "max": 80
     },
     "plan2exec": {
-      "max": 140,
-      "reason": "Keeps traceable execution slices and handoff requirements directly actionable without implementation microsteps."
+      "max": 95
     },
     "exec": {
-      "max": 135
+      "max": 95
     },
     "refactor-plan": {
-      "max": 100
+      "max": 80
     },
     "release-readiness": {
-      "max": 140
-    },
-    "task-split": {
-      "max": 100
+      "max": 90
     }
   },
   "skills": [
     {
       "skill": "task-split",
       "role": "workflow",
-      "boundary": "Do not write their implementation plans",
+      "boundary": "Do not write implementation plans",
       "required_outputs": [
-        "task brief",
+        "deliverable",
         "dependencies",
         "acceptance"
       ],
@@ -46,67 +45,69 @@
         "plan2exec"
       ],
       "required_references": [
-        "../shared/task-scope.md",
-        "references/task-documents.md"
+        "references/task-documents.md",
+        "agents/openai.yaml"
       ],
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "skill": "clarify",
       "role": "workflow",
-      "boundary": "Do not choose or invoke a next skill",
+      "boundary": "Do not write an implementation plan",
       "required_outputs": [
-        "goals",
-        "decisions",
-        "boundaries",
-        "evidence"
+        "requirements.md",
+        "AC-*",
+        "TC-*"
       ],
       "safety_invariants": [
-        "pending"
+        "PENDING"
       ],
       "integrations": [
-        "documents"
+        "frontier"
       ],
       "required_references": [
         "../shared/domain-language.md",
         "references/owner-questions.md",
-        "../shared/task-scope.md"
+        "references/ambiguity-table.md",
+        "agents/openai.yaml"
       ],
-      "version": "0.6.0"
+      "version": "0.7.0"
     },
     {
       "skill": "spec",
       "role": "workflow",
-      "boundary": "Do not write an implementation plan",
+      "boundary": "Do not write",
       "required_outputs": [
-        "architecture conformance contract",
-        "Design Contract Index"
+        "Design Contract",
+        "Verification Strategy"
       ],
       "safety_invariants": [
-        "unresolved decisions"
+        "unresolved"
       ],
       "integrations": [
         "plan2exec"
       ],
       "required_references": [
-        "../shared/architecture-conformance.md",
         "../shared/database-concurrency.md",
+        "../shared/domain-language.md",
         "DESIGN_SPEC_TEMPLATE.md",
         "REVIEW_BRIEF_TEMPLATE.md",
+        "references/caller-driven-api.md",
         "references/design-review.md",
         "references/design-quality.md",
         "references/design-diagrams.md",
-        "../shared/domain-language.md",
-        "../shared/task-scope.md"
+        "agents/openai.yaml"
       ],
-      "version": "0.6.0"
+      "version": "0.7.0"
     },
     {
       "skill": "codebase-spec",
       "role": "workflow",
-      "boundary": "Do not change",
+      "boundary": "Do not edit code",
       "required_outputs": [
-        "Scope and evidence"
+        "Observed",
+        "Inferred",
+        "Unknown"
       ],
       "safety_invariants": [
         "Never print secrets"
@@ -115,396 +116,254 @@
         "spec"
       ],
       "required_references": [
-        "references/output-template.md"
+        "references/output-template.md",
+        "references/evidence-checklist.md",
+        "agents/openai.yaml"
       ],
-      "version": "0.1.5"
+      "version": "0.2.0"
     },
     {
       "skill": "plan2exec",
       "role": "workflow",
-      "boundary": "Do not add task microsteps",
+      "boundary": "document contract",
       "required_outputs": [
-        "execution slice",
-        "Each slice's `architecture` line",
-        "Goal And Boundaries",
-        "Integration And Final Verification",
-        "Handoff And Residual Risks"
+        "loopx-plan/v1",
+        "validate-plan.mjs"
       ],
       "safety_invariants": [
-        "Block only affected work"
+        "blocked"
       ],
       "integrations": [
-        "exec"
-      ],
-      "required_references": [
-        "references/plan-schema.md",
-        "../shared/architecture-conformance.md",
-        "../shared/database-concurrency.md",
-        "references/plan-review.md",
-        "../shared/task-scope.md"
-      ],
-      "version": "0.8.0"
-    },
-    {
-      "skill": "exec",
-      "role": "workflow",
-      "boundary": "does not author feature code",
-      "required_outputs": [
-        "Report the effective subagent profile",
-        "architecture-conformance evidence",
-        "verification evidence",
-        "base identity and either an isolated-workspace"
-      ],
-      "safety_invariants": [
-        "Never let concurrent workers edit the controller",
-        "Do not spawn or wait for other agents",
-        "Review and integrate parallel results one at a time"
-      ],
-      "integrations": [
-        "plan2exec",
         "clarify",
         "spec"
       ],
       "required_references": [
-        "../shared/architecture-conformance.md",
-        "references/recovery.md",
-        "../plan2exec/references/plan-review.md",
-        "../shared/task-scope.md"
+        "references/plan-schema.md",
+        "references/plan-review.md",
+        "scripts/validate-plan.mjs",
+        "../shared/database-concurrency.md",
+        "agents/openai.yaml"
       ],
-      "version": "1.2.1"
+      "version": "0.9.1"
+    },
+    {
+      "skill": "exec",
+      "role": "workflow",
+      "boundary": "does not author feature code or tests",
+      "required_outputs": [
+        "loopx-plan/v1",
+        "frontier"
+      ],
+      "safety_invariants": [
+        "leaf worker"
+      ],
+      "integrations": [
+        "code-review"
+      ],
+      "required_references": [
+        "references/recovery.md",
+        "references/review-coverage.md",
+        "../plan2exec/scripts/validate-plan.mjs",
+        "../code-review/scripts/check-guardrails.mjs",
+        "agents/openai.yaml"
+      ],
+      "version": "1.3.0"
     },
     {
       "skill": "refactor-plan",
       "role": "workflow",
-      "boundary": "behavior-preserving",
+      "boundary": "Behavior changes belong in",
       "required_outputs": [
-        "Behavior Preservation Contract"
+        "REFACTOR_PLAN_TEMPLATE.md",
+        "deletion test"
       ],
       "safety_invariants": [
-        "A draft is not approved"
+        "behavior baseline"
       ],
       "integrations": [
-        "clarify",
-        "spec",
         "plan2exec"
       ],
       "required_references": [
         "REFACTOR_PLAN_TEMPLATE.md",
         "references/code-audit.md",
-        "references/smell-patterns.md",
-        "references/governance-rules.md",
-        "scripts/audit_codebase.py"
+        "references/fowler-refactorings.md",
+        "scripts/audit_codebase.py",
+        "agents/openai.yaml"
       ],
-      "version": "0.6.0"
-    },
-    {
-      "skill": "debug",
-      "role": "support",
-      "boundary": "diagnosis-only",
-      "required_outputs": [
-        "root_cause_status"
-      ],
-      "safety_invariants": [
-        "hypotheses_rejected"
-      ],
-      "integrations": [
-        "lancet",
-        "completion-check.md"
-      ],
-      "required_references": [
-        "references/diagnosis-contract.md",
-        "references/four-phases.md",
-        "references/existing-ledgers.md",
-        "../shared/completion-check.md"
-      ],
-      "version": "0.5.1"
-    },
-    {
-      "skill": "tdd",
-      "role": "support",
-      "boundary": "failing test",
-      "required_outputs": [
-        "RED"
-      ],
-      "safety_invariants": [
-        "Preserve"
-      ],
-      "integrations": [
-        "owning implementation workflow"
-      ],
-      "required_references": [
-        "references/red-green-refactor.md",
-        "testing-anti-patterns.md",
-        "references/mutation-check.md"
-      ],
-      "version": "0.3.10"
-    },
-    {
-      "skill": "using-git-worktrees",
-      "role": "support",
-      "boundary": "isolated workspace",
-      "required_outputs": [
-        "worktree"
-      ],
-      "safety_invariants": [
-        "postinstall hooks"
-      ],
-      "integrations": [
-        "exec"
-      ],
-      "required_references": [],
-      "version": "0.1.7"
-    },
-    {
-      "skill": "humanize-doc",
-      "role": "support",
-      "boundary": "not product decisions or workflow state",
-      "required_outputs": [
-        "Readability verdict",
-        "deletion ledger"
-      ],
-      "safety_invariants": [
-        "Invent nothing",
-        "Assessment only"
-      ],
-      "integrations": [
-        "requirement-analyzer"
-      ],
-      "required_references": [
-        "references/examples.md",
-        "references/readability.md",
-        "references/prd.md"
-      ],
-      "version": "0.3.1"
-    },
-    {
-      "skill": "maintain-project-docs",
-      "role": "support",
-      "boundary": "does not decide new product",
-      "required_outputs": [
-        "authority map",
-        "archive manifest"
-      ],
-      "safety_invariants": [
-        "Archive before delete"
-      ],
-      "integrations": [
-        "humanize-doc"
-      ],
-      "required_references": [],
-      "version": "0.1.3"
-    },
-    {
-      "skill": "requirement-analyzer",
-      "role": "support",
-      "boundary": "does NOT",
-      "required_outputs": [
-        "qualitative"
-      ],
-      "safety_invariants": [
-        "unresolved decision"
-      ],
-      "integrations": [
-        "clarify"
-      ],
-      "required_references": [],
-      "version": "0.3.8"
-    },
-    {
-      "skill": "go-style",
-      "role": "support",
-      "boundary": "handwritten Go",
-      "required_outputs": [
-        "gofmt"
-      ],
-      "safety_invariants": [
-        "Do not edit generated Go files"
-      ],
-      "integrations": [
-        "kratos"
-      ],
-      "required_references": [
-        "references/modernization.md",
-        "references/performance.md",
-        "references/concurrency.md"
-      ],
-      "version": "0.4.3"
-    },
-    {
-      "skill": "kratos",
-      "role": "support",
-      "boundary": "confirmed Kratos project",
-      "required_outputs": [
-        "Diagnose and verify"
-      ],
-      "safety_invariants": [
-        "never generated `.pb.go`"
-      ],
-      "integrations": [
-        "go-style"
-      ],
-      "required_references": [],
-      "version": "0.3.9"
-    },
-    {
-      "skill": "api-designer",
-      "role": "support",
-      "boundary": "support lens",
-      "required_outputs": [
-        "OpenAPI 3.1"
-      ],
-      "safety_invariants": [
-        "do not use `npx`"
-      ],
-      "integrations": [
-        "spec"
-      ],
-      "required_references": [
-        "references/versioning.md",
-        "references/endpoint-template.md"
-      ],
-      "version": "0.3.11"
-    },
-    {
-      "skill": "generate-api-docs",
-      "role": "support",
-      "boundary": "support lens",
-      "required_outputs": [
-        "Markdown API documentation"
-      ],
-      "safety_invariants": [
-        "Do not change implementation, invent future behavior",
-        "Generate `<name>.openapi.yaml` only when the user explicitly requests",
-        "Do not generate temporary YAML just to validate Markdown",
-        "Simplify and humanize before delivery",
-        "Document each scenario independently",
-        "Test each scenario before writing examples",
-        "If any requested scenario cannot be tested, stop the skill immediately"
-      ],
-      "integrations": [
-        "api-designer",
-        "codebase-spec",
-        "lancet",
-        "humanize-doc"
-      ],
-      "required_references": [
-        "references/source-discovery.md",
-        "references/output-contract.md",
-        "references/openapi-output-contract.md"
-      ],
-      "version": "0.1.7"
-    },
-    {
-      "skill": "architecture-designer",
-      "role": "support",
-      "boundary": "support lens",
-      "required_outputs": [
-        "material failure modes",
-        "reuse/isolation/maintenance judgments"
-      ],
-      "safety_invariants": [
-        "Do not finalize"
-      ],
-      "integrations": [
-        "spec"
-      ],
-      "required_references": [
-        "references/nfr-checklist.md",
-        "../shared/architecture-conformance.md"
-      ],
-      "version": "0.3.11"
-    },
-    {
-      "skill": "sql-style",
-      "role": "support",
-      "boundary": "support lens",
-      "required_outputs": [
-        "EXPLAIN"
-      ],
-      "safety_invariants": [
-        "expand/contract"
-      ],
-      "integrations": [
-        "spec"
-      ],
-      "required_references": [
-        "../shared/database-concurrency.md"
-      ],
-      "version": "0.3.10"
-    },
-    {
-      "skill": "cli-developer",
-      "role": "support",
-      "boundary": "support lens",
-      "required_outputs": [
-        "Output contract"
-      ],
-      "safety_invariants": [
-        "non-interactive"
-      ],
-      "integrations": [
-        "spec"
-      ],
-      "required_references": [
-        "references/design-patterns.md"
-      ],
-      "version": "0.3.11"
-    },
-    {
-      "skill": "lancet",
-      "role": "support",
-      "boundary": "support lens, not a workflow state",
-      "required_outputs": [
-        "smallest correct diff"
-      ],
-      "safety_invariants": [
-        "AC-*"
-      ],
-      "integrations": [
-        "exec"
-      ],
-      "required_references": [],
-      "version": "0.1.6"
-    },
-    {
-      "skill": "prompt-lint",
-      "role": "support",
-      "boundary": "Do not execute the prompt under review",
-      "required_outputs": [
-        "Must supply",
-        "Agent can discover"
-      ],
-      "safety_invariants": [
-        "Do not mutate files or external state"
-      ],
-      "integrations": [
-        "requirement-analyzer"
-      ],
-      "required_references": [
-        "references/rubric.md"
-      ],
-      "version": "0.1.2"
+      "version": "0.7.0"
     },
     {
       "skill": "release-readiness",
       "role": "workflow",
-      "boundary": "Preparation alone does not authorize external mutations",
+      "boundary": "runbook is not",
       "required_outputs": [
-        "release runbook",
-        "Acceptance",
-        "Close with the actual result"
+        "prerequisites",
+        "rollback"
       ],
       "safety_invariants": [
-        "A runbook is not authorization",
-        "Query failure means unknown",
-        "Separate prepared, deployed and accepted outcomes"
+        "unknown"
       ],
       "integrations": [
-        "clarify",
-        "spec"
+        "runbook-template.md"
       ],
       "required_references": [
-        "references/runbook-template.md"
+        "references/runbook-template.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.2.0"
+    },
+    {
+      "skill": "debug",
+      "role": "support",
+      "boundary": "leave every repository",
+      "required_outputs": [
+        "feedback loop",
+        "hypotheses"
+      ],
+      "safety_invariants": [
+        "REDACTED"
+      ],
+      "integrations": [
+        "code-review"
+      ],
+      "required_references": [
+        "references/existing-ledgers.md",
+        "references/diagnosis-contract.md",
+        "root-cause-tracing.md",
+        "condition-based-waiting.md",
+        "defense-in-depth.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.6.0"
+    },
+    {
+      "skill": "tdd",
+      "role": "support",
+      "boundary": "Never delete existing code",
+      "required_outputs": [
+        "vertical slices",
+        "seam"
+      ],
+      "safety_invariants": [
+        "RED"
+      ],
+      "integrations": [
+        "code-review"
+      ],
+      "required_references": [
+        "testing-anti-patterns.md",
+        "references/mutation-check.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.4.0"
+    },
+    {
+      "skill": "code-review",
+      "role": "support",
+      "boundary": "never let reviewers edit files",
+      "required_outputs": [
+        "Standards",
+        "Spec"
+      ],
+      "safety_invariants": [
+        "check-guardrails.mjs"
+      ],
+      "integrations": [
+        "parallel read-only"
+      ],
+      "required_references": [
+        "scripts/check-guardrails.mjs",
+        "agents/openai.yaml"
+      ],
+      "version": "0.2.0"
+    },
+    {
+      "skill": "go-kratos",
+      "role": "support",
+      "boundary": "Never edit generated files",
+      "required_outputs": [
+        "numeric precision",
+        "subpackages"
+      ],
+      "safety_invariants": [
+        "float32"
+      ],
+      "integrations": [
+        "database-concurrency.md"
+      ],
+      "required_references": [
+        "../shared/database-concurrency.md",
+        "../code-review/scripts/check-guardrails.mjs",
+        "references/concurrency.md",
+        "references/performance.md",
+        "references/modernization.md",
+        "references/kratos-ops.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "skill": "generate-api-docs",
+      "role": "support",
+      "boundary": "Do not",
+      "required_outputs": [
+        "actual HTTP endpoint",
+        "output-contract.md"
+      ],
+      "safety_invariants": [
+        "阻断"
+      ],
+      "integrations": [
+        "openapi-output-contract.md"
+      ],
+      "required_references": [
+        "references/source-discovery.md",
+        "references/output-contract.md",
+        "references/openapi-output-contract.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.2.0"
+    },
+    {
+      "skill": "humanize-doc",
+      "role": "support",
+      "boundary": "invent nothing",
+      "required_outputs": [
+        "readability.md",
+        "Preserve meaning"
+      ],
+      "safety_invariants": [
+        "decision status"
+      ],
+      "integrations": [
+        "examples.md"
+      ],
+      "required_references": [
+        "references/readability.md",
+        "references/examples.md",
+        "references/prd.md",
+        "agents/openai.yaml"
+      ],
+      "version": "0.4.0"
+    },
+    {
+      "skill": "ask-loopx",
+      "role": "support",
+      "boundary": "Do not execute",
+      "required_outputs": [
+        "Model-invoked",
+        "User-invoked"
+      ],
+      "safety_invariants": [
+        "zero always-on context cost"
+      ],
+      "integrations": [
+        "debug",
+        "spec",
+        "plan2exec"
+      ],
+      "required_references": [
+        "agents/openai.yaml"
       ],
       "version": "0.1.0"
     }

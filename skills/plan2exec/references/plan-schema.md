@@ -10,7 +10,7 @@ authoritative for local implementation choices.
 ## Task-scoped plans
 
 `source` may point to a task brief that preserves links to the original requirement
-and shared contracts. Apply [task scope](../../shared/task-scope.md); no new schema
+and shared contracts. Respect the task brief's source links and scope; no new schema
 or mandatory field is introduced. Existing direct requirement/design sources keep
 working. P-* slices belong to this plan, not the requirement's task map. Map the
 active task's source acceptance and identify its downstream/integration handoff;

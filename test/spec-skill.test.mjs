@@ -24,7 +24,6 @@ test('canonical spec resources include design review without retired skill depen
   const skillRoot = join(sandbox, 'skills', 'spec');
   await cp(join(root, 'skills', 'spec'), skillRoot, { recursive: true });
   await cp(join(root, 'skills', 'shared'), join(sandbox, 'skills', 'shared'), { recursive: true });
-  await cp(join(root, 'skills', 'api-designer'), join(sandbox, 'skills', 'api-designer'), { recursive: true });
 
   const visited = new Set();
   async function visit(path) {

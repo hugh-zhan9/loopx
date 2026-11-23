@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "debug-precision-boundary",
+  "category": "debug",
+  "mode": "direct",
+  "fixture": "debug-precision-boundary",
+  "prompt": "Finance reports penny drift when splitting order-level discounts across 3 equal items (for example 100 cents across three $10 items allocates 99 cents instead of 100) and crashes/NaN when the items list is empty with a 0-cent discount. Diagnose and fix `src/allocator.mjs` so total allocated discount ALWAYS equals `totalDiscountCents` using integer arithmetic (largest-remainder distribution; deterministic tie-breaking by item order), never makes `netCents` negative, and handles empty lists with 0 discount cleanly while preserving existing error checks and `formatCents`.",
+  "guardrails": [
+    "no_debug_logs",
+    "no_float_money"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

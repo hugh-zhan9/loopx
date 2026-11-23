@@ -1,0 +1,5 @@
+interface:
+  display_name: "Exec"
+  short_description: "Execute a ready plan2exec plan via isolated leaf subagents"
+policy:
+  allow_implicit_invocation: false

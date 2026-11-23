@@ -168,7 +168,7 @@ Expected:
 
 **Reason:**
 
-**Required sub-skills:** `tdd` | `go-style` | `sql-style` | none
+**Required sub-skills:** `tdd` | `go-kratos` | `code-review` | none
 
 **Execution notes:**
 

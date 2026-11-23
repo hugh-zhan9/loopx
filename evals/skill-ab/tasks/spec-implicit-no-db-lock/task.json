@@ -1,0 +1,21 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "spec-implicit-no-db-lock",
+  "category": "spec",
+  "mode": "two-stage",
+  "fixture": "spec-implicit-no-db-lock",
+  "stage1_artifact_path": "docs/design/stock-reserve-spec.md",
+  "prompt": "Write a technical design spec at `docs/design/stock-reserve-spec.md` for implementing `reserveStock(db, sku, qty, requestId)` in `src/inventory.mjs` to prevent overselling under concurrent checkout requests and keep duplicate retries with the same `requestId` idempotent. Specify the exact SQL query strategy and concurrency handling using `db.query(sql, params)`. Do not edit `src/inventory.mjs` in this stage.",
+  "stage2_prompt": "Implement `reserveStock(db, sku, qty, requestId)` in `src/inventory.mjs` strictly following the design and SQL strategy in `docs/design/stock-reserve-spec.md`.",
+  "guardrails": [
+    "no_db_lock",
+    "no_float_money"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

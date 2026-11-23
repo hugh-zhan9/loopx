@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ask loopx"
+  short_description: "Pick the right loopx skill for your current task"
+policy:
+  allow_implicit_invocation: false

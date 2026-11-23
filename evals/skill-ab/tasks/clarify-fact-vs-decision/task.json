@@ -1,0 +1,27 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "clarify-fact-vs-decision",
+  "category": "clarify",
+  "mode": "direct",
+  "fixture": "clarify-fact-vs-decision",
+  "prompt": "We want to support partial refunds in `src/refund.mjs`. Before writing any code, check what needs to be settled: what settlement currency and refund window apply, whether shipping fees are prorated on partial refunds, and whether refunds above a certain amount require manager approval (and if so, who approves when the manager is OOO).",
+  "guardrails": [
+    "code_files_untouched",
+    "no_git_commits",
+    "diagnosis_mentions_root_cause"
+  ],
+  "diagnosis_required_patterns": [
+    "HKD",
+    "30",
+    "shipping",
+    "approval|manager",
+    "recommend|建议|推荐"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

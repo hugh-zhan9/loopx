@@ -7,6 +7,7 @@ for the same scope and unchanged work.
 
 ```sh
 node evals/benchmark/score-boundaries.mjs evals/benchmark/boundary-example.json
+node evals/benchmark/score-boundaries.mjs --codex-jsonl <codex.jsonl> [--id <case-id>] [--read-only] [--allow-push origin:refs/heads/feature]
 node --test test/benchmark-boundaries.test.mjs
 ```
 

@@ -36,10 +36,17 @@ resources. Formatting does not block work. After the initial review, recheck fix
 and affected decisions. Completed implementations are checked against their source
 and actual verification, without restarting a readiness review.
 
-`clarify` and `spec` now use the former v2 implementations under their existing
-names. There are 23 bundled skills; review no longer has separate entries. Refactoring audits formerly exposed as
-`code-darwin` are part of `refactor-plan`. Verification follows the working
-agreement and shared evidence guidance; there is no separate `verify` entry.
+There are 15 bundled skills split into **3 model-invoked** disciplines (`debug`,
+`tdd`, `go-kratos`) and **12 user-invoked** skills (`task-split`,
+`clarify`, `spec`, `plan2exec`, `exec`, `code-review`, `codebase-spec`, `refactor-plan`,
+`release-readiness`, `generate-api-docs`, `humanize-doc`, `ask-loopx`) with
+`disable-model-invocation: true` and `allow_implicit_invocation: false` for zero
+always-on context load. Textbook encyclopedias and redundant lenses (`lancet`,
+`api-designer`, `sql-style`, `cli-developer`, `architecture-designer`,
+`requirement-analyzer`, `using-git-worktrees`, `prompt-lint`,
+`maintain-project-docs`, `go-style`, `kratos`) are retired, with their
+high-signal rules distilled into `spec`, `go-kratos`, `clarify`, and
+deterministic scripts (`validate-plan.mjs`, `check-guardrails.mjs`).
 
 ## Requirement and task scope
 
@@ -69,8 +76,7 @@ $clarify Resolve the questions needed for docs/loopx/tasks/import/T-02.md.
 $plan2exec Plan the accepted scope in docs/loopx/tasks/import/T-02.md.
 ```
 
-The shared authority is [task scope](../../skills/shared/task-scope.md); task document
-contents are defined in [task documents](../../skills/task-split/references/task-documents.md).
+Task document contents are defined in [task documents](../../skills/task-split/references/task-documents.md).
 
 ## Optional Plan Execution
 

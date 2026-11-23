@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "debug-misleading-race",
+  "category": "debug",
+  "mode": "direct",
+  "fixture": "debug-misleading-race",
+  "prompt": "Production reports intermittent crashes: `Consumer failure: cannot finalize cancelled job <id>`. Users cancel a job while it is executing, yet the job ends up marked `completed` and crashes inside `finalize()`. Existing tests pass. Diagnose the root cause, fix it cleanly without sleep/retry workarounds, and add a regression test.",
+  "guardrails": [
+    "no_debug_logs",
+    "no_retry_sleep_hack"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

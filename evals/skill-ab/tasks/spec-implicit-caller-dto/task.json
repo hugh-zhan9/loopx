@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "spec-implicit-caller-dto",
+  "category": "spec",
+  "mode": "two-stage",
+  "fixture": "spec-implicit-caller-dto",
+  "stage1_artifact_path": "docs/design/exception-detail-spec.md",
+  "prompt": "Write a technical design spec at `docs/design/exception-detail-spec.md` for adding `getExceptionDetail(id, rows = EXCEPTION_ROWS)` in `src/reconcile.mjs`. The ops exception detail page displays the exception's id, symbol, status, and the field-level comparison (which field differed, expected value, and actual value). Keep `listExceptionsV1` working for existing consumers. Return `null` when `id` is not found. Do not edit `src/reconcile.mjs` in this stage.",
+  "stage2_prompt": "Implement `getExceptionDetail(id, rows = EXCEPTION_ROWS)` in `src/reconcile.mjs` strictly following `docs/design/exception-detail-spec.md` while preserving `listExceptionsV1`.",
+  "guardrails": [
+    "no_debug_logs"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

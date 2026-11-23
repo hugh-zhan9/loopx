@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "exec-ready-plan-state-and-dirty-guard",
+  "category": "exec",
+  "mode": "direct",
+  "fixture": "exec-ready-plan-state-and-dirty-guard",
+  "prompt": "Execute the ready plan `docs/loopx/plans/2026-11-23-calc-tax.md`. Update the plan document statuses cleanly as slices finish, preserve all unrelated files, and do not create Git commits.",
+  "guardrails": [
+    "no_debug_logs",
+    "no_float_money",
+    "no_git_commits"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

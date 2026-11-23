@@ -29,9 +29,16 @@ agreement；执行属于模型和宿主运行时。实现前先检查需求和�
 独立评审。格式和措辞不阻碍实施。首次评审后只核对修复和受影响的决定；代码已经
 完成时，直接对照需求检查实现和验证结果，不再补跑开工前评审。
 
-`clarify`、`spec` 已采用原 v2 实现，继续使用原名称。安装包现有 23 个 skill，
-设计评审和计划评审不再单设入口。`code-darwin` 的重构检查和扫描工具并入
-`refactor-plan`，按需使用；`verify` 的验证规则由工作约定和共享说明承担。
+安装包精简为 15 个高信号 skill，并按双通道调用分离：**3 个 model-invoked**
+纪律（`debug`、`tdd`、`go-kratos`）常驻供模型自主调用；**12 个
+user-invoked** skill（`task-split`、`clarify`、`spec`、`plan2exec`、`exec`、
+`code-review`、`codebase-spec`、`refactor-plan`、`release-readiness`、`generate-api-docs`、
+`humanize-doc`、`ask-loopx`）同时设置 `disable-model-invocation: true` 与
+`allow_implicit_invocation: false`，平时 0 上下文开销。冗余与教科书型入口
+（`lancet`、`api-designer`、`sql-style`、`cli-developer`、`architecture-designer`、
+`requirement-analyzer`、`using-git-worktrees`、`prompt-lint`、`maintain-project-docs`、
+`go-style`、`kratos`）已退役，其中的高信号红线已沉淀进 `spec`、`go-kratos`、
+`clarify` 及确定性脚本（`validate-plan.mjs`、`check-guardrails.mjs`）。
 
 ## 需求与 task 范围
 
@@ -56,8 +63,7 @@ $clarify 澄清 docs/loopx/tasks/import/T-02.md 当前开发必需的问题。
 $plan2exec 为 docs/loopx/tasks/import/T-02.md 已确定的范围制定计划。
 ```
 
-共享约定见 [task scope](../../skills/shared/task-scope.md)，任务材料内容见
-[task documents](../../skills/task-split/references/task-documents.md)。
+任务材料内容见 [task documents](../../skills/task-split/references/task-documents.md)。
 
 ## 可选的 Plan 执行
 

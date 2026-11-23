@@ -1,106 +1,61 @@
 ---
 name: clarify
-description: "Resolve missing requirements or conflicting domain meanings before implementation (需求澄清). Use for material gaps in goals, scope, scenarios, acceptance, or permissions; record confirmed requirements."
+description: "Resolve missing requirements or conflicting domain meanings in structured rounds before coding (需求澄清)."
+disable-model-invocation: true
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
   when_to_use: "clarify, unresolved intent, unclear scope, acceptance criteria, permission decision, 需求澄清, 分轮提问"
 ---
 
-# loopx Clarify
+# Clarify
 
-Resolve only ambiguity that can materially change the requested outcome. Do not
-turn clarification into an execution workflow or require ceremony for a clear,
-bounded request.
+Resolve only ambiguity that can materially change the requested outcome.
+Treat requirements as a **design tree**: each decision branches into downstream
+decisions that depend on it.
 
-For a requirement or task brief, apply [task scope](../shared/task-scope.md).
-Clarify the active scope; retain other tasks' questions with owners and due points.
-Requirement-level understanding can support a split before exhaustive local detail.
+## Process
 
-## Method
-
-1. Read the current request, accepted requirements, and relevant repository
-   evidence. Check the outcome, scope, protected behavior, key success and failure
-   scenarios, and observable acceptance for missing or conflicting decisions.
-   Check permissions, compatibility, data and ownership where the task affects
-   them. When terminology could change behavior, apply
-   [domain language checks](../shared/domain-language.md) before treating two
-   terms as equivalent. Do not wait for implementation to expose these gaps.
-2. Answer questions from repository evidence when possible. Facts about the
-   codebase, tools, or environment are yours to find; only decisions go to the
-   user. When an answer depends on another stakeholder, use
-   [questions for another owner](references/owner-questions.md) to prepare a
-   focused handoff instead of asking the current user to guess.
-3. Ask independent decisions together in one round. A question whose answer
-   depends on another question still open belongs to a later round. If a fact
-   lookup is pending, ask the questions that do not depend on it now.
-4. Number questions when useful. Give a recommendation and its tradeoff when
-   there is a real choice; use the host's question tool when available.
-5. After each answer, check its effect on the requirements and ask the remaining
-   questions it makes possible together. Finish when material decisions are
-   settled across the affected scenarios, not merely when the last question has
-   an answer. Record unanswered items as `[PENDING]` with the behavior they leave
-   undecided; do not treat them as accepted or the affected requirements as complete.
-6. Record confirmed facts and decisions without prescribing how the model must
-   decompose, schedule, delegate, review, or execute the work.
-
-If the host has no question tool, a round can use this form:
+1. **Discover facts yourself.** Inspect the request, repository code, specs
+   (`docs/loopx/specs/`), `GLOSSARY.md`, and tests first. Finding facts is your
+   job; only genuine decisions go to the user. Check domain terminology with
+   [domain-language.md](../shared/domain-language.md). When reviewing a Chinese
+   PRD or vague brief, consult [ambiguity-table.md](references/ambiguity-table.md).
+2. **Work the frontier in rounds.** The **frontier** is every unresolved
+   material decision (goals, scope, scenarios, acceptance, permissions,
+   compatibility, data, ownership) whose prerequisites are already settled.
+   Ask the whole frontier together in one round; hold dependent questions for
+   the next round.
+3. **Give a concrete recommendation.** Word each question so answering "yes"
+   accepts your recommended option, and state the main tradeoff. Use the host's
+   question tool when available, or format as:
 
 ```text
-Q1. <title>
-<question body, including the choices when there are several>
-Recommended: <answer and its tradeoff>
-
-Q2. <title>
-...
+Q1. <title>: <question and options>
+Recommended: <answer and tradeoff>
 ```
 
-## Context
-
-When present, treat current user instructions and named source documents as the
-highest authority, relevant `docs/loopx/specs/` as binding repository context,
-and `.loopx/memory/` as advisory. Read only files relevant to the ambiguity.
+4. **Route external-owner decisions cleanly.** When a decision belongs to
+   another stakeholder, prepare a focused handoff using
+   [owner-questions.md](references/owner-questions.md) instead of asking the
+   current user to guess.
+5. **Recompute and finish.** After each reply, propagate settled choices through
+   the tree and ask the newly unblocked frontier. Finish when the frontier for
+   the active scope is empty. Record unanswered items as `[PENDING]` with the
+   behavior they leave undecided.
 
 ## Output
 
-Update an existing approved requirements document when available; do not copy it
-into a new intake just because this skill was selected. Keep answers in that
-source when practical. When a local intake package is useful, use these paths:
+Update an existing approved requirements document in place when present.
+Otherwise write a local intake package under `.loopx/intake/YYYY-MM-DD-<slug>/`:
 
-- `.loopx/intake/YYYY-MM-DD-<slug>/clarification.md`
-- `.loopx/intake/YYYY-MM-DD-<slug>/requirements.md`
+- `requirements.md` (canonical): goal, scope, non-goals, confirmed decisions,
+  boundaries, observable `AC-*` criteria, `TC-*` scenarios (each referencing at
+  least one `AC-*`), evidence targets, and any `[PENDING]` items.
+- `clarification.md` (optional): question history and exact user wording.
 
-`clarification.md` is optional question history. It records source inputs, material questions and answers,
-confirmed decisions, boundaries, evidence, and open questions.
+## Boundaries
 
-`requirements.md` records the canonical goal, scope, non-goals, decisions,
-constraints, acceptance criteria, acceptance scenarios, open questions, and
-evidence targets. Use stable `AC-*` anchors for observable behavior and `TC-*`
-anchors for scenarios. Every `TC-*` must reference at least one `AC-*`.
-
-Do not weaken an accepted criterion or defer it without explicit authorization.
-Mark unresolved content `[PENDING]`. Preserve exact user wording when it carries
-a decision. Keep observed evidence separate from inference.
-
-## Boundary
-
-- Do not choose or invoke a next skill.
-- Do not write an implementation plan.
-- Do not create readiness gates, round limits, workflow stages, review verdicts,
-  or execution policy.
-- Do not ask the user for a fact the repository or tools can supply.
-- Do not pad a round with questions that cannot change the outcome.
-- Keep accepted decisions settled unless new evidence or a changed request
-  challenges them. A clear bounded request needs no extra confirmation, and
-  routine implementation details do not belong in the user questionnaire.
-- Do not invent answers or acceptance criteria to make the document appear
-  complete.
-- End with the documents produced and the concrete open questions, if any.
-
-## Failure Handling
-
-| Trigger | First action | If still unresolved |
-|---|---|---|
-| User answer is vague | Ask a narrower follow-up in the next round with a recommended answer | Record the question as `[PENDING]` |
-| An answer invalidates an earlier decision | Record both, then re-ask the dependent questions in the next round | Record the affected items as `[PENDING]` |
-| Repository evidence contradicts the request | Record both sources | Ask which source governs |
-| An acceptance criterion is not observable | Rewrite it as behavior and an evidence target | Leave it `[PENDING]` for user confirmation |
+- Do not write an implementation plan, change code, or automatically invoke the next skill.
+- Keep routine implementation choices out of user questions.
+- Preserve exact user wording for settled decisions; never fabricate answers to look complete.
+- End by reporting the document path(s) and any remaining `[PENDING]` items.

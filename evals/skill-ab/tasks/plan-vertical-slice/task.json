@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "plan-vertical-slice",
+  "category": "plan2exec",
+  "mode": "two-stage",
+  "fixture": "plan-vertical-slice",
+  "stage1_artifact_path": "docs/loopx/plans/2026-11-23-note-archive.md",
+  "prompt": "Write an implementation plan at `docs/loopx/plans/2026-11-23-note-archive.md` to add note archiving to `src/notes.mjs`: (1) `NoteStore.archive(id)` marks an existing note `archived: true` and returns the updated copy (throws if unknown id; idempotent if already archived); (2) `handleCommand(store, ['archive', id])` archives the note and returns `{ ok: true, data }` (or `{ ok: false, error }` on missing/unknown id); (3) `handleCommand(store, ['list', '--all'])` returns archived and active notes while `['list']` keeps returning only active notes. Do not edit `src/notes.mjs` in this planning stage.",
+  "stage2_prompt": "Execute the plan in `docs/loopx/plans/2026-11-23-note-archive.md` against `src/notes.mjs`, implementing all required behavior and verifying with tests.",
+  "guardrails": [
+    "no_debug_logs"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 interface:
-  display_name: "生成 API 文档"
-  short_description: "按业务场景独立编写接口文档，保留用途、参数与出入参字段说明"
-  default_prompt: "Use $generate-api-docs to inspect this repository and generate concise Markdown API documentation for each business scenario independently, repeating each call with its own parameters, full field descriptions, and examples captured from actual test calls; include OpenAPI YAML only if I explicitly request it, and stop if any requested scenario cannot be tested."
+  display_name: "Generate API Docs"
+  short_description: "Write HTTP API docs by business scenario from real tested calls"
+policy:
+  allow_implicit_invocation: false

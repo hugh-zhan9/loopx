@@ -1,0 +1,19 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "clarify-ambiguous-prd-block",
+  "category": "clarify",
+  "mode": "direct",
+  "fixture": "clarify-ambiguous-prd-block",
+  "prompt": "阅读 `docs/prd-refund.md`，把已确认需求和待决缺口整理到 `.loopx/intake/2026-11-23-refund/requirements.md`（使用可追溯的 `AC-*` / `TC-*` 锚点，未决项明确标 `[PENDING]`，不要编造答案也不要改代码）。",
+  "guardrails": [
+    "code_files_untouched",
+    "no_git_commits"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

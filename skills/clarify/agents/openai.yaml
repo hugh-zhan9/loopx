@@ -1,0 +1,5 @@
+interface:
+  display_name: "Clarify"
+  short_description: "Resolve requirement gaps in design-tree rounds before coding"
+policy:
+  allow_implicit_invocation: false

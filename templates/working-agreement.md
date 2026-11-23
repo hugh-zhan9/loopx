@@ -1,161 +1,47 @@
 # Engineering Working Agreement
 
-Use the repository's existing code and contracts to complete the requested work.
-Keep changes and verification proportional to their effect.
-
-## Choose the work scope
-
-For a broad requirement, first establish its overall goal, boundaries and shared
-constraints. Use `task-split` when separate assignments would reduce context burden
-or create useful handoffs, including serial work; do this before trying to clarify
-every future task in detail. Preserve a useful human-provided breakdown. Clear,
-bounded work needs neither a task package nor a persistent plan.
-
-A task owns a deliverable; its plan owns implementation steps. Read the task's
-original source sections and all applicable shared constraints, retain other tasks'
-questions and acceptance at requirement level, and resolve material decisions before
-dependent implementation. Keep overall coverage and integration with the coordinator.
-Hand accepted artifacts and evidence to the next task; preserve recovery checkpoints
-for unfinished work. No task split grants additional action or Git permission.
+Build the smallest correct change using the repository's existing contracts,
+seams, and conventions.
 
 ## Before changing code
 
-- Establish the requested outcome and protected behavior. Read the affected code,
-  callers and tests; widen the search when a shared or public contract changes.
-- For brownfield work, identify the owning module, applicable architecture rules,
-  and the closest existing extension or reuse points before adding a new path.
-- Distinguish the requested outcome, necessary implementation steps and optional
-  enhancements before choosing a solution. An added behavior must follow from an
-  explicit requirement or existing contract, or be demonstrably necessary for the
-  requested outcome. Technical possibility or usefulness alone is not a requirement.
-  For example, moving configuration to Apollo does not by itself require adding
-  hot reload or automatic service restarts; preserve the existing loading lifecycle
-  unless the request changes it. Do not turn optional enhancements into acceptance
-  gaps, blockers or clarification questions. Choose routine implementation details
-  yourself; ask only when a real unresolved choice affects the requested outcome.
-- Run relevant baseline checks before changing behavior. Record existing failures
-  separately; do not assume the baseline is green or fix unrelated failures.
-- Before implementation, check the requested outcome, scope, protected behavior,
-  key success and failure scenarios, and observable acceptance against the request
-  and relevant repository evidence. Look for missing decisions; do not treat an
-  absence of questions as evidence that the request is clear.
-- Resolve discoverable facts yourself. Use `clarify` for unresolved intent, scope,
-  acceptance, permission, compatibility, data, ownership or destructive choices
-  that could materially change the result. Ask independent decisions together;
-  resolve dependent questions after their prerequisites are answered.
-- Start implementation only when its material decisions are settled. While answers
-  are pending, continue relevant investigation and independently authorized work
-  that does not depend on them. Do not use implementation to discover requirement
-  gaps that the preceding inspection could reveal. Clear bounded requests need no
-  extra confirmation; preserve accepted decisions and choose routine details yourself.
+1. Read the request, affected code, callers, tests, and any relevant
+   `docs/loopx/specs/`, `GLOSSARY.md`, or ADRs.
+2. Run relevant baseline checks before editing and separate pre-existing
+   failures from your own changes.
+3. Resolve discoverable facts from the repository and tools yourself. Stop the
+   affected work and ask only when a material decision is unresolved: intent,
+   scope, permissions, public compatibility, data/migration impact, or module
+   ownership. Continue independent authorized work while waiting.
+4. Keep clear, bounded work prompt-first. Use `/clarify`, `/spec`, `/plan2exec`,
+   or `/task-split` only when the user asks or a durable document/approval
+   boundary is needed.
 
 ## While changing
 
-- Make the smallest correct change. Preserve unrelated work and existing public
-  behavior unless the request changes it.
-- Keep responsibilities, dependency direction, shared state and failures within
-  their established modules. Reuse existing capabilities before adding another.
-- If a new service, store, workflow, source of truth or cross-module dependency
-  changes ownership, state or failure boundaries, stop before mutation and use
-  `spec`; do not justify it after coding. An approved design records the reason
-  before mutation. A local module or helper that follows existing boundaries
-  remains an implementation choice; continue prompt-first.
-- Check relevant empty, single-item, limit and partial-batch cases. Keep a clear
-  way to test, diagnose and later change or remove the affected behavior.
-- Integrate changes to the same file or shared state sequentially and inspect the
-  combined result. Do not overwrite another worker's changes.
-- Give subagents independent assignments. Each is a leaf worker and must not
-  spawn helpers. Review and integrate their results one at a time.
-- Do not add fallback, retry, degraded-mode or compatibility-shim behavior unless
-  a requirement names the scenario and expected behavior. Preserve existing
-  required error behavior.
-
-## During execution
-
-Choose the investigation, implementation and verification steps within the agreed
-scope. Expand or repeat work only for a concrete failure, changed input, uncovered
-requirement or applicable repository check. Reuse valid evidence and settled
-decisions. Deliver when required acceptance and checks are satisfied; no fixed
-self-check sequence, extra report or review round is needed for reassurance.
+- Prefer existing owning modules and extension points over parallel helpers or
+  second sources of truth. If a change introduces a new service, store, or
+  cross-module ownership boundary, settle it in `/spec` before editing.
+- Make the smallest correct change. Preserve unrelated work, existing public
+  contracts, and error behavior.
+- Check boundary cases: empty input, single item, limits, and partial batches.
+- Add fallback, retry, degraded-mode, or compatibility-shim behavior only when
+  a requirement names that scenario and expected behavior.
+- Integrate edits to shared files or shared state sequentially and inspect the
+  combined diff. Give subagents independent leaf assignments (no nested spawning).
 
 ## Verification and completion
 
-- Test the changed behavior and affected callers. Add a regression test for a
-  defect or new behavior where practical; use an appropriate repeatable check
-  for documents, configuration or generated output.
-- When tests are the main evidence for changed high-risk logic (financial
-  calculations, security decisions, concurrent state or destructive data handling)
-  and have never failed for that logic, check that they detect a relevant defect.
-  Use the installed `tdd/references/mutation-check.md`. Reuse an observed relevant
-  failure; ordinary changes leave this additional check to the agent's judgment
-  unless the user or repository requires it.
-- Run the full test suite when repository instructions require it, when shared
-  behavior changes, or when focused checks cannot establish the affected scope.
-  Run required formatting, lint and build checks. Rerun affected checks after edits.
-- Review the final diff for unjustified duplication, boundary violations, wider
-  failure impact and avoidable maintenance work.
-- Only claim completion from fresh command output for the final state. State
-  unverified scope and existing failures. A new message alone does not invalidate
-  evidence when code, inputs and environment have not changed.
-- Check command completion, exit status and tested scope. A focused test does not
-  prove the full suite passes, and a worker's report does not prove its integrated
-  changes work. Use the installed `shared/evidence-contract.md` for a requested
-  evidence audit or durable handoff; ordinary verification needs no extra document.
-- Do not weaken checks or discard user changes to obtain passing evidence. Once
-  applicable checks pass, repeat or broaden them only for changed state, uncovered
-  requirements, failures or a repository requirement.
-- For security-sensitive, destructive or public-compatibility changes, have an
-  independent subagent review the exact diff. Reviewers report findings without
-  editing or receiving a preferred verdict. Group related changes into one review
-  at the point their risk must be resolved; task
-  count does not determine review count. Reuse coverage of unchanged content and
-  check new interactions at integration. Preserve explicit earlier review gates
-  and do not substitute design review for implementation review.
-- The primary agent checks each finding against requirements, code and concrete
-  consequences. Fix confirmed Critical or Important issues together, then verify
-  and independently re-review the fixes and affected behavior. Explain rejected
-  findings with evidence; a severity label alone does not justify a change.
-  Resolve material disagreements with focused evidence, not automatic acceptance
-  or dismissal. Optional improvements do not block completion. Do not waive an
-  unresolved required fix to meet a review-count limit.
-- Continue authorized work through implementation, verification and corrections.
-  Do not stop at a first draft or ask again for routine steps already authorized.
-
-## When a decision is missing
-
-- Stop the affected work when intent, scope, permissions, compatibility, data or
-  ownership has a material unresolved choice. Explain the concrete decision;
-  do not guess and do not write code that depends on it. Continue independent
-  work already authorized. Local implementation details remain yours to choose.
-- If a question arises during implementation, explain the new evidence that made
-  it necessary. If it was missed during the initial inspection, acknowledge the
-  omission and check related decisions together before resuming affected work.
-  Do not suppress a necessary question or reopen settled decisions without cause.
-- Record durable product, data, security or architecture rulings through `spec`.
-  Keep already accepted decisions settled.
+- Verify every claim with fresh command output from the final integrated state.
+  State any unverified scope or pre-existing baseline failures explicitly.
+- Add a regression or characterization test for changed behavior where practical.
+- Reserve independent subagent review (`/code-review`) for explicit review
+  requests or irreversible destructive/security changes; do not spawn review
+  subagents for routine diffs or documentation drafts.
+- Continue authorized work through implementation, verification, and fixes
+  without asking again for routine steps.
 
 ## Git
 
 - Never commit, push, merge, or discard work unless the user explicitly asks.
-- Before any destructive Git action, confirm the exact target. Existing
-  authorization for that target remains valid.
-
-## Larger work
-
-- When work needs a durable plan for approval, interruption recovery or several
-  owners, use `plan2exec`. Execute its verified slices directly or through an
-  explicitly selected `$exec`. Ordinary bounded tasks need no plan document.
-
-## Requirements and plans
-
-- Read the original approved requirements before implementation and final checks,
-  even when a design or plan exists. Compare expected behavior, not just IDs.
-- Do not weaken or defer required acceptance without explicit authorization.
-- Use a persistent plan only when requested or needed for approval, recovery, or
-  coordination. An accepted design or refactor proposal can guide work directly.
-- Plan review is required only for an explicit request or a concrete risk in
-  destructive changes, public compatibility, security, migration ordering, or
-  shared-resource coordination. Fix ordinary formatting directly. Recheck fixes
-  and affected content; do not restart full review for local implementation details.
-- If implementation is complete, check its results against the source and fresh
-  evidence. Do not send it back through pre-implementation plan review.
+- Confirm the exact target before any destructive Git action.

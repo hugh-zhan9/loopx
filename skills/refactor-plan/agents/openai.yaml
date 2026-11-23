@@ -1,0 +1,5 @@
+interface:
+  display_name: "Refactor Plan"
+  short_description: "Audit hot spots for deepening or write a behavior-preserving RFC"
+policy:
+  allow_implicit_invocation: false

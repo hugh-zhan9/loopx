@@ -19,7 +19,7 @@ affected slices, and recovery point. Keep unrelated safe work available.
 
 ## Completed task handoff
 
-Use [task scope](../../shared/task-scope.md) to hand an accepted result to another
+Use the active task brief boundaries to hand an accepted result to another
 task. That consumer starts from artifacts, contracts and evidence, not this task's
 full debugging history. This does not replace the checkpoint above when unfinished
 work or dirty changes are being resumed. No new session or plan requires replaying

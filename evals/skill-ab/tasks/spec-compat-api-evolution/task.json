@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "spec-compat-api-evolution",
+  "category": "spec",
+  "mode": "two-stage",
+  "fixture": "spec-compat-api-evolution",
+  "stage1_artifact_path": "docs/design/reconcile-api-spec.md",
+  "prompt": "Write a technical design spec at `docs/design/reconcile-api-spec.md` for adding `getExceptionDiffView(id, rows)` in `src/api.mjs`. The reconciliation UI needs to display: exception `id`, `symbol`, `status`, and the structured `diff` object (`{ field, expected, actual }`). Requirements: (1) preserve `listExceptionsV1` untouched for existing callers; (2) return ONLY the fields the caller needs — do NOT expose raw DB snapshot/audit columns (`expected_json`, `confirmed_json`, `difference_json`, `internal_trace_id`, `raw_snapshot_blob`) and do NOT return JSON-encoded strings for `diff`; (3) return `null` when `id` is not found and throw a clear Error if stored `difference_json` is malformed (no silent empty-object fallback). Do not edit `src/api.mjs` in this stage.",
+  "stage2_prompt": "Implement `getExceptionDiffView(id, rows)` in `src/api.mjs` following `docs/design/reconcile-api-spec.md` while preserving `listExceptionsV1`.",
+  "guardrails": [
+    "no_debug_logs"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

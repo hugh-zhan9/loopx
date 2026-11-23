@@ -1,67 +1,48 @@
 ---
 name: refactor-plan
-description: "Find worthwhile refactoring opportunities or write a behavior-preserving refactor plan (重构检查、重构计划). Use for code health and maintainability work."
+description: "Audit code health from git hot spots or write a behavior-preserving refactor RFC (重构检查、重构计划)."
+disable-model-invocation: true
 metadata:
-  version: "0.6.0"
-  when_to_use: "refactor-plan, refactoring audit, technical debt, duplication, coupling, complexity, refactoring RFC, behavior-preserving cleanup, 重构检查, 重构计划"
+  version: "0.7.0"
+  when_to_use: "refactor-plan, refactoring audit, technical debt, deepening opportunities, behavior-preserving cleanup, 重构检查, 重构计划"
 ---
 
 # Refactor Plan
 
-Find maintainability problems or plan a behavior-preserving improvement. Match
-the request: an audit ends with findings; a planning request produces a proposal.
-An already authorized implementation can proceed under the working agreement,
-without inventing another plan or asking for the same permission. Feature work,
-incident repair, and migrations keep their own behavior and decision boundaries.
+Find high-leverage maintainability problems or write a behavior-preserving
+refactor RFC. An audit request ends with supported findings; a planning request
+produces an RFC. Behavior changes belong in `/clarify` or `/spec`.
 
-## When the problem is not yet known
+## Audit mode (when the target is not yet known)
 
-For an audit or a request to find worthwhile refactors, read
-[code-audit.md](references/code-audit.md). Inspect the named scope and report the
-supported findings and priorities. Use the bundled scanner only when its signals
-help select candidates; a small local review does not need a full-repository scan.
-Do not create an RFC, technical-debt ledger, or code change for an audit-only
-request. No finding is a valid result. Continue below when a refactor plan is needed.
+1. **Scope by hot spots (YAGNI).** Inspect recent `git log --oneline` churn
+   (unless the user named a specific module) so refactoring pays back where
+   code actually changes.
+2. **Look for deepening opportunities.** Read [code-audit.md](references/code-audit.md)
+   and run `scripts/audit_codebase.py` only when automated signals help rank
+   candidates. Prioritize:
+   - **Shallow modules** whose interface is nearly as complex as the body (apply
+     the **deletion test**: would deleting it concentrate complexity or remove a
+     pass-through?);
+   - **Duplicated policy / split locality** where one logical change forces
+     edits across many files;
+   - **Untestable seams** where behavior can only be verified by mocking internals.
+3. Deliver concrete findings ranked by leverage and stop (no RFC or code edits).
 
-## Establish the baseline and boundary
+## Plan mode (behavior-preserving RFC)
 
-Read the request, worktree status, target modules, callers, relevant contracts,
-and tests. Preserve unrelated dirty files. Use existing answers about the problem,
-why it matters, proposed direction, and protected behavior; ask only for a material
-missing constraint instead of repeating an interview or confirmation ritual.
+1. **Establish the behavior baseline.** Read target modules, callers, tests,
+   and `GLOSSARY.md`/ADRs. List observable behavior that must remain unchanged
+   and add characterization tests wherever coverage cannot establish preservation.
+   Stop if no practical baseline exists or unapproved external behavior changes
+   are required.
+2. **Choose the narrowest safe sequence.** Compare credible options and map
+   each step to concrete surfaces, preservation checks, verification commands,
+   and rollback notes. Consult [fowler-refactorings.md](references/fowler-refactorings.md)
+   only when specific mechanics need naming.
+3. **Write the RFC.** Use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md)
+   at `docs/loopx/refactors/YYYY-MM-DD-<topic>.md` (unless another path is given).
 
-Identify externally observable behavior that must remain unchanged, allowed write
-surfaces, and verification. Plan characterization tests where existing coverage
-cannot establish preservation. Stop the affected handoff when there is no practical
-behavior baseline or when the work requires unapproved public API, schema, data,
-permission, compatibility, or product behavior changes; use `clarify` or `spec`
-for those decisions. Do not force a broad rewrite across unrelated owners.
-
-## Plan the smallest useful change
-
-Compare credible options and choose the narrowest approach that addresses the
-observed pain. Map each step to concrete files/surfaces, behavior-preservation
-evidence, verification commands/results, and rollback notes. Group mechanical
-edits around verifiable outcomes; Git commit boundaries remain with the host and
-require user authorization.
-
-Read [fowler-refactorings.md](references/fowler-refactorings.md) when specific
-smells or techniques need explanation. A technique name is not justification for
-scope expansion; tie it to a demonstrated problem and preservation check.
-
-## Artifact and handoff
-
-For a planning request, use [REFACTOR_PLAN_TEMPLATE.md](REFACTOR_PLAN_TEMPLATE.md) and write
-`docs/loopx/refactors/YYYY-MM-DD-<topic>.md`, unless the user specifies another path.
-Publish to an issue tracker only on explicit request.
-
-This refactor RFC can guide host-native implementation directly when the user has
-authorized it. Preserve its Behavior Preservation Contract, baseline, dependencies,
-write scope, verification, and recovery notes. A draft is not approved merely
-because the template contains a handoff line. Review of an existing proposal ends with findings; it does not create a new RFC.
-
-A second plan is optional: use `plan2exec` only for additional durable coordination
-or an explicitly requested execution plan. An RFC without a `loopx-plan/v1` graph
-does not go directly to the optional `$exec` delegate; ordinary host implementation
-needs no conversion. Return newly exposed behavior or architecture decisions to
-`clarify` or `spec` instead of treating them as mechanical refactor steps.
+An approved RFC can guide authorized implementation directly without conversion
+to `plan2exec`. Use `/plan2exec` only when multi-owner or durable recovery
+coordination is needed. Review-only requests end with findings.

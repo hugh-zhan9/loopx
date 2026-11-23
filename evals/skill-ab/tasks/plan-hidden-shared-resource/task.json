@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "plan-hidden-shared-resource",
+  "category": "plan2exec",
+  "mode": "two-stage",
+  "fixture": "plan-hidden-shared-resource",
+  "stage1_artifact_path": "docs/loopx/plans/2026-11-23-dual-handlers.md",
+  "prompt": "Write an implementation plan at `docs/loopx/plans/2026-11-23-dual-handlers.md` to add two handlers: (1) `src/handlers/upper.mjs` exporting `upperHandler(text)` returning `String(text).toUpperCase()` registered as `'upper'`; (2) `src/handlers/reverse.mjs` exporting `reverseHandler(text)` returning `[...String(text)].reverse().join('')` registered as `'reverse'`. Both must be callable via `dispatch()` in `src/registry.mjs` while keeping `'ping'` working. Notice the shared `src/registry.mjs` resource so registration is sequenced cleanly without lost updates. Do not modify `src/` in this planning stage.",
+  "stage2_prompt": "Execute the plan in `docs/loopx/plans/2026-11-23-dual-handlers.md`, adding both handlers and registering them in `src/registry.mjs`.",
+  "guardrails": [
+    "no_debug_logs"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

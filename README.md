@@ -37,15 +37,17 @@ The four canonical workflow intents produce documents:
 - `exec` optionally executes one ready plan through leaf subagents while the
   top-level model owns review, sequential integration, conflicts, and verification.
 
-`debug` diagnoses failures and normally continues through code repair and verification;
-explicit diagnosis-only or read-only requests stop at findings. It replaces
-`issue` and `fix`, without creating a ledger by default. Existing ledgers remain
-readable, with their approved scope and recovery checks preserved.
-Support skills such as `tdd`, `debug`,
-`api-designer`, `generate-api-docs`, `architecture-designer`, `sql-style`,
-`cli-developer`, `lancet`, and `prompt-lint` remain lenses, not workflow
-states. `prompt-lint` assesses task-definition quality without executing the
-reviewed prompt.
+`debug` uses a tight red-loop discipline to diagnose and fix failures by default;
+explicit diagnosis-only or read-only requests stop at findings without editing
+any files. Model-invoked disciplines are kept minimal (`debug`, `tdd`,
+`go-kratos`) to minimize always-on context load; workflow, review, and
+specialized skills (`task-split`, `clarify`, `spec`, `plan2exec`, `exec`,
+`code-review`, `refactor-plan`, `release-readiness`, `generate-api-docs`,
+`humanize-doc`, `codebase-spec`, and the `/ask-loopx` router) are user-invoked
+(`0` context load until explicitly triggered). Deterministic scripts validate `loopx-plan/v1`
+plans (`skills/plan2exec/scripts/validate-plan.mjs`) and check diffs for
+prohibited DB locks, floating-point money, and leftover debug logs
+(`skills/code-review/scripts/check-guardrails.mjs`).
 
 `release-readiness` maintains a release runbook with branch scope, environment
 prerequisites, ordered operations, acceptance, and rollback conditions. The model
@@ -59,9 +61,10 @@ showed that for a frontier model the working agreement alone matched the full
 v0.7 governance runtime on stop-discipline (+65pp over bare) at one third of
 the token cost, while the runtime added no capability uplift. loopx therefore
 delivers the document and the evidence pipeline that keeps it honest:
-`evals/drills/` pressure-tests every discipline clause, and
-`evals/benchmark/` measures pass rates and token economy against bare and
-docs-only controls.
+`evals/drills/` pressure-tests discipline clauses, `evals/benchmark/` measures
+core benchmark pass rates, and `evals/skill-ab/` runs real end-to-end A/B
+evaluations (direct for `debug`, two-stage blind downstream implementation for
+`spec` and `plan2exec`) against bare, slim `AGENTS.md`, and prior loopx baselines.
 
 ## Install
 

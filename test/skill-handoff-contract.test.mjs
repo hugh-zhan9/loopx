@@ -18,7 +18,7 @@ async function markdownFiles(directory) {
 }
 
 test('skill instructions and references contain no callable retired skills', async () => {
-  const retired = /\$(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)(?![\w-])|skills\/(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec)\/SKILL\.md/g;
+  const retired = /\$(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec|lancet|api-designer|sql-style|cli-developer|architecture-designer|requirement-analyzer|using-git-worktrees|prompt-lint|maintain-project-docs|go-style|kratos)(?![\w-])|skills\/(?:issue|fix|code-darwin|verify|design-review|plan-reviewer|clarify-v2|spec-v2|review|finish|final-review|fix-review|subagent-exec|parallel-subagent-exec|lancet|api-designer|sql-style|cli-developer|architecture-designer|requirement-analyzer|using-git-worktrees|prompt-lint|maintain-project-docs|go-style|kratos)\/SKILL\.md/g;
   const findings = [];
   for (const path of await markdownFiles(join(root, 'skills'))) {
     const text = await readFile(path, 'utf8');
@@ -30,10 +30,11 @@ test('skill instructions and references contain no callable retired skills', asy
 test('focused skill guidance is reachable through packaged relative references', async () => {
   const pkg = JSON.parse(await source('package.json'));
   const references = new Map([
-    ['skills/clarify/SKILL.md', ['../shared/domain-language.md', 'references/owner-questions.md']],
-    ['skills/spec/SKILL.md', ['../shared/domain-language.md', 'references/design-quality.md']],
-    ['skills/debug/SKILL.md', ['references/four-phases.md']],
-    ['skills/tdd/SKILL.md', ['testing-anti-patterns.md']],
+    ['skills/clarify/SKILL.md', ['../shared/domain-language.md', 'references/owner-questions.md', 'references/ambiguity-table.md']],
+    ['skills/spec/SKILL.md', ['../shared/domain-language.md', '../shared/database-concurrency.md', 'references/caller-driven-api.md', 'references/design-quality.md']],
+    ['skills/debug/SKILL.md', ['references/existing-ledgers.md', 'root-cause-tracing.md']],
+    ['skills/tdd/SKILL.md', ['testing-anti-patterns.md', 'references/mutation-check.md']],
+    ['skills/go-kratos/SKILL.md', ['../shared/database-concurrency.md', 'references/concurrency.md', 'references/kratos-ops.md']],
   ]);
   for (const [path, targets] of references) {
     const text = await source(path);

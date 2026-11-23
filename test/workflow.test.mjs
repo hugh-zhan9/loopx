@@ -257,12 +257,12 @@ describe('loopx docs-first document shell', () => {
     const result = await installBundledSkills(loopxEnv(home), { yes: true });
     assert.equal(result.ok, true);
     assert.equal(result.installed.length, LOOPX_BUNDLED_SKILLS.length);
-    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'evidence-contract.md')), true);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'database-concurrency.md')), true);
 
     const verification = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
     assert.equal(verification.ok, true);
 
-    const sharedContract = join(home, '.agents', 'skills', 'shared', 'evidence-contract.md');
+    const sharedContract = join(home, '.agents', 'skills', 'shared', 'database-concurrency.md');
     assert.equal(existsSync(sharedContract), true);
     await writeFile(sharedContract, '# drifted\n');
     const drifted = await verifyInstallState(loopxEnv(home), { targets: ['codex'] });
@@ -273,18 +273,17 @@ describe('loopx docs-first document shell', () => {
   it('adds a new shared contract when upgrading a pristine older install', async () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-shared-upgrade-'));
     const env = loopxEnv(home);
-    const contract = join(home, '.agents', 'skills', 'shared', 'architecture-conformance.md');
+    const contract = join(home, '.agents', 'skills', 'shared', 'domain-language.md');
 
     const initial = await installBundledSkills(env, { yes: true });
     assert.equal(initial.ok, true);
     await rm(contract);
-    await simulateLegacySharedContractBaseline(home);
 
     const upgraded = await installBundledSkills(env, { yes: true });
 
     assert.equal(upgraded.ok, true);
     assert.equal(existsSync(contract), true);
-    for (const name of ['completion-check.md', 'evidence-contract.md']) {
+    for (const name of ['database-concurrency.md', 'domain-language.md']) {
       assert.equal(await readFile(join(home, '.agents', 'skills', 'shared', name), 'utf8'),
         await readFile(join(repoRoot, 'skills', 'shared', name), 'utf8'));
     }
@@ -296,13 +295,12 @@ describe('loopx docs-first document shell', () => {
     const home = await mkdtemp(join(tmpdir(), 'loopx-shared-preserve-'));
     const env = loopxEnv(home);
     const sharedRoot = join(home, '.agents', 'skills', 'shared');
-    const existingContract = join(sharedRoot, 'evidence-contract.md');
-    const newContract = join(sharedRoot, 'architecture-conformance.md');
+    const existingContract = join(sharedRoot, 'database-concurrency.md');
+    const newContract = join(sharedRoot, 'domain-language.md');
 
     const initial = await installBundledSkills(env, { yes: true });
     assert.equal(initial.ok, true);
     await rm(newContract);
-    await simulateLegacySharedContractBaseline(home);
     const modified = `${await readFile(existingContract, 'utf8')}\nUser-owned rule: retain this customization.\n`;
     await writeFile(existingContract, modified);
 
@@ -311,7 +309,7 @@ describe('loopx docs-first document shell', () => {
     assert.equal(upgraded.ok, false);
     assert.equal(await readFile(existingContract, 'utf8'), modified);
     assert.equal(existsSync(newContract), true);
-    assert.ok(upgraded.conflicts.some(({ skillName }) => skillName === 'shared/evidence-contract.md'));
+    assert.ok(upgraded.conflicts.some(({ skillName }) => skillName === 'shared/database-concurrency.md'));
   });
 
   it('removes a shared contract that a newer package no longer ships', async (t) => {
@@ -336,7 +334,7 @@ describe('loopx docs-first document shell', () => {
       ['shared/retired-contract.md', 'shared/scripts/retired-helper.mjs']);
     assert.equal(existsSync(join(sharedRoot, 'retired-contract.md')), false);
     assert.equal(existsSync(join(sharedRoot, 'scripts')), false);
-    assert.equal(existsSync(join(sharedRoot, 'evidence-contract.md')), true);
+    assert.equal(existsSync(join(sharedRoot, 'database-concurrency.md')), true);
     assert.equal(await readFile(join(sharedRoot, 'user-notes.md'), 'utf8'), '# Not installed by loopx\n');
     const baseline = JSON.parse(await readFile(join(home, '.loopx', 'template-hashes.json'), 'utf8'));
     assert.equal(baseline.items.some(({ path }) => path.includes('retired-')), false);
@@ -427,9 +425,9 @@ describe('loopx docs-first document shell', () => {
     const upgraded = await installBundledSkills(env, { yes: true, skillSourceRoot: sourceRoot });
 
     assert.deepEqual(upgraded.removed, []);
-    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'evidence-contract.md')), true);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'database-concurrency.md')), true);
     const baseline = JSON.parse(await readFile(join(home, '.loopx', 'template-hashes.json'), 'utf8'));
-    assert.ok(baseline.items.some(({ kind, path }) => kind === 'shared-contract' && path.endsWith('evidence-contract.md')));
+    assert.ok(baseline.items.some(({ kind, path }) => kind === 'shared-contract' && path.endsWith('database-concurrency.md')));
   });
 
   it('keeps user text outside a managed block in a retired shared contract', async (t) => {
@@ -579,7 +577,7 @@ describe('loopx docs-first document shell', () => {
     // Installing from a malformed package still fails as before; it must not delete first.
     await assert.rejects(installBundledSkills(env, { yes: true, skillSourceRoot: sourceRoot }));
 
-    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'evidence-contract.md')), true);
+    assert.equal(existsSync(join(home, '.agents', 'skills', 'shared', 'database-concurrency.md')), true);
   });
 
   for (const locked of ['file', 'directory']) {
@@ -829,7 +827,7 @@ describe('loopx docs-first document shell', () => {
       const home = await mkdtemp(join(tmpdir(), 'loopx-shared-shipped-dir-'));
       t.after(() => rm(home, { recursive: true, force: true }));
       const env = loopxEnv(home);
-      const contract = join(home, '.agents', 'skills', 'shared', 'evidence-contract.md');
+      const contract = join(home, '.agents', 'skills', 'shared', 'database-concurrency.md');
       assert.equal((await installBundledSkills(env, { yes: true })).ok, true);
 
       const userDirectory = replacement === 'directory' ? contract : join(home, 'user-directory');
@@ -844,7 +842,7 @@ describe('loopx docs-first document shell', () => {
         const upgraded = await installBundledSkills(env, { yes: true });
         assert.equal(upgraded.ok, false);
         assert.ok(upgraded.conflicts.some(({ skillName, reason }) =>
-          skillName === 'shared/evidence-contract.md' && reason === 'non_file_shared_contract_target'));
+          skillName === 'shared/database-concurrency.md' && reason === 'non_file_shared_contract_target'));
         assert.equal(await readFile(join(userDirectory, 'note.md'), 'utf8'), '# User note\n');
       }
       const verification = await verifyInstallState(env);
@@ -989,7 +987,7 @@ describe('loopx docs-first document shell', () => {
     const fixture = await readFile(join(repoRoot, 'test', 'fixtures', 'lean-plan.md'), 'utf8');
 
     assert.equal(planSkill, await readFile(join(repoRoot, 'skills', 'plan2exec', 'SKILL.md'), 'utf8'));
-    assert.match(planSkill, /clear, bounded request.*prompt-first/is);
+    assert.match(planSkill, /Clear, bounded work.*prompt-first/is);
     for (const heading of [
       'Goal And Boundaries',
       'Integration And Final Verification',
@@ -1018,8 +1016,8 @@ describe('loopx docs-first document shell', () => {
       assert.match(planSchema, new RegExp(`^- ${field}:`, 'm'));
       assert.match(fixture, new RegExp(`^- ${field}:`, 'm'));
     }
-    assert.match(planSkill, /every implementation-relevant.*AC-\*.*D-\*.*TC-\*/is);
-    assert.match(planSkill, /deferred-with-rationale/i);
+    assert.match(planSkill, /Map every active source.*AC-\*.*D-\*.*TC-\*/is);
+    assert.match(planSkill, /validate-plan\.mjs/i);
     assert.match(planSchema, /Execution rules for the consuming agent/i);
     assert.doesNotMatch(planSchema, /loopx\.execution-graph\.v1|selected_profile|parallel_safe/);
     for (const forbidden of [
@@ -1061,8 +1059,8 @@ describe('loopx docs-first document shell', () => {
       await readFile(join(home, '.codex', 'AGENTS.md'), 'utf8'),
       'prompt-first-routing',
     );
-    assert.match(agreement, /Only claim completion from fresh command output/i);
-    assert.match(agreement, /independent subagent review the exact diff/i);
+    assert.match(agreement, /Verify every claim with fresh command output/i);
+    assert.match(agreement, /Reserve independent subagent review \(`\/code-review`\)/i);
     assert.match(agreement, /Never commit, push, merge, or discard work unless the user explicitly asks/i);
   });
 
@@ -1193,7 +1191,7 @@ describe('loopx docs-first document shell', () => {
       return;
     }
     const home = await mkdtemp(join(tmpdir(), 'loopx-unreadable-shared-'));
-    const contract = join(home, '.agents', 'skills', 'shared', 'evidence-contract.md');
+    const contract = join(home, '.agents', 'skills', 'shared', 'database-concurrency.md');
     t.after(async () => {
       await chmod(contract, 0o644).catch(() => {});
       await rm(home, { recursive: true, force: true });
@@ -1205,7 +1203,7 @@ describe('loopx docs-first document shell', () => {
     const result = await installBundledSkills(env);
 
     assert.equal(result.ok, false);
-    assert.ok(result.conflicts.some(({ skillName }) => skillName === 'shared/evidence-contract.md'));
+    assert.ok(result.conflicts.some(({ skillName }) => skillName === 'shared/database-concurrency.md'));
     assert.ok((await verifyInstallState(env)).failures.includes('shared_contracts_drifted'));
   });
 

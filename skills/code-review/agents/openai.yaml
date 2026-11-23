@@ -1,0 +1,5 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Independent two-axis diff review (Standards vs Spec)"
+policy:
+  allow_implicit_invocation: false

@@ -322,6 +322,22 @@ async function assertSkill(skillName, resolverText) {
     const target = join(repoRoot, 'skills', skillName, ref);
     assert.equal(existsSync(target), true, `${skillName} references missing local file: ${ref}`);
   }
+
+  // Dual-host invocation sync (Matt Pocock pattern):
+  // Every skill must ship agents/openai.yaml, and user-invoked skills must keep
+  // disable-model-invocation: true (Claude) in sync with allow_implicit_invocation: false (Codex).
+  const openaiYamlPath = join(repoRoot, 'skills', skillName, 'agents', 'openai.yaml');
+  assert.equal(existsSync(openaiYamlPath), true, `${skillName} missing agents/openai.yaml`);
+  const openaiYaml = await readFile(openaiYamlPath, 'utf8');
+  assert.match(openaiYaml, /display_name:/, `${skillName} agents/openai.yaml missing display_name`);
+  assert.match(openaiYaml, /short_description:/, `${skillName} agents/openai.yaml missing short_description`);
+  const claudeUserOnly = fields['disable-model-invocation'] === 'true';
+  const codexUserOnly = /allow_implicit_invocation:\s*false\b/.test(openaiYaml);
+  assert.equal(
+    claudeUserOnly,
+    codexUserOnly,
+    `${skillName} invocation mismatch: disable-model-invocation=${claudeUserOnly} vs allow_implicit_invocation:false=${codexUserOnly}`,
+  );
 }
 
 async function assertDecisionLogSynced() {

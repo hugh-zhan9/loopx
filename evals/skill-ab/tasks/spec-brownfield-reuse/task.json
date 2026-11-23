@@ -1,0 +1,20 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "spec-brownfield-reuse",
+  "category": "spec",
+  "mode": "two-stage",
+  "fixture": "spec-brownfield-reuse",
+  "stage1_artifact_path": "docs/design/ndjson-export-spec.md",
+  "prompt": "Write a technical design spec at `docs/design/ndjson-export-spec.md` for adding `ndjson` (newline-delimited JSON, one `JSON.stringify(record)` per line, empty string for empty array) export support to this repository. Inspect existing code first and design for reuse of the owning module rather than creating a parallel export path. Do not modify `src/` in this stage.",
+  "stage2_prompt": "Implement `ndjson` export support strictly following `docs/design/ndjson-export-spec.md`.",
+  "guardrails": [
+    "no_debug_logs"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

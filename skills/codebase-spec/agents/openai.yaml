@@ -1,0 +1,5 @@
+interface:
+  display_name: "Codebase Spec"
+  short_description: "Document current codebase behavior from direct source evidence"
+policy:
+  allow_implicit_invocation: false

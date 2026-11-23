@@ -1,64 +1,53 @@
 ---
 name: tdd
-description: "Use failing-test-first development when requested or required by the current workflow (测试先行). Preserve existing code; do not delete it to create a failing test."
-when_to_use: "explicit TDD invocation, owning workflow requests failing-test-first discipline, red green refactor, characterization or regression evidence, 测试先行"
+description: "Test-driven development with vertical slices at public seams (测试先行). Use when building features or bugfixes test-first, or when an owning workflow requests red-green-refactor."
 metadata:
-  version: "0.3.10"
+  version: "0.4.0"
+  when_to_use: "tdd, test-first, red-green-refactor, vertical slices, characterization test, 测试先行"
 ---
 
 # Test-Driven Development
 
-Use failing test first discipline when explicitly invoked or activated by an
-owning implementation workflow. This skill does not independently select a
-workflow or authorize production changes.
+Drive implementation through a tight **red → green** loop at public seams.
+Consult `GLOSSARY.md` (when present) so test names match domain language.
 
 ## Choose the evidence path
 
-- **New behavior:** write and observe a test failing for the missing behavior
-  before implementing it.
-- **Existing implementation:** Preserve it. Add characterization or regression
-  evidence before changing it; a passing characterization test is valid evidence
-  of current behavior. Use [the mutation check](references/mutation-check.md)
-  when its risk and evidence conditions apply. Do not delete user-owned
-  code to manufacture a red phase or claim strict test-first development for code
-  that predates the test.
-- **Generated output, configuration, prototypes, or impractical automation:** use
-  the task's appropriate repeatable check and state the exception. Do not claim
-  strict TDD. A different evidence strategy does not authorize a rewrite or a
-  scope change.
+- **New behavior or bugfix:** write one failing test at a public seam, watch it
+  fail for the missing behavior, then implement the smallest passing code.
+- **Existing behavior before refactor:** preserve existing code and write a
+  passing characterization test first. Never delete existing code to fake a red phase.
+- **Impractical automation (generated output, configs):** use a repeatable check
+  and state the exception honestly.
 
-## Red, green, refactor
+## Seams and vertical slices
 
-1. **RED:** Add one test for an observable requirement or original bug. Run it
-   and inspect the failure. It must fail for the intended missing behavior, not
-   a broken import, setup problem, or unrelated exception. If it already passes,
-   establish whether it characterizes existing behavior or misses the target.
-2. **GREEN:** Implement the smallest change that satisfies the accepted behavior.
-   Run the focused test. If it fails, compare both implementation and assertion
-   with the requirement; correct an invalid test, but never weaken a valid
-   assertion merely to get a pass.
-3. **REFACTOR:** With the check green, simplify only what this change needs.
-   Keep behavior stable and rerun affected checks after edits.
-4. **Complete:** Verify other affected behavior and run repository-required
-   checks. Record expected red and final green evidence, or the actual limits of
-   the characterization or alternative path.
+A **seam** is the public boundary where callers observe behavior without reaching
+inside. Prefer the highest practical seam; agree on target seams up front for
+non-trivial work.
 
-Test changed behavior rather than every helper or function. Derive expected
-results from accepted requirements, independently worked examples or known-good
-fixtures, not from the implementation being tested. Cover relevant boundaries
-and failure paths without inventing requirements or exhaustively retesting
-unrelated code after every small edit.
+Work in **vertical slices (tracer bullets)**: one seam, one failing test, one
+minimal implementation, repeat. Avoid **horizontal slicing** (writing all tests
+up front before understanding the implementation).
 
-## Test design
+## Anti-patterns to avoid
 
-Prefer public behavior and real code. Use mocks at necessary external or costly
-boundaries; assertions should establish the promised outcome, not merely that
-mock wiring was exercised. If setup is difficult, inspect the interface and the
-existing test seams before introducing production-only-for-test APIs.
+- **Implementation-coupled tests:** mocking internal collaborators or asserting
+  private methods so refactoring breaks tests while behavior is unchanged.
+- **Tautological assertions:** computing expected output with the same formula as
+  the code under test. Derive expectations from independent worked examples or specs.
+- **Mock-only evidence:** verifying mock wiring instead of the promised outcome.
 
-For an example of the failing-test cycle, read
-[red-green-refactor.md](references/red-green-refactor.md). When choosing assertions,
-adding mocks or test utilities, read [testing-anti-patterns.md](testing-anti-patterns.md)
-to check for copied expectations, mock-only evidence and missing integration
-coverage. Keep evidence relevant to the final integrated state; a test passing
-once does not establish all acceptance criteria.
+See [testing-anti-patterns.md](testing-anti-patterns.md) when introducing mocks
+or test helpers.
+
+## Rules of the loop
+
+1. **RED:** Write one test for an observable requirement. Run it and confirm it
+   fails for the intended behavior (not an import/setup typo).
+2. **GREEN:** Write only enough code to pass that test. Run it.
+3. **REPEAT:** Add the next vertical slice covering boundaries and failure paths.
+4. **VERIFY:** Run affected and repository-required checks on the final state.
+   For high-risk logic (money, security, concurrency, destructive data) whose
+   tests have never failed for that logic, run [mutation-check.md](references/mutation-check.md).
+   Keep refactoring for the review/cleanup step (`code-review`), not inside the red→green loop.

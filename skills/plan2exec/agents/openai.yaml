@@ -1,0 +1,5 @@
+interface:
+  display_name: "Plan2Exec"
+  short_description: "Write or review a validated vertical-slice implementation plan"
+policy:
+  allow_implicit_invocation: false

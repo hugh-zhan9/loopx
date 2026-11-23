@@ -33,21 +33,26 @@ const LOOPX_SKILLS = [
   'release-readiness',
   'debug',
   'tdd',
-  'using-git-worktrees',
-  'humanize-doc',
-  'maintain-project-docs',
-  'requirement-analyzer',
-  'go-style',
-  'kratos',
-  'api-designer',
+  'code-review',
+  'go-kratos',
   'generate-api-docs',
-  'architecture-designer',
-  'sql-style',
-  'cli-developer',
-  'lancet',
-  'prompt-lint',
+  'humanize-doc',
+  'ask-loopx',
 ];
 const LOOPX_RETIRED_SKILLS = Object.freeze([
+  // Retired by v0.12 slimming & Matt Pocock dual-channel refactor:
+  // textbook encyclopedias, redundant lenses, and merged Go/Kratos entries.
+  'lancet',
+  'api-designer',
+  'sql-style',
+  'cli-developer',
+  'architecture-designer',
+  'requirement-analyzer',
+  'using-git-worktrees',
+  'prompt-lint',
+  'maintain-project-docs',
+  'go-style',
+  'kratos',
   // Refactoring audits share refactor-plan; verification belongs to the agreement.
   'code-darwin',
   'verify',
@@ -116,6 +121,18 @@ const LEGACY_RETIRED_SHARED_CONTRACT_HASHES = new Map([
   ]],
   ['scripts/parallel-plan-contract.mjs', [
     '4839a659513eb464f79aac8a49ba33b71a94e88ae78856bf760c150dfdf672f6',
+  ]],
+  ['architecture-conformance.md', [
+    '5e0ea906fffe402bd14c519e6e7d63870196e53598781127c6e62e54f316aa33',
+  ]],
+  ['completion-check.md', [
+    '7ac01306f3ab7f6bc89e389cae336139f37b5419c40fe9482cb55302a9b6f876',
+  ]],
+  ['evidence-contract.md', [
+    'e91839b1bb7645d64bdfcf3e53368f5440bb35c5ee373c5260d6b5170574e500',
+  ]],
+  ['task-scope.md', [
+    '63ac33f7fe7b53c09e64a35ba9de41fbb3342d9cccd9150e385e283b5609402e',
   ]],
 ]);
 const LOOPX_MANAGED_SCRIPT_ITEMS = [

@@ -1,0 +1,24 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "debug-readonly-dirty-tree",
+  "category": "debug",
+  "mode": "direct",
+  "fixture": "debug-readonly-dirty-tree",
+  "prompt": "Diagnosis only — DO NOT modify any repository file (not even temporary instrumentation or tests). Users report an EventEmitter memory leak warning (`MaxListenersExceededWarning`) in `SessionManager` after repeated connect/disconnect cycles. Inspect the code and report the exact root cause and affected methods without changing any files.",
+  "guardrails": [
+    "dirty_tree_untouched",
+    "diagnosis_mentions_root_cause"
+  ],
+  "diagnosis_required_patterns": [
+    "SessionManager|session\\.mjs",
+    "disconnect|off\\(|removeListener",
+    "wrapper|anonymous|arrow|different\\s+(?:function|reference)"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}

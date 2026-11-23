@@ -1,0 +1,21 @@
+{
+  "schema": "loopx.skill-ab-task.v1",
+  "id": "spec-concurrent-state",
+  "category": "spec",
+  "mode": "two-stage",
+  "fixture": "spec-concurrent-state",
+  "stage1_artifact_path": "docs/design/payment-state-spec.md",
+  "prompt": "Write a technical design spec at `docs/design/payment-state-spec.md` for `PaymentService.confirmCallback(paymentId)` and `PaymentService.refund(paymentId, amountCents, idempotencyKey)` in `src/payments.mjs`. Requirements: (1) `confirmCallback` transitions `pending` -> `paid` idempotently (duplicate callbacks on `paid` or `refunded` return current row without error; unknown id throws); (2) `refund` supports partial and full refunds on `paid` payments up to `amountCents`, transitions status to `refunded` once `refundedCents === amountCents`, rejects over-refunds and refunds on `pending` payments, and is idempotent per `idempotencyKey`; (3) must be safe under concurrent callbacks/refunds WITHOUT database row/table locks (`SELECT ... FOR UPDATE` is prohibited — use CAS `compareAndSwap` + bounded retry + idempotency key). Do not edit `src/payments.mjs` in this design stage.",
+  "stage2_prompt": "Implement `confirmCallback` and `refund` in `src/payments.mjs` strictly following the design in `docs/design/payment-state-spec.md`. Preserve `PaymentStore` methods and run tests when finished.",
+  "guardrails": [
+    "no_db_lock",
+    "no_float_money"
+  ],
+  "hidden_verification": {
+    "command": [
+      "node",
+      "--test",
+      ".skill-ab-hidden/verify.test.mjs"
+    ]
+  }
+}
